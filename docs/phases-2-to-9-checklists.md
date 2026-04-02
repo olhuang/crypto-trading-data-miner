@@ -163,14 +163,14 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 
 ## Task 2.8: Add validation and repository tests
 ### Tasks
-- [ ] add tests for payload validation
-- [ ] add tests for idempotent inserts/upserts
-- [ ] add tests for instrument resolution
+- [x] add tests for payload validation
+- [x] add tests for idempotent inserts/upserts
+- [x] add tests for instrument resolution
 - [ ] add tests for duplicate fill handling
 
 ### Acceptance Checks
-- [ ] model tests pass locally
-- [ ] repository tests pass against local PostgreSQL
+- [x] model tests pass locally
+- [x] repository tests pass against local PostgreSQL
 
 ---
 
@@ -179,6 +179,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] DB connection layer works locally
 - [x] repositories exist for the current reference, market, and execution foundation slice
 - [x] idempotent persistence patterns are implemented for the current bars/trades/funding/open-interest paths
+- [x] automated tests exist for the current model, repository, and minimal models API foundation slice
 - [ ] remaining models, repositories, and tests are still required before full Phase 2 acceptance
 
 ## Phase 2 Final Acceptance Summary
@@ -186,12 +187,12 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [ ] DB connection layer works locally
 - [ ] repositories exist for core entities
 - [ ] idempotent persistence patterns are implemented
-- [ ] model and repository tests pass
+- [x] model and repository tests pass
 
 ## Handoff Criteria to Phase 3
 - [ ] public exchange adapter can use repositories without raw SQL
-- [ ] instrument resolution is available from code
-- [ ] canonical payloads can be validated before persistence
+- [x] instrument resolution is available from code
+- [x] canonical payloads can be validated before persistence
 
 ---
 
