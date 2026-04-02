@@ -174,22 +174,17 @@ Keep these rows minimal and bootstrap-oriented. Do not treat seed reruns as the 
 
 ## 2.7 Internal ID Mapping Convention
 
-### Problem
-API-facing fields often use human-readable identifiers such as:
-- `strategy_code`
-- `strategy_version`
-- `account_code`
+### Status
+Resolved for the currently implemented lookup slice.
 
-while schema uses bigint foreign keys.
+The repository now has:
+- a dedicated `docs/internal-id-resolution-spec.md`
+- implemented lookup helpers for `exchange_code`, `asset_code`, `account_code`, `strategy_code`, `strategy_code + strategy_version`, and `exchange_code + unified_symbol`
+- bootstrap seed defaults that make the early strategy/account lookups resolvable in practice
+- integration tests covering the implemented strategy/version resolution path
 
-### Why This Must Be Fixed Early
-Without a fixed mapping convention, service-layer implementation will be inconsistent.
-
-### Required Action
-Document the mapping convention for string identifiers to internal IDs, including:
-- lookup order
-- uniqueness assumptions
-- expected failure behavior when not found
+### Ongoing Rule
+Add new lookup helpers only when a new human-readable identifier pair is actually introduced in a service/API flow, and keep repositories operating on internal IDs after resolution.
 
 ### Acceptance Criteria
 - no service implementation needs to guess how to resolve code/version strings into DB IDs

@@ -42,6 +42,36 @@ def resolve_account_id(connection: Connection, account_code: str) -> int:
     )
 
 
+def resolve_strategy_id(connection: Connection, strategy_code: str) -> int:
+    return _scalar_one_or_raise(
+        connection,
+        "select strategy_id from strategy.strategies where strategy_code = :strategy_code",
+        {"strategy_code": strategy_code},
+        error=f"unknown strategy_code: {strategy_code}",
+    )
+
+
+def resolve_strategy_version_id(connection: Connection, strategy_code: str, strategy_version: str) -> int:
+    return _scalar_one_or_raise(
+        connection,
+        """
+        select sv.strategy_version_id
+        from strategy.strategy_versions sv
+        join strategy.strategies s on s.strategy_id = sv.strategy_id
+        where s.strategy_code = :strategy_code
+          and sv.version_code = :strategy_version
+        """,
+        {
+            "strategy_code": strategy_code,
+            "strategy_version": strategy_version,
+        },
+        error=(
+            "unknown strategy version for "
+            f"strategy_code={strategy_code} strategy_version={strategy_version}"
+        ),
+    )
+
+
 def resolve_instrument_id(connection: Connection, exchange_code: str, unified_symbol: str) -> int:
     return _scalar_one_or_raise(
         connection,

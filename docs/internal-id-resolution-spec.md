@@ -22,6 +22,21 @@ It complements:
 
 ---
 
+## Current Implementation Status
+
+The current repository implements this resolution contract for:
+- `exchange_code -> exchange_id`
+- `asset_code -> asset_id`
+- `account_code -> account_id`
+- `strategy_code -> strategy_id`
+- `strategy_code + strategy_version -> strategy_version_id`
+- `exchange_code + unified_symbol -> instrument_id`
+- `exchange_code + venue_symbol + instrument_type -> instrument_id`
+
+These lookups currently live in `src/storage/lookups.py` and are exercised by integration tests and the current Phase 2 foundation slice.
+
+---
+
 ## 1. Core Principle
 
 External and UI-facing requests should prefer stable human-readable identifiers where useful.

@@ -183,6 +183,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] minimal auth contract is implemented for the current models API slice
 - [x] typed response/resource models exist for the current implemented API endpoints
 - [x] starter strategy/version/account seed defaults exist for later phase handoff needs
+- [x] lookup helpers now resolve strategy/version/account identifiers for the current seed-backed workflow
 - [ ] remaining models, repositories, and tests are still required before full Phase 2 acceptance
 
 ## Phase 2 Final Acceptance Summary

@@ -15,7 +15,13 @@ if str(SRC_ROOT) not in sys.path:
 from models.execution import BalanceSnapshot, Fill, OrderEvent, OrderRequest, PositionSnapshot
 from models.market import BarEvent, TradeEvent
 from storage.db import connection_scope, transaction_scope
-from storage.lookups import resolve_account_id, resolve_instrument_id
+from storage.lookups import (
+    LookupResolutionError,
+    resolve_account_id,
+    resolve_instrument_id,
+    resolve_strategy_id,
+    resolve_strategy_version_id,
+)
 from storage.repositories.execution import (
     AccountRecord,
     AccountRepository,
@@ -29,6 +35,17 @@ from storage.repositories.market_data import BarRepository, TradeRepository
 
 
 class Phase2RepositoryIntegrationTests(unittest.TestCase):
+    def test_strategy_and_version_resolution_use_seed_defaults(self) -> None:
+        with connection_scope() as connection:
+            strategy_id = resolve_strategy_id(connection, "btc_momentum")
+            strategy_version_id = resolve_strategy_version_id(connection, "btc_momentum", "v1.0.0")
+
+            self.assertGreater(strategy_id, 0)
+            self.assertGreater(strategy_version_id, 0)
+
+            with self.assertRaises(LookupResolutionError):
+                resolve_strategy_version_id(connection, "btc_momentum", "v9.9.9")
+
     def test_market_repositories_are_idempotent_and_instrument_resolution_works(self) -> None:
         run_id = uuid4().hex[:10]
         bar_time = datetime(2026, 4, 2, 12, 34, tzinfo=timezone.utc)
