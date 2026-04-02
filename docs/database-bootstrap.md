@@ -17,6 +17,7 @@ Current bootstrap sequence:
 3. `003_extend_audit_treasury_latency.sql`
 4. `004_seed.sql`
 5. `005_execution_fill_dedup.sql`
+6. `006_seed_strategy_and_accounts.sql`
 
 This should result in:
 - all project schemas created
@@ -26,6 +27,7 @@ This should result in:
 - starter instruments seeded
 - starter fee schedules seeded
 - execution fill dedup protection added for new clean bootstraps
+- starter strategy/version/account rows seeded for later phases
 
 ---
 

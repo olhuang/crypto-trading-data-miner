@@ -153,24 +153,19 @@ Choose one explicit contract path:
 
 ## 2.6 Strategy / Account / Strategy Version Seed Defaults
 
-### Problem
-The current seed file covers exchanges, assets, instruments, and fee schedules, but not:
-- `strategy.strategies`
-- `strategy.strategy_versions`
-- `execution.accounts`
+### Status
+Resolved for the current bootstrap baseline.
 
-### Why This Matters Now
-This is not required for the very first public-ingestion-only slice, but it becomes a practical blocker as soon as:
-- Phase 2 APIs expose strategy-version resources
-- Phase 5 backtests begin
-- Phase 6 paper sessions begin
+The repository now has:
+- `db/init/006_seed_strategy_and_accounts.sql`
+- one starter strategy row
+- one starter strategy version row
+- one paper account row
+- one live-placeholder account row
+- updated seed-extension documentation aligned to the implemented schema
 
-### Required Action
-Prepare a small default seed extension with at least:
-- one placeholder strategy
-- one placeholder strategy version
-- one paper account
-- one live-placeholder account or clearly documented deferred rule
+### Ongoing Rule
+Keep these rows minimal and bootstrap-oriented. Do not treat seed reruns as the long-term operational source of truth for strategy/account configuration drift.
 
 ### Acceptance Criteria
 - repository has a documented plan for how strategy/account/version rows will exist before Phase 5 begins

@@ -4,6 +4,10 @@
 
 This document defines the minimal seed extension required before strategy-driven phases begin.
 
+Current status:
+- implemented via `db/init/006_seed_strategy_and_accounts.sql`
+- currently seeds one starter strategy, one starter strategy version, one paper account, and one live-placeholder account
+
 The current bootstrap seed covers:
 - exchanges
 - assets
@@ -79,7 +83,6 @@ Recommended example:
 - `strategy_code = btc_momentum`
 - `strategy_name = BTC Momentum`
 - `description = minimal seed strategy for early backtest/paper flows`
-- `is_active = true`
 
 Optional second example later:
 - `strategy_code = basis_carry`
@@ -92,8 +95,10 @@ Recommended example:
 - `strategy_code = btc_momentum`
 - `strategy_version = v1.0.0`
 - `is_active = true`
-- `config_snapshot_json = {}`
-- `description = initial seed version`
+- `params_json = {}`
+- `feature_version = seed-v1`
+- `execution_version = seed-v1`
+- `risk_version = seed-v1`
 
 ### Uniqueness Rule
 
@@ -113,18 +118,19 @@ At least one paper account row should exist before Phase 6.
 
 Recommended example:
 - `account_code = paper_main`
-- `environment = paper` or equivalent implementation-supported environment value
+- `account_type = paper`
 - `exchange_code = binance`
-- `account_name = Primary Paper Account`
-- `status = active`
+- `base_currency = USDT`
+- `is_active = true`
 
 ## 5.2 Live Placeholder Account
 
 Optional for early development, but useful before Phase 7:
 - `account_code = binance_live_placeholder`
-- `environment = live`
+- `account_type = live`
 - `exchange_code = binance`
-- `status = disabled`
+- `base_currency = USDT`
+- `is_active = false`
 
 This account must not contain secrets.
 It exists only to stabilize code paths and identifier resolution.
@@ -160,6 +166,9 @@ Good options:
 - or `db/migrations/005_seed_strategy_and_accounts.sql`
 
 The exact file path may follow the migration strategy locked in `docs/implementation-lock.md`.
+
+Current implemented path:
+- `db/init/006_seed_strategy_and_accounts.sql`
 
 ---
 

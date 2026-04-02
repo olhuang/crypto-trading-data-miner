@@ -144,8 +144,11 @@ Read in this order:
 - `db/init/002_extend_market_and_audit.sql`
 - `db/init/003_extend_audit_treasury_latency.sql`
 - `db/init/004_seed.sql`
+- `db/init/005_execution_fill_dedup.sql`
+- `db/init/006_seed_strategy_and_accounts.sql`
 - `docs/database-bootstrap.md`
 - `docs/phase-1-checklist.md`
+- `docs/strategy-account-seed-extension.md`
 - `db/verify/phase_1_verification.sql`
 
 ### Source of Truth
@@ -262,6 +265,7 @@ Primary docs:
 - `docs/api-contracts.md`
 - `docs/backend-system-design.md`
 - `docs/testing-strategy-spec.md`
+- `docs/strategy-account-seed-extension.md`
 
 ## Phase 3: Public Market Data Ingestion
 Primary docs:
