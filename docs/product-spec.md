@@ -37,7 +37,7 @@ Crypto Trading Data Miner
 
 1. 不在 V1 處理 options 定價與 Greeks
 2. 不在 V1 建立高頻撮合模擬器
-3. 不在 V1 提供完整前端 UI
+3. 不在 V1 建立 full-featured external GUI，但可提供 internal operator console / minimal admin UI
 4. 不在 V1 支援鏈上交易與 DeFi execution
 
 ## 4. Target Users
@@ -298,7 +298,8 @@ The system shall:
 - 只用 K 線回測會低估 execution friction
 
 ### 13.2 Constraints
-- V1 以基礎設施優先，不做完整 GUI
+- V1 以基礎設施優先，不做完整 external GUI
+- V1 可先做 internal operator console / minimal admin UI
 - V1 先支援少量交易所與少量商品
 - V1 先以集中式交易所為主
 
@@ -324,18 +325,35 @@ The system shall:
 - 完成 live orders / fills / positions 寫入
 - 完成 system logs 與風控事件追蹤
 
-## 15. Open Questions
+## 15. Current V1 Implementation Defaults
 
-1. V1 優先支援哪些交易所？
-2. V1 主要做 spot、perp，還是兩者都支援？
-3. 回測最小粒度是 1m bars 還是要支援 trades replay？
-4. 是否需要一開始就支援多帳戶資金管理？
-5. 是否需要在 V1 就加入 feature store？
+The product spec intentionally leaves room for future expansion, but the first implementation wave is locked by current repository decisions as follows:
 
-## 16. Recommended Immediate Next Steps
+1. first exchange scope: Binance public market data first
+2. first tradable scope: spot and perp remain part of the long-term product scope, but the first executable market-data slice is Binance public data and the first trading-oriented implementation should prefer the smallest viable subset rather than full multi-venue coverage
+3. first backtest mode: bars-only first
+4. first account scope: single-account-first for implementation, even though the long-term product supports multi-account
+5. feature store: not part of V1 initial implementation
+6. UI scope: internal operator console is allowed; full-featured external GUI is not part of V1
 
-1. 補 `002_seed.sql`，初始化 exchanges / assets / instruments
-2. 建立 `src/ingestion/` 模組，先從單一交易所收 1m bars 與 funding
-3. 建立 `src/backtest/` 模組，先支援 bars-based 回測
-4. 建立 `src/execution/` 模組，先實作 paper trading executor
-5. 建立 `docs/api-contracts.md`，定義 signal、order、fill 的欄位契約
+These defaults should be treated as implementation boundaries unless a newer spec intentionally changes them.
+
+## 16. Open Questions
+
+The following remain valid strategic questions for later expansion, but they are no longer blockers for the first implementation wave:
+
+1. after Binance public support, what is the next exchange priority?
+2. after the first executable slice, should early trading implementation prioritize perp-first or spot+perp parity?
+3. after bars-based backtesting is working, when should trades replay be introduced?
+4. after single-account-first implementation, when should multi-account capital management be added?
+5. after the core research/execution loop is stable, when should a feature store be introduced?
+
+## 17. Recommended Immediate Next Steps
+
+1. complete and verify the database bootstrap and seed flow using the current schema and seed files
+2. review and refine `docs/api-contracts.md` as the canonical internal contract layer
+3. generate or hand-write Phase 2 Pydantic models from canonical contracts
+4. align repositories and DB write paths with canonical contracts and internal ID resolution rules
+5. build `src/ingestion/` for the first exchange public market-data slice
+6. build `src/backtest/` with bars-based backtesting as the first research execution path
+7. build `src/execution/` with paper execution before private exchange live trading

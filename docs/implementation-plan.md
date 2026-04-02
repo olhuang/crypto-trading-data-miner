@@ -10,7 +10,7 @@ The plan is designed so that each phase can be implemented and delivered indepen
 
 ## 1. Current Project Status
 
-The repository already has a strong design foundation:
+The repository already has a strong design foundation and is now design-complete enough to begin systematic implementation for the early phases.
 
 ### Completed
 - product definition and scope in `docs/product-spec.md`
@@ -20,10 +20,11 @@ The repository already has a strong design foundation:
 - PostgreSQL base schema in `db/init/001_schema.sql`
 - market microstructure and audit extensions in `db/init/002_extend_market_and_audit.sql`
 - treasury, deployment audit, financing, latency, and allocation extensions in `db/init/003_extend_audit_treasury_latency.sql`
+- initial reference-data seed in `db/init/004_seed.sql`
 - local runtime scaffold with `docker-compose.yml`, `.env.example`, and minimal `src/` bootstrap
+- Phase 1 bootstrap verification artifacts and scripts
 
 ### Not Yet Implemented
-- seed data
 - Python domain models
 - storage layer / repositories
 - data ingestion jobs
@@ -34,8 +35,8 @@ The repository already has a strong design foundation:
 - automated tests and CI
 
 ### Overall Assessment
-The project is currently strong on design and weak on executable implementation.
-The next step is to move from schema-and-docs to working system modules.
+The project is currently strong on design and still weak on executable implementation.
+However, the repository is now sufficiently specified to begin real implementation work for Phase 1–3 without another major architecture-planning round.
 
 ---
 
@@ -54,10 +55,12 @@ The recommended build order is:
 1. database bootstrap
 2. core models and storage
 3. market data ingestion
-4. backtest engine
-5. paper trading
-6. live trading
-7. production hardening
+4. market data quality baseline
+5. backtest engine
+6. paper trading
+7. live trading
+8. reconciliation and operations hardening
+9. production hardening
 
 ---
 
@@ -139,7 +142,7 @@ Make the database schema installable and usable with a real initial dataset.
 - Phase 0
 
 ### Recommended Status
-- next to implement
+- implemented in docs/schema/scripts; pending final end-to-end verification evidence
 
 ---
 
@@ -321,7 +324,9 @@ Provide the first end-to-end research workflow using historical data.
 - run metadata captures versions and assumptions for reproducibility
 
 ### Dependencies
+- Phase 2
 - Phase 3
+- minimum Phase 4 data-quality baseline for bars-based research inputs
 
 ### Recommended Status
 - not started
@@ -339,6 +344,7 @@ Run a strategy in simulated real time using live market data and execution logic
 - simulated fills
 - positions and balances update
 - pre-trade risk checks
+- shared canonical execution model with future live trading path
 
 ### Deliverables
 - `src/execution/paper_executor.py`
@@ -359,6 +365,7 @@ Run a strategy in simulated real time using live market data and execution logic
 - order lifecycle records are persisted
 - fills update positions and balances consistently
 - risk violations are recorded as `risk.risk_events`
+- paper path uses the same canonical order/fill/position contracts intended for live trading
 
 ### Dependencies
 - Phase 5
@@ -399,6 +406,7 @@ Support the first real trading path on one exchange.
 - order state transitions are persisted correctly
 - fills reconcile into positions and balances
 - funding and ledger data are recoverable from exchange history
+- live path reuses the shared canonical execution model already established in paper mode
 
 ### Dependencies
 - Phase 6
@@ -512,6 +520,7 @@ If implementation begins now, use this sequence:
 This order minimizes risk because it ensures:
 - database and models exist before ingestion
 - ingestion exists before backtests
+- minimum data-quality baseline exists before trusting backtest results
 - backtests exist before paper trading
 - paper trading exists before live trading
 - reconciliation and hardening come after live basics work
@@ -573,9 +582,10 @@ The project reaches the first meaningful delivery milestone when all of the foll
 
 The next recommended implementation step is:
 
-### Build Phase 1
-- create `db/init/004_seed.sql`
-- document DB bootstrap flow
-- verify seeded instruments are queryable
+### Complete Phase 1 verification
+- reset local database from empty state
+- confirm all migrations and seed apply successfully
+- run Phase 1 verification script and queries
+- record the result
 
-After that, immediately start Phase 2.
+After that, immediately start Phase 2 models and storage implementation.

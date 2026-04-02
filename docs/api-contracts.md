@@ -14,6 +14,11 @@ These are canonical internal contracts for:
 All timestamps are UTC ISO 8601 strings at the API boundary.
 All numeric values should be sent as strings in JSON and parsed internally as Decimal.
 
+This document should be read together with:
+- `docs/contract-naming-conventions.md`
+- `docs/internal-id-resolution-spec.md`
+- `docs/execution-and-risk-engine-spec.md`
+
 ---
 
 ## Common Enums
@@ -38,13 +43,16 @@ All numeric values should be sent as strings in JSON and parsed internally as De
 - `stop`
 - `stop_market`
 - `take_profit`
-- `post_only`
 
 ### Time In Force
 - `gtc`
 - `ioc`
 - `fok`
+
+### Execution Instruction
 - `post_only`
+- `reduce_only`
+- `close_position`
 
 ### Order Status
 - `new`
@@ -87,6 +95,45 @@ All numeric values should be sent as strings in JSON and parsed internally as De
 
 ---
 
+## Common Timestamp Guidance
+
+Use these rules across canonical payloads:
+- `event_time` for the primary business/event timestamp when a payload represents a discrete event
+- `ingest_time` for externally observed payloads collected from exchanges
+- domain-specific times such as `bar_time`, `funding_time`, `snapshot_time`, `signal_time`, `target_time`, `submit_time`, `ack_time`, and `fill_time` are allowed when they express a distinct semantic time
+- avoid generic `ts` in new or cleaned-up canonical contracts
+
+---
+
+## Order Lifecycle Semantics
+
+### State Transition Guidance
+
+Recommended normalized order lifecycle transitions:
+- `new -> submitted`
+- `submitted -> acknowledged`
+- `submitted -> rejected`
+- `acknowledged -> partial`
+- `acknowledged -> filled`
+- `acknowledged -> canceled`
+- `acknowledged -> expired`
+- `partial -> filled`
+- `partial -> canceled`
+- `partial -> expired`
+
+### Terminal States
+Terminal states are:
+- `filled`
+- `canceled`
+- `rejected`
+- `expired`
+
+### Notes
+- `submitted` and `acknowledged` are both retained in the canonical model even if some venues collapse them operationally
+- paper and live should both use the same canonical status vocabulary even when the underlying transport/source differs
+
+---
+
 ## 1. Market Data Contracts
 
 ## 1.1 Instrument Metadata
@@ -108,7 +155,7 @@ All numeric values should be sent as strings in JSON and parsed internally as De
   "status": "trading",
   "launch_time": "2026-01-01T00:00:00Z",
   "delist_time": null,
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
@@ -138,7 +185,7 @@ Required:
   "trade_count": 1289,
   "event_time": "2026-04-02T12:34:59.999Z",
   "ingest_time": "2026-04-02T12:35:00.100Z",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
@@ -167,7 +214,7 @@ Required:
   "price": "84250.12",
   "qty": "0.015",
   "aggressor_side": "buy",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
@@ -191,7 +238,7 @@ Required:
   "mark_price": "84195.22",
   "index_price": "84190.02",
   "ingest_time": "2026-04-02T08:00:01Z",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
@@ -207,17 +254,17 @@ Required:
 {
   "exchange_code": "binance",
   "unified_symbol": "BTCUSDT_PERP",
-  "ts": "2026-04-02T12:34:00Z",
+  "event_time": "2026-04-02T12:34:00Z",
   "open_interest": "18542.991",
   "ingest_time": "2026-04-02T12:34:00.050Z",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
 Required:
 - `exchange_code`
 - `unified_symbol`
-- `ts`
+- `event_time`
 - `open_interest`
 
 ## 1.6 Order Book Snapshot
@@ -233,7 +280,7 @@ Required:
   "asks": [["84250.20", "2.65"]],
   "checksum": "abc123",
   "source": "rest_snapshot",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
@@ -260,7 +307,7 @@ Required:
   "asks": [["84250.20", "1.10"]],
   "checksum": "def456",
   "source": "ws_depth",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
@@ -276,18 +323,18 @@ Required:
 {
   "exchange_code": "binance",
   "unified_symbol": "BTCUSDT_PERP",
-  "ts": "2026-04-02T12:34:02Z",
+  "event_time": "2026-04-02T12:34:02Z",
   "mark_price": "84244.18",
   "funding_basis_bps": "0.82",
   "ingest_time": "2026-04-02T12:34:02.100Z",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
 Required:
 - `exchange_code`
 - `unified_symbol`
-- `ts`
+- `event_time`
 - `mark_price`
 
 ## 1.9 Index Price
@@ -296,17 +343,17 @@ Required:
 {
   "exchange_code": "binance",
   "unified_symbol": "BTCUSDT_PERP",
-  "ts": "2026-04-02T12:34:02Z",
+  "event_time": "2026-04-02T12:34:02Z",
   "index_price": "84240.01",
   "ingest_time": "2026-04-02T12:34:02.100Z",
-  "raw_payload": {}
+  "payload_json": {}
 }
 ```
 
 Required:
 - `exchange_code`
 - `unified_symbol`
-- `ts`
+- `event_time`
 - `index_price`
 
 ## 1.10 Liquidation Event
@@ -321,8 +368,8 @@ Required:
   "price": "84110.50",
   "qty": "12.50",
   "notional": "1051381.25",
-  "metadata": {},
-  "raw_payload": {}
+  "metadata_json": {},
+  "payload_json": {}
 }
 ```
 
@@ -343,7 +390,7 @@ Required:
   "event_time": "2026-04-02T12:34:01.250Z",
   "ingest_time": "2026-04-02T12:34:01.320Z",
   "source_message_id": "10001-10005",
-  "payload": {}
+  "payload_json": {}
 }
 ```
 
@@ -351,7 +398,7 @@ Required:
 - `exchange_code`
 - `channel`
 - `ingest_time`
-- `payload`
+- `payload_json`
 
 ---
 
@@ -373,7 +420,7 @@ Required:
   "target_qty": "0.5000",
   "target_notional": "42125.00",
   "reason_code": "ema_cross_up",
-  "metadata": {
+  "metadata_json": {
     "fast_ema": "84190.10",
     "slow_ema": "84170.55"
   }
@@ -409,7 +456,7 @@ Rules:
       "target_notional": "42125"
     }
   ],
-  "metadata": {}
+  "metadata_json": {}
 }
 ```
 
@@ -438,11 +485,10 @@ Required:
   "side": "buy",
   "order_type": "limit",
   "time_in_force": "gtc",
+  "execution_instructions": ["post_only"],
   "price": "84240.00",
   "qty": "0.5000",
-  "metadata": {
-    "post_only": false,
-    "reduce_only": false,
+  "metadata_json": {
     "source": "strategy_signal"
   }
 }
@@ -459,8 +505,9 @@ Required:
 - `qty`
 
 Rules:
-- `price` is required for `limit`, `post_only`, `stop`, and `take_profit`
+- `price` is required for `limit`, `stop`, and `take_profit`
 - `price` should be omitted for plain `market` orders unless a venue requires otherwise
+- if `execution_instructions` contains `post_only`, `order_type` must be `limit`
 
 ## 3.2 Order State
 
@@ -479,6 +526,7 @@ Rules:
   "side": "buy",
   "order_type": "limit",
   "time_in_force": "gtc",
+  "execution_instructions": ["post_only"],
   "price": "84240.00",
   "qty": "0.5000",
   "status": "acknowledged",
@@ -487,7 +535,7 @@ Rules:
   "ack_time": "2026-04-02T12:34:01.100Z",
   "cancel_time": null,
   "reject_reason": null,
-  "metadata": {}
+  "metadata_json": {}
 }
 ```
 
@@ -502,6 +550,13 @@ Required:
 - `qty`
 - `status`
 
+Conditional required rules:
+- if `status = acknowledged`, `ack_time` is required
+- if `status = partial`, `ack_time` is recommended and should exist when the venue supplied an acknowledgement path
+- if `status = rejected`, `reject_reason` is required
+- if `status = canceled`, `cancel_time` is required
+- if `status in {acknowledged, partial, filled, canceled}` and the venue supplies one, `exchange_order_id` should be present
+
 ## 3.3 Order Event
 
 ```json
@@ -514,7 +569,7 @@ Required:
   "status_before": "submitted",
   "status_after": "acknowledged",
   "reason_code": null,
-  "detail": {
+  "detail_json": {
     "raw_status": "NEW"
   }
 }
@@ -541,7 +596,7 @@ Required:
   "fee": "4.2120",
   "fee_asset": "USDT",
   "liquidity_flag": "maker",
-  "metadata": {}
+  "metadata_json": {}
 }
 ```
 
@@ -615,7 +670,7 @@ Required:
   "reference_type": "funding",
   "reference_id": "BTCUSDT_PERP_20260402_0800",
   "external_reference_id": "ext_12345",
-  "detail": {}
+  "detail_json": {}
 }
 ```
 
@@ -640,7 +695,7 @@ Required:
   "funding_rate": "0.00010000",
   "funding_payment": "-4.21",
   "asset": "USDT",
-  "detail": {}
+  "detail_json": {}
 }
 ```
 
@@ -685,3 +740,4 @@ Required:
 5. Deduplicate market events using exchange identifiers where available.
 6. Deduplicate orders by `client_order_id` within account and venue scope.
 7. Deduplicate fills by `exchange_trade_id` where available.
+8. Apply conditional required field checks for order lifecycle states.
