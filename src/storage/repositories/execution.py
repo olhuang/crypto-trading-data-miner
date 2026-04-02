@@ -6,7 +6,16 @@ import json
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-from models.execution import BalanceSnapshot, Fill, OrderEvent, OrderRequest, OrderState, PositionSnapshot
+from models.execution import (
+    AccountLedgerEvent,
+    BalanceSnapshot,
+    Fill,
+    FundingPnlEvent,
+    OrderEvent,
+    OrderRequest,
+    OrderState,
+    PositionSnapshot,
+)
 from storage.lookups import resolve_account_id, resolve_asset_id, resolve_exchange_id, resolve_instrument_id
 
 
@@ -473,4 +482,96 @@ class BalanceRepository:
                 "margin_balance": snapshot.margin_balance,
                 "equity": snapshot.equity,
             },
+        )
+
+
+class AccountLedgerRepository:
+    def insert(self, connection: Connection, event: AccountLedgerEvent) -> int:
+        account_id = resolve_account_id(connection, event.account_code)
+        asset_id = resolve_asset_id(connection, event.asset)
+        return int(
+            connection.execute(
+                text(
+                    """
+                    insert into execution.account_ledger (
+                        account_id,
+                        asset_id,
+                        event_time,
+                        ledger_type,
+                        amount,
+                        balance_after,
+                        reference_type,
+                        reference_id,
+                        external_reference_id,
+                        detail_json
+                    ) values (
+                        :account_id,
+                        :asset_id,
+                        :event_time,
+                        :ledger_type,
+                        :amount,
+                        :balance_after,
+                        :reference_type,
+                        :reference_id,
+                        :external_reference_id,
+                        cast(:detail_json as jsonb)
+                    )
+                    returning ledger_id
+                    """
+                ),
+                {
+                    "account_id": account_id,
+                    "asset_id": asset_id,
+                    "event_time": event.event_time,
+                    "ledger_type": event.ledger_type,
+                    "amount": event.amount,
+                    "balance_after": event.balance_after,
+                    "reference_type": event.reference_type,
+                    "reference_id": event.reference_id,
+                    "external_reference_id": event.external_reference_id,
+                    "detail_json": json.dumps(event.detail_json),
+                },
+            ).scalar_one()
+        )
+
+
+class FundingPnlRepository:
+    def insert(self, connection: Connection, event: FundingPnlEvent) -> int:
+        account_id = resolve_account_id(connection, event.account_code)
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        asset_id = resolve_asset_id(connection, event.asset) if event.asset else None
+        return int(
+            connection.execute(
+                text(
+                    """
+                    insert into execution.funding_pnl (
+                        account_id,
+                        instrument_id,
+                        funding_time,
+                        position_qty,
+                        funding_rate,
+                        funding_payment,
+                        asset_id
+                    ) values (
+                        :account_id,
+                        :instrument_id,
+                        :funding_time,
+                        :position_qty,
+                        :funding_rate,
+                        :funding_payment,
+                        :asset_id
+                    )
+                    returning funding_pnl_id
+                    """
+                ),
+                {
+                    "account_id": account_id,
+                    "instrument_id": instrument_id,
+                    "funding_time": event.funding_time,
+                    "position_qty": event.position_qty,
+                    "funding_rate": event.funding_rate,
+                    "funding_payment": event.funding_payment,
+                    "asset_id": asset_id,
+                },
+            ).scalar_one()
         )

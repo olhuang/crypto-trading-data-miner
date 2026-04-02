@@ -7,14 +7,33 @@ import sys
 import unittest
 from uuid import uuid4
 
+from sqlalchemy.exc import OperationalError
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from models.execution import BalanceSnapshot, Fill, OrderEvent, OrderRequest, PositionSnapshot
-from models.market import BarEvent, TradeEvent
-from storage.db import connection_scope, transaction_scope
+from models.execution import (
+    AccountLedgerEvent,
+    BalanceSnapshot,
+    Fill,
+    FundingPnlEvent,
+    OrderEvent,
+    OrderRequest,
+    PositionSnapshot,
+)
+from models.market import (
+    BarEvent,
+    IndexPriceEvent,
+    MarkPriceEvent,
+    OrderBookDeltaEvent,
+    OrderBookSnapshotEvent,
+    RawMarketEvent,
+    TradeEvent,
+)
+from models.risk import RiskEvent, RiskLimit
+from storage.db import connection_scope, run_with_retry, transaction_scope
 from storage.lookups import (
     LookupResolutionError,
     resolve_account_id,
@@ -24,17 +43,44 @@ from storage.lookups import (
 )
 from storage.repositories.execution import (
     AccountRecord,
+    AccountLedgerRepository,
     AccountRepository,
     BalanceRepository,
     FillRepository,
+    FundingPnlRepository,
     OrderEventRepository,
     OrderRepository,
     PositionRepository,
 )
-from storage.repositories.market_data import BarRepository, TradeRepository
+from storage.repositories.instruments import AssetRepository, ExchangeRepository
+from storage.repositories.market_data import (
+    BarRepository,
+    IndexPriceRepository,
+    MarkPriceRepository,
+    OrderBookDeltaRepository,
+    OrderBookSnapshotRepository,
+    RawMarketEventRepository,
+    TradeRepository,
+)
+from storage.repositories.ops import IngestionJobRecord, IngestionJobRepository, SystemLogRecord, SystemLogRepository
+from storage.repositories.risk import RiskEventRepository, RiskLimitRepository
 
 
 class Phase2RepositoryIntegrationTests(unittest.TestCase):
+    def test_run_with_retry_retries_transient_operational_errors(self) -> None:
+        attempts = {"count": 0}
+
+        def flaky_operation() -> str:
+            attempts["count"] += 1
+            if attempts["count"] < 3:
+                raise OperationalError("select 1", {}, RuntimeError("transient"))
+            return "ok"
+
+        result = run_with_retry(flaky_operation, attempts=3, backoff_seconds=0)
+
+        self.assertEqual(result, "ok")
+        self.assertEqual(attempts["count"], 3)
+
     def test_strategy_and_version_resolution_use_seed_defaults(self) -> None:
         with connection_scope() as connection:
             strategy_id = resolve_strategy_id(connection, "btc_momentum")
@@ -332,6 +378,264 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             self.assertEqual(row[0], 1)
             self.assertEqual(row[1], Decimal("0.300000000000"))
             self.assertEqual(row[2], Decimal("25272.000000000000"))
+
+    def test_reference_market_risk_and_ops_repositories_cover_remaining_phase2_entities(self) -> None:
+        run_id = uuid4().hex[:10]
+        account_code = f"phase2_risk_ops_{run_id}"
+
+        snapshot_event = OrderBookSnapshotEvent(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            snapshot_time=datetime(2026, 4, 2, 12, 34, 0, tzinfo=timezone.utc),
+            ingest_time=datetime(2026, 4, 2, 12, 34, 0, 100000, tzinfo=timezone.utc),
+            depth_levels=2,
+            bids=[(Decimal("84250.10"), Decimal("3.12"))],
+            asks=[(Decimal("84250.20"), Decimal("2.65"))],
+            checksum="abc123",
+            source="rest_snapshot",
+        )
+        delta_event = OrderBookDeltaEvent(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            event_time=datetime(2026, 4, 2, 12, 34, 1, 250000, tzinfo=timezone.utc),
+            ingest_time=datetime(2026, 4, 2, 12, 34, 1, 320000, tzinfo=timezone.utc),
+            first_update_id=10001,
+            final_update_id=10005,
+            bids=[(Decimal("84250.10"), Decimal("0"))],
+            asks=[(Decimal("84250.20"), Decimal("1.10"))],
+            checksum="def456",
+            source="ws_depth",
+        )
+        mark_event = MarkPriceEvent(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            event_time=datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc),
+            ingest_time=datetime(2026, 4, 2, 12, 34, 2, 100000, tzinfo=timezone.utc),
+            mark_price=Decimal("84244.18"),
+            funding_basis_bps=Decimal("0.82"),
+        )
+        index_event = IndexPriceEvent(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            event_time=datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc),
+            ingest_time=datetime(2026, 4, 2, 12, 34, 2, 100000, tzinfo=timezone.utc),
+            index_price=Decimal("84240.01"),
+        )
+        raw_event = RawMarketEvent(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            channel="depth",
+            event_type="depth_update",
+            event_time=datetime(2026, 4, 2, 12, 34, 1, 250000, tzinfo=timezone.utc),
+            ingest_time=datetime(2026, 4, 2, 12, 34, 1, 320000, tzinfo=timezone.utc),
+            source_message_id=f"u_{run_id}",
+            payload_json={"u": 10005, "pu": 10000},
+        )
+        ledger_event = AccountLedgerEvent(
+            environment="paper",
+            account_code=account_code,
+            asset="USDT",
+            event_time=datetime(2026, 4, 2, 8, 0, 1, tzinfo=timezone.utc),
+            ledger_type="funding_payment",
+            amount=Decimal("-12.45"),
+            balance_after=Decimal("100120.55"),
+            reference_type="funding",
+            reference_id=f"funding_{run_id}",
+            external_reference_id=f"ext_{run_id}",
+            detail_json={"source": "integration_test"},
+        )
+        funding_pnl_event = FundingPnlEvent(
+            environment="paper",
+            account_code=account_code,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            funding_time=datetime(2026, 4, 2, 8, 0, 0, tzinfo=timezone.utc),
+            position_qty=Decimal("0.5000"),
+            funding_rate=Decimal("0.00010000"),
+            funding_payment=Decimal("-4.21"),
+            asset="USDT",
+            detail_json={"batch_id": f"batch_{run_id}"},
+        )
+        risk_limit = RiskLimit(
+            account_code=account_code,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            max_notional=Decimal("25000"),
+            max_leverage=Decimal("3"),
+        )
+        updated_risk_limit = risk_limit.model_copy(update={"max_notional": Decimal("30000")})
+        risk_event = RiskEvent(
+            account_code=account_code,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            event_time=datetime(2026, 4, 2, 12, 40, 0, tzinfo=timezone.utc),
+            event_type="pre_trade_check_blocked",
+            severity="warning",
+            decision="block",
+            detail_json={"reason_code": "max_notional"},
+        )
+        system_log = SystemLogRecord(
+            service_name="phase2_test",
+            level="info",
+            message=f"phase2 repo coverage {run_id}",
+            context_json={"run_id": run_id},
+        )
+        ingestion_job = IngestionJobRecord(
+            service_name="phase2_test",
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            data_type="mark_price",
+            schedule_type="manual",
+            status="success",
+            records_expected=1,
+            records_written=1,
+            finished_at=datetime(2026, 4, 2, 12, 45, 0, tzinfo=timezone.utc),
+            metadata_json={"run_id": run_id},
+        )
+
+        with transaction_scope() as connection:
+            exchange_repo = ExchangeRepository()
+            asset_repo = AssetRepository()
+            account_repo = AccountRepository()
+            account_ledger_repo = AccountLedgerRepository()
+            funding_pnl_repo = FundingPnlRepository()
+            risk_limit_repo = RiskLimitRepository()
+            risk_event_repo = RiskEventRepository()
+            system_log_repo = SystemLogRepository()
+            ingestion_job_repo = IngestionJobRepository()
+
+            exchanges = exchange_repo.list_all(connection)
+            assets = asset_repo.list_all(connection)
+            self.assertTrue(any(exchange["exchange_code"] == "binance" for exchange in exchanges))
+            self.assertTrue(any(asset["asset_code"] == "USDT" for asset in assets))
+
+            account_repo.upsert(
+                connection,
+                AccountRecord(
+                    account_code=account_code,
+                    exchange_code="binance",
+                    account_type="paper",
+                    base_currency="USDT",
+                ),
+            )
+
+            OrderBookSnapshotRepository().upsert(connection, snapshot_event)
+            delta_id = OrderBookDeltaRepository().insert(connection, delta_event)
+            MarkPriceRepository().upsert(connection, mark_event)
+            IndexPriceRepository().upsert(connection, index_event)
+            raw_event_id = RawMarketEventRepository().insert(connection, raw_event)
+            ledger_id = account_ledger_repo.insert(connection, ledger_event)
+            funding_pnl_id = funding_pnl_repo.insert(connection, funding_pnl_event)
+            first_risk_limit_id = risk_limit_repo.upsert(connection, risk_limit)
+            second_risk_limit_id = risk_limit_repo.upsert(connection, updated_risk_limit)
+            risk_event_id = risk_event_repo.insert(connection, risk_event)
+            log_id = system_log_repo.insert(connection, system_log)
+            ingestion_job_id = ingestion_job_repo.insert(connection, ingestion_job)
+
+        with connection_scope() as connection:
+            account_id = resolve_account_id(connection, account_code)
+            instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
+
+            snapshot_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.orderbook_snapshots
+                where instrument_id = %s
+                  and snapshot_time = %s
+                """,
+                (instrument_id, snapshot_event.snapshot_time),
+            ).scalar_one()
+            mark_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.mark_prices
+                where instrument_id = %s
+                  and ts = %s
+                """,
+                (instrument_id, mark_event.event_time),
+            ).scalar_one()
+            index_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.index_prices
+                where instrument_id = %s
+                  and ts = %s
+                """,
+                (instrument_id, index_event.event_time),
+            ).scalar_one()
+            raw_payload = connection.exec_driver_sql(
+                """
+                select payload_json->>'u'
+                from md.raw_market_events
+                where raw_event_id = %s
+                """,
+                (raw_event_id,),
+            ).scalar_one()
+            ledger_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from execution.account_ledger
+                where ledger_id = %s
+                  and account_id = %s
+                """,
+                (ledger_id, account_id),
+            ).scalar_one()
+            funding_pnl_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from execution.funding_pnl
+                where funding_pnl_id = %s
+                  and account_id = %s
+                """,
+                (funding_pnl_id, account_id),
+            ).scalar_one()
+            risk_limit_row = connection.exec_driver_sql(
+                """
+                select count(*), max(max_notional)
+                from risk.risk_limits
+                where account_id = %s
+                  and instrument_id = %s
+                """,
+                (account_id, instrument_id),
+            ).first()
+            risk_event_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from risk.risk_events
+                where risk_event_id = %s
+                """,
+                (risk_event_id,),
+            ).scalar_one()
+            log_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from ops.system_logs
+                where log_id = %s
+                """,
+                (log_id,),
+            ).scalar_one()
+            ingestion_job_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from ops.ingestion_jobs
+                where ingestion_job_id = %s
+                """,
+                (ingestion_job_id,),
+            ).scalar_one()
+
+            self.assertGreater(delta_id, 0)
+            self.assertEqual(snapshot_count, 1)
+            self.assertEqual(mark_count, 1)
+            self.assertEqual(index_count, 1)
+            self.assertEqual(raw_payload, "10005")
+            self.assertEqual(ledger_count, 1)
+            self.assertEqual(funding_pnl_count, 1)
+            self.assertEqual(first_risk_limit_id, second_risk_limit_id)
+            self.assertEqual(risk_limit_row[0], 1)
+            self.assertEqual(risk_limit_row[1], Decimal("30000.000000000000"))
+            self.assertEqual(risk_event_count, 1)
+            self.assertEqual(log_count, 1)
+            self.assertEqual(ingestion_job_count, 1)
 
 
 if __name__ == "__main__":

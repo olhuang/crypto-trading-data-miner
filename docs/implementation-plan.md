@@ -26,9 +26,10 @@ The repository already has a strong design foundation and is now design-complete
 - local runtime scaffold with `docker-compose.yml`, `.env.example`, and minimal `src/` bootstrap
 - Phase 1 bootstrap verification artifacts and scripts
 - Phase 1 end-to-end verification against a clean bootstrap
-- initial Phase 2 market and execution models in `src/models/`
-- initial Phase 2 DB/storage helpers and repositories in `src/storage/`
+- complete Phase 2 model coverage across market, strategy, execution, and risk contracts in `src/models/`
+- Phase 2 DB/storage helpers, lookup resolution, retry policy, and repositories in `src/storage/`
 - Phase 2 validation/store service and minimal FastAPI endpoints in `src/services/` and `src/api/`
+- automated tests for the current Phase 2 models, repositories, DB retry helper, seeds, and minimal API slice
 
 ### Not Yet Implemented
 - data ingestion jobs
@@ -36,7 +37,7 @@ The repository already has a strong design foundation and is now design-complete
 - paper trading engine
 - live trading adapter
 - reconciliation jobs
-- automated tests and CI
+- CI
 
 ### Overall Assessment
 The project is currently strong on design and still weak on executable implementation.
@@ -199,11 +200,9 @@ Turn documented contracts into validated code and a consistent database access l
 - Phase 1
 
 ### Recommended Status
-- started with working foundation slice for models, storage, validate-and-store service, smoke scripts, and minimal models API
-- minimal auth contract implemented for the current models API slice
-- canonical response/resource models documented for the current implemented API slice
-- initial strategy models now exist for signal and target-position contracts
-- initial risk models now exist for risk-limit and risk-event contracts
+- implemented for the Phase 2 scope
+- validated locally with automated tests for model validation, repository persistence, DB retry behavior, and minimal API flows
+- ready for Phase 3 public ingestion work
 
 ---
 
@@ -590,10 +589,9 @@ The project reaches the first meaningful delivery milestone when all of the foll
 
 The next recommended implementation step is:
 
-### Extend Phase 2 coverage
-- add remaining strategy and risk models
-- add remaining repositories for raw events, mark/index, and risk/ops paths
-- add tests for validation, lookup, and repository persistence
-- widen the minimal API surface beyond the current models endpoints
+### Begin Phase 3 public ingestion implementation
+- create `src/ingestion/` and `src/jobs/` package skeletons
+- implement instrument sync using the Phase 2 repositories and ops job logging
+- implement bar backfill first, then live trades, then mark/index and raw event capture
 
-After that, begin Phase 3 public ingestion implementation.
+The completed Phase 2 foundation is now the intended base for all Phase 3 work.

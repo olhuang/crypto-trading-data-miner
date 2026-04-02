@@ -9,6 +9,34 @@ from models.market import InstrumentMetadata
 from storage.lookups import resolve_asset_id, resolve_exchange_id
 
 
+class ExchangeRepository:
+    def list_all(self, connection: Connection) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            text(
+                """
+                select exchange_id, exchange_code, exchange_name, timezone
+                from ref.exchanges
+                order by exchange_code
+                """
+            )
+        )
+        return [dict(row._mapping) for row in rows]
+
+
+class AssetRepository:
+    def list_all(self, connection: Connection) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            text(
+                """
+                select asset_id, asset_code, asset_name, asset_type
+                from ref.assets
+                order by asset_code
+                """
+            )
+        )
+        return [dict(row._mapping) for row in rows]
+
+
 class InstrumentRepository:
     def upsert(self, connection: Connection, instrument: InstrumentMetadata) -> None:
         exchange_id = resolve_exchange_id(connection, instrument.exchange_code)

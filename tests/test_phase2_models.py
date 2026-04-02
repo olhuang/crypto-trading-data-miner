@@ -13,8 +13,16 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from models.execution import OrderEvent, OrderRequest, OrderState
-from models.market import InstrumentMetadata, OpenInterestEvent, TradeEvent
+from models.execution import AccountLedgerEvent, FundingPnlEvent, OrderEvent, OrderRequest, OrderState
+from models.market import (
+    IndexPriceEvent,
+    InstrumentMetadata,
+    MarkPriceEvent,
+    OpenInterestEvent,
+    OrderBookSnapshotEvent,
+    RawMarketEvent,
+    TradeEvent,
+)
 from models.risk import RiskEvent, RiskLimit
 from models.strategy import Signal, TargetPosition
 
@@ -213,6 +221,90 @@ class Phase2ModelValidationTests(unittest.TestCase):
 
         self.assertEqual(event.detail_json["reason_code"], "max_notional")
         self.assertEqual(event.model_dump(mode="json", by_alias=True)["detail_json"], {"reason_code": "max_notional"})
+
+    def test_orderbook_snapshot_parses_decimal_levels(self) -> None:
+        snapshot = OrderBookSnapshotEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "snapshot_time": "2026-04-02T12:34:00Z",
+                "ingest_time": "2026-04-02T12:34:00.100Z",
+                "depth_levels": 2,
+                "bids": [["84250.10", "3.12"]],
+                "asks": [["84250.20", "2.65"]],
+            }
+        )
+
+        self.assertEqual(snapshot.bids[0][0], Decimal("84250.10"))
+        self.assertEqual(snapshot.asks[0][1], Decimal("2.65"))
+
+    def test_mark_and_index_price_use_event_time_canonically(self) -> None:
+        mark_event = MarkPriceEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "ts": "2026-04-02T12:34:02Z",
+                "ingest_time": "2026-04-02T12:34:02.100Z",
+                "mark_price": "84244.18",
+            }
+        )
+        index_event = IndexPriceEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "ts": "2026-04-02T12:34:02Z",
+                "ingest_time": "2026-04-02T12:34:02.100Z",
+                "index_price": "84240.01",
+            }
+        )
+
+        self.assertEqual(mark_event.model_dump(mode="json", by_alias=True)["event_time"], "2026-04-02T12:34:02Z")
+        self.assertEqual(index_event.model_dump(mode="json", by_alias=True)["event_time"], "2026-04-02T12:34:02Z")
+
+    def test_raw_market_event_uses_canonical_payload_json_name(self) -> None:
+        event = RawMarketEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "channel": "depth",
+                "event_type": "depth_update",
+                "ingest_time": "2026-04-02T12:34:01.320Z",
+                "raw_payload": {"u": 10005},
+            }
+        )
+
+        self.assertEqual(event.payload_json["u"], 10005)
+        self.assertEqual(event.model_dump(mode="json", by_alias=True)["payload_json"], {"u": 10005})
+
+    def test_account_ledger_and_funding_pnl_support_detail_alias(self) -> None:
+        ledger_event = AccountLedgerEvent.model_validate(
+            {
+                "environment": "live",
+                "account_code": "paper_main",
+                "asset": "USDT",
+                "event_time": "2026-04-02T08:00:01Z",
+                "ledger_type": "funding_payment",
+                "amount": "-12.45",
+                "detail": {"source": "exchange_history"},
+            }
+        )
+        funding_event = FundingPnlEvent.model_validate(
+            {
+                "environment": "live",
+                "account_code": "paper_main",
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "funding_time": "2026-04-02T08:00:00Z",
+                "position_qty": "0.5000",
+                "funding_rate": "0.00010000",
+                "funding_payment": "-4.21",
+                "asset": "USDT",
+                "detail": {"settlement_batch": "funding_0800"},
+            }
+        )
+
+        self.assertEqual(ledger_event.detail_json["source"], "exchange_history")
+        self.assertEqual(funding_event.detail_json["settlement_batch"], "funding_0800")
 
     def test_spot_instrument_rejects_contract_size(self) -> None:
         with self.assertRaises(ValidationError):

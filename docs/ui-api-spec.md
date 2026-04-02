@@ -315,9 +315,18 @@ Response example:
       "bar_event",
       "trade_event",
       "funding_rate",
-      "signal",
+      "open_interest",
+      "orderbook_snapshot",
+      "orderbook_delta",
+      "mark_price",
+      "index_price",
+      "raw_market_event",
       "order_request",
       "fill",
+      "account_ledger_event",
+      "funding_pnl_event",
+      "risk_limit",
+      "risk_event",
       "position_snapshot",
       "balance_snapshot"
     ]
@@ -405,6 +414,7 @@ Purpose:
 
 Backend status note:
 - backend implementations now exist for `/api/v1/models/payload-types`, `/api/v1/models/validate`, `/api/v1/models/validate-and-store`
+- the current implemented payload-types list now covers the full planned Phase 2 storable market, execution, and risk slice
 - current implemented response resources are defined in `docs/api-resource-contracts.md`
 - generic `/api/v1/storage/*` explorer endpoints are still pending
 

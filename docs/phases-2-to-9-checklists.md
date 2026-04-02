@@ -54,7 +54,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 
 ### Acceptance Checks
 - [x] all implemented model modules import successfully
-- [ ] project has a clear model namespace for market, strategy, execution, and risk
+- [x] project has a clear model namespace for market, strategy, execution, and risk
 
 ---
 
@@ -79,12 +79,12 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] implement model for trade event
 - [x] implement model for funding rate event
 - [x] implement model for open interest event
-- [ ] implement model for order book snapshot
-- [ ] implement model for order book delta
-- [ ] implement model for mark price
-- [ ] implement model for index price
-- [ ] implement model for liquidation event
-- [ ] implement model for raw market event
+- [x] implement model for order book snapshot
+- [x] implement model for order book delta
+- [x] implement model for mark price
+- [x] implement model for index price
+- [x] implement model for liquidation event
+- [x] implement model for raw market event
 
 ### Acceptance Checks
 - [x] core implemented market payload examples validate successfully
@@ -103,8 +103,8 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] implement fill model
 - [x] implement position snapshot model
 - [x] implement balance snapshot model
-- [ ] implement account ledger model
-- [ ] implement funding pnl model
+- [x] implement account ledger model
+- [x] implement funding pnl model
 
 ### Acceptance Checks
 - [x] implemented execution payload examples validate successfully
@@ -118,7 +118,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] create `src/storage/db.py`
 - [x] add PostgreSQL connection builder using environment config
 - [x] define transaction handling pattern
-- [ ] define retry/error handling policy for transient DB failures
+- [x] define retry/error handling policy for transient DB failures
 
 ### Acceptance Checks
 - [x] local app can open a PostgreSQL connection
@@ -129,13 +129,13 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 
 ## Task 2.6: Implement repositories for reference and market data
 ### Tasks
-- [ ] create repository for exchanges/assets/instruments
+- [x] create repository for exchanges/assets/instruments
 - [x] create repository for bars
 - [x] create repository for trades
 - [x] create repository for funding rates
 - [x] create repository for open interest
-- [ ] create repository for mark/index prices
-- [ ] create repository for raw market events
+- [x] create repository for mark/index prices
+- [x] create repository for raw market events
 
 ### Acceptance Checks
 - [x] validated implemented market models can be persisted through repositories
@@ -151,8 +151,8 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] create repository for fills
 - [x] create repository for positions
 - [x] create repository for balances
-- [ ] create repository for risk events
-- [ ] create repository for ops logs / ingestion metadata
+- [x] create repository for risk events
+- [x] create repository for ops logs / ingestion metadata
 
 ### Acceptance Checks
 - [x] execution payloads can be persisted through repositories
@@ -186,17 +186,19 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] lookup helpers now resolve strategy/version/account identifiers for the current seed-backed workflow
 - [x] strategy signal and target-position models now exist for the current Phase 2 contract slice
 - [x] initial risk limit and risk event models now exist for the current Phase 2 contract slice
-- [ ] remaining models, repositories, and tests are still required before full Phase 2 acceptance
+- [x] remaining Phase 2 market, execution, risk, reference, and ops foundation slices now have implementation coverage
+- [x] DB retry policy is implemented for transient connection failures
+- [x] validate-and-store supports the current storable Phase 2 market, execution, and risk entities
 
 ## Phase 2 Final Acceptance Summary
-- [ ] canonical payloads validate through code
+- [x] canonical payloads validate through code
 - [x] DB connection layer works locally
-- [ ] repositories exist for core entities
-- [ ] idempotent persistence patterns are implemented
+- [x] repositories exist for core entities
+- [x] idempotent persistence patterns are implemented
 - [x] model and repository tests pass
 
 ## Handoff Criteria to Phase 3
-- [ ] public exchange adapter can use repositories without raw SQL
+- [x] public exchange adapter can use repositories without raw SQL
 - [x] instrument resolution is available from code
 - [x] canonical payloads can be validated before persistence
 
@@ -1029,6 +1031,6 @@ Improve reliability, maintainability, and scalability once the end-to-end system
 # Recommended Immediate Next Action
 
 Current recommended next action:
-- finish the remaining Phase 2 models and repositories
-- add tests for validation, lookups, and repository persistence
-- then begin Phase 3 ingestion work on top of the current foundation slice
+- begin Phase 3 public ingestion implementation on top of the completed Phase 2 foundation
+- start with instrument sync, bar backfill, and ingestion job persistence
+- then add live trade, mark/index, and raw event capture flows

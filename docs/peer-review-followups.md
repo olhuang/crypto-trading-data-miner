@@ -292,23 +292,26 @@ These items can wait until later phases, but must be explicit before reconciliat
 
 ## 4.1 Order Book JSON Format Specification
 
-### Problem
-Order book JSON-bearing fields exist, but format semantics are not fully standardized.
+### Status
+Resolved for the currently implemented Phase 2 order-book contract slice.
 
-Questions needing explicit answers:
-- array-of-arrays or array-of-objects?
-- maximum stored depth?
-- replace vs merge semantics for deltas?
-- checksum meaning and optionality?
+The repository now has:
+- canonical snapshot and delta examples in `docs/api-contracts.md`
+- implemented `OrderBookSnapshotEvent` and `OrderBookDeltaEvent` models in `src/models/market.py`
+- repository support for `md.orderbook_snapshots` and `md.orderbook_deltas`
+- automated tests that validate the currently implemented payload format
 
-### Why This Can Wait
-The first locked implementation slice is public market data focused and does not require order book depth as a hard dependency.
+### Current Canonical Rule
+- `bids` and `asks` use array-of-arrays pairs in `[price, qty]` form
+- `depth_levels` is explicit on snapshots
+- deltas are append-only stored events; replay/merge behavior remains a later-phase concern
+- `checksum` is optional and stored when supplied by the venue
 
-### Required Action
-Document the canonical format and update semantics before order-book storage and replay behavior are implemented.
+### Ongoing Rule
+If replay logic later requires richer merge semantics, extend the docs and code together rather than introducing an alternate wire shape.
 
 ### Acceptance Criteria
-- order-book snapshot/delta payloads have a single canonical format and merge/replay interpretation
+- order-book snapshot/delta payloads have a single canonical stored shape for the current implementation slice
 
 ---
 

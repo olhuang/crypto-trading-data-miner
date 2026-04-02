@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
-from models.market import BarEvent, FundingRateEvent, OpenInterestEvent, TradeEvent
-from storage.lookups import resolve_instrument_id
+from models.market import (
+    BarEvent,
+    FundingRateEvent,
+    IndexPriceEvent,
+    LiquidationEvent,
+    MarkPriceEvent,
+    OpenInterestEvent,
+    OrderBookDeltaEvent,
+    OrderBookSnapshotEvent,
+    RawMarketEvent,
+    TradeEvent,
+)
+from storage.lookups import resolve_exchange_id, resolve_instrument_id
 
 
 class BarRepository:
@@ -164,4 +177,258 @@ class OpenInterestRepository:
                 "ts": event.event_time,
                 "open_interest": event.open_interest,
             },
+        )
+
+
+class OrderBookSnapshotRepository:
+    def upsert(self, connection: Connection, event: OrderBookSnapshotEvent) -> None:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        connection.execute(
+            text(
+                """
+                insert into md.orderbook_snapshots (
+                    instrument_id,
+                    snapshot_time,
+                    ingest_time,
+                    depth_levels,
+                    bids_json,
+                    asks_json,
+                    checksum,
+                    source
+                ) values (
+                    :instrument_id,
+                    :snapshot_time,
+                    :ingest_time,
+                    :depth_levels,
+                    cast(:bids_json as jsonb),
+                    cast(:asks_json as jsonb),
+                    :checksum,
+                    :source
+                )
+                on conflict (instrument_id, snapshot_time) do update
+                set
+                    ingest_time = excluded.ingest_time,
+                    depth_levels = excluded.depth_levels,
+                    bids_json = excluded.bids_json,
+                    asks_json = excluded.asks_json,
+                    checksum = excluded.checksum,
+                    source = excluded.source
+                """
+            ),
+            {
+                "instrument_id": instrument_id,
+                "snapshot_time": event.snapshot_time,
+                "ingest_time": event.ingest_time,
+                "depth_levels": event.depth_levels,
+                "bids_json": json.dumps(event.bids, default=str),
+                "asks_json": json.dumps(event.asks, default=str),
+                "checksum": event.checksum,
+                "source": event.source,
+            },
+        )
+
+
+class OrderBookDeltaRepository:
+    def insert(self, connection: Connection, event: OrderBookDeltaEvent) -> int:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        return int(
+            connection.execute(
+                text(
+                    """
+                    insert into md.orderbook_deltas (
+                        instrument_id,
+                        event_time,
+                        ingest_time,
+                        first_update_id,
+                        final_update_id,
+                        bids_json,
+                        asks_json,
+                        checksum,
+                        source
+                    ) values (
+                        :instrument_id,
+                        :event_time,
+                        :ingest_time,
+                        :first_update_id,
+                        :final_update_id,
+                        cast(:bids_json as jsonb),
+                        cast(:asks_json as jsonb),
+                        :checksum,
+                        :source
+                    )
+                    returning delta_id
+                    """
+                ),
+                {
+                    "instrument_id": instrument_id,
+                    "event_time": event.event_time,
+                    "ingest_time": event.ingest_time,
+                    "first_update_id": event.first_update_id,
+                    "final_update_id": event.final_update_id,
+                    "bids_json": json.dumps(event.bids, default=str),
+                    "asks_json": json.dumps(event.asks, default=str),
+                    "checksum": event.checksum,
+                    "source": event.source,
+                },
+            ).scalar_one()
+        )
+
+
+class MarkPriceRepository:
+    def upsert(self, connection: Connection, event: MarkPriceEvent) -> None:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        connection.execute(
+            text(
+                """
+                insert into md.mark_prices (
+                    instrument_id,
+                    ts,
+                    mark_price,
+                    funding_basis_bps,
+                    ingest_time
+                ) values (
+                    :instrument_id,
+                    :ts,
+                    :mark_price,
+                    :funding_basis_bps,
+                    :ingest_time
+                )
+                on conflict (instrument_id, ts) do update
+                set
+                    mark_price = excluded.mark_price,
+                    funding_basis_bps = excluded.funding_basis_bps,
+                    ingest_time = excluded.ingest_time
+                """
+            ),
+            {
+                "instrument_id": instrument_id,
+                "ts": event.event_time,
+                "mark_price": event.mark_price,
+                "funding_basis_bps": event.funding_basis_bps,
+                "ingest_time": event.ingest_time,
+            },
+        )
+
+
+class IndexPriceRepository:
+    def upsert(self, connection: Connection, event: IndexPriceEvent) -> None:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        connection.execute(
+            text(
+                """
+                insert into md.index_prices (
+                    instrument_id,
+                    ts,
+                    index_price,
+                    ingest_time
+                ) values (
+                    :instrument_id,
+                    :ts,
+                    :index_price,
+                    :ingest_time
+                )
+                on conflict (instrument_id, ts) do update
+                set
+                    index_price = excluded.index_price,
+                    ingest_time = excluded.ingest_time
+                """
+            ),
+            {
+                "instrument_id": instrument_id,
+                "ts": event.event_time,
+                "index_price": event.index_price,
+                "ingest_time": event.ingest_time,
+            },
+        )
+
+
+class LiquidationRepository:
+    def insert(self, connection: Connection, event: LiquidationEvent) -> int:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        return int(
+            connection.execute(
+                text(
+                    """
+                    insert into md.liquidations (
+                        instrument_id,
+                        event_time,
+                        ingest_time,
+                        side,
+                        price,
+                        qty,
+                        notional,
+                        source,
+                        metadata_json
+                    ) values (
+                        :instrument_id,
+                        :event_time,
+                        :ingest_time,
+                        :side,
+                        :price,
+                        :qty,
+                        :notional,
+                        :source,
+                        cast(:metadata_json as jsonb)
+                    )
+                    returning liquidation_id
+                    """
+                ),
+                {
+                    "instrument_id": instrument_id,
+                    "event_time": event.event_time,
+                    "ingest_time": event.ingest_time,
+                    "side": event.side,
+                    "price": event.price,
+                    "qty": event.qty,
+                    "notional": event.notional,
+                    "source": event.source,
+                    "metadata_json": json.dumps(event.metadata_json),
+                },
+            ).scalar_one()
+        )
+
+
+class RawMarketEventRepository:
+    def insert(self, connection: Connection, event: RawMarketEvent) -> int:
+        exchange_id = resolve_exchange_id(connection, event.exchange_code)
+        instrument_id = None
+        if event.unified_symbol:
+            instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        return int(
+            connection.execute(
+                text(
+                    """
+                    insert into md.raw_market_events (
+                        exchange_id,
+                        instrument_id,
+                        channel,
+                        event_type,
+                        event_time,
+                        ingest_time,
+                        source_message_id,
+                        payload_json
+                    ) values (
+                        :exchange_id,
+                        :instrument_id,
+                        :channel,
+                        :event_type,
+                        :event_time,
+                        :ingest_time,
+                        :source_message_id,
+                        cast(:payload_json as jsonb)
+                    )
+                    returning raw_event_id
+                    """
+                ),
+                {
+                    "exchange_id": exchange_id,
+                    "instrument_id": instrument_id,
+                    "channel": event.channel,
+                    "event_type": event.event_type,
+                    "event_time": event.event_time,
+                    "ingest_time": event.ingest_time,
+                    "source_message_id": event.source_message_id,
+                    "payload_json": json.dumps(event.payload_json),
+                },
+            ).scalar_one()
         )

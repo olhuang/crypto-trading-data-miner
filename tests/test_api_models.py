@@ -54,6 +54,8 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(response.success)
         self.assertIn("trade_event", response.data.payload_types)
         self.assertIn("order_request", response.data.payload_types)
+        self.assertIn("mark_price", response.data.payload_types)
+        self.assertIn("risk_limit", response.data.payload_types)
         self.assertEqual(response.meta.current_actor.auth_mode, "local_bypass")
 
     def test_validate_endpoint_normalizes_payload(self) -> None:

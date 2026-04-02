@@ -10,6 +10,7 @@ from .common import (
     BaseContractModel,
     Environment,
     ExecutionInstruction,
+    LedgerType,
     LiquidityFlag,
     OrderSide,
     OrderStatus,
@@ -162,3 +163,38 @@ class BalanceSnapshot(BaseContractModel):
     available_balance: Decimal
     margin_balance: Decimal | None = None
     equity: Decimal | None = None
+
+
+class AccountLedgerEvent(BaseContractModel):
+    environment: Environment
+    account_code: str
+    asset: str
+    event_time: datetime
+    ledger_type: LedgerType
+    amount: Decimal
+    balance_after: Decimal | None = None
+    reference_type: str | None = None
+    reference_id: str | None = None
+    external_reference_id: str | None = None
+    detail_json: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias="detail",
+        serialization_alias="detail_json",
+    )
+
+
+class FundingPnlEvent(BaseContractModel):
+    environment: Environment
+    account_code: str
+    exchange_code: str
+    unified_symbol: str
+    funding_time: datetime
+    position_qty: Decimal
+    funding_rate: Decimal
+    funding_payment: Decimal
+    asset: str | None = None
+    detail_json: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias="detail",
+        serialization_alias="detail_json",
+    )

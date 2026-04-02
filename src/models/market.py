@@ -62,6 +62,7 @@ class TradeEvent(MarketEventBase):
 
 
 class FundingRateEvent(MarketEventBase):
+    ingest_time: datetime | None = None
     funding_time: datetime
     funding_rate: Decimal
     mark_price: Decimal | None = None
@@ -72,3 +73,67 @@ class OpenInterestEvent(MarketEventBase):
     ingest_time: datetime
     event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
     open_interest: Decimal
+
+
+class OrderBookSnapshotEvent(MarketEventBase):
+    ingest_time: datetime
+    snapshot_time: datetime
+    depth_levels: int
+    bids: list[tuple[Decimal, Decimal]]
+    asks: list[tuple[Decimal, Decimal]]
+    checksum: str | None = None
+    source: str | None = None
+
+
+class OrderBookDeltaEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime
+    first_update_id: int | None = None
+    final_update_id: int | None = None
+    bids: list[tuple[Decimal, Decimal]] = Field(default_factory=list)
+    asks: list[tuple[Decimal, Decimal]] = Field(default_factory=list)
+    checksum: str | None = None
+    source: str | None = None
+
+
+class MarkPriceEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
+    mark_price: Decimal
+    funding_basis_bps: Decimal | None = None
+
+
+class IndexPriceEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
+    index_price: Decimal
+
+
+class LiquidationEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime
+    side: str | None = None
+    price: Decimal | None = None
+    qty: Decimal | None = None
+    notional: Decimal | None = None
+    source: str | None = None
+    metadata_json: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias="metadata",
+        serialization_alias="metadata_json",
+    )
+
+
+class RawMarketEvent(BaseContractModel):
+    exchange_code: str
+    unified_symbol: str | None = None
+    channel: str
+    event_type: str | None = None
+    event_time: datetime | None = None
+    ingest_time: datetime
+    source_message_id: str | None = None
+    payload_json: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias="raw_payload",
+        serialization_alias="payload_json",
+    )

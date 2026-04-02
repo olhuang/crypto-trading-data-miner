@@ -49,8 +49,8 @@ This repository is no longer just an early scaffold. It now contains a fairly co
 The repository is currently:
 - strong in product, data, system, UI, and architecture planning
 - implemented through Phase 1 database bootstrap and seed verification
-- started on Phase 2 backend foundation with working models, storage, validation/store service, and minimal models API
-- ready to continue from foundation work into systematic Phase 2 and Phase 3 implementation
+- implemented through the full planned Phase 2 backend foundation, including models, repositories, validation/store service, automated tests, and a minimal models API
+- ready to continue into systematic Phase 3 ingestion implementation
 
 Major design areas already covered include:
 - product requirements
@@ -69,12 +69,13 @@ Major design areas already covered include:
 
 Major implementation areas now present include:
 - Phase 1 schema bootstrap, seed, and verification flow
-- canonical market and execution models under `src/models/`
-- DB connection and lookup helpers under `src/storage/`
-- repositories for reference, market, and execution persistence paths
+- canonical market, strategy, execution, and risk models under `src/models/`
+- DB connection, retry, and lookup helpers under `src/storage/`
+- repositories for reference, market, execution, risk, and ops persistence paths
 - smoke-test scripts for Phase 2 persistence flow
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/payload-types`, `/api/v1/models/validate`, and `/api/v1/models/validate-and-store`
 - minimal auth handling for the current models API slice
+- automated tests for the current Phase 2 model/storage/API foundation
 
 Current auth behavior for the implemented API slice:
 - `GET /api/v1/system/health` is public
@@ -241,9 +242,9 @@ The recommended first frontend slice is:
 
 ### If starting implementation now
 Recommended backend-first sequence:
-1. extend Phase 2 coverage beyond the current foundation slice
-2. implement Phase 3 ingestion skeleton
-3. add tests around the current models/storage/API foundation
+1. implement the Phase 3 ingestion skeleton
+2. add instrument sync and bar backfill
+3. extend ingestion coverage to live trades, mark/index, and raw event capture
 
 Recommended frontend-first sequence:
 1. build first frontend foundation slice
