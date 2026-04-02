@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, ValidationError
 from fastapi.responses import JSONResponse
 
+from config import settings
 from services.validate_and_store import (
     UnsupportedPayloadTypeError,
     supported_payload_types,
@@ -24,6 +25,13 @@ class ApiRequestModel(BaseModel):
 class ValidatePayloadRequest(ApiRequestModel):
     payload_type: str
     payload: dict[str, Any]
+
+
+class CurrentActor(BaseModel):
+    user_id: str
+    user_name: str
+    role: str
+    auth_mode: str
 
 
 class SuccessEnvelope(BaseModel):
@@ -47,6 +55,73 @@ def _meta() -> dict[str, Any]:
     }
 
 
+def _actor_meta(actor: CurrentActor | None) -> dict[str, Any]:
+    if actor is None:
+        return {}
+    return {"current_actor": actor.model_dump()}
+
+
+def resolve_current_actor(authorization: str | None = None) -> CurrentActor:
+    if not authorization:
+        if settings.app_env == "local" and settings.enable_local_auth_bypass:
+            return CurrentActor(
+                user_id=settings.local_auth_user_id,
+                user_name=settings.local_auth_user_name,
+                role=settings.local_auth_role,
+                auth_mode="local_bypass",
+            )
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "UNAUTHORIZED", "message": "missing Authorization header", "details": {}},
+        )
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "UNAUTHORIZED", "message": "Authorization header must use Bearer token", "details": {}},
+        )
+
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "UNAUTHORIZED", "message": "bearer token is empty", "details": {}},
+        )
+
+    token_parts = token.split(":", 2)
+    role = "operator"
+    user_id = "token-user"
+    user_name = "Bearer User"
+    if len(token_parts) >= 1 and token_parts[0]:
+        role = token_parts[0]
+    if len(token_parts) >= 2 and token_parts[1]:
+        user_id = token_parts[1]
+        user_name = token_parts[1]
+    if len(token_parts) == 3 and token_parts[2]:
+        user_name = token_parts[2]
+
+    return CurrentActor(
+        user_id=user_id,
+        user_name=user_name,
+        role=role,
+        auth_mode="bearer",
+    )
+
+
+def require_actor(
+    authorization: str | None = None,
+    *,
+    allowed_roles: set[str] | None = None,
+) -> CurrentActor:
+    actor = resolve_current_actor(authorization)
+    if allowed_roles is not None and actor.role not in allowed_roles:
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "FORBIDDEN", "message": "actor role does not allow this action", "details": {}},
+        )
+    return actor
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Crypto Trading Data Miner API", version="0.1.0")
 
@@ -63,14 +138,21 @@ def create_app() -> FastAPI:
         )
 
     @app.get("/api/v1/models/payload-types")
-    def model_payload_types() -> SuccessEnvelope:
+    def model_payload_types(
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
         return SuccessEnvelope(
             data={"payload_types": supported_payload_types()},
-            meta=_meta(),
+            meta={**_meta(), **_actor_meta(actor)},
         )
 
     @app.post("/api/v1/models/validate")
-    def model_validate(request: ValidatePayloadRequest) -> SuccessEnvelope:
+    def model_validate(
+        request: ValidatePayloadRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
         try:
             model_name, normalized_payload = validate_payload(request.payload_type, request.payload)
         except UnsupportedPayloadTypeError as exc:
@@ -92,11 +174,15 @@ def create_app() -> FastAPI:
                 "normalized_payload": normalized_payload,
                 "validation_errors": [],
             },
-            meta=_meta(),
+            meta={**_meta(), **_actor_meta(actor)},
         )
 
     @app.post("/api/v1/models/validate-and-store")
-    def model_validate_and_store(request: ValidatePayloadRequest) -> SuccessEnvelope:
+    def model_validate_and_store(
+        request: ValidatePayloadRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
         try:
             with transaction_scope() as connection:
                 result = validate_and_store(connection, request.payload_type, request.payload)
@@ -122,7 +208,7 @@ def create_app() -> FastAPI:
                 "normalized_payload": result.normalized_payload,
                 "duplicate_handled": True,
             },
-            meta=_meta(),
+            meta={**_meta(), **_actor_meta(actor)},
         )
 
     @app.exception_handler(HTTPException)

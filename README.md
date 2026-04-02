@@ -74,6 +74,16 @@ Major implementation areas now present include:
 - repositories for reference, market, and execution persistence paths
 - smoke-test scripts for Phase 2 persistence flow
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/payload-types`, `/api/v1/models/validate`, and `/api/v1/models/validate-and-store`
+- minimal auth handling for the current models API slice
+
+Current auth behavior for the implemented API slice:
+- `GET /api/v1/system/health` is public
+- `/api/v1/models/*` allows local bypass only when `APP_ENV=local` and `ENABLE_LOCAL_AUTH_BYPASS=true`
+- outside local bypass mode, `/api/v1/models/*` expects `Authorization: Bearer <token>`
+- the current placeholder bearer parser supports `Bearer <role>:<user_id>[:<user_name>]` for early local/shared testing
+
+Auth reference:
+- `docs/minimal-auth-contract.md`
 
 ---
 

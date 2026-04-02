@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     app_env: str = "local"
     log_level: str = "INFO"
     app_debug: bool = False
+    enable_local_auth_bypass: bool = True
+    local_auth_user_id: str = "local-dev"
+    local_auth_user_name: str = "Local Developer"
+    local_auth_role: str = "admin"
     database_url: str | None = None
     redis_url: str | None = None
 

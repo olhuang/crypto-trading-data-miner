@@ -979,6 +979,12 @@ Recommended future modes:
 - local developer auth bypass in dev
 - session or token auth in shared environments
 
+Current implementation status:
+- `GET /api/v1/system/health` is public
+- current `/api/v1/models/*` endpoints use the minimal auth contract
+- in `APP_ENV=local` with `ENABLE_LOCAL_AUTH_BYPASS=true`, protected routes may use local bypass
+- in non-local environments, protected routes expect `Authorization: Bearer <token>`
+
 ### 4.2 Authorization
 Recommended future role scopes:
 - developer

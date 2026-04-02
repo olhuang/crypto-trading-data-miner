@@ -199,6 +199,7 @@ Turn documented contracts into validated code and a consistent database access l
 
 ### Recommended Status
 - started with working foundation slice for models, storage, validate-and-store service, smoke scripts, and minimal models API
+- minimal auth contract implemented for the current models API slice
 
 ---
 

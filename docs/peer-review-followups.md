@@ -99,21 +99,18 @@ Continue treating required/null alignment as an active review item for any newly
 
 ## 2.3 Minimal Authentication Contract
 
-### Problem
-The repository has auth direction, but not yet a concrete minimal implementation contract for the first API wave.
+### Status
+Resolved for the initial Phase 2 models API slice.
 
-### Why This Must Be Fixed Early
-Even if local development allows bypass, implementation still needs a stable rule for:
-- how authenticated requests will look
-- how local bypass is enabled
-- how later tests/shared environments will evolve
+The repository now has:
+- a dedicated `docs/minimal-auth-contract.md`
+- environment-driven local bypass behavior
+- a fixed `Authorization: Bearer <token>` header convention for non-local requests
+- current-actor resolution and role checks in the implemented models API
+- automated tests covering local bypass, bearer auth, 401 behavior, and 403 behavior
 
-### Required Action
-Define a minimal auth contract covering:
-- local development auth bypass behavior
-- default auth header convention for non-local environments
-- placeholder actor identity propagation for user-triggered actions
-- how protected routes determine current user role
+### Ongoing Rule
+Keep using one consistent auth middleware/dependency pattern for future protected routes, and keep the current actor shape stable unless the auth contract is intentionally revised.
 
 ### Acceptance Criteria
 - backend API implementation can apply one consistent auth middleware strategy

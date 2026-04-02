@@ -13,7 +13,8 @@ if str(SRC_ROOT) not in sys.path:
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
 
-from api.app import ValidatePayloadRequest, create_app
+from config import settings
+from api.app import ValidatePayloadRequest, create_app, require_actor, resolve_current_actor
 
 
 def _resolve_route(app, path: str, method: str):
@@ -24,6 +25,14 @@ def _resolve_route(app, path: str, method: str):
 
 
 class ModelsApiTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.original_app_env = settings.app_env
+        self.original_bypass = settings.enable_local_auth_bypass
+
+    def tearDown(self) -> None:
+        settings.app_env = self.original_app_env
+        settings.enable_local_auth_bypass = self.original_bypass
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = create_app()
@@ -45,6 +54,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(response.success)
         self.assertIn("trade_event", response.data["payload_types"])
         self.assertIn("order_request", response.data["payload_types"])
+        self.assertEqual(response.meta["current_actor"]["auth_mode"], "local_bypass")
 
     def test_validate_endpoint_normalizes_payload(self) -> None:
         request = ValidatePayloadRequest(
@@ -67,6 +77,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(response.data["valid"])
         self.assertEqual(response.data["model_name"], "TradeEvent")
         self.assertEqual(response.data["normalized_payload"]["payload_json"], {"source": "api_validate"})
+        self.assertEqual(response.meta["current_actor"]["role"], "admin")
 
     def test_validate_endpoint_rejects_invalid_payload(self) -> None:
         request = ValidatePayloadRequest(
@@ -114,6 +125,47 @@ class ModelsApiTests(unittest.TestCase):
             response.data["record_locator"],
             f"binance:BTCUSDT_PERP:{trade_id}",
         )
+
+    def test_non_local_requests_require_authorization_header(self) -> None:
+        settings.app_env = "staging"
+        settings.enable_local_auth_bypass = False
+
+        with self.assertRaises(HTTPException) as exc:
+            self.__class__.payload_types_endpoint()
+
+        self.assertEqual(exc.exception.status_code, 401)
+        self.assertEqual(exc.exception.detail["code"], "UNAUTHORIZED")
+
+    def test_bearer_token_allows_protected_route_with_developer_role(self) -> None:
+        settings.app_env = "staging"
+        settings.enable_local_auth_bypass = False
+
+        response = self.__class__.payload_types_endpoint("Bearer developer:u_123:Alice")
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.meta["current_actor"]["auth_mode"], "bearer")
+        self.assertEqual(response.meta["current_actor"]["role"], "developer")
+        self.assertEqual(response.meta["current_actor"]["user_id"], "u_123")
+
+    def test_operator_role_is_forbidden_for_models_route(self) -> None:
+        settings.app_env = "staging"
+        settings.enable_local_auth_bypass = False
+
+        with self.assertRaises(HTTPException) as exc:
+            self.__class__.payload_types_endpoint("Bearer operator:u_456:Bob")
+
+        self.assertEqual(exc.exception.status_code, 403)
+        self.assertEqual(exc.exception.detail["code"], "FORBIDDEN")
+
+    def test_auth_helpers_resolve_local_and_bearer_modes(self) -> None:
+        settings.app_env = "local"
+        settings.enable_local_auth_bypass = True
+        local_actor = resolve_current_actor()
+        self.assertEqual(local_actor.auth_mode, "local_bypass")
+
+        bearer_actor = require_actor("Bearer admin:u_999:Root", allowed_roles={"admin"})
+        self.assertEqual(bearer_actor.auth_mode, "bearer")
+        self.assertEqual(bearer_actor.role, "admin")
 
 
 if __name__ == "__main__":

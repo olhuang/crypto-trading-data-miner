@@ -31,6 +31,22 @@ It does not yet define:
 - refresh token lifecycle
 - external identity provider integration
 
+## 1.1 Current Implementation Status
+
+The current repository implements this contract for the initial models API slice:
+- local bypass support driven by environment settings
+- bearer-header parsing for protected routes
+- current-actor resolution with `user_id`, `user_name`, `role`, and `auth_mode`
+- role checks for the current `/api/v1/models/*` endpoints
+
+Current protected endpoints:
+- `GET /api/v1/models/payload-types`
+- `POST /api/v1/models/validate`
+- `POST /api/v1/models/validate-and-store`
+
+Current public endpoint:
+- `GET /api/v1/system/health`
+
 ---
 
 ## 2. Local Development Rule
@@ -87,6 +103,20 @@ But the API contract exposed to clients is the same:
 - backend resolves current actor identity and role
 
 This means frontend work and API tests do not need to wait for final identity backend selection.
+
+### 4.1 Current Placeholder Bearer Parsing
+
+For the current minimal implementation, bearer tokens may use a simple placeholder form for local/shared testing:
+
+```http
+Authorization: Bearer <role>:<user_id>[:<user_name>]
+```
+
+Examples:
+- `Authorization: Bearer developer:u_123`
+- `Authorization: Bearer admin:u_999:Alice`
+
+If the token does not follow that structured form, the current implementation may still resolve a default bearer actor. This placeholder parsing rule is for initial implementation convenience and can later be replaced without changing the header convention itself.
 
 ---
 
