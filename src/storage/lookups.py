@@ -33,6 +33,15 @@ def resolve_asset_id(connection: Connection, asset_code: str) -> int:
     )
 
 
+def resolve_account_id(connection: Connection, account_code: str) -> int:
+    return _scalar_one_or_raise(
+        connection,
+        "select account_id from execution.accounts where account_code = :account_code",
+        {"account_code": account_code},
+        error=f"unknown account_code: {account_code}",
+    )
+
+
 def resolve_instrument_id(connection: Connection, exchange_code: str, unified_symbol: str) -> int:
     return _scalar_one_or_raise(
         connection,
