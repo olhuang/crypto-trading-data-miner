@@ -75,6 +75,7 @@ Major implementation areas now present include:
 - repositories for reference, market, execution, risk, and ops persistence paths
 - smoke-test scripts for Phase 2 persistence flow
 - Binance public ingestion foundation under `src/ingestion/`, `src/jobs/`, and `src/runtime/`
+- historical funding/OI/mark/index window support through the current market-snapshot refresh path
 - Phase 4 quality jobs under `src/jobs/data_quality.py`
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/quality/*`, `/api/v1/market/*`, `/api/v1/streams/*`, and `/api/v1/replay/readiness`
 - minimal auth handling for the current models API slice

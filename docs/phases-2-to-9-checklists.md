@@ -290,11 +290,13 @@ Start collecting usable market data from the first exchange into the database.
 - [x] fetch open interest data
 - [x] persist to `md.funding_rates` and `md.open_interest`
 - [x] schedule periodic refresh job
+- [x] support historical open-interest windows for backfill-style runs
 
 ### Acceptance Checks
 - [x] funding rates are persisted successfully
 - [x] open interest is persisted successfully
 - [x] periodic jobs can run without manual SQL
+- [x] historical open-interest windows can be persisted through the existing refresh job
 
 ---
 
@@ -304,11 +306,13 @@ Start collecting usable market data from the first exchange into the database.
 - [x] subscribe or poll index price data
 - [x] normalize to canonical models
 - [x] persist to `md.mark_prices` and `md.index_prices`
+- [x] support historical mark/index windows for backfill-style runs
 
 ### Acceptance Checks
 - [x] mark price data is stored continuously or on refresh
 - [x] index price data is stored continuously or on refresh
 - [x] instrument mapping resolves correctly
+- [x] historical mark/index windows can be persisted through the existing refresh job
 
 ---
 
@@ -344,6 +348,7 @@ Start collecting usable market data from the first exchange into the database.
 - [x] runtime trade-stream processing exists under `src/runtime/`
 - [x] `/api/v1/ingestion/jobs/*`, `/api/v1/market/*`, and `/api/v1/streams/*` foundation endpoints now exist in the minimal API slice
 - [x] ingestion job detail now exposes summary/diff metadata for instrument sync
+- [x] market snapshot refresh now supports historical funding/OI/mark/index windows for the current Binance slice
 - [x] automated tests cover instrument sync, bar backfill, funding/open-interest refresh, trade stream processing, and scheduler planning
 
 ## Phase 3 Final Acceptance Summary

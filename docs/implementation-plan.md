@@ -33,6 +33,7 @@ The repository already has a strong design foundation and is now design-complete
 - initial Phase 3 Binance public ingestion foundation in `src/ingestion/`, `src/jobs/`, and `src/runtime/`
 - Phase 3 ingestion and market-query API endpoints in `src/api/`
 - automated tests for the Phase 3 instrument sync, bar backfill, funding/open-interest refresh, and trade-stream slice
+- historical funding/open-interest/mark/index windows are now supported through the current market-snapshot refresh path
 - Phase 4 data-quality jobs for gap, freshness, and duplicate checks in `src/jobs/data_quality.py`
 - Phase 4 quality, raw-event traceability, and replay-readiness API endpoints in `src/api/`
 - replay and hot-retention baseline documented in `docs/replay-retention-policy.md`
@@ -256,6 +257,7 @@ Start collecting usable exchange market data into the database.
 - system can backfill historical bars into `md.bars_1m`
 - system can ingest live trades from websocket into `md.trades`
 - funding and open interest can be periodically refreshed
+- funding, open interest, mark prices, and index prices can also be backfilled for bounded historical windows through the existing refresh job
 - ingestion failures and gaps are recorded in ops tables
 
 ### Dependencies

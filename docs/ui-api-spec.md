@@ -522,6 +522,15 @@ Purpose:
 Implementation note:
 - implemented in `src/api/app.py`
 
+### POST `/api/v1/ingestion/jobs/market-snapshot-refresh`
+Purpose:
+- refresh or backfill funding, open interest, mark prices, and index prices for one symbol
+
+Implementation note:
+- implemented in `src/api/app.py`
+- current request supports `funding_start_time` / `funding_end_time`
+- current request also supports `history_start_time` / `history_end_time` for bounded open-interest and mark/index history windows
+
 ### GET `/api/v1/market/liquidations`
 Purpose:
 - query liquidation events

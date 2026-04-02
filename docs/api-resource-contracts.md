@@ -389,6 +389,9 @@ Used by:
 }
 ```
 
+Current implementation note:
+- `POST /api/v1/ingestion/jobs/market-snapshot-refresh` now supports bounded history windows for funding, open interest, mark prices, and index prices via the existing job path
+
 ---
 
 ## 7. Phase 4 Quality Summary Resource

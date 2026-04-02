@@ -121,6 +121,22 @@ class Phase3IngestionTests(unittest.TestCase):
             )
         if url.endswith("/fapi/v1/openInterest"):
             return JsonHttpResponse(200, {"symbol": "BTCUSDT", "openInterest": "18542.991"})
+        if url.endswith("/futures/data/openInterestHist"):
+            return JsonHttpResponse(
+                200,
+                [
+                    {
+                        "symbol": "BTCUSDT",
+                        "sumOpenInterest": "18540.000",
+                        "timestamp": 1712061000000,
+                    },
+                    {
+                        "symbol": "BTCUSDT",
+                        "sumOpenInterest": "18542.991",
+                        "timestamp": 1712061300000,
+                    },
+                ],
+            )
         if url.endswith("/fapi/v1/premiumIndex"):
             return JsonHttpResponse(
                 200,
@@ -130,6 +146,54 @@ class Phase3IngestionTests(unittest.TestCase):
                     "indexPrice": "84240.01",
                     "time": 1712061242000,
                 },
+            )
+        if url.endswith("/fapi/v1/markPriceKlines"):
+            return JsonHttpResponse(
+                200,
+                [
+                    [
+                        1712061000000,
+                        "84200.00",
+                        "84210.00",
+                        "84190.00",
+                        "84205.50",
+                        "0",
+                        1712061059999,
+                    ],
+                    [
+                        1712061300000,
+                        "84240.00",
+                        "84250.00",
+                        "84230.00",
+                        "84244.18",
+                        "0",
+                        1712061359999,
+                    ],
+                ],
+            )
+        if url.endswith("/fapi/v1/indexPriceKlines"):
+            return JsonHttpResponse(
+                200,
+                [
+                    [
+                        1712061000000,
+                        "84195.00",
+                        "84205.00",
+                        "84185.00",
+                        "84201.25",
+                        "0",
+                        1712061059999,
+                    ],
+                    [
+                        1712061300000,
+                        "84235.00",
+                        "84245.00",
+                        "84225.00",
+                        "84240.01",
+                        "0",
+                        1712061359999,
+                    ],
+                ],
             )
         raise AssertionError(f"unexpected url: {url} params={params}")
 
@@ -164,6 +228,7 @@ class Phase3IngestionTests(unittest.TestCase):
         )
         self.assertEqual(refresh_result.status, "succeeded")
         self.assertEqual(refresh_result.records_written, 4)
+        self.assertEqual(refresh_result.history_rows_written, 3)
 
         with connection_scope() as connection:
             btcusdc_spot = connection.exec_driver_sql(
@@ -243,6 +308,59 @@ class Phase3IngestionTests(unittest.TestCase):
             sync_job = IngestionJobRepository().get_job(connection, sync_result.ingestion_job_id)
             self.assertEqual(sync_job["status"], "succeeded")
             self.assertIn("diffs", sync_job["metadata_json"])
+
+    def test_market_snapshot_refresh_supports_historical_oi_mark_and_index_windows(self) -> None:
+        client = self._client()
+        result = run_market_snapshot_refresh(
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            client=client,
+            requested_by="test-user",
+            funding_start_time=datetime(2026, 4, 2, 8, 0, tzinfo=timezone.utc),
+            funding_end_time=datetime(2026, 4, 2, 8, 1, tzinfo=timezone.utc),
+            history_start_time=datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc),
+            history_end_time=datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(result.status, "succeeded")
+        self.assertEqual(result.records_written, 7)
+        self.assertEqual(result.history_rows_written, 6)
+
+        with connection_scope() as connection:
+            oi_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.open_interest oi
+                join ref.instruments instrument on instrument.instrument_id = oi.instrument_id
+                where instrument.unified_symbol = %s
+                  and oi.ts in (%s, %s)
+                """,
+                ("BTCUSDT_PERP", datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc), datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)),
+            ).scalar_one()
+            mark_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.mark_prices price
+                join ref.instruments instrument on instrument.instrument_id = price.instrument_id
+                where instrument.unified_symbol = %s
+                  and price.ts in (%s, %s)
+                """,
+                ("BTCUSDT_PERP", datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc), datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)),
+            ).scalar_one()
+            index_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.index_prices price
+                join ref.instruments instrument on instrument.instrument_id = price.instrument_id
+                where instrument.unified_symbol = %s
+                  and price.ts in (%s, %s)
+                """,
+                ("BTCUSDT_PERP", datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc), datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)),
+            ).scalar_one()
+
+        self.assertEqual(oi_count, 2)
+        self.assertEqual(mark_count, 2)
+        self.assertEqual(index_count, 2)
 
     def test_trade_stream_processor_persists_trade_raw_mark_and_liquidation_events(self) -> None:
         processor = BinanceTradeStreamProcessor()

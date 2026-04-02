@@ -94,8 +94,62 @@ class BinancePublicRestClient:
     def fetch_open_interest(self, symbol: str) -> dict[str, Any]:
         return self.http.get_json(f"{self.futures_base_url}/fapi/v1/openInterest", {"symbol": symbol})
 
+    def fetch_open_interest_history(
+        self,
+        symbol: str,
+        *,
+        period: str = "5m",
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        params = {
+            "symbol": symbol,
+            "period": period,
+            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+            "limit": limit,
+        }
+        return list(self.http.get_json(f"{self.futures_base_url}/futures/data/openInterestHist", params))
+
     def fetch_premium_index(self, symbol: str) -> dict[str, Any]:
         return self.http.get_json(f"{self.futures_base_url}/fapi/v1/premiumIndex", {"symbol": symbol})
+
+    def fetch_mark_price_klines(
+        self,
+        symbol: str,
+        *,
+        interval: str = "1m",
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[list[Any]]:
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+            "limit": limit,
+        }
+        return list(self.http.get_json(f"{self.futures_base_url}/fapi/v1/markPriceKlines", params))
+
+    def fetch_index_price_klines(
+        self,
+        symbol: str,
+        *,
+        interval: str = "1m",
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[list[Any]]:
+        params = {
+            "symbol": symbol,
+            "interval": interval,
+            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+            "limit": limit,
+        }
+        return list(self.http.get_json(f"{self.futures_base_url}/fapi/v1/indexPriceKlines", params))
 
     def normalize_spot_instruments(self, payload: dict[str, Any]) -> list[InstrumentMetadata]:
         instruments: list[InstrumentMetadata] = []
@@ -225,6 +279,26 @@ class BinancePublicRestClient:
             payload_json=payload,
         )
 
+    def normalize_open_interest_history(
+        self,
+        symbol: str,
+        rows: Iterable[dict[str, Any]],
+        *,
+        unified_symbol: str | None = None,
+    ) -> list[OpenInterestEvent]:
+        normalized_symbol = unified_symbol or f"{symbol}_PERP"
+        return [
+            OpenInterestEvent(
+                exchange_code="binance",
+                unified_symbol=normalized_symbol,
+                event_time=_utc_from_millis(row["timestamp"]),
+                ingest_time=datetime.now(timezone.utc),
+                open_interest=Decimal(str(row["sumOpenInterest"])),
+                payload_json=row,
+            )
+            for row in rows
+        ]
+
     def normalize_premium_index(
         self,
         symbol: str,
@@ -261,3 +335,46 @@ class BinancePublicRestClient:
                 payload_json=payload,
             ),
         )
+
+    def normalize_mark_price_klines(
+        self,
+        symbol: str,
+        rows: Iterable[list[Any]],
+        *,
+        unified_symbol: str | None = None,
+    ) -> list[MarkPriceEvent]:
+        normalized_symbol = unified_symbol or f"{symbol}_PERP"
+        events: list[MarkPriceEvent] = []
+        for row in rows:
+            events.append(
+                MarkPriceEvent(
+                    exchange_code="binance",
+                    unified_symbol=normalized_symbol,
+                    event_time=_utc_from_millis(row[0]),
+                    ingest_time=datetime.now(timezone.utc),
+                    mark_price=Decimal(str(row[4])),
+                    funding_basis_bps=None,
+                    payload_json={"mark_price_kline": row},
+                )
+            )
+        return events
+
+    def normalize_index_price_klines(
+        self,
+        symbol: str,
+        rows: Iterable[list[Any]],
+        *,
+        unified_symbol: str | None = None,
+    ) -> list[IndexPriceEvent]:
+        normalized_symbol = unified_symbol or f"{symbol}_PERP"
+        return [
+            IndexPriceEvent(
+                exchange_code="binance",
+                unified_symbol=normalized_symbol,
+                event_time=_utc_from_millis(row[0]),
+                ingest_time=datetime.now(timezone.utc),
+                index_price=Decimal(str(row[4])),
+                payload_json={"index_price_kline": row},
+            )
+            for row in rows
+        ]

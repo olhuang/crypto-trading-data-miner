@@ -52,6 +52,10 @@ class MarketSnapshotRefreshRequest(ApiRequestModel):
     unified_symbol: str
     funding_start_time: datetime | None = None
     funding_end_time: datetime | None = None
+    history_start_time: datetime | None = None
+    history_end_time: datetime | None = None
+    open_interest_period: str = "5m"
+    price_interval: str = "1m"
 
 
 class Phase4QualityRunRequest(ApiRequestModel):
@@ -406,6 +410,10 @@ def create_app() -> FastAPI:
             requested_by=actor.user_id,
             funding_start_time=request.funding_start_time,
             funding_end_time=request.funding_end_time,
+            history_start_time=request.history_start_time,
+            history_end_time=request.history_end_time,
+            open_interest_period=request.open_interest_period,
+            price_interval=request.price_interval,
         )
         return SuccessEnvelope[JobActionResource](
             data=JobActionResource(job_id=result.ingestion_job_id, status=result.status),
