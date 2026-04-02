@@ -75,22 +75,21 @@ Keep enforcing one consistent rule for JSON-bearing fields across:
 
 ## 2.2 Required vs Nullable Contract Alignment
 
-### Problem
-Some fields are documented as required in contracts but nullable in schema, or vice versa.
+### Status
+Resolved for the currently implemented Phase 2 market and execution contract slice.
 
-### Why This Must Be Fixed Early
-Phase 2 model validation and repository behavior depends on understanding whether a field is:
-- always required
-- optional in some lifecycle state
-- nullable only for technical reasons
+The active implementation now makes the early contract rules explicit in code, including:
+- required market `ingest_time` fields for the implemented bar, trade, and open-interest payloads
+- canonical `event_time` usage for the implemented open-interest contract
+- conditional order lifecycle requirements such as `ack_time`, `reject_reason`, and `cancel_time`
+- priced-order and `post_only` validation rules for implemented order payloads
 
-### Required Action
-- review active Phase 2/3 entities field by field
-- classify each mismatch as one of:
-  - schema should become non-null
-  - contract should become optional
-  - field is conditionally required by lifecycle state
-- document conditional-required behavior explicitly where needed
+### Ongoing Rule
+Continue treating required/null alignment as an active review item for any newly implemented contract set, especially:
+- strategy models
+- risk models
+- later ingestion-only market payloads that are not yet coded
+- schema areas where NULL is allowed for storage flexibility but contract behavior is lifecycle-dependent
 
 ### Acceptance Criteria
 - the first implemented model set has no unresolved required/null ambiguity

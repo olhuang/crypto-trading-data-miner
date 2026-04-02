@@ -161,7 +161,7 @@ class OpenInterestRepository:
             ),
             {
                 "instrument_id": instrument_id,
-                "ts": event.ts,
+                "ts": event.event_time,
                 "open_interest": event.open_interest,
             },
         )

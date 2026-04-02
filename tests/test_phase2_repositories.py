@@ -36,6 +36,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
         bar_event = BarEvent(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
+            ingest_time=datetime(2026, 4, 2, 12, 35, 0, 100000, tzinfo=timezone.utc),
             bar_interval="1m",
             bar_time=bar_time,
             open=Decimal("84210.10"),

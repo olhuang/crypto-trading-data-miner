@@ -9,6 +9,7 @@ from pydantic import Field, model_validator
 from .common import (
     BaseContractModel,
     Environment,
+    ExecutionInstruction,
     LiquidityFlag,
     OrderSide,
     OrderStatus,
@@ -29,6 +30,7 @@ class OrderRequest(BaseContractModel):
     side: OrderSide
     order_type: OrderType
     time_in_force: TimeInForce | None = None
+    execution_instructions: list[ExecutionInstruction] = Field(default_factory=list)
     price: Decimal | None = None
     qty: Decimal
     metadata_json: dict[str, Any] = Field(
@@ -47,6 +49,8 @@ class OrderRequest(BaseContractModel):
         }
         if self.order_type in priced_order_types and self.price is None:
             raise ValueError("price is required for priced order types")
+        if ExecutionInstruction.POST_ONLY in self.execution_instructions and self.order_type != OrderType.LIMIT:
+            raise ValueError("post_only execution instruction requires limit order_type")
         return self
 
 
@@ -64,6 +68,7 @@ class OrderState(BaseContractModel):
     side: OrderSide
     order_type: OrderType
     time_in_force: TimeInForce | None = None
+    execution_instructions: list[ExecutionInstruction] = Field(default_factory=list)
     price: Decimal | None = None
     qty: Decimal
     status: OrderStatus
@@ -77,6 +82,26 @@ class OrderState(BaseContractModel):
         validation_alias="metadata",
         serialization_alias="metadata_json",
     )
+
+    @model_validator(mode="after")
+    def validate_lifecycle_rules(self) -> "OrderState":
+        priced_order_types = {
+            OrderType.LIMIT,
+            OrderType.POST_ONLY,
+            OrderType.STOP,
+            OrderType.TAKE_PROFIT,
+        }
+        if self.order_type in priced_order_types and self.price is None:
+            raise ValueError("price is required for priced order types")
+        if ExecutionInstruction.POST_ONLY in self.execution_instructions and self.order_type != OrderType.LIMIT:
+            raise ValueError("post_only execution instruction requires limit order_type")
+        if self.status == OrderStatus.ACKNOWLEDGED and self.ack_time is None:
+            raise ValueError("ack_time is required when status is acknowledged")
+        if self.status == OrderStatus.REJECTED and not self.reject_reason:
+            raise ValueError("reject_reason is required when status is rejected")
+        if self.status == OrderStatus.CANCELED and self.cancel_time is None:
+            raise ValueError("cancel_time is required when status is canceled")
+        return self
 
 
 class OrderEvent(BaseContractModel):

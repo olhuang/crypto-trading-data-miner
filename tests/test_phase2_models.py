@@ -13,8 +13,8 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from models.execution import OrderEvent, OrderRequest
-from models.market import InstrumentMetadata, TradeEvent
+from models.execution import OrderEvent, OrderRequest, OrderState
+from models.market import InstrumentMetadata, OpenInterestEvent, TradeEvent
 
 
 class Phase2ModelValidationTests(unittest.TestCase):
@@ -68,6 +68,54 @@ class Phase2ModelValidationTests(unittest.TestCase):
                     "qty": "0.5",
                 }
             )
+
+    def test_order_request_post_only_requires_limit(self) -> None:
+        with self.assertRaises(ValidationError):
+            OrderRequest.model_validate(
+                {
+                    "environment": "paper",
+                    "account_code": "paper_main",
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "client_order_id": "ord_post_only_market",
+                    "side": "buy",
+                    "order_type": "market",
+                    "execution_instructions": ["post_only"],
+                    "qty": "0.5",
+                }
+            )
+
+    def test_order_state_requires_ack_time_for_acknowledged(self) -> None:
+        with self.assertRaises(ValidationError):
+            OrderState.model_validate(
+                {
+                    "order_id": "1002",
+                    "environment": "live",
+                    "account_code": "binance_live_01",
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "side": "buy",
+                    "order_type": "limit",
+                    "price": "84240.00",
+                    "qty": "0.5",
+                    "status": "acknowledged",
+                }
+            )
+
+    def test_open_interest_uses_event_time_canonically_and_accepts_ts_alias(self) -> None:
+        model = OpenInterestEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "ts": "2026-04-02T12:34:00Z",
+                "ingest_time": "2026-04-02T12:34:01Z",
+                "open_interest": "18542.991",
+            }
+        )
+
+        dumped = model.model_dump(mode="json", by_alias=True)
+        self.assertEqual(dumped["event_time"], "2026-04-02T12:34:00Z")
+        self.assertNotIn("ts", dumped)
 
     def test_spot_instrument_rejects_contract_size(self) -> None:
         with self.assertRaises(ValidationError):

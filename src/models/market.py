@@ -39,6 +39,7 @@ class InstrumentMetadata(BaseContractModel):
 
 
 class BarEvent(MarketEventBase):
+    ingest_time: datetime
     bar_interval: str
     bar_time: datetime
     open: Decimal
@@ -52,6 +53,7 @@ class BarEvent(MarketEventBase):
 
 
 class TradeEvent(MarketEventBase):
+    ingest_time: datetime
     exchange_trade_id: str
     event_time: datetime
     price: Decimal
@@ -67,5 +69,6 @@ class FundingRateEvent(MarketEventBase):
 
 
 class OpenInterestEvent(MarketEventBase):
-    ts: datetime
+    ingest_time: datetime
+    event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
     open_interest: Decimal

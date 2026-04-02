@@ -41,6 +41,12 @@ class TimeInForce(StrEnum):
     POST_ONLY = "post_only"
 
 
+class ExecutionInstruction(StrEnum):
+    POST_ONLY = "post_only"
+    REDUCE_ONLY = "reduce_only"
+    CLOSE_POSITION = "close_position"
+
+
 class OrderStatus(StrEnum):
     NEW = "new"
     SUBMITTED = "submitted"

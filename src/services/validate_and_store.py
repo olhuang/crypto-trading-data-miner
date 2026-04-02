@@ -117,7 +117,7 @@ def _store_open_interest(connection, payload: dict[str, Any]) -> ValidateAndStor
         payload_type="open_interest",
         model_name=model_name,
         stored=True,
-        record_locator=f"{model.exchange_code}:{model.unified_symbol}:{model.ts.isoformat()}",
+        record_locator=f"{model.exchange_code}:{model.unified_symbol}:{model.event_time.isoformat()}",
         normalized_payload=normalized_payload,
     )
 
