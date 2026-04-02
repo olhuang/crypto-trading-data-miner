@@ -1,0 +1,247 @@
+# API Resource Contracts
+
+## Purpose
+
+This document defines canonical resource and response models for early API endpoints whose routes already exist but whose response resources need clearer implementation-level definitions.
+
+This spec is focused on the first implementation wave and Phase 2/3 cleanup.
+
+It complements:
+- `docs/ui-api-spec.md`
+- `docs/api-contracts.md`
+- `docs/contract-naming-conventions.md`
+- `docs/peer-review-followups.md`
+
+---
+
+## 1. General Rules
+
+All resources in this document assume:
+- snake_case fields
+- UTC ISO-8601 timestamps
+- standard response envelope from `docs/ui-api-spec.md`
+- `status` as the normalized lifecycle/status field where relevant
+
+---
+
+## 2. Bootstrap Verification Result Resource
+
+Used by:
+- `GET /api/v1/bootstrap/verification-runs/{verification_run_id}`
+
+## 2.1 Resource Shape
+
+```json
+{
+  "verification_run_id": "verify_001",
+  "status": "succeeded",
+  "schemas_ok": true,
+  "exchanges_ok": true,
+  "assets_ok": true,
+  "instruments_ok": true,
+  "fee_schedules_ok": true,
+  "duplicate_checks_ok": true,
+  "started_at": "2026-04-02T12:00:00Z",
+  "finished_at": "2026-04-02T12:00:03Z",
+  "failures": [],
+  "summary": {
+    "checks_total": 6,
+    "checks_passed": 6,
+    "checks_failed": 0
+  }
+}
+```
+
+## 2.2 Failure Item Shape
+
+```json
+{
+  "check_name": "assets",
+  "status": "failed",
+  "message": "expected asset USDC not found",
+  "detail_json": {}
+}
+```
+
+---
+
+## 3. Strategy Version Resource
+
+Used by:
+- `GET /api/v1/strategy-versions`
+- `GET /api/v1/strategy-versions/{strategy_version_id}`
+
+## 3.1 Resource Shape
+
+```json
+{
+  "strategy_version_id": 101,
+  "strategy_id": 10,
+  "strategy_code": "btc_momentum",
+  "strategy_name": "BTC Momentum",
+  "strategy_version": "v1.0.0",
+  "is_active": true,
+  "created_at": "2026-04-02T12:00:00Z",
+  "config_snapshot_json": {},
+  "description": "first production candidate"
+}
+```
+
+## 3.2 List Response Expectation
+
+List endpoints should return an array of strategy version resources plus pagination metadata where applicable.
+
+---
+
+## 4. Backtest Run Timeseries Resource
+
+Used by:
+- `GET /api/v1/backtests/runs/{run_id}/timeseries`
+
+## 4.1 Response Shape
+
+```json
+{
+  "run_id": 5001,
+  "series": [
+    {
+      "ts": "2026-01-01T00:00:00Z",
+      "equity": "100000.00",
+      "cash": "100000.00",
+      "gross_exposure": "0.00",
+      "net_exposure": "0.00",
+      "drawdown": "0.00"
+    }
+  ]
+}
+```
+
+## 4.2 Notes
+
+- `series` is ordered by ascending timestamp
+- numeric values may be returned as strings for exact decimal handling
+- this resource is time-series output, not a raw DB table dump
+
+---
+
+## 5. Mismatch Review Result Resource
+
+Used by:
+- `POST /api/v1/reconciliation/mismatches/{mismatch_id}/review`
+
+## 5.1 Response Shape
+
+```json
+{
+  "mismatch_id": 9001,
+  "status": "reviewed",
+  "reviewed_by": "u_123",
+  "reviewed_at": "2026-04-02T12:00:00Z",
+  "review_note": "confirmed exchange-side lag",
+  "resolution_status": "unresolved"
+}
+```
+
+## 5.2 Semantic Rule
+
+For early implementation:
+- `reviewed` does not automatically mean repaired or resolved
+- review and resolution are distinct concepts unless a later spec merges them explicitly
+
+---
+
+## 6. Instrument Sync Job Detail Resource
+
+Used by:
+- future `GET /api/v1/ingestion/jobs/{job_id}` or equivalent job-detail endpoint
+
+## 6.1 Resource Shape
+
+```json
+{
+  "job_id": "job_123",
+  "job_type": "instrument_sync",
+  "status": "succeeded",
+  "exchange_code": "binance",
+  "requested_by": "u_123",
+  "started_at": "2026-04-02T12:00:00Z",
+  "finished_at": "2026-04-02T12:00:03Z",
+  "summary": {
+    "instruments_seen": 450,
+    "instruments_inserted": 2,
+    "instruments_updated": 4,
+    "instruments_unchanged": 444
+  },
+  "diffs": [
+    {
+      "unified_symbol": "BTCUSDT_PERP",
+      "change_type": "updated",
+      "field_diffs": [
+        {
+          "field_name": "tick_size",
+          "old_value": "0.10",
+          "new_value": "0.01"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## 7. Paper Risk Limits Resource (Optional Early Addition)
+
+If Phase 6 UI exposes configured risk limits explicitly, use:
+
+```json
+{
+  "account_code": "paper_main",
+  "environment": "local",
+  "limits": [
+    {
+      "instrument_type": "perp",
+      "max_position_qty": "1.0",
+      "max_notional_usd": "10000",
+      "max_leverage": "3"
+    }
+  ]
+}
+```
+
+This resource is optional for Phase 2/3 but should be canonical once introduced.
+
+---
+
+## 8. Signal Resource Clarification
+
+For:
+- `GET /api/v1/backtests/runs/{run_id}/signals`
+
+Rule:
+- signal resources may be returned even if signals are not yet permanently stored as first-class DB entities in all environments
+- this endpoint may be served from persisted records or deterministic run outputs depending on phase implementation
+
+This endpoint is valid as an API contract even if storage strategy evolves.
+
+---
+
+## 9. Minimum Acceptance Criteria
+
+This resource-contract set is sufficiently useful when:
+- early implemented endpoints have concrete response shapes
+- frontend does not need to invent ad hoc resource models
+- backend services can map domain outputs into stable response objects
+
+---
+
+## 10. Final Summary
+
+This document provides the missing concrete resource shapes for the earliest route-level API gaps, especially:
+- bootstrap verification result
+- strategy version
+- backtest timeseries
+- mismatch review result
+- instrument sync job detail
+
+This should reduce backend/frontend drift before implementation begins.
