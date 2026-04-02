@@ -47,7 +47,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 ### Tasks
 - [x] create `src/models/__init__.py`
 - [x] create `src/models/market.py`
-- [ ] create `src/models/strategy.py`
+- [x] create `src/models/strategy.py`
 - [x] create `src/models/execution.py`
 - [ ] create `src/models/risk.py`
 - [x] create shared type/util module if needed
@@ -95,8 +95,8 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 
 ## Task 2.4: Implement strategy and execution models
 ### Tasks
-- [ ] implement signal model
-- [ ] implement target position model
+- [x] implement signal model
+- [x] implement target position model
 - [x] implement order request model
 - [x] implement order state model
 - [x] implement order event model
@@ -184,6 +184,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] typed response/resource models exist for the current implemented API endpoints
 - [x] starter strategy/version/account seed defaults exist for later phase handoff needs
 - [x] lookup helpers now resolve strategy/version/account identifiers for the current seed-backed workflow
+- [x] strategy signal and target-position models now exist for the current Phase 2 contract slice
 - [ ] remaining models, repositories, and tests are still required before full Phase 2 acceptance
 
 ## Phase 2 Final Acceptance Summary

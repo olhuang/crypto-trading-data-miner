@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from models.execution import OrderEvent, OrderRequest, OrderState
 from models.market import InstrumentMetadata, OpenInterestEvent, TradeEvent
+from models.strategy import Signal, TargetPosition
 
 
 class Phase2ModelValidationTests(unittest.TestCase):
@@ -116,6 +117,66 @@ class Phase2ModelValidationTests(unittest.TestCase):
         dumped = model.model_dump(mode="json", by_alias=True)
         self.assertEqual(dumped["event_time"], "2026-04-02T12:34:00Z")
         self.assertNotIn("ts", dumped)
+
+    def test_signal_requires_target_for_tradable_signal_types(self) -> None:
+        with self.assertRaises(ValidationError):
+            Signal.model_validate(
+                {
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "signal_id": "sig_missing_target",
+                    "signal_time": "2026-04-02T12:34:00Z",
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "signal_type": "entry",
+                    "direction": "long",
+                }
+            )
+
+    def test_signal_exit_allows_flat_direction_and_metadata_alias(self) -> None:
+        signal = Signal.model_validate(
+            {
+                "strategy_code": "btc_momentum",
+                "strategy_version": "v1.0.0",
+                "signal_id": "sig_exit_001",
+                "signal_time": "2026-04-02T12:34:00Z",
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "signal_type": "exit",
+                "direction": "flat",
+                "metadata": {"reason": "risk_off"},
+            }
+        )
+
+        self.assertEqual(signal.metadata_json["reason"], "risk_off")
+        self.assertEqual(signal.model_dump(mode="json", by_alias=True)["metadata_json"], {"reason": "risk_off"})
+
+    def test_target_position_requires_at_least_one_position_item(self) -> None:
+        with self.assertRaises(ValidationError):
+            TargetPosition.model_validate(
+                {
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "target_time": "2026-04-02T12:35:00Z",
+                    "positions": [],
+                }
+            )
+
+    def test_target_position_item_requires_some_target_value(self) -> None:
+        with self.assertRaises(ValidationError):
+            TargetPosition.model_validate(
+                {
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "target_time": "2026-04-02T12:35:00Z",
+                    "positions": [
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                        }
+                    ],
+                }
+            )
 
     def test_spot_instrument_rejects_contract_size(self) -> None:
         with self.assertRaises(ValidationError):

@@ -202,6 +202,7 @@ Turn documented contracts into validated code and a consistent database access l
 - started with working foundation slice for models, storage, validate-and-store service, smoke scripts, and minimal models API
 - minimal auth contract implemented for the current models API slice
 - canonical response/resource models documented for the current implemented API slice
+- initial strategy models now exist for signal and target-position contracts
 
 ---
 
