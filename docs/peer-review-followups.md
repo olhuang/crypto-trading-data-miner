@@ -44,24 +44,28 @@ These items should be addressed before implementation proceeds through the first
 
 ## 2.1 Schema / Contract Naming Alignment
 
-### Problem
-Several payload and schema field names are inconsistent across docs and DB naming conventions.
+### Status
+Resolved for the active Phase 2 contract set.
 
-Examples called out in review:
+The review correctly identified earlier naming drift such as:
 - `raw_payload` vs `payload_json`
 - `detail` vs `detail_json`
 
-### Why This Must Be Fixed Early
-If naming remains inconsistent, the project will accumulate unnecessary translation logic across:
+The repository now has:
+- locked naming rules in `docs/contract-naming-conventions.md`
+- active canonical examples in `docs/api-contracts.md` using `payload_json` / `detail_json`
+- Phase 2 implementation code that prefers the `*_json` names
+
+### Ongoing Rule
+Keep enforcing one consistent rule for JSON-bearing fields across:
 - models
 - repositories
 - APIs
 - UI payload handling
 
-### Required Action
-- define canonical naming conventions for JSON payload fields
-- update contract docs to align with implemented schema naming where appropriate
-- prefer one consistent rule for JSON-bearing fields, likely `*_json` when the DB field uses that convention
+### Maintenance Action
+- keep new contracts and resource docs aligned to `payload_json` / `detail_json`
+- avoid reintroducing `raw_payload` or plain `detail` as canonical JSON blob names in new active specs
 
 ### Acceptance Criteria
 - no unresolved `raw_payload` / `payload_json` naming split remains in active contracts

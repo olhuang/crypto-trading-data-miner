@@ -21,6 +21,21 @@ This document should be read together with:
 
 ---
 
+## Canonical JSON Blob Naming
+
+Use these field names consistently in active canonical contracts:
+- `payload_json` for raw or semi-raw source payload blobs
+- `detail_json` for structured detail or reason metadata blobs
+- `metadata_json` for structured contextual metadata that is not the primary raw payload
+
+Avoid introducing parallel names such as:
+- `raw_payload`
+- `detail`
+
+Compatibility aliases may still exist in implementation code when needed, but the canonical contract names in this document should remain the `*_json` forms.
+
+---
+
 ## Common Enums
 
 ### Environment
@@ -715,7 +730,7 @@ Required:
 
 ### Exchange Adapter Responsibilities
 1. Translate exchange-native payloads into these canonical contracts.
-2. Preserve native identifiers and raw payloads whenever possible.
+2. Preserve native identifiers and raw payloads whenever possible, using `payload_json` as the canonical blob field name when retained.
 3. Attach `ingest_time` as close to receipt time as possible.
 4. Reject or quarantine malformed payloads rather than silently dropping fields.
 
