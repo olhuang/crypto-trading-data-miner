@@ -166,7 +166,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] add tests for payload validation
 - [x] add tests for idempotent inserts/upserts
 - [x] add tests for instrument resolution
-- [ ] add tests for duplicate fill handling
+- [x] add tests for duplicate fill handling
 
 ### Acceptance Checks
 - [x] model tests pass locally

@@ -240,6 +240,81 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             self.assertGreater(order_event_id, 0)
             self.assertGreater(fill_id, 0)
 
+    def test_duplicate_fill_handling_is_idempotent_for_same_order_and_exchange_trade_id(self) -> None:
+        run_id = uuid4().hex[:10]
+        account_code = f"phase2_fill_dedup_{run_id}"
+        client_order_id = f"phase2_fill_order_{run_id}"
+        fill_trade_id = f"phase2_fill_trade_{run_id}"
+
+        account = AccountRecord(
+            account_code=account_code,
+            exchange_code="binance",
+            account_type="paper",
+            base_currency="USDT",
+        )
+        order_request = OrderRequest(
+            environment="paper",
+            account_code=account_code,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            client_order_id=client_order_id,
+            side="buy",
+            order_type="limit",
+            time_in_force="gtc",
+            price=Decimal("84240.00"),
+            qty=Decimal("0.5000"),
+            metadata={"source": "fill_dedup_test"},
+        )
+        first_fill = Fill(
+            order_id="0",
+            exchange_trade_id=fill_trade_id,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            fill_time=datetime(2026, 4, 2, 12, 34, 2, 120000, tzinfo=timezone.utc),
+            price=Decimal("84240.00"),
+            qty=Decimal("0.2500"),
+            notional=Decimal("21060.00"),
+            fee=Decimal("4.2120"),
+            fee_asset="USDT",
+            liquidity_flag="maker",
+        )
+        updated_fill = first_fill.model_copy(
+            update={
+                "qty": Decimal("0.3000"),
+                "notional": Decimal("25272.00"),
+            }
+        )
+
+        with transaction_scope() as connection:
+            account_repo = AccountRepository()
+            order_repo = OrderRepository()
+            fill_repo = FillRepository()
+
+            account_repo.upsert(connection, account)
+            order_id = order_repo.create_from_request(connection, order_request)
+
+            first_fill.order_id = str(order_id)
+            updated_fill.order_id = str(order_id)
+
+            first_fill_id = fill_repo.insert(connection, first_fill)
+            second_fill_id = fill_repo.insert(connection, updated_fill)
+
+        with connection_scope() as connection:
+            row = connection.exec_driver_sql(
+                """
+                select count(*), max(qty), max(notional)
+                from execution.fills
+                where order_id = %s
+                  and exchange_trade_id = %s
+                """,
+                (order_id, fill_trade_id),
+            ).first()
+
+            self.assertEqual(first_fill_id, second_fill_id)
+            self.assertEqual(row[0], 1)
+            self.assertEqual(row[1], Decimal("0.300000000000"))
+            self.assertEqual(row[2], Decimal("25272.000000000000"))
+
 
 if __name__ == "__main__":
     unittest.main()

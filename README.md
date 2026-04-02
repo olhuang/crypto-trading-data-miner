@@ -164,6 +164,7 @@ Relevant files:
 - `db/init/002_extend_market_and_audit.sql`
 - `db/init/003_extend_audit_treasury_latency.sql`
 - `db/init/004_seed.sql`
+- `db/init/005_execution_fill_dedup.sql`
 - `docs/database-bootstrap.md`
 - `db/verify/phase_1_verification.sql`
 - `scripts/verify_phase1.sh`

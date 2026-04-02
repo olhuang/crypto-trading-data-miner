@@ -242,6 +242,55 @@ class FillRepository:
     def insert(self, connection: Connection, fill: Fill) -> int:
         instrument_id = resolve_instrument_id(connection, fill.exchange_code, fill.unified_symbol)
         fee_asset_id = resolve_asset_id(connection, fill.fee_asset) if fill.fee_asset else None
+
+        if fill.exchange_trade_id:
+            existing_fill_id = connection.execute(
+                text(
+                    """
+                    select fill_id
+                    from execution.fills
+                    where order_id = :order_id
+                      and exchange_trade_id = :exchange_trade_id
+                    order by fill_id desc
+                    limit 1
+                    """
+                ),
+                {
+                    "order_id": int(fill.order_id),
+                    "exchange_trade_id": fill.exchange_trade_id,
+                },
+            ).scalar_one_or_none()
+            if existing_fill_id is not None:
+                connection.execute(
+                    text(
+                        """
+                        update execution.fills
+                        set
+                            instrument_id = :instrument_id,
+                            fill_time = :fill_time,
+                            price = :price,
+                            qty = :qty,
+                            notional = :notional,
+                            fee = :fee,
+                            fee_asset_id = :fee_asset_id,
+                            liquidity_flag = :liquidity_flag
+                        where fill_id = :fill_id
+                        """
+                    ),
+                    {
+                        "fill_id": int(existing_fill_id),
+                        "instrument_id": instrument_id,
+                        "fill_time": fill.fill_time,
+                        "price": fill.price,
+                        "qty": fill.qty,
+                        "notional": fill.notional,
+                        "fee": fill.fee,
+                        "fee_asset_id": fee_asset_id,
+                        "liquidity_flag": fill.liquidity_flag,
+                    },
+                )
+                return int(existing_fill_id)
+
         return int(
             connection.execute(
                 text(

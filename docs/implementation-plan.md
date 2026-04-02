@@ -21,6 +21,7 @@ The repository already has a strong design foundation and is now design-complete
 - market microstructure and audit extensions in `db/init/002_extend_market_and_audit.sql`
 - treasury, deployment audit, financing, latency, and allocation extensions in `db/init/003_extend_audit_treasury_latency.sql`
 - initial reference-data seed in `db/init/004_seed.sql`
+- execution fill dedup bootstrap hardening in `db/init/005_execution_fill_dedup.sql`
 - local runtime scaffold with `docker-compose.yml`, `.env.example`, and minimal `src/` bootstrap
 - Phase 1 bootstrap verification artifacts and scripts
 - Phase 1 end-to-end verification against a clean bootstrap

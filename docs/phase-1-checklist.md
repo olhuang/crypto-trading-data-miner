@@ -296,7 +296,7 @@ Prove that an empty database can be initialized successfully using the current S
 ### Tasks
 - [x] reset local database to empty state
 - [x] re-run database bootstrap process
-- [x] confirm `001`, `002`, `003`, and `004` all apply successfully
+- [x] confirm the clean bootstrap sequence applies successfully through the current `db/init/*.sql` set
 - [x] confirm seeded rows exist immediately after init
 
 ### Output
