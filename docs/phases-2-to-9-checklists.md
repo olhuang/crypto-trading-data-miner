@@ -1,0 +1,1019 @@
+# Phases 2 to 9 Checklists
+
+## Purpose
+
+This document expands the implementation roadmap for all phases after Phase 1 into concrete execution checklists.
+
+Each phase includes:
+- goal
+- scope
+- deliverables
+- detailed task checklist
+- acceptance checks
+- handoff criteria to the next phase
+
+This file is intended to be used together with:
+- `docs/implementation-plan.md`
+- `docs/phase-1-checklist.md`
+- `docs/product-spec.md`
+- `docs/data-catalog.md`
+- `docs/data-catalog-addendum.md`
+- `docs/api-contracts.md`
+
+---
+
+# Phase 2: Domain Models and Storage Layer
+
+## Goal
+Turn the documented contracts into validated Python models and a reusable PostgreSQL storage layer.
+
+## Scope
+- Pydantic models for canonical payloads
+- DB connection management
+- repository layer for inserts, upserts, and reads
+- idempotent persistence patterns
+
+## Required Deliverables
+- `src/models/market.py`
+- `src/models/strategy.py`
+- `src/models/execution.py`
+- `src/models/risk.py`
+- `src/storage/db.py`
+- `src/storage/repositories/`
+
+## Task Checklist
+
+## Task 2.1: Create model package structure
+### Tasks
+- [ ] create `src/models/__init__.py`
+- [ ] create `src/models/market.py`
+- [ ] create `src/models/strategy.py`
+- [ ] create `src/models/execution.py`
+- [ ] create `src/models/risk.py`
+- [ ] create shared type/util module if needed
+
+### Acceptance Checks
+- [ ] all model modules import successfully
+- [ ] project has a clear model namespace for market, strategy, execution, and risk
+
+---
+
+## Task 2.2: Implement shared validation conventions
+### Tasks
+- [ ] define Decimal parsing policy for numeric strings
+- [ ] define timestamp parsing policy for UTC values
+- [ ] define common enum representations
+- [ ] define base model settings for strict validation where appropriate
+
+### Acceptance Checks
+- [ ] numeric string payloads validate consistently
+- [ ] malformed timestamps fail validation predictably
+- [ ] enums match `docs/api-contracts.md`
+
+---
+
+## Task 2.3: Implement market data models
+### Tasks
+- [ ] implement model for instrument metadata
+- [ ] implement model for bar event
+- [ ] implement model for trade event
+- [ ] implement model for funding rate event
+- [ ] implement model for open interest event
+- [ ] implement model for order book snapshot
+- [ ] implement model for order book delta
+- [ ] implement model for mark price
+- [ ] implement model for index price
+- [ ] implement model for liquidation event
+- [ ] implement model for raw market event
+
+### Acceptance Checks
+- [ ] all market payload examples from `docs/api-contracts.md` validate successfully
+- [ ] required fields are enforced
+- [ ] invalid payloads fail with understandable errors
+
+---
+
+## Task 2.4: Implement strategy and execution models
+### Tasks
+- [ ] implement signal model
+- [ ] implement target position model
+- [ ] implement order request model
+- [ ] implement order state model
+- [ ] implement order event model
+- [ ] implement fill model
+- [ ] implement position snapshot model
+- [ ] implement balance snapshot model
+- [ ] implement account ledger model
+- [ ] implement funding pnl model
+
+### Acceptance Checks
+- [ ] signal and execution payload examples validate successfully
+- [ ] order-type rules are enforced
+- [ ] required fields vary correctly by payload type
+
+---
+
+## Task 2.5: Implement DB connection layer
+### Tasks
+- [ ] create `src/storage/db.py`
+- [ ] add PostgreSQL connection builder using environment config
+- [ ] define transaction handling pattern
+- [ ] define retry/error handling policy for transient DB failures
+
+### Acceptance Checks
+- [ ] local app can open a PostgreSQL connection
+- [ ] connection settings are read from environment
+- [ ] DB helper can be reused by repositories
+
+---
+
+## Task 2.6: Implement repositories for reference and market data
+### Tasks
+- [ ] create repository for exchanges/assets/instruments
+- [ ] create repository for bars
+- [ ] create repository for trades
+- [ ] create repository for funding rates
+- [ ] create repository for open interest
+- [ ] create repository for mark/index prices
+- [ ] create repository for raw market events
+
+### Acceptance Checks
+- [ ] validated market models can be persisted through repositories
+- [ ] market repositories support idempotent writes where needed
+- [ ] reference repositories can resolve instrument ids from canonical keys
+
+---
+
+## Task 2.7: Implement repositories for execution and risk data
+### Tasks
+- [ ] create repository for orders
+- [ ] create repository for order events
+- [ ] create repository for fills
+- [ ] create repository for positions
+- [ ] create repository for balances
+- [ ] create repository for risk events
+- [ ] create repository for ops logs / ingestion metadata
+
+### Acceptance Checks
+- [ ] execution payloads can be persisted through repositories
+- [ ] order lifecycle data can be stored without manual SQL
+- [ ] repositories expose predictable interfaces for later phases
+
+---
+
+## Task 2.8: Add validation and repository tests
+### Tasks
+- [ ] add tests for payload validation
+- [ ] add tests for idempotent inserts/upserts
+- [ ] add tests for instrument resolution
+- [ ] add tests for duplicate fill handling
+
+### Acceptance Checks
+- [ ] model tests pass locally
+- [ ] repository tests pass against local PostgreSQL
+
+---
+
+## Phase 2 Final Acceptance Summary
+- [ ] canonical payloads validate through code
+- [ ] DB connection layer works locally
+- [ ] repositories exist for core entities
+- [ ] idempotent persistence patterns are implemented
+- [ ] model and repository tests pass
+
+## Handoff Criteria to Phase 3
+- [ ] public exchange adapter can use repositories without raw SQL
+- [ ] instrument resolution is available from code
+- [ ] canonical payloads can be validated before persistence
+
+---
+
+# Phase 3: Public Market Data Ingestion
+
+## Goal
+Start collecting usable market data from the first exchange into the database.
+
+## Scope
+- first public exchange adapter
+- historical backfill
+- real-time collection
+- ingestion monitoring
+
+## Required Deliverables
+- `src/ingestion/base.py`
+- `src/ingestion/binance/public_rest.py`
+- `src/ingestion/binance/public_ws.py`
+- `src/jobs/sync_instruments.py`
+- `src/jobs/backfill_bars.py`
+
+## Task Checklist
+
+## Task 3.1: Create ingestion package structure
+### Tasks
+- [ ] create `src/ingestion/__init__.py`
+- [ ] create `src/ingestion/base.py`
+- [ ] create `src/ingestion/binance/__init__.py`
+- [ ] create public REST and WS client modules
+- [ ] create `src/jobs/` package
+
+### Acceptance Checks
+- [ ] ingestion package imports cleanly
+- [ ] project has clear separation between REST and websocket ingestion
+
+---
+
+## Task 3.2: Implement instrument metadata sync
+### Tasks
+- [ ] fetch exchange instrument metadata from Binance public endpoint
+- [ ] normalize payload to canonical instrument model
+- [ ] map exchange symbols to `ref.instruments`
+- [ ] update trading rules when metadata changes
+- [ ] record sync job status in `ops.ingestion_jobs`
+
+### Acceptance Checks
+- [ ] instrument sync runs end-to-end
+- [ ] changed metadata can update or insert instruments safely
+- [ ] ingestion job status is persisted
+
+---
+
+## Task 3.3: Implement historical bar backfill
+### Tasks
+- [ ] fetch Binance kline history
+- [ ] normalize to canonical bar model
+- [ ] persist to `md.bars_1m`
+- [ ] support configurable symbol and time window
+- [ ] record row counts and status in `ops.ingestion_jobs`
+
+### Acceptance Checks
+- [ ] historical bars are backfilled into `md.bars_1m`
+- [ ] rerunning the same backfill does not create duplicate bars
+- [ ] failures and row counts are visible in ops tables
+
+---
+
+## Task 3.4: Implement live trade ingestion
+### Tasks
+- [ ] subscribe to Binance trade websocket stream
+- [ ] normalize trade payloads
+- [ ] persist to `md.trades`
+- [ ] preserve `event_time` and `ingest_time`
+- [ ] record websocket lifecycle into `ops.ws_connection_events`
+
+### Acceptance Checks
+- [ ] live trades are written continuously to `md.trades`
+- [ ] duplicate trade ids are not inserted
+- [ ] websocket connect/disconnect events are logged
+
+---
+
+## Task 3.5: Implement funding and open interest polling
+### Tasks
+- [ ] fetch funding history / latest funding data
+- [ ] normalize to canonical funding model
+- [ ] fetch open interest data
+- [ ] persist to `md.funding_rates` and `md.open_interest`
+- [ ] schedule periodic refresh job
+
+### Acceptance Checks
+- [ ] funding rates are persisted successfully
+- [ ] open interest is persisted successfully
+- [ ] periodic jobs can run without manual SQL
+
+---
+
+## Task 3.6: Implement mark/index price ingestion
+### Tasks
+- [ ] subscribe or poll mark price data
+- [ ] subscribe or poll index price data
+- [ ] normalize to canonical models
+- [ ] persist to `md.mark_prices` and `md.index_prices`
+
+### Acceptance Checks
+- [ ] mark price data is stored continuously or on refresh
+- [ ] index price data is stored continuously or on refresh
+- [ ] instrument mapping resolves correctly
+
+---
+
+## Task 3.7: Implement raw event capture
+### Tasks
+- [ ] persist raw websocket payloads to `md.raw_market_events`
+- [ ] tag payloads with channel and event type
+- [ ] preserve source message ids where available
+
+### Acceptance Checks
+- [ ] raw events can be traced to normalized market writes
+- [ ] ingestion debugging is possible from stored payloads
+
+---
+
+## Task 3.8: Add ingestion job and basic monitoring support
+### Tasks
+- [ ] insert job rows into `ops.ingestion_jobs`
+- [ ] update status on success/failure
+- [ ] log row counts and windows
+- [ ] add basic app logs to `ops.system_logs`
+
+### Acceptance Checks
+- [ ] each ingestion run leaves a job record
+- [ ] failed runs are visible in DB
+- [ ] successful runs include window and row count metadata
+
+---
+
+## Phase 3 Final Acceptance Summary
+- [ ] instrument sync works
+- [ ] bar backfill works
+- [ ] live trade ingestion works
+- [ ] funding and open interest work
+- [ ] mark/index ingestion works
+- [ ] raw event capture works
+- [ ] ingestion monitoring works
+
+## Handoff Criteria to Phase 4
+- [ ] market data is being persisted continuously enough to validate quality
+- [ ] raw and normalized data can be related
+- [ ] ops tables have enough metadata for data quality checks
+
+---
+
+# Phase 4: Market Data Quality and Replay Readiness
+
+## Goal
+Make the collected market data reliable enough for research, backtest, and replay-oriented debugging.
+
+## Scope
+- gap checks
+- freshness checks
+- duplicate checks
+- raw-to-normalized traceability
+- retention / replay readiness
+
+## Required Deliverables
+- quality validation jobs
+- data gap detection jobs
+- replay/readiness notes or utilities
+
+## Task Checklist
+
+## Task 4.1: Implement bar gap checks
+### Tasks
+- [ ] define expected bar cadence rules
+- [ ] detect missing 1m bars by instrument and interval
+- [ ] write results to `ops.data_gaps`
+- [ ] write summary checks to `ops.data_quality_checks`
+
+### Acceptance Checks
+- [ ] missing bar windows are detected automatically
+- [ ] detected gaps are persisted to ops tables
+
+---
+
+## Task 4.2: Implement freshness checks
+### Tasks
+- [ ] define freshness SLA for bars
+- [ ] define freshness SLA for trades
+- [ ] define freshness SLA for funding/open interest
+- [ ] record pass/fail results in `ops.data_quality_checks`
+
+### Acceptance Checks
+- [ ] stale data conditions can be detected and persisted
+- [ ] check severity is recorded in a structured form
+
+---
+
+## Task 4.3: Implement duplicate checks
+### Tasks
+- [ ] validate duplicate trade detection
+- [ ] validate duplicate bar detection
+- [ ] validate duplicate raw event detection where possible
+- [ ] persist findings to `ops.data_quality_checks`
+
+### Acceptance Checks
+- [ ] duplicate anomalies can be measured and reported
+- [ ] duplicate counts can be inspected after ingestion runs
+
+---
+
+## Task 4.4: Implement raw-to-normalized traceability
+### Tasks
+- [ ] define linking or matching strategy between raw events and normalized data
+- [ ] document how reprocessing should work
+- [ ] verify sample replay path for at least one data type
+
+### Acceptance Checks
+- [ ] a normalized record can be traced back to its raw source event or source message pattern
+- [ ] at least one reprocessing path is documented or demonstrated
+
+---
+
+## Task 4.5: Define retention and replay policy
+### Tasks
+- [ ] define retention policy for raw market events
+- [ ] define retention policy for order book deltas and snapshots
+- [ ] define minimum replay-ready datasets for future phases
+
+### Acceptance Checks
+- [ ] retention assumptions are documented
+- [ ] replay readiness expectations are documented
+
+---
+
+## Phase 4 Final Acceptance Summary
+- [ ] bar gaps are detectable
+- [ ] freshness checks exist
+- [ ] duplicate checks exist
+- [ ] raw and normalized data can be related
+- [ ] replay/retention policy is documented
+
+## Handoff Criteria to Phase 5
+- [ ] historical data quality is good enough to run first backtests
+- [ ] data issues are visible through ops tables before strategy logic is introduced
+
+---
+
+# Phase 5: Strategy Runner and Bars-Based Backtest
+
+## Goal
+Provide the first end-to-end research workflow using historical bar data.
+
+## Scope
+- strategy registration/loading
+- signal generation interface
+- bars-based execution model
+- fee and slippage model support
+- backtest persistence and reporting
+
+## Required Deliverables
+- `src/strategy/`
+- `src/backtest/`
+- simple strategy runner
+- results writer to `backtest.*`
+
+## Task Checklist
+
+## Task 5.1: Create strategy package structure
+### Tasks
+- [ ] create `src/strategy/__init__.py`
+- [ ] create strategy base interface
+- [ ] create simple example strategy implementation
+- [ ] define strategy loading or registration pattern
+
+### Acceptance Checks
+- [ ] strategy interface is clear and reusable
+- [ ] at least one example strategy can be instantiated from code
+
+---
+
+## Task 5.2: Implement signal generation loop
+### Tasks
+- [ ] load bar data from `md.bars_1m`
+- [ ] evaluate strategy over historical bars
+- [ ] emit canonical signals
+- [ ] optionally persist signals to `strategy.signals`
+
+### Acceptance Checks
+- [ ] backtest run can generate signals from historical bars
+- [ ] signals follow canonical payload structure
+
+---
+
+## Task 5.3: Implement bars-based fill model
+### Tasks
+- [ ] define order simulation logic for market orders
+- [ ] define order simulation logic for limit orders
+- [ ] implement fee model using `ref.fee_schedules`
+- [ ] implement slippage model abstraction
+
+### Acceptance Checks
+- [ ] simulated fills can be generated deterministically
+- [ ] fee and slippage are reflected in results
+
+---
+
+## Task 5.4: Implement portfolio/account state in backtest
+### Tasks
+- [ ] maintain cash state
+- [ ] maintain position state
+- [ ] maintain equity curve
+- [ ] calculate realized/unrealized PnL
+- [ ] calculate exposure series
+
+### Acceptance Checks
+- [ ] positions and cash evolve consistently across a run
+- [ ] equity curve is reproducible for the same inputs
+
+---
+
+## Task 5.5: Persist backtest outputs
+### Tasks
+- [ ] write run metadata to `backtest.runs`
+- [ ] write simulated orders to `backtest.simulated_orders`
+- [ ] write simulated fills to `backtest.simulated_fills`
+- [ ] write summary stats to `backtest.performance_summary`
+- [ ] write equity/exposure series to `backtest.performance_timeseries`
+
+### Acceptance Checks
+- [ ] all core backtest tables are populated after a run
+- [ ] run metadata contains assumptions and versions
+
+---
+
+## Task 5.6: Implement example report workflow
+### Tasks
+- [ ] compute total return
+- [ ] compute Sharpe and drawdown
+- [ ] compute turnover and fee costs
+- [ ] output a simple run summary to console or file
+
+### Acceptance Checks
+- [ ] at least one run produces interpretable performance output
+- [ ] performance summary matches timeseries-derived results
+
+---
+
+## Phase 5 Final Acceptance Summary
+- [ ] one strategy can run end-to-end on historical bars
+- [ ] signals are produced
+- [ ] simulated orders and fills are produced
+- [ ] run metadata and results persist to DB
+- [ ] core KPIs are computed
+
+## Handoff Criteria to Phase 6
+- [ ] research workflow exists from bars to persisted backtest results
+- [ ] execution and portfolio abstractions are stable enough for paper trading reuse
+
+---
+
+# Phase 6: Paper Trading Engine
+
+## Goal
+Run strategy logic continuously in simulated real time using live market data and execution logic.
+
+## Scope
+- runtime strategy loop
+- signal to order translation
+- simulated fill logic
+- position and balance maintenance
+- pre-trade risk checks
+
+## Required Deliverables
+- `src/execution/paper_executor.py`
+- runtime loop for paper trading
+- simulated execution path
+
+## Task Checklist
+
+## Task 6.1: Build runtime strategy loop
+### Tasks
+- [ ] define loop for loading latest market state
+- [ ] evaluate strategy on live/polled data
+- [ ] emit signals at configured cadence
+- [ ] support graceful stop/start behavior
+
+### Acceptance Checks
+- [ ] paper runtime can run continuously for a session
+- [ ] strategy loop produces signals in real time or near real time
+
+---
+
+## Task 6.2: Implement signal-to-order translation
+### Tasks
+- [ ] translate signal into order request
+- [ ] enforce instrument trading rules
+- [ ] assign canonical `client_order_id`
+- [ ] record initial order state
+
+### Acceptance Checks
+- [ ] orders are generated consistently from signals
+- [ ] invalid order requests are rejected before execution
+
+---
+
+## Task 6.3: Implement paper fill simulation
+### Tasks
+- [ ] simulate fills using latest market data
+- [ ] support basic market and limit order behavior
+- [ ] persist order events and fills
+- [ ] record fees and liquidity flags where modeled
+
+### Acceptance Checks
+- [ ] paper orders transition through lifecycle states
+- [ ] fills update order status correctly
+- [ ] fill outcomes are persisted
+
+---
+
+## Task 6.4: Maintain positions and balances
+### Tasks
+- [ ] update positions on fills
+- [ ] update balances on fills and fees
+- [ ] generate snapshots for positions and balances
+- [ ] record PnL evolution
+
+### Acceptance Checks
+- [ ] positions and balances remain internally consistent
+- [ ] snapshots can be inspected historically
+
+---
+
+## Task 6.5: Implement pre-trade risk checks
+### Tasks
+- [ ] load `risk.risk_limits`
+- [ ] validate order size and notional before simulated submission
+- [ ] record risk events on violations
+- [ ] prevent invalid orders from proceeding
+
+### Acceptance Checks
+- [ ] oversized or disallowed orders are blocked
+- [ ] blocked actions create `risk.risk_events`
+
+---
+
+## Task 6.6: Record timing and monitoring data
+### Tasks
+- [ ] capture signal time
+- [ ] capture simulated submit and fill timing
+- [ ] write `execution.execution_latency_metrics`
+- [ ] log paper runtime lifecycle events
+
+### Acceptance Checks
+- [ ] paper lifecycle timing can be analyzed after a run
+- [ ] runtime events are visible in logs and/or metrics
+
+---
+
+## Phase 6 Final Acceptance Summary
+- [ ] paper runtime loop works
+- [ ] signals become orders
+- [ ] orders become simulated fills
+- [ ] positions and balances update correctly
+- [ ] risk checks are enforced
+- [ ] timing metrics are recorded
+
+## Handoff Criteria to Phase 7
+- [ ] execution flow is stable enough to swap simulated routing for exchange routing
+- [ ] canonical order lifecycle is already proven in paper mode
+
+---
+
+# Phase 7: Private Exchange Adapter and Live Trading MVP
+
+## Goal
+Support the first real trading path on one exchange account.
+
+## Scope
+- authenticated private exchange adapter
+- real order submission and cancel
+- execution report ingestion
+- private account state sync
+
+## Required Deliverables
+- `src/exchange/`
+- `src/execution/live_executor.py`
+- authenticated REST and websocket clients
+
+## Task Checklist
+
+## Task 7.1: Implement authenticated REST client
+### Tasks
+- [ ] create exchange private REST client module
+- [ ] implement request signing/authentication
+- [ ] load credentials from environment securely
+- [ ] handle retries and error normalization
+
+### Acceptance Checks
+- [ ] authenticated API calls succeed in local testing
+- [ ] invalid credential paths fail safely
+
+---
+
+## Task 7.2: Implement order placement and cancel flow
+### Tasks
+- [ ] submit live order request to exchange
+- [ ] persist initial order state before or at submission
+- [ ] persist exchange ack and exchange order id
+- [ ] implement cancel path
+- [ ] normalize exchange errors into order events
+
+### Acceptance Checks
+- [ ] system can place an order on one live account
+- [ ] system can cancel an order on one live account
+- [ ] order states are persisted correctly
+
+---
+
+## Task 7.3: Implement private execution/fill ingestion
+### Tasks
+- [ ] subscribe to private execution or order update stream
+- [ ] normalize order updates to canonical order events
+- [ ] normalize fills to canonical fill model
+- [ ] persist order events and fills
+
+### Acceptance Checks
+- [ ] live order lifecycle transitions are persisted
+- [ ] exchange fills are captured without manual intervention
+
+---
+
+## Task 7.4: Implement private balance and position sync
+### Tasks
+- [ ] fetch or stream balances
+- [ ] fetch or stream positions
+- [ ] write snapshots to execution tables
+- [ ] reconcile state after fills or periodic sync
+
+### Acceptance Checks
+- [ ] balances can be retrieved and persisted
+- [ ] positions can be retrieved and persisted
+- [ ] live state reflects exchange state within acceptable lag
+
+---
+
+## Task 7.5: Record ledger, funding, and latency data
+### Tasks
+- [ ] fetch funding history where available
+- [ ] write `execution.funding_pnl`
+- [ ] fetch account history for ledger entries where available
+- [ ] record `execution.execution_latency_metrics`
+
+### Acceptance Checks
+- [ ] funding events can be stored for live account activity
+- [ ] at least baseline ledger records can be persisted
+- [ ] latency metrics are available for live orders
+
+---
+
+## Phase 7 Final Acceptance Summary
+- [ ] authenticated private adapter works
+- [ ] live order placement works
+- [ ] live cancel works
+- [ ] order events and fills persist correctly
+- [ ] positions and balances sync correctly
+- [ ] funding/ledger/latency baseline exists
+
+## Handoff Criteria to Phase 8
+- [ ] one live trading path is functional end to end
+- [ ] exchange state and DB state can now be compared for reconciliation
+
+---
+
+# Phase 8: Reconciliation, Treasury, and Operational Controls
+
+## Goal
+Make the live system auditable and safe enough for ongoing operation.
+
+## Scope
+- reconciliation jobs
+- treasury sync
+- deployment and config audit
+- exchange status awareness
+- operational controls
+
+## Required Deliverables
+- reconciliation jobs
+- treasury sync path
+- deployment audit path
+- operational visibility for exchange status and forced reduction events
+
+## Task Checklist
+
+## Task 8.1: Reconcile open orders and order states
+### Tasks
+- [ ] compare exchange open orders with DB orders
+- [ ] detect missing or stale order states
+- [ ] record reconciliation mismatches
+- [ ] define remediation workflow for mismatches
+
+### Acceptance Checks
+- [ ] order mismatches can be detected automatically
+- [ ] mismatches are recorded for review
+
+---
+
+## Task 8.2: Reconcile fills, balances, and ledger
+### Tasks
+- [ ] compare exchange fills to `execution.fills`
+- [ ] compare funding history to `execution.funding_pnl`
+- [ ] compare exchange account history to `execution.account_ledger`
+- [ ] define process for backfilling missed events
+
+### Acceptance Checks
+- [ ] fill and funding mismatches can be detected
+- [ ] ledger inconsistencies can be surfaced
+
+---
+
+## Task 8.3: Implement treasury movement sync
+### Tasks
+- [ ] fetch deposit history
+- [ ] fetch withdrawal history
+- [ ] normalize treasury events
+- [ ] persist to `execution.deposits_withdrawals`
+- [ ] preserve network and tx metadata where available
+
+### Acceptance Checks
+- [ ] deposits and withdrawals are queryable historically
+- [ ] treasury events include enough metadata for audit
+
+---
+
+## Task 8.4: Implement deployment and config audit flow
+### Tasks
+- [ ] write strategy deployment records into `strategy.deployments`
+- [ ] write parameter/config changes into `strategy.config_change_audit`
+- [ ] link deployments to strategy versions and environments
+
+### Acceptance Checks
+- [ ] deployments are historically traceable
+- [ ] config changes are historically traceable
+- [ ] performance regressions can be tied back to config/deployment history
+
+---
+
+## Task 8.5: Implement exchange status and forced reduction ingestion
+### Tasks
+- [ ] ingest exchange/system status changes
+- [ ] write `risk.exchange_status_events`
+- [ ] ingest forced reduction / ADL / exception position events where available
+- [ ] write `risk.forced_reduction_events`
+
+### Acceptance Checks
+- [ ] exchange pauses or maintenance can be represented in DB
+- [ ] forced reduction or exceptional position changes can be persisted
+
+---
+
+## Task 8.6: Define operational control workflow
+### Tasks
+- [ ] define manual stop/disable workflow for strategy runtime
+- [ ] define incident logging path
+- [ ] define basic runbook for mismatch handling
+
+### Acceptance Checks
+- [ ] operators have a documented workflow for critical incidents
+- [ ] runtime shutdown or trading halt process is documented
+
+---
+
+## Phase 8 Final Acceptance Summary
+- [ ] order reconciliation exists
+- [ ] fill/ledger/funding reconciliation exists
+- [ ] treasury sync exists
+- [ ] deployment/config audit exists
+- [ ] exchange status and forced reduction events exist
+- [ ] operational control workflow is documented
+
+## Handoff Criteria to Phase 9
+- [ ] the live system is operationally traceable enough to harden and scale
+- [ ] major production mismatches can be detected and reviewed
+
+---
+
+# Phase 9: Production Hardening and Scale Improvements
+
+## Goal
+Improve reliability, maintainability, and scalability once the end-to-end system works.
+
+## Scope
+- tests
+- CI
+- lint/format/type checking
+- alerts
+- retention policy
+- storage scaling
+
+## Required Deliverables
+- test suite
+- CI workflow
+- code quality pipeline
+- alerting baseline
+- data retention/scaling plan
+
+## Task Checklist
+
+## Task 9.1: Add unit and integration tests
+### Tasks
+- [ ] add model validation tests
+- [ ] add repository tests
+- [ ] add ingestion tests
+- [ ] add backtest tests
+- [ ] add paper execution tests
+- [ ] add selected live adapter integration tests or mocks
+
+### Acceptance Checks
+- [ ] core modules have automated test coverage
+- [ ] regression failures can be caught before merge
+
+---
+
+## Task 9.2: Add lint, formatting, and type checks
+### Tasks
+- [ ] add formatter configuration
+- [ ] add linter configuration
+- [ ] add type checker configuration
+- [ ] add commands to run them locally
+
+### Acceptance Checks
+- [ ] repository has a standard code quality toolchain
+- [ ] developers can run checks consistently before commits
+
+---
+
+## Task 9.3: Add CI workflow
+### Tasks
+- [ ] add GitHub workflow for tests
+- [ ] add GitHub workflow for lint/type checks
+- [ ] optionally add DB bootstrap smoke test
+
+### Acceptance Checks
+- [ ] pull requests are validated automatically
+- [ ] failures are visible before merge
+
+---
+
+## Task 9.4: Add alerting baseline
+### Tasks
+- [ ] define alerts for ingestion failures
+- [ ] define alerts for stale data
+- [ ] define alerts for failed live orders or reconciliation mismatches
+- [ ] document how alerts are routed
+
+### Acceptance Checks
+- [ ] critical operational failures have defined alert conditions
+- [ ] alert routing is documented
+
+---
+
+## Task 9.5: Define retention policy and archival strategy
+### Tasks
+- [ ] define retention for raw market events
+- [ ] define retention for order book deltas
+- [ ] define archival policy for large historical datasets
+- [ ] document cleanup/archival workflow
+
+### Acceptance Checks
+- [ ] retention policy is explicit
+- [ ] project has a strategy for preventing uncontrolled table growth
+
+---
+
+## Task 9.6: Evaluate high-volume data scaling path
+### Tasks
+- [ ] identify highest-volume tables
+- [ ] evaluate whether to keep them in PostgreSQL short term
+- [ ] evaluate splitting to ClickHouse or object storage
+- [ ] document recommended future architecture
+
+### Acceptance Checks
+- [ ] high-volume scaling decision is documented
+- [ ] repository has a clear plan for future storage evolution
+
+---
+
+## Phase 9 Final Acceptance Summary
+- [ ] automated tests exist
+- [ ] CI exists
+- [ ] lint/format/type checks exist
+- [ ] alerting baseline exists
+- [ ] retention policy exists
+- [ ] scaling path is documented
+
+## Project-Level Completion Criteria After Phase 9
+- [ ] DB initializes and seeds from scratch
+- [ ] market data ingestion works
+- [ ] data quality checks work
+- [ ] reproducible backtests work
+- [ ] paper trading works
+- [ ] first live trading path works
+- [ ] reconciliation and treasury tracking work
+- [ ] tests and CI protect ongoing development
+
+---
+
+# Suggested Execution Order Summary
+
+## Foundation
+- Phase 2
+- Phase 3
+
+## Research
+- Phase 4
+- Phase 5
+
+## Trading
+- Phase 6
+- Phase 7
+- Phase 8
+
+## Hardening
+- Phase 9
+
+---
+
+# Recommended Immediate Next Action
+
+After Phase 1 verification is complete:
+- begin Phase 2 Task 2.1 through Task 2.3 first
+- get canonical market models working before building additional ingestion code
