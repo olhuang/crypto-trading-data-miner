@@ -383,77 +383,86 @@ Make the collected market data reliable enough for research, backtest, and repla
 
 ## Task 4.1: Implement bar gap checks
 ### Tasks
-- [ ] define expected bar cadence rules
-- [ ] detect missing 1m bars by instrument and interval
-- [ ] write results to `ops.data_gaps`
-- [ ] write summary checks to `ops.data_quality_checks`
+- [x] define expected bar cadence rules
+- [x] detect missing 1m bars by instrument and interval
+- [x] write results to `ops.data_gaps`
+- [x] write summary checks to `ops.data_quality_checks`
 
 ### Acceptance Checks
-- [ ] missing bar windows are detected automatically
-- [ ] detected gaps are persisted to ops tables
+- [x] missing bar windows are detected automatically
+- [x] detected gaps are persisted to ops tables
 
 ---
 
 ## Task 4.2: Implement freshness checks
 ### Tasks
-- [ ] define freshness SLA for bars
-- [ ] define freshness SLA for trades
-- [ ] define freshness SLA for funding/open interest
-- [ ] record pass/fail results in `ops.data_quality_checks`
+- [x] define freshness SLA for bars
+- [x] define freshness SLA for trades
+- [x] define freshness SLA for funding/open interest
+- [x] record pass/fail results in `ops.data_quality_checks`
 
 ### Acceptance Checks
-- [ ] stale data conditions can be detected and persisted
-- [ ] check severity is recorded in a structured form
+- [x] stale data conditions can be detected and persisted
+- [x] check severity is recorded in a structured form
 
 ---
 
 ## Task 4.3: Implement duplicate checks
 ### Tasks
-- [ ] validate duplicate trade detection
-- [ ] validate duplicate bar detection
-- [ ] validate duplicate raw event detection where possible
-- [ ] persist findings to `ops.data_quality_checks`
+- [x] validate duplicate trade detection
+- [x] validate duplicate bar detection
+- [x] validate duplicate raw event detection where possible
+- [x] persist findings to `ops.data_quality_checks`
 
 ### Acceptance Checks
-- [ ] duplicate anomalies can be measured and reported
-- [ ] duplicate counts can be inspected after ingestion runs
+- [x] duplicate anomalies can be measured and reported
+- [x] duplicate counts can be inspected after ingestion runs
 
 ---
 
 ## Task 4.4: Implement raw-to-normalized traceability
 ### Tasks
-- [ ] define linking or matching strategy between raw events and normalized data
-- [ ] document how reprocessing should work
-- [ ] verify sample replay path for at least one data type
+- [x] define linking or matching strategy between raw events and normalized data
+- [x] document how reprocessing should work
+- [x] verify sample replay path for at least one data type
 
 ### Acceptance Checks
-- [ ] a normalized record can be traced back to its raw source event or source message pattern
-- [ ] at least one reprocessing path is documented or demonstrated
+- [x] a normalized record can be traced back to its raw source event or source message pattern
+- [x] at least one reprocessing path is documented or demonstrated
 
 ---
 
 ## Task 4.5: Define retention and replay policy
 ### Tasks
-- [ ] define retention policy for raw market events
-- [ ] define retention policy for order book deltas and snapshots
-- [ ] define minimum replay-ready datasets for future phases
+- [x] define retention policy for raw market events
+- [x] define retention policy for order book deltas and snapshots
+- [x] define minimum replay-ready datasets for future phases
 
 ### Acceptance Checks
-- [ ] retention assumptions are documented
-- [ ] replay readiness expectations are documented
+- [x] retention assumptions are documented
+- [x] replay readiness expectations are documented
 
 ---
 
+## Phase 4 Current Implementation Snapshot
+- [x] quality jobs exist for bar gaps, freshness checks, duplicate checks, and combined suite execution
+- [x] `ops.data_quality_checks` and `ops.data_gaps` now have repository support and API inspection endpoints
+- [x] `/api/v1/quality/*` endpoints now expose checks, summaries, gaps, and a direct quality-run trigger
+- [x] raw-event detail and normalized-link endpoints now support traceability debugging for the current Binance public-data slice
+- [x] replay-readiness summary is exposed at `/api/v1/replay/readiness`
+- [x] replay/retention policy is documented in `docs/replay-retention-policy.md`
+- [x] automated tests now cover Phase 4 jobs, traceability helpers, and API endpoints
+
 ## Phase 4 Final Acceptance Summary
-- [ ] bar gaps are detectable
-- [ ] freshness checks exist
-- [ ] duplicate checks exist
-- [ ] raw and normalized data can be related
-- [ ] replay/retention policy is documented
+- [x] bar gaps are detectable
+- [x] freshness checks exist
+- [x] duplicate checks exist
+- [x] raw and normalized data can be related
+- [x] replay/retention policy is documented
 
 ## Handoff Criteria to Phase 5
-- [ ] historical data quality is good enough to run first backtests
-- [ ] data issues are visible through ops tables before strategy logic is introduced
+- [x] historical data quality is good enough to run first backtests
+- [x] data issues are visible through ops tables before strategy logic is introduced
 
 ---
 
@@ -1039,6 +1048,6 @@ Improve reliability, maintainability, and scalability once the end-to-end system
 # Recommended Immediate Next Action
 
 Current recommended next action:
-- begin Phase 4 market-data quality and replay-readiness work
-- start with bar gap checks, freshness checks, and duplicate checks using the newly persisted market and ops data
-- then define raw-to-normalized traceability and replay/retention policy
+- begin Phase 5 strategy runner and bars-based backtest work
+- use the Phase 4 quality baseline to gate the first backtest datasets
+- keep quality and replay docs updated as Phase 5 starts consuming the ingested market data

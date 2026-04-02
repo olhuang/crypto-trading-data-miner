@@ -273,18 +273,19 @@ or
 
 ## 3.4 Numeric Data Quality Thresholds
 
-### Problem
-Data quality language exists, but not yet with explicit numbers for alerting/acceptance.
+### Status
+Resolved for the current Phase 4 baseline.
 
-### Why This Must Be Fixed Before Phase 5
-Backtesting should not proceed on data quality assumptions that are only qualitative.
+The repository now has explicit implemented thresholds in `src/jobs/data_quality.py`:
+- bars freshness SLA: 2 minutes
+- trades freshness SLA: 2 minutes
+- funding freshness SLA: 12 hours
+- open-interest freshness SLA: 10 minutes
+- duplicate checks emit pass/fail counts for bars, trades, and raw events
+- bar-gap checks emit expected vs observed counts plus persisted gap windows
 
-### Required Action
-Define numeric thresholds for at least:
-- acceptable bar gap rate
-- acceptable freshness lag by data type
-- duplicate rate tolerance
-- missing funding/OI tolerance where relevant
+### Current Rule
+These thresholds are the active baseline for current local development and early Phase 5 handoff.
 
 ### Acceptance Criteria
 - quality checks can produce pass/fail outcomes using numeric thresholds, not only descriptive wording

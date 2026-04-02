@@ -282,6 +282,7 @@ Primary docs:
 - `docs/job-orchestration-spec.md`
 - `docs/observability-spec.md`
 - `docs/data-storage-performance-spec.md`
+- `docs/replay-retention-policy.md`
 
 ## Phase 5: Strategy Runner and Bars-Based Backtest
 Primary docs:
@@ -426,6 +427,7 @@ Current implementation reality:
 - Phase 1 DB bootstrap, seed, and verification are complete
 - Phase 2 is complete for the planned model/storage layer, with working foundations in `src/models/`, `src/storage/`, `src/services/`, and `src/api/`
 - Phase 3 now has a working first Binance public-ingestion slice in `src/ingestion/`, `src/jobs/`, `src/runtime/`, and the minimal API
+- Phase 4 now has working data-quality jobs, raw-event traceability, replay-readiness policy, and supporting API endpoints
 - checklist docs should be treated as live implementation tracking and updated whenever a phase slice lands
 
 The simplest way to navigate it is:

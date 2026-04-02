@@ -78,6 +78,11 @@ The following resources are already implemented in the current Phase 2 API slice
 - `GET /api/v1/ingestion/jobs/{job_id}`
 - `GET /api/v1/market/*`
 - `GET /api/v1/streams/*`
+- `GET /api/v1/quality/*`
+- `POST /api/v1/quality/run`
+- `GET /api/v1/market/raw-events/{raw_event_id}`
+- `GET /api/v1/market/raw-events/{raw_event_id}/normalized-links`
+- `GET /api/v1/replay/readiness`
 
 ### 2.1 Meta Resource
 
@@ -386,7 +391,88 @@ Used by:
 
 ---
 
-## 7. Paper Risk Limits Resource (Optional Early Addition)
+## 7. Phase 4 Quality Summary Resource
+
+Used by:
+- implemented `GET /api/v1/quality/summary`
+
+```json
+{
+  "total_checks": 12,
+  "passed_checks": 8,
+  "failed_checks": 4,
+  "severe_checks": 2
+}
+```
+
+## 7.1 Raw Event Detail Resource
+
+Used by:
+- implemented `GET /api/v1/market/raw-events/{raw_event_id}`
+
+```json
+{
+  "raw_event_id": 501,
+  "exchange_code": "binance",
+  "unified_symbol": "BTCUSDT_PERP",
+  "channel": "btcusdt@trade",
+  "event_type": "trade",
+  "event_time": "2026-04-02T12:34:56Z",
+  "ingest_time": "2026-04-02T12:34:56.100Z",
+  "source_message_id": "123456789",
+  "payload_json": {}
+}
+```
+
+## 7.2 Normalized Links Resource
+
+Used by:
+- implemented `GET /api/v1/market/raw-events/{raw_event_id}/normalized-links`
+
+```json
+{
+  "raw_event_id": 501,
+  "links": [
+    {
+      "resource_type": "trade",
+      "record_locator": "trade_id:7001",
+      "match_strategy": "exchange_trade_id"
+    }
+  ]
+}
+```
+
+## 7.3 Replay Readiness Resource
+
+Used by:
+- implemented `GET /api/v1/replay/readiness`
+
+```json
+{
+  "raw_coverage_status": "ready",
+  "normalized_coverage_status": "ready",
+  "retained_streams": [
+    "btcusdt@forceOrder",
+    "btcusdt@markPrice",
+    "btcusdt@trade"
+  ],
+  "known_gaps": 0,
+  "retention_policy": {
+    "raw_market_events": "retain recent hot data in PostgreSQL, archive colder partitions later",
+    "orderbook_deltas": "retain only as long as replay and modeling needs justify",
+    "orderbook_snapshots": "retain managed recent coverage in PostgreSQL and archive older snapshots later"
+  },
+  "replay_ready_datasets": {
+    "trade_stream": true,
+    "mark_price_stream": true,
+    "liquidation_stream": true
+  }
+}
+```
+
+---
+
+## 8. Paper Risk Limits Resource (Optional Early Addition)
 
 If Phase 6 UI exposes configured risk limits explicitly, use:
 
@@ -409,7 +495,7 @@ This resource is optional for Phase 2/3 but should be canonical once introduced.
 
 ---
 
-## 8. Signal Resource Clarification
+## 9. Signal Resource Clarification
 
 For:
 - `GET /api/v1/backtests/runs/{run_id}/signals`
@@ -422,7 +508,7 @@ This endpoint is valid as an API contract even if storage strategy evolves.
 
 ---
 
-## 9. Minimum Acceptance Criteria
+## 10. Minimum Acceptance Criteria
 
 This resource-contract set is sufficiently useful when:
 - early implemented endpoints have concrete response shapes
@@ -431,7 +517,7 @@ This resource-contract set is sufficiently useful when:
 
 ---
 
-## 10. Final Summary
+## 11. Final Summary
 
 This document provides the missing concrete resource shapes for the earliest route-level API gaps, especially:
 - bootstrap verification result

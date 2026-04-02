@@ -51,6 +51,7 @@ The repository is currently:
 - implemented through Phase 1 database bootstrap and seed verification
 - implemented through the full planned Phase 2 backend foundation, including models, repositories, validation/store service, automated tests, and a minimal models API
 - implemented through the first planned Phase 3 Binance public-ingestion slice, including sync/backfill/refresh/stream processing and ingestion-focused API endpoints
+- implemented through the planned Phase 4 market-data quality and replay-readiness baseline, including quality jobs, traceability/replay helpers, and quality/replay API endpoints
 
 Major design areas already covered include:
 - product requirements
@@ -74,9 +75,11 @@ Major implementation areas now present include:
 - repositories for reference, market, execution, risk, and ops persistence paths
 - smoke-test scripts for Phase 2 persistence flow
 - Binance public ingestion foundation under `src/ingestion/`, `src/jobs/`, and `src/runtime/`
-- minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/market/*`, and `/api/v1/streams/*`
+- Phase 4 quality jobs under `src/jobs/data_quality.py`
+- minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/quality/*`, `/api/v1/market/*`, `/api/v1/streams/*`, and `/api/v1/replay/readiness`
 - minimal auth handling for the current models API slice
-- automated tests for the current Phase 2/Phase 3 model, storage, API, and ingestion foundation
+- replay/retention guidance in `docs/replay-retention-policy.md`
+- automated tests for the current Phase 2/Phase 3/Phase 4 model, storage, API, ingestion, and quality foundation
 
 Current auth behavior for the implemented API slice:
 - `GET /api/v1/system/health` is public
@@ -243,9 +246,9 @@ The recommended first frontend slice is:
 
 ### If starting implementation now
 Recommended backend-first sequence:
-1. implement Phase 4 data-quality checks
-2. add replay-readiness and raw-to-normalized traceability rules
-3. then begin Phase 5 strategy/backtest work on top of the ingested market data
+1. use the Phase 4 quality and replay APIs to validate current Binance data flows
+2. begin Phase 5 strategy/backtest work on top of the quality-gated market data
+3. keep checklist and replay docs in sync as the first backtest slice lands
 
 Recommended frontend-first sequence:
 1. build first frontend foundation slice

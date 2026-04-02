@@ -580,6 +580,10 @@ Query params:
 - `exchange_code`
 - `unified_symbol`
 
+### POST `/api/v1/quality/run`
+Purpose:
+- trigger the current quality-suite job for one symbol/window
+
 ### GET `/api/v1/quality/summary`
 Purpose:
 - return aggregated pass/fail counts for dashboard cards
@@ -616,12 +620,14 @@ Response fields:
 - normalized_coverage_status
 - retained_streams
 - known_gaps
+- retention_policy
+- replay_ready_datasets
 
 ## Phase 4 Acceptance via UI/API
-- [ ] UI can show aggregated quality results
-- [ ] UI can show open data gaps
-- [ ] UI can inspect raw events and payloads
-- [ ] UI can show replay readiness summary
+- [x] UI can show aggregated quality results
+- [x] UI can show open data gaps
+- [x] UI can inspect raw events and payloads
+- [x] UI can show replay readiness summary
 
 ---
 

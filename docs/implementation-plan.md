@@ -33,6 +33,10 @@ The repository already has a strong design foundation and is now design-complete
 - initial Phase 3 Binance public ingestion foundation in `src/ingestion/`, `src/jobs/`, and `src/runtime/`
 - Phase 3 ingestion and market-query API endpoints in `src/api/`
 - automated tests for the Phase 3 instrument sync, bar backfill, funding/open-interest refresh, and trade-stream slice
+- Phase 4 data-quality jobs for gap, freshness, and duplicate checks in `src/jobs/data_quality.py`
+- Phase 4 quality, raw-event traceability, and replay-readiness API endpoints in `src/api/`
+- replay and hot-retention baseline documented in `docs/replay-retention-policy.md`
+- automated tests for the current Phase 4 quality, traceability, and replay-readiness slice
 
 ### Not Yet Implemented
 - backtest engine
@@ -298,7 +302,9 @@ Make collected market data reliable enough for research and downstream execution
 - Phase 3
 
 ### Recommended Status
-- not started
+- implemented for the current Phase 4 baseline
+- validated locally with automated checks for gap detection, freshness checks, duplicate detection, raw-event traceability, and replay-readiness APIs
+- complete enough to support Phase 5 bars-based research on quality-gated market data
 
 ---
 
@@ -593,9 +599,9 @@ The project reaches the first meaningful delivery milestone when all of the foll
 
 The next recommended implementation step is:
 
-### Begin Phase 4 market-data quality work
-- implement bar-gap, freshness, and duplicate checks on the current market tables
-- write results into `ops.data_quality_checks` and `ops.data_gaps`
-- define raw-to-normalized traceability and replay-readiness policies
+### Begin Phase 5 strategy and backtest work
+- implement the first strategy registration/loading slice
+- build a deterministic bars-based backtest loop on top of the Phase 4 quality baseline
+- persist run metadata and results into `backtest.*`
 
-The completed Phase 3 ingestion foundation is now the intended base for all Phase 4 work.
+The completed Phase 4 quality baseline is now the intended base for all Phase 5 work.

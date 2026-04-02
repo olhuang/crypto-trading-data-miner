@@ -10,8 +10,10 @@ from fastapi.responses import JSONResponse
 
 from config import settings
 from jobs.backfill_bars import run_bar_backfill
+from jobs.data_quality import run_phase4_quality_suite
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
+from services.traceability import get_raw_event_detail, normalized_links_for_raw_event, replay_readiness_summary
 from services.validate_and_store import (
     UnsupportedPayloadTypeError,
     supported_payload_types,
@@ -19,7 +21,7 @@ from services.validate_and_store import (
     validate_payload,
 )
 from storage.db import connection_scope, transaction_scope
-from storage.repositories.ops import IngestionJobRepository
+from storage.repositories.ops import DataGapRepository, DataQualityCheckRepository, IngestionJobRepository
 
 
 class ApiRequestModel(BaseModel):
@@ -50,6 +52,15 @@ class MarketSnapshotRefreshRequest(ApiRequestModel):
     unified_symbol: str
     funding_start_time: datetime | None = None
     funding_end_time: datetime | None = None
+
+
+class Phase4QualityRunRequest(ApiRequestModel):
+    exchange_code: str = "binance"
+    unified_symbol: str
+    gap_start_time: datetime
+    gap_end_time: datetime
+    observed_at: datetime | None = None
+    raw_event_channel: str | None = None
 
 
 TData = TypeVar("TData")
@@ -109,6 +120,39 @@ class RecordsResource(BaseModel):
 
 class WsStatusResource(BaseModel):
     streams: list[dict[str, Any]]
+
+
+class QualitySummaryResource(BaseModel):
+    total_checks: int
+    passed_checks: int
+    failed_checks: int
+    severe_checks: int
+
+
+class RawEventDetailResource(BaseModel):
+    raw_event_id: int
+    exchange_code: str
+    unified_symbol: str | None = None
+    channel: str
+    event_type: str | None = None
+    event_time: str | None = None
+    ingest_time: str
+    source_message_id: str | None = None
+    payload_json: dict[str, Any]
+
+
+class NormalizedLinksResource(BaseModel):
+    raw_event_id: int
+    links: list[dict[str, str]]
+
+
+class ReplayReadinessResource(BaseModel):
+    raw_coverage_status: str
+    normalized_coverage_status: str
+    retained_streams: list[str]
+    known_gaps: int
+    retention_policy: dict[str, str]
+    replay_ready_datasets: dict[str, bool]
 
 
 class ValidationResultResource(BaseModel):
@@ -214,16 +258,18 @@ def require_actor(
 def _records_response(query: str, params: tuple[Any, ...], actor: CurrentActor) -> SuccessEnvelope[RecordsResource]:
     with connection_scope() as connection:
         rows = connection.exec_driver_sql(query, params).mappings().all()
-    normalized_records: list[dict[str, Any]] = []
-    for row in rows:
-        record: dict[str, Any] = {}
-        for key, value in dict(row).items():
-            record[key] = value.isoformat() if isinstance(value, datetime) else value
-        normalized_records.append(record)
+    normalized_records = [_normalize_mapping(dict(row)) for row in rows]
     return SuccessEnvelope[RecordsResource](
         data=RecordsResource(records=normalized_records),
         meta=_meta(actor),
     )
+
+
+def _normalize_mapping(row: dict[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+    for key, value in row.items():
+        normalized[key] = value.isoformat() if isinstance(value, datetime) else value
+    return normalized
 
 
 def create_app() -> FastAPI:
@@ -396,6 +442,96 @@ def create_app() -> FastAPI:
             meta=_meta(actor),
         )
 
+    @app.post("/api/v1/quality/run")
+    def trigger_quality_run(
+        request: Phase4QualityRunRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[JobActionResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        result = run_phase4_quality_suite(
+            exchange_code=request.exchange_code,
+            unified_symbol=request.unified_symbol,
+            gap_start_time=request.gap_start_time,
+            gap_end_time=request.gap_end_time,
+            observed_at=request.observed_at,
+            raw_event_channel=request.raw_event_channel,
+        )
+        synthetic_job_id = int(datetime.now(timezone.utc).timestamp())
+        return SuccessEnvelope[JobActionResource](
+            data=JobActionResource(job_id=synthetic_job_id, status=f"checks:{result.checks_written}/gaps:{result.gaps_written}"),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/quality/checks")
+    def quality_checks(
+        data_type: str | None = None,
+        status: str | None = None,
+        severity: str | None = None,
+        exchange_code: str | None = None,
+        unified_symbol: str | None = None,
+        limit: int = 100,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[RecordsResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            records = DataQualityCheckRepository().list_recent(
+                connection,
+                limit=limit,
+                data_type=data_type,
+                status=status,
+                severity=severity,
+                exchange_code=exchange_code,
+                unified_symbol=unified_symbol,
+            )
+        return SuccessEnvelope[RecordsResource](
+            data=RecordsResource(records=[_normalize_mapping(record) for record in records]),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/quality/summary")
+    def quality_summary(
+        data_type: str | None = None,
+        exchange_code: str | None = None,
+        unified_symbol: str | None = None,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[QualitySummaryResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            summary = DataQualityCheckRepository().summary(
+                connection,
+                data_type=data_type,
+                exchange_code=exchange_code,
+                unified_symbol=unified_symbol,
+            )
+        return SuccessEnvelope[QualitySummaryResource](
+            data=QualitySummaryResource(**summary),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/quality/gaps")
+    def quality_gaps(
+        data_type: str | None = None,
+        status: str | None = None,
+        exchange_code: str | None = None,
+        unified_symbol: str | None = None,
+        limit: int = 100,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[RecordsResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            records = DataGapRepository().list_recent(
+                connection,
+                limit=limit,
+                data_type=data_type,
+                status=status,
+                exchange_code=exchange_code,
+                unified_symbol=unified_symbol,
+            )
+        return SuccessEnvelope[RecordsResource](
+            data=RecordsResource(records=[_normalize_mapping(record) for record in records]),
+            meta=_meta(actor),
+        )
+
     @app.get("/api/v1/market/bars")
     def market_bars(
         unified_symbol: str,
@@ -538,29 +674,105 @@ def create_app() -> FastAPI:
 
     @app.get("/api/v1/market/raw-events")
     def market_raw_events(
+        exchange_code: str | None = None,
         channel: str | None = None,
+        event_type: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 100,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     ) -> SuccessEnvelope[RecordsResource]:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
-        if channel:
-            query = """
-                select raw_event_id, channel, event_type, event_time, ingest_time, source_message_id, payload_json
-                from md.raw_market_events
-                where channel = %s
-                order by ingest_time desc
-                limit %s
-            """
-            params = (channel, limit)
-        else:
-            query = """
-                select raw_event_id, channel, event_type, event_time, ingest_time, source_message_id, payload_json
-                from md.raw_market_events
-                order by ingest_time desc
-                limit %s
-            """
-            params = (limit,)
-        return _records_response(query, params, actor)
+        filters = []
+        params: list[Any] = []
+        if exchange_code is not None:
+            filters.append("exchange.exchange_code = %s")
+            params.append(exchange_code)
+        if channel is not None:
+            filters.append("raw.channel = %s")
+            params.append(channel)
+        if event_type is not None:
+            filters.append("raw.event_type = %s")
+            params.append(event_type)
+        if start_time is not None:
+            filters.append("raw.event_time >= %s")
+            params.append(start_time)
+        if end_time is not None:
+            filters.append("raw.event_time <= %s")
+            params.append(end_time)
+        where_clause = f"where {' and '.join(filters)}" if filters else ""
+        return _records_response(
+            f"""
+            select raw.raw_event_id, exchange.exchange_code, instrument.unified_symbol, raw.channel, raw.event_type, raw.event_time, raw.ingest_time, raw.source_message_id, raw.payload_json
+            from md.raw_market_events raw
+            join ref.exchanges exchange on exchange.exchange_id = raw.exchange_id
+            left join ref.instruments instrument on instrument.instrument_id = raw.instrument_id
+            {where_clause}
+            order by raw.ingest_time desc
+            limit %s
+            """,
+            tuple([*params, limit]),
+            actor,
+        )
+
+    @app.get("/api/v1/market/raw-events/{raw_event_id}")
+    def market_raw_event_detail(
+        raw_event_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[RawEventDetailResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            record = get_raw_event_detail(connection, raw_event_id)
+        if record is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"raw event not found: {raw_event_id}", "details": {}},
+            )
+        return SuccessEnvelope[RawEventDetailResource](
+            data=RawEventDetailResource(**_normalize_mapping(record)),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/market/raw-events/{raw_event_id}/normalized-links")
+    def market_raw_event_links(
+        raw_event_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[NormalizedLinksResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            raw_event = get_raw_event_detail(connection, raw_event_id)
+            if raw_event is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "NOT_FOUND", "message": f"raw event not found: {raw_event_id}", "details": {}},
+                )
+            links = normalized_links_for_raw_event(connection, raw_event_id)
+        return SuccessEnvelope[NormalizedLinksResource](
+            data=NormalizedLinksResource(
+                raw_event_id=raw_event_id,
+                links=[
+                    {
+                        "resource_type": link.resource_type,
+                        "record_locator": link.record_locator,
+                        "match_strategy": link.match_strategy,
+                    }
+                    for link in links
+                ],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/replay/readiness")
+    def replay_readiness(
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[ReplayReadinessResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            summary = replay_readiness_summary(connection)
+        return SuccessEnvelope[ReplayReadinessResource](
+            data=ReplayReadinessResource(**summary),
+            meta=_meta(actor),
+        )
 
     @app.get("/api/v1/streams/ws-events")
     def ws_events(
