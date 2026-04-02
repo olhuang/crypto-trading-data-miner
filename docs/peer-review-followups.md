@@ -138,13 +138,18 @@ As additional endpoints are implemented, extend `docs/api-resource-contracts.md`
 
 ## 2.5 Instrument Sync Diff Contract
 
-### Problem
-UI behavior expects metadata difference visibility for instrument sync, but current API planning does not fully define where that diff is returned.
+### Status
+Resolved for the current Phase 3 ingestion slice.
 
-### Required Action
-Choose one explicit contract path:
-- job detail endpoint returns sync diff, or
-- dedicated instrument sync diff endpoint exists
+The repository now has:
+- a dedicated `docs/instrument-sync-diff-contract.md`
+- implemented `POST /api/v1/ingestion/jobs/instrument-sync`
+- implemented `GET /api/v1/ingestion/jobs/{job_id}`
+- instrument-sync jobs persisting `summary` and `diffs` metadata into `ops.ingestion_jobs`
+- API job-detail responses exposing `summary` and `diffs` directly for the current implementation slice
+
+### Ongoing Rule
+Keep the diff payload anchored to job detail unless a later phase introduces a stronger need for a dedicated diff-only endpoint.
 
 ### Acceptance Criteria
 - UI can display instrument metadata changes without inventing its own interpretation layer

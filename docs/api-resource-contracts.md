@@ -72,6 +72,12 @@ The following resources are already implemented in the current Phase 2 API slice
 - `GET /api/v1/models/payload-types`
 - `POST /api/v1/models/validate`
 - `POST /api/v1/models/validate-and-store`
+- `POST /api/v1/ingestion/jobs/instrument-sync`
+- `POST /api/v1/ingestion/jobs/bar-backfill`
+- `POST /api/v1/ingestion/jobs/market-snapshot-refresh`
+- `GET /api/v1/ingestion/jobs/{job_id}`
+- `GET /api/v1/market/*`
+- `GET /api/v1/streams/*`
 
 ### 2.1 Meta Resource
 
@@ -321,19 +327,27 @@ For early implementation:
 ## 6. Instrument Sync Job Detail Resource
 
 Used by:
-- future `GET /api/v1/ingestion/jobs/{job_id}` or equivalent job-detail endpoint
+- implemented `GET /api/v1/ingestion/jobs/{job_id}`
 
 ## 6.1 Resource Shape
 
 ```json
 {
-  "job_id": "job_123",
-  "job_type": "instrument_sync",
+  "job_id": 123,
+  "service_name": "instrument_sync",
+  "data_type": "instrument_metadata",
   "status": "succeeded",
   "exchange_code": "binance",
-  "requested_by": "u_123",
+  "unified_symbol": null,
   "started_at": "2026-04-02T12:00:00Z",
   "finished_at": "2026-04-02T12:00:03Z",
+  "records_expected": null,
+  "records_written": 6,
+  "error_message": null,
+  "metadata_json": {
+    "job_type": "instrument_sync",
+    "requested_by": "u_123"
+  },
   "summary": {
     "instruments_seen": 450,
     "instruments_inserted": 2,
@@ -353,6 +367,20 @@ Used by:
       ]
     }
   ]
+}
+```
+
+## 6.2 Generic Job Action Resource
+
+Used by:
+- implemented `POST /api/v1/ingestion/jobs/instrument-sync`
+- implemented `POST /api/v1/ingestion/jobs/bar-backfill`
+- implemented `POST /api/v1/ingestion/jobs/market-snapshot-refresh`
+
+```json
+{
+  "job_id": 123,
+  "status": "succeeded"
 }
 ```
 

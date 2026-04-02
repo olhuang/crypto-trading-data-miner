@@ -425,6 +425,7 @@ This repository now has a deliberately layered documentation system.
 Current implementation reality:
 - Phase 1 DB bootstrap, seed, and verification are complete
 - Phase 2 is complete for the planned model/storage layer, with working foundations in `src/models/`, `src/storage/`, `src/services/`, and `src/api/`
+- Phase 3 now has a working first Binance public-ingestion slice in `src/ingestion/`, `src/jobs/`, `src/runtime/`, and the minimal API
 - checklist docs should be treated as live implementation tracking and updated whenever a phase slice lands
 
 The simplest way to navigate it is:

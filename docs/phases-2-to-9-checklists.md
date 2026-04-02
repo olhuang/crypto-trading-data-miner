@@ -226,131 +226,139 @@ Start collecting usable market data from the first exchange into the database.
 
 ## Task 3.1: Create ingestion package structure
 ### Tasks
-- [ ] create `src/ingestion/__init__.py`
-- [ ] create `src/ingestion/base.py`
-- [ ] create `src/ingestion/binance/__init__.py`
-- [ ] create public REST and WS client modules
-- [ ] create `src/jobs/` package
+- [x] create `src/ingestion/__init__.py`
+- [x] create `src/ingestion/base.py`
+- [x] create `src/ingestion/binance/__init__.py`
+- [x] create public REST and WS client modules
+- [x] create `src/jobs/` package
 
 ### Acceptance Checks
-- [ ] ingestion package imports cleanly
-- [ ] project has clear separation between REST and websocket ingestion
+- [x] ingestion package imports cleanly
+- [x] project has clear separation between REST and websocket ingestion
 
 ---
 
 ## Task 3.2: Implement instrument metadata sync
 ### Tasks
-- [ ] fetch exchange instrument metadata from Binance public endpoint
-- [ ] normalize payload to canonical instrument model
-- [ ] map exchange symbols to `ref.instruments`
-- [ ] update trading rules when metadata changes
-- [ ] record sync job status in `ops.ingestion_jobs`
+- [x] fetch exchange instrument metadata from Binance public endpoint
+- [x] normalize payload to canonical instrument model
+- [x] map exchange symbols to `ref.instruments`
+- [x] update trading rules when metadata changes
+- [x] record sync job status in `ops.ingestion_jobs`
 
 ### Acceptance Checks
-- [ ] instrument sync runs end-to-end
-- [ ] changed metadata can update or insert instruments safely
-- [ ] ingestion job status is persisted
+- [x] instrument sync runs end-to-end
+- [x] changed metadata can update or insert instruments safely
+- [x] ingestion job status is persisted
 
 ---
 
 ## Task 3.3: Implement historical bar backfill
 ### Tasks
-- [ ] fetch Binance kline history
-- [ ] normalize to canonical bar model
-- [ ] persist to `md.bars_1m`
-- [ ] support configurable symbol and time window
-- [ ] record row counts and status in `ops.ingestion_jobs`
+- [x] fetch Binance kline history
+- [x] normalize to canonical bar model
+- [x] persist to `md.bars_1m`
+- [x] support configurable symbol and time window
+- [x] record row counts and status in `ops.ingestion_jobs`
 
 ### Acceptance Checks
-- [ ] historical bars are backfilled into `md.bars_1m`
-- [ ] rerunning the same backfill does not create duplicate bars
-- [ ] failures and row counts are visible in ops tables
+- [x] historical bars are backfilled into `md.bars_1m`
+- [x] rerunning the same backfill does not create duplicate bars
+- [x] failures and row counts are visible in ops tables
 
 ---
 
 ## Task 3.4: Implement live trade ingestion
 ### Tasks
-- [ ] subscribe to Binance trade websocket stream
-- [ ] normalize trade payloads
-- [ ] persist to `md.trades`
-- [ ] preserve `event_time` and `ingest_time`
-- [ ] record websocket lifecycle into `ops.ws_connection_events`
+- [x] subscribe to Binance trade websocket stream
+- [x] normalize trade payloads
+- [x] persist to `md.trades`
+- [x] preserve `event_time` and `ingest_time`
+- [x] record websocket lifecycle into `ops.ws_connection_events`
 
 ### Acceptance Checks
-- [ ] live trades are written continuously to `md.trades`
-- [ ] duplicate trade ids are not inserted
-- [ ] websocket connect/disconnect events are logged
+- [x] live trades are written continuously to `md.trades`
+- [x] duplicate trade ids are not inserted
+- [x] websocket connect/disconnect events are logged
 
 ---
 
 ## Task 3.5: Implement funding and open interest polling
 ### Tasks
-- [ ] fetch funding history / latest funding data
-- [ ] normalize to canonical funding model
-- [ ] fetch open interest data
-- [ ] persist to `md.funding_rates` and `md.open_interest`
-- [ ] schedule periodic refresh job
+- [x] fetch funding history / latest funding data
+- [x] normalize to canonical funding model
+- [x] fetch open interest data
+- [x] persist to `md.funding_rates` and `md.open_interest`
+- [x] schedule periodic refresh job
 
 ### Acceptance Checks
-- [ ] funding rates are persisted successfully
-- [ ] open interest is persisted successfully
-- [ ] periodic jobs can run without manual SQL
+- [x] funding rates are persisted successfully
+- [x] open interest is persisted successfully
+- [x] periodic jobs can run without manual SQL
 
 ---
 
 ## Task 3.6: Implement mark/index price ingestion
 ### Tasks
-- [ ] subscribe or poll mark price data
-- [ ] subscribe or poll index price data
-- [ ] normalize to canonical models
-- [ ] persist to `md.mark_prices` and `md.index_prices`
+- [x] subscribe or poll mark price data
+- [x] subscribe or poll index price data
+- [x] normalize to canonical models
+- [x] persist to `md.mark_prices` and `md.index_prices`
 
 ### Acceptance Checks
-- [ ] mark price data is stored continuously or on refresh
-- [ ] index price data is stored continuously or on refresh
-- [ ] instrument mapping resolves correctly
+- [x] mark price data is stored continuously or on refresh
+- [x] index price data is stored continuously or on refresh
+- [x] instrument mapping resolves correctly
 
 ---
 
 ## Task 3.7: Implement raw event capture
 ### Tasks
-- [ ] persist raw websocket payloads to `md.raw_market_events`
-- [ ] tag payloads with channel and event type
-- [ ] preserve source message ids where available
+- [x] persist raw websocket payloads to `md.raw_market_events`
+- [x] tag payloads with channel and event type
+- [x] preserve source message ids where available
 
 ### Acceptance Checks
-- [ ] raw events can be traced to normalized market writes
-- [ ] ingestion debugging is possible from stored payloads
+- [x] raw events can be traced to normalized market writes
+- [x] ingestion debugging is possible from stored payloads
 
 ---
 
 ## Task 3.8: Add ingestion job and basic monitoring support
 ### Tasks
-- [ ] insert job rows into `ops.ingestion_jobs`
-- [ ] update status on success/failure
-- [ ] log row counts and windows
-- [ ] add basic app logs to `ops.system_logs`
+- [x] insert job rows into `ops.ingestion_jobs`
+- [x] update status on success/failure
+- [x] log row counts and windows
+- [x] add basic app logs to `ops.system_logs`
 
 ### Acceptance Checks
-- [ ] each ingestion run leaves a job record
-- [ ] failed runs are visible in DB
-- [ ] successful runs include window and row count metadata
+- [x] each ingestion run leaves a job record
+- [x] failed runs are visible in DB
+- [x] successful runs include window and row count metadata
 
 ---
 
+## Phase 3 Current Implementation Snapshot
+- [x] Binance public REST and websocket normalization code exists under `src/ingestion/binance/`
+- [x] instrument sync, bar backfill, and market snapshot refresh jobs exist under `src/jobs/`
+- [x] runtime trade-stream processing exists under `src/runtime/`
+- [x] `/api/v1/ingestion/jobs/*`, `/api/v1/market/*`, and `/api/v1/streams/*` foundation endpoints now exist in the minimal API slice
+- [x] ingestion job detail now exposes summary/diff metadata for instrument sync
+- [x] automated tests cover instrument sync, bar backfill, funding/open-interest refresh, trade stream processing, and scheduler planning
+
 ## Phase 3 Final Acceptance Summary
-- [ ] instrument sync works
-- [ ] bar backfill works
-- [ ] live trade ingestion works
-- [ ] funding and open interest work
-- [ ] mark/index ingestion works
-- [ ] raw event capture works
-- [ ] ingestion monitoring works
+- [x] instrument sync works
+- [x] bar backfill works
+- [x] live trade ingestion works
+- [x] funding and open interest work
+- [x] mark/index ingestion works
+- [x] raw event capture works
+- [x] ingestion monitoring works
 
 ## Handoff Criteria to Phase 4
-- [ ] market data is being persisted continuously enough to validate quality
-- [ ] raw and normalized data can be related
-- [ ] ops tables have enough metadata for data quality checks
+- [x] market data is being persisted continuously enough to validate quality
+- [x] raw and normalized data can be related
+- [x] ops tables have enough metadata for data quality checks
 
 ---
 
@@ -1031,6 +1039,6 @@ Improve reliability, maintainability, and scalability once the end-to-end system
 # Recommended Immediate Next Action
 
 Current recommended next action:
-- begin Phase 3 public ingestion implementation on top of the completed Phase 2 foundation
-- start with instrument sync, bar backfill, and ingestion job persistence
-- then add live trade, mark/index, and raw event capture flows
+- begin Phase 4 market-data quality and replay-readiness work
+- start with bar gap checks, freshness checks, and duplicate checks using the newly persisted market and ops data
+- then define raw-to-normalized traceability and replay/retention policy

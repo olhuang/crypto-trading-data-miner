@@ -30,9 +30,11 @@ The repository already has a strong design foundation and is now design-complete
 - Phase 2 DB/storage helpers, lookup resolution, retry policy, and repositories in `src/storage/`
 - Phase 2 validation/store service and minimal FastAPI endpoints in `src/services/` and `src/api/`
 - automated tests for the current Phase 2 models, repositories, DB retry helper, seeds, and minimal API slice
+- initial Phase 3 Binance public ingestion foundation in `src/ingestion/`, `src/jobs/`, and `src/runtime/`
+- Phase 3 ingestion and market-query API endpoints in `src/api/`
+- automated tests for the Phase 3 instrument sync, bar backfill, funding/open-interest refresh, and trade-stream slice
 
 ### Not Yet Implemented
-- data ingestion jobs
 - backtest engine
 - paper trading engine
 - live trading adapter
@@ -202,7 +204,7 @@ Turn documented contracts into validated code and a consistent database access l
 ### Recommended Status
 - implemented for the Phase 2 scope
 - validated locally with automated tests for model validation, repository persistence, DB retry behavior, and minimal API flows
-- ready for Phase 3 public ingestion work
+- completed and serving as the stable foundation for the implemented Phase 3 ingestion slice
 
 ---
 
@@ -256,7 +258,9 @@ Start collecting usable exchange market data into the database.
 - Phase 2
 
 ### Recommended Status
-- not started
+- implemented for the first Binance public-data slice
+- validated locally with mocked Binance transport, real repository writes, and automated tests for sync, backfill, refresh, and websocket-processing flows
+- ready for Phase 4 market-data quality and replay-readiness work
 
 ---
 
@@ -589,9 +593,9 @@ The project reaches the first meaningful delivery milestone when all of the foll
 
 The next recommended implementation step is:
 
-### Begin Phase 3 public ingestion implementation
-- create `src/ingestion/` and `src/jobs/` package skeletons
-- implement instrument sync using the Phase 2 repositories and ops job logging
-- implement bar backfill first, then live trades, then mark/index and raw event capture
+### Begin Phase 4 market-data quality work
+- implement bar-gap, freshness, and duplicate checks on the current market tables
+- write results into `ops.data_quality_checks` and `ops.data_gaps`
+- define raw-to-normalized traceability and replay-readiness policies
 
-The completed Phase 2 foundation is now the intended base for all Phase 3 work.
+The completed Phase 3 ingestion foundation is now the intended base for all Phase 4 work.

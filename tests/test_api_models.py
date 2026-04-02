@@ -13,8 +13,19 @@ if str(SRC_ROOT) not in sys.path:
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
 
+import api.app as app_module
 from config import settings
-from api.app import ValidatePayloadRequest, create_app, require_actor, resolve_current_actor
+from api.app import (
+    BarBackfillRequest,
+    InstrumentSyncRequest,
+    MarketSnapshotRefreshRequest,
+    ValidatePayloadRequest,
+    create_app,
+    require_actor,
+    resolve_current_actor,
+)
+from storage.db import transaction_scope
+from storage.repositories.ops import IngestionJobRepository
 
 
 def _resolve_route(app, path: str, method: str):
@@ -40,6 +51,10 @@ class ModelsApiTests(unittest.TestCase):
         cls.payload_types_endpoint = _resolve_route(cls.app, "/api/v1/models/payload-types", "GET")
         cls.validate_endpoint = _resolve_route(cls.app, "/api/v1/models/validate", "POST")
         cls.validate_and_store_endpoint = _resolve_route(cls.app, "/api/v1/models/validate-and-store", "POST")
+        cls.instrument_sync_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/instrument-sync", "POST")
+        cls.bar_backfill_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/bar-backfill", "POST")
+        cls.market_refresh_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/market-snapshot-refresh", "POST")
+        cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
 
     def test_system_health_returns_success_envelope(self) -> None:
         response = self.__class__.health_endpoint()
@@ -168,6 +183,79 @@ class ModelsApiTests(unittest.TestCase):
         bearer_actor = require_actor("Bearer admin:u_999:Root", allowed_roles={"admin"})
         self.assertEqual(bearer_actor.auth_mode, "bearer")
         self.assertEqual(bearer_actor.role, "admin")
+
+    def test_ingestion_job_endpoints_return_job_acknowledgements(self) -> None:
+        original_sync = app_module.run_instrument_sync
+        original_backfill = app_module.run_bar_backfill
+        original_refresh = app_module.run_market_snapshot_refresh
+
+        class _Result:
+            def __init__(self, job_id: int, status: str) -> None:
+                self.ingestion_job_id = job_id
+                self.status = status
+
+        try:
+            app_module.run_instrument_sync = lambda **_: _Result(101, "succeeded")
+            app_module.run_bar_backfill = lambda **_: _Result(202, "succeeded")
+            app_module.run_market_snapshot_refresh = lambda **_: _Result(303, "succeeded")
+
+            instrument_response = self.__class__.instrument_sync_endpoint(InstrumentSyncRequest(exchange_code="binance"))
+            backfill_response = self.__class__.bar_backfill_endpoint(
+                BarBackfillRequest(
+                    exchange_code="binance",
+                    symbol="BTCUSDT",
+                    unified_symbol="BTCUSDT_PERP",
+                    start_time="2026-04-02T12:34:00Z",
+                    end_time="2026-04-02T12:35:00Z",
+                )
+            )
+            refresh_response = self.__class__.market_refresh_endpoint(
+                MarketSnapshotRefreshRequest(
+                    exchange_code="binance",
+                    symbol="BTCUSDT",
+                    unified_symbol="BTCUSDT_PERP",
+                )
+            )
+
+            self.assertEqual(instrument_response.data.job_id, 101)
+            self.assertEqual(backfill_response.data.job_id, 202)
+            self.assertEqual(refresh_response.data.job_id, 303)
+        finally:
+            app_module.run_instrument_sync = original_sync
+            app_module.run_bar_backfill = original_backfill
+            app_module.run_market_snapshot_refresh = original_refresh
+
+    def test_job_detail_endpoint_exposes_summary_and_diffs(self) -> None:
+        with transaction_scope() as connection:
+            repo = IngestionJobRepository()
+            job_id = repo.create_job(
+                connection,
+                service_name="instrument_sync",
+                data_type="instrument_metadata",
+                status="running",
+                requested_by="u_123",
+                exchange_code="binance",
+                metadata_json={"job_type": "instrument_sync"},
+            )
+            repo.finish_job(
+                connection,
+                job_id,
+                status="succeeded",
+                finished_at="2026-04-02T12:00:03Z",
+                records_written=2,
+                metadata_json={
+                    "job_type": "instrument_sync",
+                    "summary": {"instruments_seen": 2, "instruments_inserted": 1, "instruments_updated": 1, "instruments_unchanged": 0},
+                    "diffs": [{"unified_symbol": "BTCUSDT_PERP", "change_type": "updated", "field_diffs": []}],
+                },
+            )
+
+        response = self.__class__.job_detail_endpoint(job_id)
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.job_id, job_id)
+        self.assertEqual(response.data.summary["instruments_seen"], 2)
+        self.assertEqual(response.data.diffs[0]["unified_symbol"], "BTCUSDT_PERP")
 
 
 if __name__ == "__main__":

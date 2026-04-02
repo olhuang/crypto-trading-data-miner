@@ -446,6 +446,10 @@ Query params:
 Purpose:
 - trigger instrument metadata sync
 
+Implementation note:
+- implemented in `src/api/app.py`
+- current implementation runs the Phase 3 sync job inline and returns the resulting `job_id` and final `status`
+
 Request:
 ```json
 {
@@ -460,6 +464,10 @@ Response fields:
 ### POST `/api/v1/ingestion/jobs/bar-backfill`
 Purpose:
 - trigger bar backfill
+
+Implementation note:
+- implemented in `src/api/app.py`
+- current implementation runs the Phase 3 backfill job inline and returns the resulting `job_id` and final `status`
 
 Request:
 ```json
@@ -476,33 +484,58 @@ Request:
 Purpose:
 - query bars
 
+Implementation note:
+- implemented in `src/api/app.py`
+
 ### GET `/api/v1/market/trades`
 Purpose:
 - query trades
+
+Implementation note:
+- implemented in `src/api/app.py`
 
 ### GET `/api/v1/market/funding-rates`
 Purpose:
 - query funding rates
 
+Implementation note:
+- implemented in `src/api/app.py`
+
 ### GET `/api/v1/market/open-interest`
 Purpose:
 - query open interest
+
+Implementation note:
+- implemented in `src/api/app.py`
 
 ### GET `/api/v1/market/mark-prices`
 Purpose:
 - query mark prices
 
+Implementation note:
+- implemented in `src/api/app.py`
+
 ### GET `/api/v1/market/index-prices`
 Purpose:
 - query index prices
+
+Implementation note:
+- implemented in `src/api/app.py`
 
 ### GET `/api/v1/market/liquidations`
 Purpose:
 - query liquidation events
 
+Implementation note:
+- implemented in `src/api/app.py`
+
 ### GET `/api/v1/streams/ws-status`
 Purpose:
 - websocket stream health summary
+
+Implementation note:
+- implemented in `src/api/app.py`
+- current implementation reports latest connection lifecycle status per stream scope from `ops.ws_connection_events`
 
 Response fields:
 - exchange_code
@@ -515,11 +548,14 @@ Response fields:
 Purpose:
 - list recent websocket connection events
 
+Implementation note:
+- implemented in `src/api/app.py`
+
 ## Phase 3 Acceptance via UI/API
-- [ ] UI can trigger instrument sync
-- [ ] UI can trigger bar backfill
-- [ ] UI can query newly ingested market data
-- [ ] UI can inspect websocket health and connection events
+- [x] UI can trigger instrument sync
+- [x] UI can trigger bar backfill
+- [x] UI can query newly ingested market data
+- [x] UI can inspect websocket health and connection events
 
 ---
 

@@ -38,6 +38,50 @@ class AssetRepository:
 
 
 class InstrumentRepository:
+    def get_by_key(
+        self,
+        connection: Connection,
+        exchange_code: str,
+        venue_symbol: str,
+        instrument_type: str,
+    ) -> dict[str, Any] | None:
+        row = connection.execute(
+            text(
+                """
+                select
+                    e.exchange_code,
+                    i.venue_symbol,
+                    i.unified_symbol,
+                    i.instrument_type,
+                    base_asset.asset_code as base_asset,
+                    quote_asset.asset_code as quote_asset,
+                    settlement_asset.asset_code as settlement_asset,
+                    i.tick_size,
+                    i.lot_size,
+                    i.min_qty,
+                    i.min_notional,
+                    i.contract_size,
+                    i.status,
+                    i.launch_time,
+                    i.delist_time
+                from ref.instruments i
+                join ref.exchanges e on e.exchange_id = i.exchange_id
+                join ref.assets base_asset on base_asset.asset_id = i.base_asset_id
+                join ref.assets quote_asset on quote_asset.asset_id = i.quote_asset_id
+                left join ref.assets settlement_asset on settlement_asset.asset_id = i.settlement_asset_id
+                where e.exchange_code = :exchange_code
+                  and i.venue_symbol = :venue_symbol
+                  and i.instrument_type = :instrument_type
+                """
+            ),
+            {
+                "exchange_code": exchange_code,
+                "venue_symbol": venue_symbol,
+                "instrument_type": instrument_type,
+            },
+        ).mappings().first()
+        return None if row is None else dict(row)
+
     def upsert(self, connection: Connection, instrument: InstrumentMetadata) -> None:
         exchange_id = resolve_exchange_id(connection, instrument.exchange_code)
         base_asset_id = resolve_asset_id(connection, instrument.base_asset)
