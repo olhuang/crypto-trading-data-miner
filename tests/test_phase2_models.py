@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from models.execution import OrderEvent, OrderRequest, OrderState
 from models.market import InstrumentMetadata, OpenInterestEvent, TradeEvent
+from models.risk import RiskEvent, RiskLimit
 from models.strategy import Signal, TargetPosition
 
 
@@ -177,6 +178,41 @@ class Phase2ModelValidationTests(unittest.TestCase):
                     ],
                 }
             )
+
+    def test_risk_limit_requires_at_least_one_threshold(self) -> None:
+        with self.assertRaises(ValidationError):
+            RiskLimit.model_validate(
+                {
+                    "account_code": "paper_main",
+                }
+            )
+
+    def test_risk_limit_requires_full_instrument_scope_pair(self) -> None:
+        with self.assertRaises(ValidationError):
+            RiskLimit.model_validate(
+                {
+                    "account_code": "paper_main",
+                    "exchange_code": "binance",
+                    "max_notional": "10000",
+                }
+            )
+
+    def test_risk_event_supports_detail_alias_and_scope_validation(self) -> None:
+        event = RiskEvent.model_validate(
+            {
+                "account_code": "paper_main",
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "event_time": "2026-04-02T12:34:00Z",
+                "event_type": "pre_trade_check_blocked",
+                "severity": "warning",
+                "decision": "block",
+                "detail": {"reason_code": "max_notional"},
+            }
+        )
+
+        self.assertEqual(event.detail_json["reason_code"], "max_notional")
+        self.assertEqual(event.model_dump(mode="json", by_alias=True)["detail_json"], {"reason_code": "max_notional"})
 
     def test_spot_instrument_rejects_contract_size(self) -> None:
         with self.assertRaises(ValidationError):

@@ -49,7 +49,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] create `src/models/market.py`
 - [x] create `src/models/strategy.py`
 - [x] create `src/models/execution.py`
-- [ ] create `src/models/risk.py`
+- [x] create `src/models/risk.py`
 - [x] create shared type/util module if needed
 
 ### Acceptance Checks
@@ -185,6 +185,7 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] starter strategy/version/account seed defaults exist for later phase handoff needs
 - [x] lookup helpers now resolve strategy/version/account identifiers for the current seed-backed workflow
 - [x] strategy signal and target-position models now exist for the current Phase 2 contract slice
+- [x] initial risk limit and risk event models now exist for the current Phase 2 contract slice
 - [ ] remaining models, repositories, and tests are still required before full Phase 2 acceptance
 
 ## Phase 2 Final Acceptance Summary

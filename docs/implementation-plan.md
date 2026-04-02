@@ -203,6 +203,7 @@ Turn documented contracts into validated code and a consistent database access l
 - minimal auth contract implemented for the current models API slice
 - canonical response/resource models documented for the current implemented API slice
 - initial strategy models now exist for signal and target-position contracts
+- initial risk models now exist for risk-limit and risk-event contracts
 
 ---
 

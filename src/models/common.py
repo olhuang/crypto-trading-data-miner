@@ -91,6 +91,19 @@ class LedgerType(StrEnum):
     ADJUSTMENT = "adjustment"
 
 
+class RiskDecision(StrEnum):
+    ALLOW = "allow"
+    MODIFY = "modify"
+    BLOCK = "block"
+
+
+class RiskSeverity(StrEnum):
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+
 class BaseContractModel(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
