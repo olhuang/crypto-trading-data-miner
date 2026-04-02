@@ -457,6 +457,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] replay-readiness summary is exposed at `/api/v1/replay/readiness`
 - [x] replay/retention policy is documented in `docs/replay-retention-policy.md`
 - [x] automated tests now cover Phase 4 jobs, traceability helpers, and API endpoints
+- [x] local/dev startup can optionally remediate recent bar gaps through an explicit config flag without requiring a continuous remediation scheduler
 
 ## Phase 4 Final Acceptance Summary
 - [x] bar gaps are detectable

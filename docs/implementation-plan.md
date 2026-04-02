@@ -38,6 +38,7 @@ The repository already has a strong design foundation and is now design-complete
 - Phase 4 quality, raw-event traceability, and replay-readiness API endpoints in `src/api/`
 - replay and hot-retention baseline documented in `docs/replay-retention-policy.md`
 - automated tests for the current Phase 4 quality, traceability, and replay-readiness slice
+- dev-only startup gap-remediation support for recent bars windows in local app runs
 
 ### Not Yet Implemented
 - backtest engine
@@ -307,6 +308,7 @@ Make collected market data reliable enough for research and downstream execution
 - implemented for the current Phase 4 baseline
 - validated locally with automated checks for gap detection, freshness checks, duplicate detection, raw-event traceability, and replay-readiness APIs
 - complete enough to support Phase 5 bars-based research on quality-gated market data
+- local development can optionally remediate recent bar gaps during app startup without introducing a continuous scheduler dependency yet
 
 ---
 

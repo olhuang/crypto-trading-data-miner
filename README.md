@@ -77,6 +77,7 @@ Major implementation areas now present include:
 - Binance public ingestion foundation under `src/ingestion/`, `src/jobs/`, and `src/runtime/`
 - historical funding/OI/mark/index window support through the current market-snapshot refresh path
 - Phase 4 quality jobs under `src/jobs/data_quality.py`
+- optional dev-only startup gap remediation under `src/services/startup_remediation.py`
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/quality/*`, `/api/v1/market/*`, `/api/v1/streams/*`, and `/api/v1/replay/readiness`
 - minimal auth handling for the current models API slice
 - replay/retention guidance in `docs/replay-retention-policy.md`
@@ -93,6 +94,10 @@ Auth reference:
 
 Current API response/resource reference:
 - `docs/api-resource-contracts.md`
+
+Current local remediation behavior:
+- when `APP_ENV=local` and `ENABLE_STARTUP_GAP_REMEDIATION=true`, app startup can run a one-time recent bars gap detection/remediation pass
+- this is intended for local/dev only and is not the production remediation model
 
 ---
 

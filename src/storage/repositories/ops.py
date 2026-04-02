@@ -579,3 +579,44 @@ class DataGapRepository:
             params,
         ).mappings().all()
         return [dict(row) for row in rows]
+
+    def resolve_gap(
+        self,
+        connection: Connection,
+        gap_id: int,
+        *,
+        detail_json: dict[str, Any] | None = None,
+        resolved_at: Any | None = None,
+    ) -> None:
+        if detail_json is None:
+            connection.execute(
+                text(
+                    """
+                    update ops.data_gaps
+                    set
+                        status = 'resolved',
+                        resolved_at = coalesce(:resolved_at, now())
+                    where gap_id = :gap_id
+                    """
+                ),
+                {"gap_id": gap_id, "resolved_at": resolved_at},
+            )
+            return
+
+        connection.execute(
+            text(
+                """
+                update ops.data_gaps
+                set
+                    status = 'resolved',
+                    resolved_at = coalesce(:resolved_at, now()),
+                    detail_json = cast(:detail_json as jsonb)
+                where gap_id = :gap_id
+                """
+            ),
+            {
+                "gap_id": gap_id,
+                "resolved_at": resolved_at,
+                "detail_json": json.dumps(detail_json),
+            },
+        )

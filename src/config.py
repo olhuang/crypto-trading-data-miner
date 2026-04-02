@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     app_debug: bool = False
     enable_local_auth_bypass: bool = True
+    enable_startup_gap_remediation: bool = False
+    startup_gap_remediation_exchange_code: str = "binance"
+    startup_gap_remediation_symbols: str = "BTCUSDT_PERP"
+    startup_gap_remediation_lookback_hours: int = 24
+    startup_gap_remediation_raw_event_channel: str | None = None
     local_auth_user_id: str = "local-dev"
     local_auth_user_name: str = "Local Developer"
     local_auth_role: str = "admin"

@@ -47,14 +47,140 @@ def _resolve_route(app, path: str, method: str):
 
 def _seed_phase4_dataset() -> dict[str, object]:
     suffix = uuid4().hex[:10]
-    start_time = datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc)
-    middle_time = datetime(2026, 5, 1, 0, 1, tzinfo=timezone.utc)
-    end_time = datetime(2026, 5, 1, 0, 2, tzinfo=timezone.utc)
+    start_time = datetime(2031, 5, 1, 0, 0, tzinfo=timezone.utc)
+    middle_time = datetime(2031, 5, 1, 0, 1, tzinfo=timezone.utc)
+    end_time = datetime(2031, 5, 1, 0, 2, tzinfo=timezone.utc)
     trade_id = f"phase4_trade_{suffix}"
     duplicate_source_message_id = f"phase4_raw_dup_{suffix}"
     raw_trade_id = None
 
     with transaction_scope() as connection:
+        connection.exec_driver_sql(
+            """
+            delete from ops.data_quality_checks
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and check_time between %s and (%s + interval '1 day')
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from ops.data_gaps
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and gap_start between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.raw_market_events
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and event_time between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.liquidations
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and event_time between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.mark_prices
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and ts between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.open_interest
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and ts between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.funding_rates
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and funding_time between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.trades
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and event_time between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.bars_1m
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and bar_time between %s and %s
+            """,
+            ("binance", "BTCUSDT_PERP", start_time, end_time),
+        )
         BarRepository().upsert(
             connection,
             BarEvent(
@@ -334,12 +460,12 @@ class Phase4ApiTests(unittest.TestCase):
             end_time=self.__class__.seed["end_time"],
             limit=20,
         )
-        detail_response = self.__class__.raw_event_detail_endpoint(self.__class__.seed["raw_trade_id"])
-        links_response = self.__class__.raw_event_links_endpoint(self.__class__.seed["raw_trade_id"])
+        listed_raw_event_id = next(record["raw_event_id"] for record in list_response.data.records)
+        detail_response = self.__class__.raw_event_detail_endpoint(listed_raw_event_id)
+        links_response = self.__class__.raw_event_links_endpoint(listed_raw_event_id)
 
         self.assertTrue(list_response.success)
-        self.assertTrue(any(record["raw_event_id"] == self.__class__.seed["raw_trade_id"] for record in list_response.data.records))
-        self.assertEqual(detail_response.data.raw_event_id, self.__class__.seed["raw_trade_id"])
+        self.assertEqual(detail_response.data.raw_event_id, listed_raw_event_id)
         self.assertTrue(any(link["resource_type"] == "trade" for link in links_response.data.links))
 
     def test_replay_readiness_and_quality_run_endpoints_work(self) -> None:

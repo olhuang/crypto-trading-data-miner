@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Annotated, Any, Generic, TypeVar
 from uuid import uuid4
@@ -13,6 +14,7 @@ from jobs.backfill_bars import run_bar_backfill
 from jobs.data_quality import run_phase4_quality_suite
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
+from services.startup_remediation import run_startup_gap_remediation
 from services.traceability import get_raw_event_detail, normalized_links_for_raw_event, replay_readiness_summary
 from services.validate_and_store import (
     UnsupportedPayloadTypeError,
@@ -277,7 +279,15 @@ def _normalize_mapping(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Crypto Trading Data Miner API", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        if settings.app_env != "local" or not settings.enable_startup_gap_remediation:
+            yield
+            return
+        run_startup_gap_remediation()
+        yield
+
+    app = FastAPI(title="Crypto Trading Data Miner API", version="0.1.0", lifespan=lifespan)
 
     @app.get("/api/v1/system/health")
     def system_health() -> SuccessEnvelope[SystemHealthData]:
