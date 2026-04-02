@@ -176,8 +176,9 @@ Expected result:
 ### 4.9 Verify no duplicate instruments
 ```sql
 select exchange_id, venue_symbol, count(*)
+       , instrument_type
 from ref.instruments
-group by exchange_id, venue_symbol
+group by exchange_id, venue_symbol, instrument_type
 having count(*) > 1;
 ```
 

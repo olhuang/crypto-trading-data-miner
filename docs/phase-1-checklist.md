@@ -163,7 +163,7 @@ Insert the first spot instruments for each supported exchange.
 - [ ] each exchange has at least one BTCUSDT spot instrument
 - [ ] each exchange has at least one ETHUSDT spot instrument
 - [ ] all seeded spot instruments reference valid base and quote assets
-- [ ] no duplicate `(exchange_id, venue_symbol)` rows are created
+- [ ] no duplicate `(exchange_id, venue_symbol, instrument_type)` rows are created
 
 ### Suggested Verification Query
 ```sql
@@ -201,7 +201,7 @@ Insert the first perp instruments for each supported exchange.
 - [ ] each exchange has at least one BTCUSDT perp instrument
 - [ ] each exchange has at least one ETHUSDT perp instrument
 - [ ] all seeded perp instruments have settlement asset populated where applicable
-- [ ] no duplicate `(exchange_id, venue_symbol)` rows are created
+- [ ] no duplicate `(exchange_id, venue_symbol, instrument_type)` rows are created
 
 ### Suggested Verification Query
 ```sql
@@ -280,8 +280,9 @@ having count(*) > 1;
 
 ```sql
 select exchange_id, venue_symbol, count(*)
+       , instrument_type
 from ref.instruments
-group by exchange_id, venue_symbol
+group by exchange_id, venue_symbol, instrument_type
 having count(*) > 1;
 ```
 

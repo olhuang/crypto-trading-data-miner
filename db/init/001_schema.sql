@@ -40,7 +40,7 @@ create table if not exists ref.instruments (
     launch_time            timestamptz,
     delist_time            timestamptz,
     created_at             timestamptz not null default now(),
-    unique(exchange_id, venue_symbol)
+    unique(exchange_id, venue_symbol, instrument_type)
 );
 
 create table if not exists ref.fee_schedules (

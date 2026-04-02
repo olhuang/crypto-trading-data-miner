@@ -67,7 +67,7 @@ from ref.exchanges e
 join ref.assets ba on ba.asset_code = 'BTC'
 join ref.assets qa on qa.asset_code = 'USDT'
 where e.exchange_code = 'binance'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 insert into ref.instruments (
     exchange_id,
@@ -102,7 +102,7 @@ from ref.exchanges e
 join ref.assets ba on ba.asset_code = 'ETH'
 join ref.assets qa on qa.asset_code = 'USDT'
 where e.exchange_code = 'binance'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 insert into ref.instruments (
     exchange_id,
@@ -137,7 +137,7 @@ from ref.exchanges e
 join ref.assets ba on ba.asset_code = 'BTC'
 join ref.assets qa on qa.asset_code = 'USDT'
 where e.exchange_code = 'bybit'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 insert into ref.instruments (
     exchange_id,
@@ -172,7 +172,7 @@ from ref.exchanges e
 join ref.assets ba on ba.asset_code = 'ETH'
 join ref.assets qa on qa.asset_code = 'USDT'
 where e.exchange_code = 'bybit'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 -- -----------------------------------------------------------------------------
 -- Perpetual Instruments
@@ -211,7 +211,7 @@ join ref.assets ba on ba.asset_code = 'BTC'
 join ref.assets qa on qa.asset_code = 'USDT'
 join ref.assets sa on sa.asset_code = 'USDT'
 where e.exchange_code = 'binance'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 insert into ref.instruments (
     exchange_id,
@@ -247,7 +247,7 @@ join ref.assets ba on ba.asset_code = 'ETH'
 join ref.assets qa on qa.asset_code = 'USDT'
 join ref.assets sa on sa.asset_code = 'USDT'
 where e.exchange_code = 'binance'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 insert into ref.instruments (
     exchange_id,
@@ -283,7 +283,7 @@ join ref.assets ba on ba.asset_code = 'BTC'
 join ref.assets qa on qa.asset_code = 'USDT'
 join ref.assets sa on sa.asset_code = 'USDT'
 where e.exchange_code = 'bybit'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 insert into ref.instruments (
     exchange_id,
@@ -319,7 +319,7 @@ join ref.assets ba on ba.asset_code = 'ETH'
 join ref.assets qa on qa.asset_code = 'USDT'
 join ref.assets sa on sa.asset_code = 'USDT'
 where e.exchange_code = 'bybit'
-on conflict (exchange_id, venue_symbol) do nothing;
+on conflict (exchange_id, venue_symbol, instrument_type) do nothing;
 
 -- -----------------------------------------------------------------------------
 -- Starter Fee Schedules

@@ -56,9 +56,9 @@ group by asset_code
 having count(*) > 1;
 
 \echo '=== Phase 1 Verification: Duplicate Instruments (should return no rows) ==='
-select exchange_id, venue_symbol, count(*)
+select exchange_id, venue_symbol, instrument_type, count(*)
 from ref.instruments
-group by exchange_id, venue_symbol
+group by exchange_id, venue_symbol, instrument_type
 having count(*) > 1;
 
 \echo '=== Phase 1 Verification: Missing Spot Or Perp By Exchange (should return no rows) ==='
