@@ -120,24 +120,16 @@ Keep using one consistent auth middleware/dependency pattern for future protecte
 
 ## 2.4 Missing Canonical Resource / Response Models for Early APIs
 
-### Problem
-Some endpoints are defined at route level but do not yet have sufficiently explicit resource contracts.
+### Status
+Resolved for the currently implemented early API slice.
 
-Priority examples:
-- bootstrap verification result resource
-- strategy version resource
-- backtest run timeseries resource
-- mismatch review result resource
+The repository now has:
+- `docs/api-resource-contracts.md` covering both the earlier planned resources and the currently implemented `/system/health` and `/models/*` resources
+- typed response/resource models in `src/api/app.py` for the implemented endpoints
+- explicit auth-aware meta shape for protected route responses
 
-### Why This Must Be Fixed Early
-The API layer has route definitions, but implementation will be cleaner if the first resource responses are standardized before backend and frontend drift.
-
-### Required Action
-Create or extend contract docs so these resources have:
-- canonical response fields
-- naming conventions
-- ids / timestamps / status fields
-- error behavior where relevant
+### Ongoing Rule
+As additional endpoints are implemented, extend `docs/api-resource-contracts.md` and typed response models together so route definitions and response resources stay aligned.
 
 ### Acceptance Criteria
 - all first-implemented endpoints have concrete response/resource definitions, not only route descriptions

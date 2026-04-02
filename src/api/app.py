@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Annotated, Any
+from typing import Annotated, Any, Generic, TypeVar
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
@@ -27,6 +27,9 @@ class ValidatePayloadRequest(ApiRequestModel):
     payload: dict[str, Any]
 
 
+TData = TypeVar("TData")
+
+
 class CurrentActor(BaseModel):
     user_id: str
     user_name: str
@@ -34,31 +37,62 @@ class CurrentActor(BaseModel):
     auth_mode: str
 
 
-class SuccessEnvelope(BaseModel):
+class ApiMeta(BaseModel):
+    request_id: str
+    timestamp: str
+    current_actor: CurrentActor | None = None
+
+
+class AppHealthResource(BaseModel):
+    status: str
+    checked_at: str
+
+
+class SystemHealthData(BaseModel):
+    app: AppHealthResource
+
+
+class PayloadTypesResource(BaseModel):
+    payload_types: list[str]
+
+
+class ValidationResultResource(BaseModel):
+    valid: bool
+    model_name: str
+    normalized_payload: dict[str, Any]
+    validation_errors: list[Any]
+
+
+class ValidateAndStoreResultResource(BaseModel):
+    valid: bool
+    stored: bool
+    entity_type: str
+    model_name: str
+    record_locator: str
+    normalized_payload: dict[str, Any]
+    duplicate_handled: bool
+
+
+class SuccessEnvelope(BaseModel, Generic[TData]):
     success: bool = True
-    data: dict[str, Any]
+    data: TData
     error: None = None
-    meta: dict[str, Any]
+    meta: ApiMeta
 
 
 class ErrorEnvelope(BaseModel):
     success: bool = False
     data: None = None
     error: dict[str, Any]
-    meta: dict[str, Any]
+    meta: ApiMeta
 
 
-def _meta() -> dict[str, Any]:
-    return {
-        "request_id": f"req_{uuid4().hex[:12]}",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-
-
-def _actor_meta(actor: CurrentActor | None) -> dict[str, Any]:
-    if actor is None:
-        return {}
-    return {"current_actor": actor.model_dump()}
+def _meta(actor: CurrentActor | None = None) -> ApiMeta:
+    return ApiMeta(
+        request_id=f"req_{uuid4().hex[:12]}",
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        current_actor=actor,
+    )
 
 
 def resolve_current_actor(authorization: str | None = None) -> CurrentActor:
@@ -126,32 +160,32 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Crypto Trading Data Miner API", version="0.1.0")
 
     @app.get("/api/v1/system/health")
-    def system_health() -> SuccessEnvelope:
-        return SuccessEnvelope(
-            data={
-                "app": {
-                    "status": "ok",
-                    "checked_at": datetime.now(timezone.utc).isoformat(),
-                }
-            },
+    def system_health() -> SuccessEnvelope[SystemHealthData]:
+        return SuccessEnvelope[SystemHealthData](
+            data=SystemHealthData(
+                app=AppHealthResource(
+                    status="ok",
+                    checked_at=datetime.now(timezone.utc).isoformat(),
+                )
+            ),
             meta=_meta(),
         )
 
     @app.get("/api/v1/models/payload-types")
     def model_payload_types(
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-    ) -> SuccessEnvelope:
+    ) -> SuccessEnvelope[PayloadTypesResource]:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
-        return SuccessEnvelope(
-            data={"payload_types": supported_payload_types()},
-            meta={**_meta(), **_actor_meta(actor)},
+        return SuccessEnvelope[PayloadTypesResource](
+            data=PayloadTypesResource(payload_types=supported_payload_types()),
+            meta=_meta(actor),
         )
 
     @app.post("/api/v1/models/validate")
     def model_validate(
         request: ValidatePayloadRequest,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-    ) -> SuccessEnvelope:
+    ) -> SuccessEnvelope[ValidationResultResource]:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
         try:
             model_name, normalized_payload = validate_payload(request.payload_type, request.payload)
@@ -167,21 +201,21 @@ def create_app() -> FastAPI:
                 },
             ) from exc
 
-        return SuccessEnvelope(
-            data={
-                "valid": True,
-                "model_name": model_name,
-                "normalized_payload": normalized_payload,
-                "validation_errors": [],
-            },
-            meta={**_meta(), **_actor_meta(actor)},
+        return SuccessEnvelope[ValidationResultResource](
+            data=ValidationResultResource(
+                valid=True,
+                model_name=model_name,
+                normalized_payload=normalized_payload,
+                validation_errors=[],
+            ),
+            meta=_meta(actor),
         )
 
     @app.post("/api/v1/models/validate-and-store")
     def model_validate_and_store(
         request: ValidatePayloadRequest,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
-    ) -> SuccessEnvelope:
+    ) -> SuccessEnvelope[ValidateAndStoreResultResource]:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
         try:
             with transaction_scope() as connection:
@@ -198,17 +232,17 @@ def create_app() -> FastAPI:
                 },
             ) from exc
 
-        return SuccessEnvelope(
-            data={
-                "valid": True,
-                "stored": result.stored,
-                "entity_type": result.payload_type,
-                "model_name": result.model_name,
-                "record_locator": result.record_locator,
-                "normalized_payload": result.normalized_payload,
-                "duplicate_handled": True,
-            },
-            meta={**_meta(), **_actor_meta(actor)},
+        return SuccessEnvelope[ValidateAndStoreResultResource](
+            data=ValidateAndStoreResultResource(
+                valid=True,
+                stored=result.stored,
+                entity_type=result.payload_type,
+                model_name=result.model_name,
+                record_locator=result.record_locator,
+                normalized_payload=result.normalized_payload,
+                duplicate_handled=True,
+            ),
+            meta=_meta(actor),
         )
 
     @app.exception_handler(HTTPException)

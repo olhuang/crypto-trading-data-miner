@@ -65,6 +65,174 @@ Used by:
 
 ---
 
+## 2. Current Implemented Resource Set
+
+The following resources are already implemented in the current Phase 2 API slice and should be treated as canonical for the existing endpoints:
+- `GET /api/v1/system/health`
+- `GET /api/v1/models/payload-types`
+- `POST /api/v1/models/validate`
+- `POST /api/v1/models/validate-and-store`
+
+### 2.1 Meta Resource
+
+Current success responses use:
+
+```json
+{
+  "request_id": "req_001",
+  "timestamp": "2026-04-02T12:00:00Z",
+  "current_actor": {
+    "user_id": "local-dev",
+    "user_name": "Local Developer",
+    "role": "admin",
+    "auth_mode": "local_bypass"
+  }
+}
+```
+
+Rules:
+- `current_actor` may be omitted or `null` for public endpoints
+- protected endpoints should include `current_actor`
+- `request_id` and `timestamp` should always be present
+
+### 2.2 System Health Resource
+
+Used by:
+- `GET /api/v1/system/health`
+
+```json
+{
+  "success": true,
+  "data": {
+    "app": {
+      "status": "ok",
+      "checked_at": "2026-04-02T12:00:00Z"
+    }
+  },
+  "error": null,
+  "meta": {
+    "request_id": "req_001",
+    "timestamp": "2026-04-02T12:00:00Z",
+    "current_actor": null
+  }
+}
+```
+
+### 2.3 Payload Types Resource
+
+Used by:
+- `GET /api/v1/models/payload-types`
+
+```json
+{
+  "success": true,
+  "data": {
+    "payload_types": [
+      "balance_snapshot",
+      "bar_event",
+      "fill",
+      "funding_rate",
+      "instrument_metadata",
+      "open_interest",
+      "order_request",
+      "order_state",
+      "position_snapshot",
+      "trade_event"
+    ]
+  },
+  "error": null,
+  "meta": {
+    "request_id": "req_001",
+    "timestamp": "2026-04-02T12:00:00Z",
+    "current_actor": {
+      "user_id": "u_123",
+      "user_name": "Alice",
+      "role": "developer",
+      "auth_mode": "bearer"
+    }
+  }
+}
+```
+
+### 2.4 Validation Result Resource
+
+Used by:
+- `POST /api/v1/models/validate`
+
+```json
+{
+  "success": true,
+  "data": {
+    "valid": true,
+    "model_name": "TradeEvent",
+    "normalized_payload": {
+      "exchange_code": "binance",
+      "unified_symbol": "BTCUSDT_PERP",
+      "exchange_trade_id": "123",
+      "event_time": "2026-04-02T12:34:56Z",
+      "ingest_time": "2026-04-02T12:34:57Z",
+      "price": "84250.12",
+      "qty": "0.01",
+      "payload_json": {}
+    },
+    "validation_errors": []
+  },
+  "error": null,
+  "meta": {
+    "request_id": "req_001",
+    "timestamp": "2026-04-02T12:00:00Z",
+    "current_actor": {
+      "user_id": "local-dev",
+      "user_name": "Local Developer",
+      "role": "admin",
+      "auth_mode": "local_bypass"
+    }
+  }
+}
+```
+
+### 2.5 Validate-And-Store Result Resource
+
+Used by:
+- `POST /api/v1/models/validate-and-store`
+
+```json
+{
+  "success": true,
+  "data": {
+    "valid": true,
+    "stored": true,
+    "entity_type": "trade_event",
+    "model_name": "TradeEvent",
+    "record_locator": "binance:BTCUSDT_PERP:123",
+    "normalized_payload": {
+      "exchange_code": "binance",
+      "unified_symbol": "BTCUSDT_PERP",
+      "exchange_trade_id": "123",
+      "event_time": "2026-04-02T12:34:56Z",
+      "ingest_time": "2026-04-02T12:34:57Z",
+      "price": "84250.12",
+      "qty": "0.01",
+      "payload_json": {}
+    },
+    "duplicate_handled": true
+  },
+  "error": null,
+  "meta": {
+    "request_id": "req_001",
+    "timestamp": "2026-04-02T12:00:00Z",
+    "current_actor": {
+      "user_id": "u_123",
+      "user_name": "Alice",
+      "role": "developer",
+      "auth_mode": "bearer"
+    }
+  }
+}
+```
+
+---
+
 ## 3. Strategy Version Resource
 
 Used by:

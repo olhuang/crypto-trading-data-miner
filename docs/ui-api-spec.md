@@ -303,6 +303,7 @@ Purpose:
 
 Implementation note:
 - implemented in `src/api/app.py`
+- canonical response resource defined in `docs/api-resource-contracts.md`
 
 Response example:
 ```json
@@ -332,6 +333,7 @@ Purpose:
 
 Implementation note:
 - implemented in `src/api/app.py`
+- canonical response resource defined in `docs/api-resource-contracts.md`
 
 Request:
 ```json
@@ -360,6 +362,7 @@ Purpose:
 
 Implementation note:
 - implemented in `src/api/app.py` using `src/services/validate_and_store.py`
+- canonical response resource defined in `docs/api-resource-contracts.md`
 
 Request:
 ```json
@@ -402,6 +405,7 @@ Purpose:
 
 Backend status note:
 - backend implementations now exist for `/api/v1/models/payload-types`, `/api/v1/models/validate`, `/api/v1/models/validate-and-store`
+- current implemented response resources are defined in `docs/api-resource-contracts.md`
 - generic `/api/v1/storage/*` explorer endpoints are still pending
 
 ---

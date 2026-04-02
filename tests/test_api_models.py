@@ -45,16 +45,16 @@ class ModelsApiTests(unittest.TestCase):
         response = self.__class__.health_endpoint()
 
         self.assertTrue(response.success)
-        self.assertEqual(response.data["app"]["status"], "ok")
-        self.assertIn("request_id", response.meta)
+        self.assertEqual(response.data.app.status, "ok")
+        self.assertTrue(response.meta.request_id.startswith("req_"))
 
     def test_payload_types_includes_trade_event(self) -> None:
         response = self.__class__.payload_types_endpoint()
 
         self.assertTrue(response.success)
-        self.assertIn("trade_event", response.data["payload_types"])
-        self.assertIn("order_request", response.data["payload_types"])
-        self.assertEqual(response.meta["current_actor"]["auth_mode"], "local_bypass")
+        self.assertIn("trade_event", response.data.payload_types)
+        self.assertIn("order_request", response.data.payload_types)
+        self.assertEqual(response.meta.current_actor.auth_mode, "local_bypass")
 
     def test_validate_endpoint_normalizes_payload(self) -> None:
         request = ValidatePayloadRequest(
@@ -74,10 +74,10 @@ class ModelsApiTests(unittest.TestCase):
         response = self.__class__.validate_endpoint(request)
 
         self.assertTrue(response.success)
-        self.assertTrue(response.data["valid"])
-        self.assertEqual(response.data["model_name"], "TradeEvent")
-        self.assertEqual(response.data["normalized_payload"]["payload_json"], {"source": "api_validate"})
-        self.assertEqual(response.meta["current_actor"]["role"], "admin")
+        self.assertTrue(response.data.valid)
+        self.assertEqual(response.data.model_name, "TradeEvent")
+        self.assertEqual(response.data.normalized_payload["payload_json"], {"source": "api_validate"})
+        self.assertEqual(response.meta.current_actor.role, "admin")
 
     def test_validate_endpoint_rejects_invalid_payload(self) -> None:
         request = ValidatePayloadRequest(
@@ -119,10 +119,10 @@ class ModelsApiTests(unittest.TestCase):
         response = self.__class__.validate_and_store_endpoint(request)
 
         self.assertTrue(response.success)
-        self.assertTrue(response.data["stored"])
-        self.assertEqual(response.data["entity_type"], "trade_event")
+        self.assertTrue(response.data.stored)
+        self.assertEqual(response.data.entity_type, "trade_event")
         self.assertEqual(
-            response.data["record_locator"],
+            response.data.record_locator,
             f"binance:BTCUSDT_PERP:{trade_id}",
         )
 
@@ -143,9 +143,9 @@ class ModelsApiTests(unittest.TestCase):
         response = self.__class__.payload_types_endpoint("Bearer developer:u_123:Alice")
 
         self.assertTrue(response.success)
-        self.assertEqual(response.meta["current_actor"]["auth_mode"], "bearer")
-        self.assertEqual(response.meta["current_actor"]["role"], "developer")
-        self.assertEqual(response.meta["current_actor"]["user_id"], "u_123")
+        self.assertEqual(response.meta.current_actor.auth_mode, "bearer")
+        self.assertEqual(response.meta.current_actor.role, "developer")
+        self.assertEqual(response.meta.current_actor.user_id, "u_123")
 
     def test_operator_role_is_forbidden_for_models_route(self) -> None:
         settings.app_env = "staging"

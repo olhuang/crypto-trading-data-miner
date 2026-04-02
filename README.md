@@ -85,6 +85,9 @@ Current auth behavior for the implemented API slice:
 Auth reference:
 - `docs/minimal-auth-contract.md`
 
+Current API response/resource reference:
+- `docs/api-resource-contracts.md`
+
 ---
 
 ## Recommended Starting Points
