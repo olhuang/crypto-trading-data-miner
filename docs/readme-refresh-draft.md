@@ -1,0 +1,255 @@
+# Crypto Trading Data Miner
+
+A design-first repository for building a crypto quantitative trading platform covering:
+
+- market data collection
+- backtest / paper trading / live trading workflows
+- strategy, execution, risk, treasury, and reconciliation models
+- internal operator UI and frontend/backend API design
+- system architecture, performance, observability, security, and testing strategy
+
+This repository is no longer just an early scaffold. It now contains a fairly complete specification system for turning the platform into a runnable product.
+
+---
+
+## What Is In This Repo
+
+### Product and planning
+- product scope and goals
+- phased implementation plan
+- phase-by-phase delivery checklists
+
+### Data and schema
+- data catalog
+- canonical internal API contracts
+- PostgreSQL schema and seed data
+- bootstrap verification scripts
+
+### Backend architecture
+- backend system design
+- job orchestration model
+- storage and performance strategy
+- observability design
+- security and secrets model
+- execution/risk semantics
+- PnL and accounting semantics
+- testing strategy
+
+### UI and frontend architecture
+- UI spec by phase
+- frontend/backend API spec
+- UI information architecture
+- frontend architecture spec
+- first frontend foundation slice spec
+
+---
+
+## Current Repo Status
+
+The repository is currently:
+- strong in product, data, system, UI, and architecture planning
+- partially implemented in bootstrap/runtime scaffolding
+- ready to move from specification-first work into systematic code implementation
+
+Major design areas already covered include:
+- product requirements
+- implementation phases
+- database schema and seed plan
+- internal payload contracts
+- backend runtime architecture
+- async job orchestration
+- storage/performance planning
+- observability
+- security/secrets
+- execution/risk behavior
+- PnL/accounting methodology
+- testing strategy
+- UI and frontend architecture
+
+---
+
+## Recommended Starting Points
+
+### New to the repo
+Read in this order:
+1. `docs/spec-index.md`
+2. `docs/product-spec.md`
+3. `docs/architecture.md`
+4. `docs/implementation-plan.md`
+
+### Starting backend work
+Read:
+1. `docs/backend-system-design.md`
+2. `docs/api-contracts.md`
+3. `docs/implementation-plan.md`
+4. the relevant phase checklist
+
+### Starting frontend work
+Read:
+1. `docs/frontend-foundation-spec.md`
+2. `docs/ui-information-architecture.md`
+3. `docs/ui-api-spec.md`
+4. `docs/ui-phase-checklists.md`
+
+### Starting data ingestion work
+Read:
+1. `docs/data-catalog.md`
+2. `docs/api-contracts.md`
+3. `docs/job-orchestration-spec.md`
+4. `docs/data-storage-performance-spec.md`
+
+---
+
+## Docs Entry Point
+
+The main documentation entry point is:
+
+- `docs/spec-index.md`
+
+Use it to understand:
+- which specs exist
+- which doc is source of truth for each topic
+- what order to read docs in
+- which docs matter for each implementation phase
+
+---
+
+## Most Important Docs
+
+### Core direction
+- `docs/product-spec.md`
+- `docs/architecture.md`
+- `docs/implementation-plan.md`
+- `docs/spec-index.md`
+
+### Data and contracts
+- `docs/data-catalog.md`
+- `docs/data-catalog-addendum.md`
+- `docs/api-contracts.md`
+- `db/init/*.sql`
+
+### Backend system design
+- `docs/backend-system-design.md`
+- `docs/job-orchestration-spec.md`
+- `docs/data-storage-performance-spec.md`
+- `docs/observability-spec.md`
+- `docs/security-and-secrets-spec.md`
+- `docs/execution-and-risk-engine-spec.md`
+- `docs/pnl-and-accounting-spec.md`
+- `docs/testing-strategy-spec.md`
+
+### UI and frontend
+- `docs/ui-spec.md`
+- `docs/ui-phase-checklists.md`
+- `docs/ui-api-spec.md`
+- `docs/ui-information-architecture.md`
+- `docs/frontend-architecture-spec.md`
+- `docs/frontend-foundation-spec.md`
+
+---
+
+## Database Bootstrap
+
+Relevant files:
+- `db/init/001_schema.sql`
+- `db/init/002_extend_market_and_audit.sql`
+- `db/init/003_extend_audit_treasury_latency.sql`
+- `db/init/004_seed.sql`
+- `docs/database-bootstrap.md`
+- `db/verify/phase_1_verification.sql`
+- `scripts/verify_phase1.sh`
+- `Makefile`
+
+For Phase 1 database bootstrap and verification, start with:
+- `docs/phase-1-checklist.md`
+- `docs/database-bootstrap.md`
+
+---
+
+## Implementation Progress Model
+
+The repository follows phased delivery from:
+1. runtime/bootstrap
+2. DB bootstrap and seed
+3. models and storage
+4. market ingestion
+5. data quality
+6. backtest
+7. paper trading
+8. live trading
+9. reconciliation/ops
+10. production hardening
+
+Phase planning docs:
+- `docs/implementation-plan.md`
+- `docs/phase-1-checklist.md`
+- `docs/phases-2-to-9-checklists.md`
+
+---
+
+## Frontend Progress Model
+
+Frontend planning is also phase-aligned.
+
+Main frontend docs:
+- `docs/ui-spec.md`
+- `docs/ui-phase-checklists.md`
+- `docs/ui-api-spec.md`
+- `docs/ui-information-architecture.md`
+- `docs/frontend-architecture-spec.md`
+- `docs/frontend-foundation-spec.md`
+
+The recommended first frontend slice is:
+- route registry
+- app shell
+- API client base
+- query layer conventions
+- shared page primitives
+- `system`, `bootstrap`, and `reference-data` feature modules
+
+---
+
+## Suggested Next Steps
+
+### If continuing design work
+- keep `docs/spec-index.md` updated as the doc entrypoint
+- align README whenever major new specs are added
+
+### If starting implementation now
+Recommended backend-first sequence:
+1. finish Phase 1 verification
+2. implement Phase 2 models and storage
+3. implement Phase 3 ingestion skeleton
+
+Recommended frontend-first sequence:
+1. build first frontend foundation slice
+2. implement Phase 0 pages
+3. implement Phase 1 pages
+
+---
+
+## Repository Mental Model
+
+A simple way to think about this repo:
+
+- `product-spec` says what to build
+- `implementation-plan` says what order to build it in
+- `data-catalog` and `api-contracts` define the system data model
+- `db/init/*.sql` defines implemented DB shape
+- backend architecture specs define how the system runs safely
+- UI/frontend specs define how users inspect and operate it
+- testing strategy defines how to trust it
+
+---
+
+## Contribution Guidance
+
+When adding or changing major design decisions:
+- update the relevant spec
+- update `docs/spec-index.md` if a major spec is added
+- update `README.md` if repo entry guidance changes materially
+
+When there is a conflict:
+- implementation SQL beats schema description docs for current DB state
+- deeper architecture/system spec beats checklist wording unless intentionally revised later
+- more specific topic doc beats README
