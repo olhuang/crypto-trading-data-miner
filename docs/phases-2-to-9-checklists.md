@@ -180,11 +180,14 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [x] repositories exist for the current reference, market, and execution foundation slice
 - [x] idempotent persistence patterns are implemented for the current bars/trades/funding/open-interest paths
 - [x] automated tests exist for the current model, repository, and minimal models API foundation slice
+- [x] minimal auth contract is implemented for the current models API slice
+- [x] typed response/resource models exist for the current implemented API endpoints
+- [x] starter strategy/version/account seed defaults exist for later phase handoff needs
 - [ ] remaining models, repositories, and tests are still required before full Phase 2 acceptance
 
 ## Phase 2 Final Acceptance Summary
 - [ ] canonical payloads validate through code
-- [ ] DB connection layer works locally
+- [x] DB connection layer works locally
 - [ ] repositories exist for core entities
 - [ ] idempotent persistence patterns are implemented
 - [x] model and repository tests pass
