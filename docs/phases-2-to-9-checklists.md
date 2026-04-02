@@ -45,40 +45,40 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 
 ## Task 2.1: Create model package structure
 ### Tasks
-- [ ] create `src/models/__init__.py`
-- [ ] create `src/models/market.py`
+- [x] create `src/models/__init__.py`
+- [x] create `src/models/market.py`
 - [ ] create `src/models/strategy.py`
-- [ ] create `src/models/execution.py`
+- [x] create `src/models/execution.py`
 - [ ] create `src/models/risk.py`
-- [ ] create shared type/util module if needed
+- [x] create shared type/util module if needed
 
 ### Acceptance Checks
-- [ ] all model modules import successfully
+- [x] all implemented model modules import successfully
 - [ ] project has a clear model namespace for market, strategy, execution, and risk
 
 ---
 
 ## Task 2.2: Implement shared validation conventions
 ### Tasks
-- [ ] define Decimal parsing policy for numeric strings
-- [ ] define timestamp parsing policy for UTC values
-- [ ] define common enum representations
-- [ ] define base model settings for strict validation where appropriate
+- [x] define Decimal parsing policy for numeric strings
+- [x] define timestamp parsing policy for UTC values
+- [x] define common enum representations
+- [x] define base model settings for strict validation where appropriate
 
 ### Acceptance Checks
-- [ ] numeric string payloads validate consistently
-- [ ] malformed timestamps fail validation predictably
-- [ ] enums match `docs/api-contracts.md`
+- [x] numeric string payloads validate consistently
+- [x] malformed timestamps fail validation predictably
+- [x] enums match `docs/api-contracts.md`
 
 ---
 
 ## Task 2.3: Implement market data models
 ### Tasks
-- [ ] implement model for instrument metadata
-- [ ] implement model for bar event
-- [ ] implement model for trade event
-- [ ] implement model for funding rate event
-- [ ] implement model for open interest event
+- [x] implement model for instrument metadata
+- [x] implement model for bar event
+- [x] implement model for trade event
+- [x] implement model for funding rate event
+- [x] implement model for open interest event
 - [ ] implement model for order book snapshot
 - [ ] implement model for order book delta
 - [ ] implement model for mark price
@@ -87,9 +87,9 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [ ] implement model for raw market event
 
 ### Acceptance Checks
-- [ ] all market payload examples from `docs/api-contracts.md` validate successfully
-- [ ] required fields are enforced
-- [ ] invalid payloads fail with understandable errors
+- [x] core implemented market payload examples validate successfully
+- [x] required fields are enforced for the implemented market models
+- [x] invalid payloads fail with understandable errors for the implemented market models
 
 ---
 
@@ -97,67 +97,67 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 ### Tasks
 - [ ] implement signal model
 - [ ] implement target position model
-- [ ] implement order request model
-- [ ] implement order state model
-- [ ] implement order event model
-- [ ] implement fill model
-- [ ] implement position snapshot model
-- [ ] implement balance snapshot model
+- [x] implement order request model
+- [x] implement order state model
+- [x] implement order event model
+- [x] implement fill model
+- [x] implement position snapshot model
+- [x] implement balance snapshot model
 - [ ] implement account ledger model
 - [ ] implement funding pnl model
 
 ### Acceptance Checks
-- [ ] signal and execution payload examples validate successfully
-- [ ] order-type rules are enforced
-- [ ] required fields vary correctly by payload type
+- [x] implemented execution payload examples validate successfully
+- [x] order-type rules are enforced for the implemented order models
+- [x] required fields vary correctly by implemented payload type
 
 ---
 
 ## Task 2.5: Implement DB connection layer
 ### Tasks
-- [ ] create `src/storage/db.py`
-- [ ] add PostgreSQL connection builder using environment config
-- [ ] define transaction handling pattern
+- [x] create `src/storage/db.py`
+- [x] add PostgreSQL connection builder using environment config
+- [x] define transaction handling pattern
 - [ ] define retry/error handling policy for transient DB failures
 
 ### Acceptance Checks
-- [ ] local app can open a PostgreSQL connection
-- [ ] connection settings are read from environment
-- [ ] DB helper can be reused by repositories
+- [x] local app can open a PostgreSQL connection
+- [x] connection settings are read from environment
+- [x] DB helper can be reused by repositories
 
 ---
 
 ## Task 2.6: Implement repositories for reference and market data
 ### Tasks
 - [ ] create repository for exchanges/assets/instruments
-- [ ] create repository for bars
-- [ ] create repository for trades
-- [ ] create repository for funding rates
-- [ ] create repository for open interest
+- [x] create repository for bars
+- [x] create repository for trades
+- [x] create repository for funding rates
+- [x] create repository for open interest
 - [ ] create repository for mark/index prices
 - [ ] create repository for raw market events
 
 ### Acceptance Checks
-- [ ] validated market models can be persisted through repositories
-- [ ] market repositories support idempotent writes where needed
-- [ ] reference repositories can resolve instrument ids from canonical keys
+- [x] validated implemented market models can be persisted through repositories
+- [x] market repositories support idempotent writes where needed
+- [x] reference repositories can resolve instrument ids from canonical keys
 
 ---
 
 ## Task 2.7: Implement repositories for execution and risk data
 ### Tasks
-- [ ] create repository for orders
-- [ ] create repository for order events
-- [ ] create repository for fills
-- [ ] create repository for positions
-- [ ] create repository for balances
+- [x] create repository for orders
+- [x] create repository for order events
+- [x] create repository for fills
+- [x] create repository for positions
+- [x] create repository for balances
 - [ ] create repository for risk events
 - [ ] create repository for ops logs / ingestion metadata
 
 ### Acceptance Checks
-- [ ] execution payloads can be persisted through repositories
-- [ ] order lifecycle data can be stored without manual SQL
-- [ ] repositories expose predictable interfaces for later phases
+- [x] execution payloads can be persisted through repositories
+- [x] order lifecycle data can be stored without manual SQL
+- [x] repositories expose predictable interfaces for later phases
 
 ---
 
@@ -173,6 +173,13 @@ Turn the documented contracts into validated Python models and a reusable Postgr
 - [ ] repository tests pass against local PostgreSQL
 
 ---
+
+## Phase 2 Current Implementation Snapshot
+- [x] canonical payloads validate through code for the implemented market and execution foundation slice
+- [x] DB connection layer works locally
+- [x] repositories exist for the current reference, market, and execution foundation slice
+- [x] idempotent persistence patterns are implemented for the current bars/trades/funding/open-interest paths
+- [ ] remaining models, repositories, and tests are still required before full Phase 2 acceptance
 
 ## Phase 2 Final Acceptance Summary
 - [ ] canonical payloads validate through code
@@ -1014,6 +1021,7 @@ Improve reliability, maintainability, and scalability once the end-to-end system
 
 # Recommended Immediate Next Action
 
-After Phase 1 verification is complete:
-- begin Phase 2 Task 2.1 through Task 2.3 first
-- get canonical market models working before building additional ingestion code
+Current recommended next action:
+- finish the remaining Phase 2 models and repositories
+- add tests for validation, lookups, and repository persistence
+- then begin Phase 3 ingestion work on top of the current foundation slice

@@ -48,8 +48,9 @@ This repository is no longer just an early scaffold. It now contains a fairly co
 
 The repository is currently:
 - strong in product, data, system, UI, and architecture planning
-- partially implemented in bootstrap/runtime scaffolding
-- ready to move from specification-first work into systematic code implementation
+- implemented through Phase 1 database bootstrap and seed verification
+- started on Phase 2 backend foundation with working models, storage, validation/store service, and minimal models API
+- ready to continue from foundation work into systematic Phase 2 and Phase 3 implementation
 
 Major design areas already covered include:
 - product requirements
@@ -65,6 +66,14 @@ Major design areas already covered include:
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture
+
+Major implementation areas now present include:
+- Phase 1 schema bootstrap, seed, and verification flow
+- canonical market and execution models under `src/models/`
+- DB connection and lookup helpers under `src/storage/`
+- repositories for reference, market, and execution persistence paths
+- smoke-test scripts for Phase 2 persistence flow
+- minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/payload-types`, `/api/v1/models/validate`, and `/api/v1/models/validate-and-store`
 
 ---
 
@@ -217,9 +226,9 @@ The recommended first frontend slice is:
 
 ### If starting implementation now
 Recommended backend-first sequence:
-1. finish Phase 1 verification
-2. implement Phase 2 models and storage
-3. implement Phase 3 ingestion skeleton
+1. extend Phase 2 coverage beyond the current foundation slice
+2. implement Phase 3 ingestion skeleton
+3. add tests around the current models/storage/API foundation
 
 Recommended frontend-first sequence:
 1. build first frontend foundation slice

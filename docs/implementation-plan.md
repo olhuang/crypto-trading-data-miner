@@ -23,10 +23,12 @@ The repository already has a strong design foundation and is now design-complete
 - initial reference-data seed in `db/init/004_seed.sql`
 - local runtime scaffold with `docker-compose.yml`, `.env.example`, and minimal `src/` bootstrap
 - Phase 1 bootstrap verification artifacts and scripts
+- Phase 1 end-to-end verification against a clean bootstrap
+- initial Phase 2 market and execution models in `src/models/`
+- initial Phase 2 DB/storage helpers and repositories in `src/storage/`
+- Phase 2 validation/store service and minimal FastAPI endpoints in `src/services/` and `src/api/`
 
 ### Not Yet Implemented
-- Python domain models
-- storage layer / repositories
 - data ingestion jobs
 - backtest engine
 - paper trading engine
@@ -142,7 +144,7 @@ Make the database schema installable and usable with a real initial dataset.
 - Phase 0
 
 ### Recommended Status
-- implemented in docs/schema/scripts; pending final end-to-end verification evidence
+- implemented and verified from a clean bootstrap flow
 
 ---
 
@@ -195,7 +197,7 @@ Turn documented contracts into validated code and a consistent database access l
 - Phase 1
 
 ### Recommended Status
-- not started
+- started with working foundation slice for models, storage, validate-and-store service, smoke scripts, and minimal models API
 
 ---
 
@@ -582,10 +584,10 @@ The project reaches the first meaningful delivery milestone when all of the foll
 
 The next recommended implementation step is:
 
-### Complete Phase 1 verification
-- reset local database from empty state
-- confirm all migrations and seed apply successfully
-- run Phase 1 verification script and queries
-- record the result
+### Extend Phase 2 coverage
+- add remaining strategy and risk models
+- add remaining repositories for raw events, mark/index, and risk/ops paths
+- add tests for validation, lookup, and repository persistence
+- widen the minimal API surface beyond the current models endpoints
 
-After that, immediately start Phase 2 models and storage implementation.
+After that, begin Phase 3 public ingestion implementation.

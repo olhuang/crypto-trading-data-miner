@@ -145,6 +145,10 @@ Recommended normalized values:
 Purpose:
 - return service health for app, postgres, redis
 
+Implementation note:
+- minimal backend implementation now exists in `src/api/app.py`
+- current implementation returns app health only; postgres/redis detail remains future work
+
 Response:
 ```json
 {
@@ -297,6 +301,9 @@ Query params:
 Purpose:
 - list supported canonical payload types for validation playground
 
+Implementation note:
+- implemented in `src/api/app.py`
+
 Response example:
 ```json
 {
@@ -323,6 +330,9 @@ Response example:
 Purpose:
 - validate arbitrary payload against canonical model
 
+Implementation note:
+- implemented in `src/api/app.py`
+
 Request:
 ```json
 {
@@ -347,6 +357,9 @@ Response fields:
 ### POST `/api/v1/models/validate-and-store`
 Purpose:
 - validate payload then persist using repository layer
+
+Implementation note:
+- implemented in `src/api/app.py` using `src/services/validate_and_store.py`
 
 Request:
 ```json
@@ -386,6 +399,10 @@ Purpose:
 - [ ] UI can validate sample payloads
 - [ ] UI can store sample payloads through API
 - [ ] UI can inspect stored rows
+
+Backend status note:
+- backend implementations now exist for `/api/v1/models/payload-types`, `/api/v1/models/validate`, `/api/v1/models/validate-and-store`
+- generic `/api/v1/storage/*` explorer endpoints are still pending
 
 ---
 
