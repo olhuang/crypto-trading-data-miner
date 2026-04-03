@@ -99,6 +99,11 @@ Resolve by:
 Rule:
 - `strategy_code` must be unique
 
+Current interpretation:
+- `strategy_code` should be treated as the stable variant key stored in `strategy.strategies`
+- broad family classification is planning metadata for now
+- see `docs/strategy-taxonomy-and-versioning-spec.md`
+
 ## 3.4 Strategy Version
 
 Resolve by:

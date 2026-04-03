@@ -21,6 +21,7 @@ Researchers need a repeatable way to:
 This spec complements:
 - `docs/implementation-plan.md`
 - `docs/position-management-spec.md`
+- `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/testing-strategy-spec.md`
 - `docs/ui-spec.md`
@@ -91,6 +92,21 @@ Moving from research to paper/live should depend on:
 - repeated evaluation
 - documented assumptions
 - explicit comparison results
+
+### 2.6 Strategy Identity Must Be Stable
+Research comparison depends on a stable strategy taxonomy.
+
+The project should distinguish:
+- `family`
+- `variant`
+- `version`
+
+And should follow:
+- `docs/strategy-taxonomy-and-versioning-spec.md`
+
+For the current repository, the practical rule is:
+- current `strategy_code` means stable variant identity
+- current `strategy_version` means immutable version identity
 
 ---
 

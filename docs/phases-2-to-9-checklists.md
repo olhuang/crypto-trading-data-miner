@@ -20,6 +20,7 @@ This file is intended to be used together with:
 - `docs/data-catalog-addendum.md`
 - `docs/api-contracts.md`
 - `docs/position-management-spec.md` for all Phase 5-8 position/execution/protection/reporting work
+- `docs/strategy-taxonomy-and-versioning-spec.md` for stable family/variant/version strategy identity
 - `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
 - `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
 
@@ -530,6 +531,11 @@ Phase 5 should also follow `docs/strategy-research-and-evaluation-spec.md` as th
 - multi-strategy and multi-parameter comparison planning
 - promotion-oriented research evidence
 
+Phase 5 should also follow `docs/strategy-taxonomy-and-versioning-spec.md` as the planning backbone for:
+- family vs variant vs version classification
+- stable meaning of current `strategy_code` and `strategy_version`
+- future comparison and promotion grouping semantics
+
 ## Goal
 Provide the first end-to-end research workflow using historical bar data.
 
@@ -554,10 +560,12 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] keep fill-level execution truth as the canonical source for later projections
 - [x] keep Phase 5 scoped to isolated strategy sessions and position-level protection
 - [x] avoid introducing a backtest-only lifecycle vocabulary that would diverge from future paper/live work
+- [x] freeze strategy family/variant/version semantics before expanding strategy registration and research flows
 
 ### Acceptance Checks
 - [x] Phase 5 implementation choices remain compatible with later paper/live reuse
 - [x] strategy/account ownership, protection, and reporting assumptions are explicit before coding deeper execution logic
+- [x] current `strategy_code` and `strategy_version` meaning is explicit enough to support future compare/analyze and promotion workflows
 
 ---
 
@@ -661,6 +669,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] automated tests now validate session config, default strategy loading, example strategy output, and initial lifecycle planning
 - [x] a dedicated strategy-input/feature-pipeline planning spec now exists for future non-bar strategy inputs
 - [x] a dedicated strategy-research/evaluation planning spec now exists for future multi-window and multi-strategy research workflows
+- [x] a dedicated strategy taxonomy/versioning planning spec now exists for family, variant, and version identity
 - [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 
 ---

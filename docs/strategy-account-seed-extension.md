@@ -84,6 +84,11 @@ Recommended example:
 - `strategy_name = BTC Momentum`
 - `description = minimal seed strategy for early backtest/paper flows`
 
+Taxonomy note:
+- current `strategy_code` should be treated as the stable variant key
+- the broad family for `btc_momentum` is `momentum`
+- see `docs/strategy-taxonomy-and-versioning-spec.md`
+
 Optional second example later:
 - `strategy_code = basis_carry`
 
@@ -103,7 +108,7 @@ Recommended example:
 ### Uniqueness Rule
 
 The seed and service logic should treat:
-- `strategy_code` as unique at strategy level
+- `strategy_code` as unique at the current variant-registry level
 - `strategy_code + strategy_version` as the natural unique version key
 
 This matches `docs/internal-id-resolution-spec.md`.

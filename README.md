@@ -67,6 +67,7 @@ Major design areas already covered include:
 - security/secrets
 - execution/risk behavior
 - extensible position-management and protection architecture
+- strategy taxonomy and family/variant/version planning
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture
@@ -197,6 +198,7 @@ Use it to understand:
 - `docs/security-and-secrets-spec.md`
 - `docs/execution-and-risk-engine-spec.md`
 - `docs/position-management-spec.md`
+- `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/pnl-and-accounting-spec.md`

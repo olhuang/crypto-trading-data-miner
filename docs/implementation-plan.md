@@ -46,6 +46,7 @@ The repository already has a strong design foundation and is now design-complete
 - a minimal static Monitoring Console under `frontend/monitoring/` for Overview, Jobs, Quality, and Traceability views backed by the existing Phase 3/4 APIs
 - quality summary/check inspection now supports a latest-only monitoring mode so dashboards can focus on current effective dataset health instead of cumulative historical runs
 - `docs/position-management-spec.md` now freezes the intended extensible architecture for Phase 5-8 position management, execution ownership, protection state, and reporting
+- `docs/strategy-taxonomy-and-versioning-spec.md` now freezes the intended family/variant/version identity model for strategy registration, research comparison, and future promotion
 - `docs/strategy-input-and-feature-pipeline-spec.md` now freezes the intended long-lived plan for multi-dataset strategy inputs, feature alignment, and no-look-ahead handling
 - `docs/strategy-research-and-evaluation-spec.md` now freezes the intended long-lived plan for strategy development, research, testing, and comparative evaluation
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
@@ -358,6 +359,11 @@ Also treat `docs/strategy-research-and-evaluation-spec.md` as the planning backb
 - multi-window evaluation
 - multi-strategy and multi-parameter comparison
 - promotion-oriented research evidence
+
+Also treat `docs/strategy-taxonomy-and-versioning-spec.md` as the planning backbone for:
+- family vs variant vs version identity
+- stable interpretation of current `strategy_code` and `strategy_version`
+- future compare/analyze grouping and promotion semantics
 
 ### Goal
 Provide the first end-to-end research workflow using historical data.
