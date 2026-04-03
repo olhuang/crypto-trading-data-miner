@@ -110,6 +110,13 @@ Current monitoring UI behavior:
 - it is intentionally an internal monitoring/diagnostic UI, not the full long-term frontend architecture
 - the current console depends on the existing API slice and local/shared auth behavior; it does not replace the future React app foundation described in the frontend specs
 
+Recent local collection validation:
+- a real local Binance collection run has been completed for `BTCUSDT_SPOT` and `BTCUSDT_PERP`
+- validated data types in that run:
+  - `BTCUSDT_SPOT`: instrument sync, historical bars
+  - `BTCUSDT_PERP`: instrument sync, historical bars, funding rates, open interest, mark prices, index prices
+- `trades` remain intentionally out of the default historical collection flow
+
 ---
 
 ## Recommended Starting Points

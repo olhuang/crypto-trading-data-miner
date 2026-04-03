@@ -360,6 +360,7 @@ Start collecting usable market data from the first exchange into the database.
 - [x] ingestion job detail now exposes summary/diff metadata for instrument sync
 - [x] market snapshot refresh now supports historical funding/OI/mark/index windows for the current Binance slice
 - [x] automated tests cover instrument sync, bar backfill, funding/open-interest refresh, trade stream processing, and scheduler planning
+- [x] the current Phase 3 slice has been validated once against real Binance for `BTCUSDT_SPOT`/`BTCUSDT_PERP` collection, excluding historical trades
 
 ## Phase 3 Final Acceptance Summary
 - [x] instrument sync works

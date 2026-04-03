@@ -115,6 +115,17 @@ Reasons:
 - long-window trade backfill needs chunking, stronger checkpointing, and stricter DB/rate-limit controls than the current lightweight remediation path
 - the near-term goal is to preserve an operator-triggered way to fetch bounded historical trade windows without silently expanding background system load
 
+### Latest Real Collection Validation
+
+The current local validation baseline has exercised the implemented manual/API-triggered collection path against real Binance responses for:
+- `BTCUSDT_SPOT` historical bars
+- `BTCUSDT_PERP` historical bars
+- `BTCUSDT_PERP` funding/open-interest/mark/index history windows
+
+This validation should be interpreted as:
+- proof that the current first-symbol collection path works against the real venue
+- not yet proof that full-universe, all-history, or historical-trades collection is complete
+
 ### Meaning of Each Column
 
 #### Live auto collect

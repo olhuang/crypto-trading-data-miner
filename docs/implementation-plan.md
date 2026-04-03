@@ -55,6 +55,13 @@ The repository already has a strong design foundation and is now design-complete
 The project is currently strong on design and still weak on executable implementation.
 However, the repository is now sufficiently specified to begin real implementation work for Phase 1–3 without another major architecture-planning round.
 
+### Latest Local Validation Note
+- the current Binance ingestion slice has now been exercised against the real venue path for:
+  - `BTCUSDT_SPOT` historical bars
+  - `BTCUSDT_PERP` historical bars
+  - `BTCUSDT_PERP` funding/open-interest/mark/index history windows
+- this validation is intentionally narrower than full-universe or all-history collection, but it confirms that the current Phase 3 collection path works against real Binance responses for the first target symbol pair
+
 ---
 
 ## 2. Delivery Principles
