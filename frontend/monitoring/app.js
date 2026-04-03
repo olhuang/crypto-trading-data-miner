@@ -101,7 +101,7 @@ function renderJson(targetId, payload) {
 async function loadOverview() {
   const [health, qualitySummary, gaps, jobs, streams, replay] = await Promise.all([
     fetchEnvelope("/api/v1/system/health"),
-    fetchEnvelope("/api/v1/quality/summary"),
+    fetchEnvelope("/api/v1/quality/summary", { latest_only: "true" }),
     fetchEnvelope("/api/v1/quality/gaps", { status: "open", limit: 5 }),
     fetchEnvelope("/api/v1/ingestion/jobs", { limit: 8 }),
     fetchEnvelope("/api/v1/streams/ws-status"),
@@ -172,7 +172,7 @@ async function loadJobs(filters = {}) {
 
 async function loadQuality(filters = {}) {
   const [checks, gaps] = await Promise.all([
-    fetchEnvelope("/api/v1/quality/checks", { limit: 30, ...filters }),
+    fetchEnvelope("/api/v1/quality/checks", { limit: 30, latest_only: "true", ...filters }),
     fetchEnvelope("/api/v1/quality/gaps", { limit: 30, status: "open", unified_symbol: filters.unified_symbol }),
   ]);
 

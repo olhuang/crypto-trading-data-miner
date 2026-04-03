@@ -614,6 +614,7 @@ Purpose:
 Implementation note:
 - implemented in `src/api/app.py`
 - current Phase 4 checks now cover bars/trades plus dataset-level sanity checks for funding/open-interest/mark/index
+- current implementation also supports `latest_only=true` so dashboards can inspect the latest check per `(symbol, data_type, check_name)` instead of the full historical log
 
 Query params:
 - `data_type`
@@ -621,6 +622,7 @@ Query params:
 - `severity`
 - `exchange_code`
 - `unified_symbol`
+- `latest_only`
 
 ### POST `/api/v1/quality/run`
 Purpose:
@@ -629,6 +631,10 @@ Purpose:
 ### GET `/api/v1/quality/summary`
 Purpose:
 - return aggregated pass/fail counts for dashboard cards
+
+Implementation note:
+- implemented in `src/api/app.py`
+- current implementation supports `latest_only=true` so Monitoring Console summary cards can reflect the latest quality state instead of accumulated historical runs
 
 ### GET `/api/v1/quality/gaps`
 Purpose:

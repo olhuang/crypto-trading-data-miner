@@ -44,6 +44,7 @@ The repository already has a strong design foundation and is now design-complete
 - automated tests for the current Phase 4 quality, traceability, and replay-readiness slice
 - dev-only startup gap-remediation support for recent bars windows in local app runs
 - a minimal static Monitoring Console under `frontend/monitoring/` for Overview, Jobs, Quality, and Traceability views backed by the existing Phase 3/4 APIs
+- quality summary/check inspection now supports a latest-only monitoring mode so dashboards can focus on current effective dataset health instead of cumulative historical runs
 
 ### Not Yet Implemented
 - backtest engine

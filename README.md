@@ -87,6 +87,7 @@ Major implementation areas now present include:
 - scheduler-ready market snapshot remediation job under `src/jobs/remediate_market_snapshots.py` for manual/API-triggered funding/OI/mark/index catch-up planning
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/quality/*`, `/api/v1/market/*`, `/api/v1/streams/*`, and `/api/v1/replay/readiness`
 - a minimal static Monitoring Console under `frontend/monitoring/`, mounted by the API app at `/monitoring`
+- Monitoring Console quality cards/tables now read the latest effective check state instead of aggregating every historical quality run
 - minimal auth handling for the current models API slice
 - replay/retention guidance in `docs/replay-retention-policy.md`
 - automated tests for the current Phase 2/Phase 3/Phase 4 model, storage, API, ingestion, and quality foundation

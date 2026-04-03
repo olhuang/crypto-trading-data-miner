@@ -83,6 +83,22 @@ def run_bar_gap_checks(
         gap_repo = DataGapRepository()
         log_repo = SystemLogRepository()
 
+        resolved_gap_count = gap_repo.resolve_overlapping_open_gaps(
+            connection,
+            data_type="bars_1m",
+            exchange_code=exchange_code,
+            unified_symbol=unified_symbol,
+            gap_start=start_time,
+            gap_end=end_time,
+            detail_json={
+                "resolved_by": "bar_gap_check",
+                "requested_window_start": start_time.isoformat(),
+                "requested_window_end": end_time.isoformat(),
+                "aligned_window_start": aligned_start_time.isoformat(),
+                "aligned_window_end": aligned_end_time.isoformat(),
+            },
+        )
+
         if missing_timestamps:
             segments: list[tuple[datetime, datetime, int]] = []
             segment_start = missing_timestamps[0]
@@ -142,7 +158,11 @@ def run_bar_gap_checks(
                 service_name="data_quality",
                 level="warning" if missing_timestamps else "info",
                 message=f"bar gap check completed for {unified_symbol}",
-                context_json={"gaps_written": gaps_written, "checks_written": checks_written},
+                context_json={
+                    "gaps_written": gaps_written,
+                    "checks_written": checks_written,
+                    "resolved_gap_count": resolved_gap_count,
+                },
             ),
         )
 

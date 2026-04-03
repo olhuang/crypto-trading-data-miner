@@ -440,9 +440,15 @@ Used by:
   "total_checks": 12,
   "passed_checks": 8,
   "failed_checks": 4,
-  "severe_checks": 2
+  "severe_checks": 2,
+  "latest_only": true
 }
 ```
+
+Current implementation note:
+- `GET /api/v1/quality/summary` accepts `latest_only=true`
+- `GET /api/v1/quality/checks` also accepts `latest_only=true`
+- when enabled, the API returns only the latest check per `(symbol, data_type, check_name)` so monitoring views can focus on current state instead of full historical logs
 
 ## 7.1 Raw Event Detail Resource
 

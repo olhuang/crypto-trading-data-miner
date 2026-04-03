@@ -448,6 +448,7 @@ class DataQualityCheckRepository:
         severity: str | None = None,
         exchange_code: str | None = None,
         unified_symbol: str | None = None,
+        latest_only: bool = False,
     ) -> list[dict[str, Any]]:
         filters = []
         params: dict[str, Any] = {"limit": limit}
@@ -467,31 +468,78 @@ class DataQualityCheckRepository:
             filters.append("instrument.unified_symbol = :unified_symbol")
             params["unified_symbol"] = unified_symbol
         where_clause = f"where {' and '.join(filters)}" if filters else ""
-        rows = connection.execute(
-            text(
-                f"""
-                select
-                    checks.check_id,
-                    exchange.exchange_code,
-                    instrument.unified_symbol,
-                    checks.data_type,
-                    checks.check_time,
-                    checks.check_name,
-                    checks.severity,
-                    checks.status,
-                    checks.expected_value,
-                    checks.observed_value,
-                    checks.detail_json
-                from ops.data_quality_checks checks
-                left join ref.exchanges exchange on exchange.exchange_id = checks.exchange_id
-                left join ref.instruments instrument on instrument.instrument_id = checks.instrument_id
-                {where_clause}
-                order by checks.check_time desc
-                limit :limit
-                """
-            ),
-            params,
-        ).mappings().all()
+        if latest_only:
+            rows = connection.execute(
+                text(
+                    f"""
+                    with ranked as (
+                        select
+                            checks.check_id,
+                            exchange.exchange_code,
+                            instrument.unified_symbol,
+                            checks.data_type,
+                            checks.check_time,
+                            checks.check_name,
+                            checks.severity,
+                            checks.status,
+                            checks.expected_value,
+                            checks.observed_value,
+                            checks.detail_json,
+                            row_number() over (
+                                partition by coalesce(instrument.unified_symbol, ''), checks.data_type, checks.check_name
+                                order by checks.check_time desc, checks.check_id desc
+                            ) as rn
+                        from ops.data_quality_checks checks
+                        left join ref.exchanges exchange on exchange.exchange_id = checks.exchange_id
+                        left join ref.instruments instrument on instrument.instrument_id = checks.instrument_id
+                        {where_clause}
+                    )
+                    select
+                        check_id,
+                        exchange_code,
+                        unified_symbol,
+                        data_type,
+                        check_time,
+                        check_name,
+                        severity,
+                        status,
+                        expected_value,
+                        observed_value,
+                        detail_json
+                    from ranked
+                    where rn = 1
+                    order by check_time desc, check_id desc
+                    limit :limit
+                    """
+                ),
+                params,
+            ).mappings().all()
+        else:
+            rows = connection.execute(
+                text(
+                    f"""
+                    select
+                        checks.check_id,
+                        exchange.exchange_code,
+                        instrument.unified_symbol,
+                        checks.data_type,
+                        checks.check_time,
+                        checks.check_name,
+                        checks.severity,
+                        checks.status,
+                        checks.expected_value,
+                        checks.observed_value,
+                        checks.detail_json
+                    from ops.data_quality_checks checks
+                    left join ref.exchanges exchange on exchange.exchange_id = checks.exchange_id
+                    left join ref.instruments instrument on instrument.instrument_id = checks.instrument_id
+                    {where_clause}
+                    order by checks.check_time desc
+                    limit :limit
+                    """
+                ),
+                params,
+            ).mappings().all()
         return [dict(row) for row in rows]
 
     def summary(
@@ -501,6 +549,7 @@ class DataQualityCheckRepository:
         data_type: str | None = None,
         exchange_code: str | None = None,
         unified_symbol: str | None = None,
+        latest_only: bool = False,
     ) -> dict[str, int]:
         filters = []
         params: dict[str, Any] = {}
@@ -514,22 +563,51 @@ class DataQualityCheckRepository:
             filters.append("instrument.unified_symbol = :unified_symbol")
             params["unified_symbol"] = unified_symbol
         where_clause = f"where {' and '.join(filters)}" if filters else ""
-        row = connection.execute(
-            text(
-                f"""
-                select
-                    count(*) as total_checks,
-                    count(*) filter (where checks.status = 'pass') as passed_checks,
-                    count(*) filter (where checks.status = 'fail') as failed_checks,
-                    count(*) filter (where checks.severity in ('error', 'critical')) as severe_checks
-                from ops.data_quality_checks checks
-                left join ref.exchanges exchange on exchange.exchange_id = checks.exchange_id
-                left join ref.instruments instrument on instrument.instrument_id = checks.instrument_id
-                {where_clause}
-                """
-            ),
-            params,
-        ).mappings().first()
+        if latest_only:
+            row = connection.execute(
+                text(
+                    f"""
+                    with ranked as (
+                        select
+                            checks.status,
+                            checks.severity,
+                            row_number() over (
+                                partition by coalesce(instrument.unified_symbol, ''), checks.data_type, checks.check_name
+                                order by checks.check_time desc, checks.check_id desc
+                            ) as rn
+                        from ops.data_quality_checks checks
+                        left join ref.exchanges exchange on exchange.exchange_id = checks.exchange_id
+                        left join ref.instruments instrument on instrument.instrument_id = checks.instrument_id
+                        {where_clause}
+                    )
+                    select
+                        count(*) as total_checks,
+                        count(*) filter (where status = 'pass') as passed_checks,
+                        count(*) filter (where status = 'fail') as failed_checks,
+                        count(*) filter (where severity in ('error', 'critical')) as severe_checks
+                    from ranked
+                    where rn = 1
+                    """
+                ),
+                params,
+            ).mappings().first()
+        else:
+            row = connection.execute(
+                text(
+                    f"""
+                    select
+                        count(*) as total_checks,
+                        count(*) filter (where checks.status = 'pass') as passed_checks,
+                        count(*) filter (where checks.status = 'fail') as failed_checks,
+                        count(*) filter (where checks.severity in ('error', 'critical')) as severe_checks
+                    from ops.data_quality_checks checks
+                    left join ref.exchanges exchange on exchange.exchange_id = checks.exchange_id
+                    left join ref.instruments instrument on instrument.instrument_id = checks.instrument_id
+                    {where_clause}
+                    """
+                ),
+                params,
+            ).mappings().first()
         return dict(row or {"total_checks": 0, "passed_checks": 0, "failed_checks": 0, "severe_checks": 0})
 
 
@@ -677,3 +755,45 @@ class DataGapRepository:
                 "detail_json": json.dumps(detail_json),
             },
         )
+
+    def resolve_overlapping_open_gaps(
+        self,
+        connection: Connection,
+        *,
+        data_type: str,
+        exchange_code: str,
+        unified_symbol: str,
+        gap_start: Any,
+        gap_end: Any,
+        detail_json: dict[str, Any] | None = None,
+        resolved_at: Any | None = None,
+    ) -> int:
+        exchange_id = resolve_exchange_id(connection, exchange_code)
+        instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
+        result = connection.execute(
+            text(
+                """
+                update ops.data_gaps
+                set
+                    status = 'resolved',
+                    resolved_at = coalesce(:resolved_at, now()),
+                    detail_json = cast(:detail_json as jsonb)
+                where exchange_id = :exchange_id
+                  and instrument_id = :instrument_id
+                  and data_type = :data_type
+                  and status = 'open'
+                  and gap_start <= :gap_end
+                  and gap_end >= :gap_start
+                """
+            ),
+            {
+                "exchange_id": exchange_id,
+                "instrument_id": instrument_id,
+                "data_type": data_type,
+                "gap_start": gap_start,
+                "gap_end": gap_end,
+                "resolved_at": resolved_at,
+                "detail_json": json.dumps(detail_json or {}),
+            },
+        )
+        return int(result.rowcount or 0)

@@ -35,7 +35,7 @@ from storage.repositories.market_data import (
     RawMarketEventRepository,
     TradeRepository,
 )
-from storage.repositories.ops import DataGapRepository, DataQualityCheckRepository
+from storage.repositories.ops import DataGapRecord, DataGapRepository, DataQualityCheckRepository
 
 
 def _resolve_route(app, path: str, method: str):
@@ -447,9 +447,21 @@ class Phase4ApiTests(unittest.TestCase):
             unified_symbol="BTCUSDT_PERP",
             limit=20,
         )
+        latest_checks_response = self.__class__.quality_checks_endpoint(
+            data_type="bars_1m",
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            latest_only=True,
+            limit=20,
+        )
         summary_response = self.__class__.quality_summary_endpoint(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
+        )
+        latest_summary_response = self.__class__.quality_summary_endpoint(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            latest_only=True,
         )
         gaps_response = self.__class__.quality_gaps_endpoint(
             data_type="bars_1m",
@@ -460,8 +472,13 @@ class Phase4ApiTests(unittest.TestCase):
 
         self.assertTrue(checks_response.success)
         self.assertGreaterEqual(len(checks_response.data.records), 1)
+        self.assertTrue(latest_checks_response.success)
+        self.assertLessEqual(len(latest_checks_response.data.records), len(checks_response.data.records))
         self.assertTrue(summary_response.success)
         self.assertGreaterEqual(summary_response.data.total_checks, 1)
+        self.assertTrue(latest_summary_response.success)
+        self.assertTrue(latest_summary_response.data.latest_only)
+        self.assertLessEqual(latest_summary_response.data.total_checks, summary_response.data.total_checks)
         self.assertTrue(gaps_response.success)
         self.assertGreaterEqual(len(gaps_response.data.records), 1)
 
@@ -700,6 +717,83 @@ class Phase4QualityScopeTests(unittest.TestCase):
             if check["check_name"] == "freshness_check"
         }
         self.assertEqual(freshness_data_types, {"bars_1m", "trades"})
+
+    def test_bar_gap_checks_resolve_overlapping_open_gaps_when_window_is_clean(self) -> None:
+        start_time = datetime(2031, 6, 2, 0, 0, 30, tzinfo=timezone.utc)
+        end_time = datetime(2031, 6, 2, 0, 2, 45, tzinfo=timezone.utc)
+
+        with transaction_scope() as connection:
+            connection.exec_driver_sql(
+                """
+                delete from ops.data_gaps
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and data_type = 'bars_1m'
+                  and gap_start between %s - interval '5 minute' and %s + interval '5 minute'
+                """,
+                ("binance", "BTCUSDT_SPOT", start_time, end_time),
+            )
+            bar_repo = BarRepository()
+            for bar_time in (
+                datetime(2031, 6, 2, 0, 1, tzinfo=timezone.utc),
+                datetime(2031, 6, 2, 0, 2, tzinfo=timezone.utc),
+            ):
+                bar_repo.upsert(
+                    connection,
+                    BarEvent(
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_SPOT",
+                        ingest_time=bar_time,
+                        bar_interval="1m",
+                        bar_time=bar_time,
+                        event_time=bar_time,
+                        open="100000.0",
+                        high="100010.0",
+                        low="99990.0",
+                        close="100005.0",
+                        volume="5.0",
+                        quote_volume="500025.0",
+                        trade_count=50,
+                    ),
+                )
+            gap_id = DataGapRepository().insert(
+                connection,
+                DataGapRecord(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_SPOT",
+                    data_type="bars_1m",
+                    gap_start=start_time,
+                    gap_end=end_time,
+                    expected_count=2,
+                    actual_count=0,
+                    detail_json={"seeded_for_test": True},
+                ),
+            )
+
+        result = run_bar_gap_checks(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=start_time,
+            end_time=end_time,
+        )
+        self.assertEqual(result.gaps_written, 0)
+
+        with connection_scope() as connection:
+            gap_rows = DataGapRepository().list_recent(
+                connection,
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                data_type="bars_1m",
+                limit=10,
+            )
+        resolved_gap = next(gap for gap in gap_rows if gap["gap_id"] == gap_id)
+        self.assertEqual(resolved_gap["status"], "resolved")
+        self.assertEqual(resolved_gap["detail_json"]["resolved_by"], "bar_gap_check")
 
 
 if __name__ == "__main__":

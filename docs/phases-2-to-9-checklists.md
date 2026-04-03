@@ -490,6 +490,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] bar gap checks now align non-minute requested windows to minute boundaries before evaluating 1m completeness
 - [x] spot quality runs now skip perp-only funding/OI/mark/index checks to avoid false snapshot failures on `_SPOT` symbols
 - [x] a minimal internal Monitoring Console now exists for Overview, Jobs, Quality, and Traceability views using the implemented Phase 3/4 APIs
+- [x] quality summary/check APIs now support a latest-only monitoring mode, and bar gap rechecks can resolve overlapping stale open gaps from earlier runs
 - [ ] future Phase 4 enhancement: add cross-dataset diagnostic checks such as funding-to-mark/index alignment, mark-vs-index spread sanity, and raw-to-normalized coverage correlation
 
 ## Phase 4 Final Acceptance Summary

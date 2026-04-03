@@ -147,6 +147,7 @@ class QualitySummaryResource(BaseModel):
     passed_checks: int
     failed_checks: int
     severe_checks: int
+    latest_only: bool = False
 
 
 class RawEventDetailResource(BaseModel):
@@ -552,6 +553,7 @@ def create_app() -> FastAPI:
         severity: str | None = None,
         exchange_code: str | None = None,
         unified_symbol: str | None = None,
+        latest_only: bool = False,
         limit: int = 100,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     ) -> SuccessEnvelope[RecordsResource]:
@@ -565,6 +567,7 @@ def create_app() -> FastAPI:
                 severity=severity,
                 exchange_code=exchange_code,
                 unified_symbol=unified_symbol,
+                latest_only=latest_only,
             )
         return SuccessEnvelope[RecordsResource](
             data=RecordsResource(records=[_normalize_mapping(record) for record in records]),
@@ -576,6 +579,7 @@ def create_app() -> FastAPI:
         data_type: str | None = None,
         exchange_code: str | None = None,
         unified_symbol: str | None = None,
+        latest_only: bool = False,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     ) -> SuccessEnvelope[QualitySummaryResource]:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
@@ -585,9 +589,10 @@ def create_app() -> FastAPI:
                 data_type=data_type,
                 exchange_code=exchange_code,
                 unified_symbol=unified_symbol,
+                latest_only=latest_only,
             )
         return SuccessEnvelope[QualitySummaryResource](
-            data=QualitySummaryResource(**summary),
+            data=QualitySummaryResource(**summary, latest_only=latest_only),
             meta=_meta(actor),
         )
 
