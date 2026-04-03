@@ -720,14 +720,14 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.7A: Implement period-level research outputs
 ### Tasks
-- [ ] define run-period summary projection for `year`
-- [ ] define run-period summary projection for `quarter`
-- [ ] define run-period summary projection for `month`
-- [ ] preserve enough run-level reporting facts to derive period metrics consistently
+- [x] define run-period summary projection for `year`
+- [x] define run-period summary projection for `quarter`
+- [x] define run-period summary projection for `month`
+- [x] preserve enough run-level reporting facts to derive period metrics consistently
 
 ### Acceptance Checks
-- [ ] long-window backtests can be analyzed by year, quarter, and month
-- [ ] period-level outputs are compatible with future compare/analyze and promotion-review workflows
+- [x] long-window backtests can be analyzed by year, quarter, and month
+- [x] period-level outputs are compatible with future compare/analyze and promotion-review workflows
 
 ---
 
@@ -770,7 +770,8 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
 - [x] the Phase 5 skeleton now includes aggregate portfolio state, reproducible equity/exposure projection, and a DB-backed run writer for `backtest.*`
 - [x] the Phase 5 skeleton now includes a run-level diagnostics summary projector and the first `/api/v1/backtests/runs/{run_id}/diagnostics` API surface
-- [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or period-breakdown reporting layer
+- [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs
+- [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or compare-set analyzer
 
 ---
 

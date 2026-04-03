@@ -370,6 +370,78 @@ Used by:
 
 ---
 
+## 4.4 Backtest Period Breakdown Resource
+
+Used by:
+- `GET /api/v1/backtests/runs/{run_id}/period-breakdown`
+
+### Response Shape
+
+```json
+{
+  "run_id": 5001,
+  "period_type": "month",
+  "entries": [
+    {
+      "period_type": "month",
+      "period_start": "2026-01-01T00:00:00Z",
+      "period_end": "2026-01-31T23:59:00Z",
+      "start_equity": "100000.00",
+      "end_equity": "101250.00",
+      "total_return": "0.0125",
+      "max_drawdown": "0.0210",
+      "turnover": "184200.00",
+      "fee_cost": "124.55",
+      "slippage_cost": "54.20",
+      "signal_count": 38,
+      "fill_count": 36
+    }
+  ]
+}
+```
+
+### Notes
+
+- `period_type` currently supports `year`, `quarter`, and `month`
+- this resource is a derived projection, not a separate persisted raw fact table
+- it should remain compatible with future compare/analyze and promotion-review workflows
+
+---
+
+## 4.5 Backtest Artifact Bundle Resource
+
+Used by:
+- `GET /api/v1/backtests/runs/{run_id}/artifacts`
+
+### Response Shape
+
+```json
+{
+  "run_id": 5001,
+  "artifacts": [
+    {
+      "artifact_type": "run_metadata",
+      "status": "available",
+      "record_count": 1,
+      "description": "canonical persisted run metadata and lineage baseline"
+    },
+    {
+      "artifact_type": "period_breakdown",
+      "status": "available",
+      "record_count": 3,
+      "description": "derived year/quarter/month performance breakdown projections"
+    }
+  ]
+}
+```
+
+### Notes
+
+- this is the first artifact-bundle baseline, not the final exported artifact system
+- the artifact list is intended to give UI/research workflows a stable inventory of what a run already exposes
+
+---
+
 ## 5. Mismatch Review Result Resource
 
 Used by:

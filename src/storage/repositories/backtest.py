@@ -298,3 +298,87 @@ class BacktestRunRepository:
                     "drawdown": point.drawdown,
                 },
             )
+
+    def get_run(self, connection: Connection, run_id: int) -> dict[str, object] | None:
+        row = connection.execute(
+            text(
+                """
+                select
+                    run_id,
+                    strategy_version_id,
+                    account_id,
+                    run_name,
+                    universe_json,
+                    start_time,
+                    end_time,
+                    market_data_version,
+                    fee_model_version,
+                    slippage_model_version,
+                    latency_model_version,
+                    params_json,
+                    status,
+                    created_at
+                from backtest.runs
+                where run_id = :run_id
+                """
+            ),
+            {"run_id": run_id},
+        ).mappings().first()
+        return dict(row) if row is not None else None
+
+    def list_timeseries(self, connection: Connection, *, run_id: int) -> list[dict[str, object]]:
+        rows = connection.execute(
+            text(
+                """
+                select
+                    ts,
+                    equity,
+                    cash,
+                    gross_exposure,
+                    net_exposure,
+                    drawdown
+                from backtest.performance_timeseries
+                where run_id = :run_id
+                order by ts asc
+                """
+            ),
+            {"run_id": run_id},
+        ).mappings().all()
+        return [dict(row) for row in rows]
+
+    def list_fill_records(self, connection: Connection, *, run_id: int) -> list[dict[str, object]]:
+        rows = connection.execute(
+            text(
+                """
+                select
+                    fill_time,
+                    price,
+                    qty,
+                    fee,
+                    slippage_cost
+                from backtest.simulated_fills
+                where run_id = :run_id
+                order by fill_time asc
+                """
+            ),
+            {"run_id": run_id},
+        ).mappings().all()
+        return [dict(row) for row in rows]
+
+    def list_signal_records(self, connection: Connection, *, run_id: int) -> list[dict[str, object]]:
+        rows = connection.execute(
+            text(
+                """
+                select distinct
+                    signal.signal_id,
+                    signal.signal_time,
+                    signal.signal_type
+                from backtest.simulated_orders sim_order
+                join strategy.signals signal on signal.signal_id = sim_order.signal_id
+                where sim_order.run_id = :run_id
+                order by signal.signal_time asc
+                """
+            ),
+            {"run_id": run_id},
+        ).mappings().all()
+        return [dict(row) for row in rows]

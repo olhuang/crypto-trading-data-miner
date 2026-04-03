@@ -12,7 +12,9 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from fastapi.responses import JSONResponse
 
 from config import settings
+from backtest.artifacts import BacktestArtifactCatalogProjector
 from backtest.diagnostics import BacktestDiagnosticsProjector
+from backtest.periods import BacktestPeriodBreakdownProjector
 from jobs.backfill_bars import run_bar_backfill
 from jobs.data_quality import run_phase4_quality_suite
 from jobs.remediate_market_snapshots import run_market_snapshot_remediation
@@ -230,6 +232,39 @@ class BacktestDiagnosticsSummaryResource(BaseModel):
     execution_summary: BacktestExecutionSummaryResource
     pnl_summary: BacktestPnlSummaryResource
     diagnostic_flags: list[DiagnosticFlagResource]
+
+
+class BacktestPeriodBreakdownEntryResource(BaseModel):
+    period_type: str
+    period_start: str
+    period_end: str
+    start_equity: str
+    end_equity: str
+    total_return: str
+    max_drawdown: str
+    turnover: str
+    fee_cost: str
+    slippage_cost: str
+    signal_count: int
+    fill_count: int
+
+
+class BacktestPeriodBreakdownResource(BaseModel):
+    run_id: int
+    period_type: str
+    entries: list[BacktestPeriodBreakdownEntryResource]
+
+
+class ArtifactReferenceResource(BaseModel):
+    artifact_type: str
+    status: str
+    record_count: int | None = None
+    description: str | None = None
+
+
+class BacktestArtifactBundleResource(BaseModel):
+    run_id: int
+    artifacts: list[ArtifactReferenceResource]
 
 
 class ValidationResultResource(BaseModel):
@@ -965,6 +1000,83 @@ def create_app() -> FastAPI:
                         related_count=flag.related_count,
                     )
                     for flag in summary.diagnostic_flags
+                ],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/period-breakdown")
+    def backtest_period_breakdown(
+        run_id: int,
+        period_type: str = "month",
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestPeriodBreakdownResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        if period_type not in {"year", "quarter", "month"}:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": "period_type must be one of year, quarter, or month",
+                    "details": {"period_type": period_type},
+                },
+            )
+        with connection_scope() as connection:
+            entries = BacktestPeriodBreakdownProjector().build(connection, run_id=run_id, period_type=period_type)
+        if entries is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+            )
+        return SuccessEnvelope[BacktestPeriodBreakdownResource](
+            data=BacktestPeriodBreakdownResource(
+                run_id=run_id,
+                period_type=period_type,
+                entries=[
+                    BacktestPeriodBreakdownEntryResource(
+                        period_type=entry.period_type,
+                        period_start=entry.period_start.isoformat(),
+                        period_end=entry.period_end.isoformat(),
+                        start_equity=str(entry.start_equity),
+                        end_equity=str(entry.end_equity),
+                        total_return=str(entry.total_return),
+                        max_drawdown=str(entry.max_drawdown),
+                        turnover=str(entry.turnover),
+                        fee_cost=str(entry.fee_cost),
+                        slippage_cost=str(entry.slippage_cost),
+                        signal_count=entry.signal_count,
+                        fill_count=entry.fill_count,
+                    )
+                    for entry in entries
+                ],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/artifacts")
+    def backtest_artifact_bundle(
+        run_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestArtifactBundleResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            artifact_bundle = BacktestArtifactCatalogProjector().build(connection, run_id=run_id)
+        if artifact_bundle is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+            )
+        return SuccessEnvelope[BacktestArtifactBundleResource](
+            data=BacktestArtifactBundleResource(
+                run_id=artifact_bundle.run_id,
+                artifacts=[
+                    ArtifactReferenceResource(
+                        artifact_type=artifact.artifact_type,
+                        status=artifact.status,
+                        record_count=artifact.record_count,
+                        description=artifact.description,
+                    )
+                    for artifact in artifact_bundle.artifacts
                 ],
             ),
             meta=_meta(actor),

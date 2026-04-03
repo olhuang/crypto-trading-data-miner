@@ -791,9 +791,17 @@ Purpose:
 Purpose:
 - return artifact bundle references or exported research evidence for a run
 
+Current implementation status:
+- implemented as a baseline artifact catalog for persisted run outputs
+- currently inventories run metadata, signals, fills, timeseries, diagnostics summary, and period-breakdown availability
+
 ### GET `/api/v1/backtests/runs/{run_id}/period-breakdown`
 Purpose:
 - return `year` / `quarter` / `month` performance breakdown for a run
+
+Current implementation status:
+- implemented for `year`, `quarter`, and `month`
+- currently returns derived period metrics from persisted performance timeseries, fills, and linked signals
 
 ### POST `/api/v1/backtests/compare-sets`
 Purpose:

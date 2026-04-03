@@ -14,9 +14,12 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from backtest.artifacts import BacktestArtifactCatalogProjector
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
+from backtest.periods import build_period_breakdown
+from backtest.performance import PerformancePoint
 from backtest.runner import BacktestRunnerSkeleton
 from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
@@ -630,6 +633,7 @@ class Phase5FoundationTests(unittest.TestCase):
                 {"run_id": persisted.run_id},
             ).scalar_one()
             diagnostics = BacktestDiagnosticsProjector().build_summary(connection, persisted.run_id)
+            artifact_bundle = BacktestArtifactCatalogProjector().build(connection, run_id=persisted.run_id)
 
             self.assertGreater(persisted.run_id, 0)
             self.assertEqual(order_count, 1)
@@ -644,9 +648,95 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertEqual(diagnostics.diagnostic_status, "ok")
             self.assertEqual(diagnostics.execution_summary.simulated_order_count, 1)
             self.assertEqual(diagnostics.strategy_activity.signal_count, 1)
+            self.assertIsNotNone(artifact_bundle)
+            assert artifact_bundle is not None
+            self.assertEqual(artifact_bundle.artifacts[0].artifact_type, "run_metadata")
         finally:
             transaction.rollback()
             connection.close()
+
+    def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
+        points = [
+            PerformancePoint(
+                ts=datetime(2026, 1, 31, 23, 59, tzinfo=timezone.utc),
+                cash=Decimal("1000"),
+                equity=Decimal("1010"),
+                gross_exposure=Decimal("0"),
+                net_exposure=Decimal("0"),
+                realized_pnl=Decimal("10"),
+                unrealized_pnl=Decimal("0"),
+                fee_cost=Decimal("1"),
+                slippage_cost=Decimal("0.5"),
+                turnover_notional=Decimal("100"),
+                drawdown=Decimal("0"),
+            ),
+            PerformancePoint(
+                ts=datetime(2026, 2, 1, 0, 0, tzinfo=timezone.utc),
+                cash=Decimal("1000"),
+                equity=Decimal("1025"),
+                gross_exposure=Decimal("0"),
+                net_exposure=Decimal("0"),
+                realized_pnl=Decimal("25"),
+                unrealized_pnl=Decimal("0"),
+                fee_cost=Decimal("2"),
+                slippage_cost=Decimal("0.5"),
+                turnover_notional=Decimal("200"),
+                drawdown=Decimal("0"),
+            ),
+            PerformancePoint(
+                ts=datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+                cash=Decimal("1000"),
+                equity=Decimal("1030"),
+                gross_exposure=Decimal("0"),
+                net_exposure=Decimal("0"),
+                realized_pnl=Decimal("30"),
+                unrealized_pnl=Decimal("0"),
+                fee_cost=Decimal("3"),
+                slippage_cost=Decimal("1.0"),
+                turnover_notional=Decimal("300"),
+                drawdown=Decimal("0"),
+            ),
+        ]
+        fill_records = [
+            {"fill_time": points[0].ts, "price": Decimal("100"), "qty": Decimal("1"), "fee": Decimal("1"), "slippage_cost": Decimal("0.5")},
+            {"fill_time": points[1].ts, "price": Decimal("110"), "qty": Decimal("1"), "fee": Decimal("1"), "slippage_cost": Decimal("0")},
+            {"fill_time": points[2].ts, "price": Decimal("120"), "qty": Decimal("1"), "fee": Decimal("1"), "slippage_cost": Decimal("0.5")},
+        ]
+        signal_records = [
+            {"signal_time": points[0].ts, "signal_type": "entry"},
+            {"signal_time": points[1].ts, "signal_type": "reduce"},
+            {"signal_time": points[2].ts, "signal_type": "rebalance"},
+        ]
+
+        monthly = build_period_breakdown(
+            performance_points=points,
+            fill_records=fill_records,
+            signal_records=signal_records,
+            initial_cash=Decimal("1000"),
+            period_type="month",
+        )
+        quarterly = build_period_breakdown(
+            performance_points=points,
+            fill_records=fill_records,
+            signal_records=signal_records,
+            initial_cash=Decimal("1000"),
+            period_type="quarter",
+        )
+        yearly = build_period_breakdown(
+            performance_points=points,
+            fill_records=fill_records,
+            signal_records=signal_records,
+            initial_cash=Decimal("1000"),
+            period_type="year",
+        )
+
+        self.assertEqual(len(monthly), 3)
+        self.assertEqual(len(quarterly), 2)
+        self.assertEqual(len(yearly), 1)
+        self.assertEqual(monthly[0].signal_count, 1)
+        self.assertEqual(monthly[1].fill_count, 1)
+        self.assertEqual(quarterly[0].period_type, "quarter")
+        self.assertEqual(yearly[0].end_equity, Decimal("1030"))
 
     def test_runner_rejects_bar_outside_session_universe(self) -> None:
         run_config = BacktestRunConfig.model_validate(

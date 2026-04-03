@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -61,6 +62,8 @@ class ModelsApiTests(unittest.TestCase):
         cls.jobs_list_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs", "GET")
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
+        cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
+        cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
 
     def test_system_health_returns_success_envelope(self) -> None:
         response = self.__class__.health_endpoint()
@@ -373,6 +376,77 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.diagnostic_status, "warning")
         self.assertEqual(response.data.execution_summary.expired_order_count, 2)
         self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
+
+    def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
+        original_projector = app_module.BacktestPeriodBreakdownProjector
+
+        class StubProjector:
+            def build(self, connection, *, run_id: int, period_type: str):
+                return [
+                    SimpleNamespace(
+                        period_type=period_type,
+                        period_start=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+                        period_end=datetime.fromisoformat("2026-01-31T23:59:00+00:00"),
+                        start_equity=Decimal("100000"),
+                        end_equity=Decimal("101000"),
+                        total_return=Decimal("0.01"),
+                        max_drawdown=Decimal("0.02"),
+                        turnover=Decimal("1.2"),
+                        fee_cost=Decimal("12.3"),
+                        slippage_cost=Decimal("4.5"),
+                        signal_count=10,
+                        fill_count=8,
+                    )
+                ]
+
+        app_module.BacktestPeriodBreakdownProjector = StubProjector
+        try:
+            response = self.__class__.backtest_period_breakdown_endpoint(
+                501,
+                "month",
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.BacktestPeriodBreakdownProjector = original_projector
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.period_type, "month")
+        self.assertEqual(response.data.entries[0].signal_count, 10)
+        self.assertEqual(response.data.entries[0].total_return, "0.01")
+
+    def test_backtest_artifacts_endpoint_returns_catalog(self) -> None:
+        original_projector = app_module.BacktestArtifactCatalogProjector
+
+        class StubProjector:
+            def build(self, connection, *, run_id: int):
+                return SimpleNamespace(
+                    run_id=run_id,
+                    artifacts=[
+                        SimpleNamespace(
+                            artifact_type="run_metadata",
+                            status="available",
+                            record_count=1,
+                            description="canonical persisted run metadata and lineage baseline",
+                        ),
+                        SimpleNamespace(
+                            artifact_type="period_breakdown",
+                            status="available",
+                            record_count=3,
+                            description="derived year/quarter/month performance breakdown projections",
+                        ),
+                    ],
+                )
+
+        app_module.BacktestArtifactCatalogProjector = StubProjector
+        try:
+            response = self.__class__.backtest_artifacts_endpoint(501, "Bearer developer:u_123:Alice")
+        finally:
+            app_module.BacktestArtifactCatalogProjector = original_projector
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.run_id, 501)
+        self.assertEqual(response.data.artifacts[0].artifact_type, "run_metadata")
+        self.assertEqual(response.data.artifacts[1].record_count, 3)
 
 
 if __name__ == "__main__":
