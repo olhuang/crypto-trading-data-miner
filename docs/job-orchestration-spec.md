@@ -183,6 +183,30 @@ The system continuously detects missing history and remediates it without manual
 - If the goal is **prepare funding/OI/mark/index remediation for future scheduling**, use the scheduler-ready market-snapshot remediation job and keep actual scheduling/manual triggering separate from the remediation logic.
 - If the goal is **fully automatic catch-up without manual intervention**, that remains future work and should be implemented as a scheduler/worker remediation flow rather than expanded app-startup behavior.
 
+### Recommended Remediation Pattern by Data Type
+
+This table records which remediation model best fits each currently relevant dataset.
+
+| Data type | Best-fit remediation pattern | Current implemented status | Why this pattern fits | Why other patterns are a bad fit right now |
+| --- | --- | --- | --- | --- |
+| `md.bars_1m` | gap remediation | manual backfill + dev startup remediation | bars have fixed cadence and clear missing-interval detection | snapshot freshness alone is not enough; trade-style heavy backfill logic is unnecessary |
+| `md.trades` | manual bounded backfill | live auto collect only; historical backfill still pending | trade history is high volume and should stay operator-triggered with chunking/checkpoint control | startup remediation would slow app startup; continuous catch-up needs stronger orchestration and capacity controls |
+| `md.funding_rates` | scheduler-ready snapshot remediation | bounded history refresh + scheduler-ready remediation job | low-frequency periodic series with stable timestamp semantics and bounded fetch windows | bars-style gap segmentation is less natural; startup remediation is unnecessary and too coupled to app lifecycle |
+| `md.open_interest` | scheduler-ready snapshot remediation | bounded history refresh + scheduler-ready remediation job | periodic snapshot-like data with a straightforward freshness/window policy | startup remediation adds little value; historical depth is venue-limited so a full generic catch-up engine is overkill today |
+| `md.mark_prices` | scheduler-ready snapshot remediation | bounded history refresh + scheduler-ready remediation job | periodic price series with timestamped windows and idempotent upserts | bars-style cadence checks are less important than freshness; startup remediation would blur local-vs-operational behavior |
+| `md.index_prices` | scheduler-ready snapshot remediation | bounded history refresh + scheduler-ready remediation job | same operational shape as mark prices and open interest | same limits as mark prices; no need for startup remediation |
+| `md.liquidations` | manual backfill or future event-stream remediation | live auto collect only | liquidation events are irregular event-stream data, not fixed cadence or simple snapshots | snapshot freshness logic does not model them well; startup remediation is not a natural fit |
+| `md.raw_market_events` | retain live only; not assumed replay-backfillable | live auto collect only | raw events exist mainly for observed-stream traceability and debugging | historical replay source is not assumed to exist in the same recoverable form |
+| `md.orderbook_snapshots` | future specialized replay remediation | not implemented | order book state needs snapshot/delta coordination and replay semantics | neither simple gap remediation nor simple snapshot freshness is enough |
+| `md.orderbook_deltas` | future specialized replay remediation | not implemented | deltas only make sense with ordered replay, checkpointing, and merge correctness | startup/manual generic remediation would be misleading without replay guarantees |
+
+### Practical Decision Rules
+
+- Use **gap remediation** for fixed-cadence series where missing intervals are the main failure mode.
+- Use **scheduler-ready snapshot remediation** for bounded periodic datasets where freshness and recent-window catch-up matter more than exact per-interval continuity.
+- Use **manual bounded backfill** for high-volume or operator-sensitive datasets where automatic catch-up would create too much DB, startup, or rate-limit risk.
+- Use **specialized replay remediation later** for order book and other stateful stream datasets that cannot be safely modeled by simple freshness or gap checks.
+
 ---
 
 ## 3. Orchestration Model
