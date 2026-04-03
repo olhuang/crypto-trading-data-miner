@@ -52,6 +52,17 @@ class Phase3IngestionTests(unittest.TestCase):
                                 {"filterType": "MIN_NOTIONAL", "minNotional": "10"},
                             ],
                         },
+                        {
+                            "symbol": "BNBUSDT",
+                            "baseAsset": "BNB",
+                            "quoteAsset": "USDT",
+                            "status": "TRADING",
+                            "filters": [
+                                {"filterType": "PRICE_FILTER", "tickSize": "0.01"},
+                                {"filterType": "LOT_SIZE", "stepSize": "0.001", "minQty": "0.001"},
+                                {"filterType": "MIN_NOTIONAL", "minNotional": "10"},
+                            ],
+                        },
                     ]
                 },
             )
@@ -322,10 +333,16 @@ class Phase3IngestionTests(unittest.TestCase):
             self.assertGreaterEqual(oi_count, 1)
             self.assertGreaterEqual(mark_count, 1)
             self.assertGreaterEqual(index_count, 1)
+            bnb_asset = connection.exec_driver_sql(
+                "select count(*) from ref.assets where asset_code = %s",
+                ("BNB",),
+            ).scalar_one()
+            self.assertEqual(bnb_asset, 1)
 
             sync_job = IngestionJobRepository().get_job(connection, sync_result.ingestion_job_id)
             self.assertEqual(sync_job["status"], "succeeded")
             self.assertIn("diffs", sync_job["metadata_json"])
+            self.assertGreaterEqual(sync_job["metadata_json"]["summary"]["assets_touched"], 4)
 
     def test_market_snapshot_refresh_supports_historical_oi_mark_and_index_windows(self) -> None:
         client = self._client()

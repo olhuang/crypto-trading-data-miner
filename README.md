@@ -76,6 +76,7 @@ Major implementation areas now present include:
 - smoke-test scripts for Phase 2 persistence flow
 - Binance public ingestion foundation under `src/ingestion/`, `src/jobs/`, and `src/runtime/`
 - spot historical bar backfill support through the existing Binance bar-backfill job path
+- instrument sync now auto-upserts newly discovered reference assets needed by Binance symbol metadata before instrument writes
 - historical funding/OI/mark/index window support through the current market-snapshot refresh path
 - Phase 4 quality jobs under `src/jobs/data_quality.py`
 - dataset-level sanity checks for funding/OI/mark/index under the Phase 4 quality path

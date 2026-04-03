@@ -34,6 +34,7 @@ The repository already has a strong design foundation and is now design-complete
 - Phase 3 ingestion and market-query API endpoints in `src/api/`
 - automated tests for the Phase 3 instrument sync, bar backfill, funding/open-interest refresh, and trade-stream slice
 - the existing bar-backfill path now supports both Binance perp and spot historical bars
+- instrument sync now also auto-upserts newly discovered Binance assets into `ref.assets` before instrument writes
 - historical funding/open-interest/mark/index windows are now supported through the current market-snapshot refresh path
 - Phase 4 data-quality jobs for gap, freshness, and duplicate checks in `src/jobs/data_quality.py`
 - Phase 4 quality, raw-event traceability, and replay-readiness API endpoints in `src/api/`

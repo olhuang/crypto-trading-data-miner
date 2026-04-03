@@ -36,6 +36,32 @@ class AssetRepository:
         )
         return [dict(row._mapping) for row in rows]
 
+    def upsert(self, connection: Connection, *, asset_code: str, asset_name: str, asset_type: str) -> None:
+        connection.execute(
+            text(
+                """
+                insert into ref.assets (
+                    asset_code,
+                    asset_name,
+                    asset_type
+                ) values (
+                    :asset_code,
+                    :asset_name,
+                    :asset_type
+                )
+                on conflict (asset_code) do update
+                set
+                    asset_name = excluded.asset_name,
+                    asset_type = excluded.asset_type
+                """
+            ),
+            {
+                "asset_code": asset_code,
+                "asset_name": asset_name,
+                "asset_type": asset_type,
+            },
+        )
+
 
 class InstrumentRepository:
     def get_by_key(

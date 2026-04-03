@@ -453,6 +453,7 @@ Purpose:
 Implementation note:
 - implemented in `src/api/app.py`
 - current implementation runs the Phase 3 sync job inline and returns the resulting `job_id` and final `status`
+- current sync path also auto-upserts newly discovered Binance assets needed by returned instruments before instrument persistence
 
 Request:
 ```json

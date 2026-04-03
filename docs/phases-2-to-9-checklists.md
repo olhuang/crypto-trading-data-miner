@@ -245,11 +245,13 @@ Start collecting usable market data from the first exchange into the database.
 - [x] map exchange symbols to `ref.instruments`
 - [x] update trading rules when metadata changes
 - [x] record sync job status in `ops.ingestion_jobs`
+- [x] auto-upsert newly discovered Binance assets required by synced instruments
 
 ### Acceptance Checks
 - [x] instrument sync runs end-to-end
 - [x] changed metadata can update or insert instruments safely
 - [x] ingestion job status is persisted
+- [x] sync no longer fails when Binance returns tradable symbols whose assets were not present in Phase 1 seed defaults
 
 ---
 
