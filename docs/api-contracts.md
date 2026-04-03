@@ -419,6 +419,12 @@ Required:
 
 ## 2. Strategy Contracts
 
+Taxonomy note for all strategy-facing payloads in this section:
+- current `strategy_code` means the stable strategy `variant` identity
+- current `strategy_version` means the immutable release within that variant
+- future family-level grouping should be added as separate metadata, not by overloading `strategy_code`
+- see `docs/strategy-taxonomy-and-versioning-spec.md`
+
 ## 2.1 Signal
 
 ```json
@@ -737,7 +743,8 @@ Required:
 ### Strategy Engine Responsibilities
 1. Emit normalized `Signal` and `Target Position` payloads.
 2. Use stable `strategy_code` and `strategy_version` values.
-3. Include enough metadata for later audit.
+3. Treat `strategy_code` as variant identity and `strategy_version` as immutable release identity.
+4. Include enough metadata for later audit.
 
 ### Execution Engine Responsibilities
 1. Convert signals into canonical `Order Request` payloads.

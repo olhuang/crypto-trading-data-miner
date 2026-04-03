@@ -258,6 +258,7 @@ Used by:
 {
   "strategy_version_id": 101,
   "strategy_id": 10,
+  "strategy_family": "momentum",
   "strategy_code": "btc_momentum",
   "strategy_name": "BTC Momentum",
   "strategy_version": "v1.0.0",
@@ -376,6 +377,11 @@ Used by:
   ]
 }
 ```
+
+Notes:
+- `strategy_code` is the stable variant identity
+- `strategy_version` is the immutable release identity within that variant
+- `strategy_family` is optional metadata for future grouping and comparison
 
 ## 6.2 Generic Job Action Resource
 

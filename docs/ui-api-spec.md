@@ -703,6 +703,11 @@ Purpose:
 Purpose:
 - list strategy versions
 
+Taxonomy note:
+- request and response fields should treat `strategy_code` as the stable variant identity
+- `strategy_version` is the immutable release within that variant
+- family-level grouping may appear later as additional metadata, not as a replacement for `strategy_code`
+
 Query params:
 - `strategy_code`
 - `is_active`
@@ -725,6 +730,11 @@ Request:
   "params_override": {}
 }
 ```
+
+Request semantics:
+- `strategy_code` identifies the strategy variant to run
+- `strategy_version` identifies the immutable released version of that variant
+- future family-level filtering/reporting should use separate metadata fields
 
 Response fields:
 - run_id
@@ -785,6 +795,10 @@ Request:
   "universe": ["BTCUSDT_PERP"]
 }
 ```
+
+Request semantics:
+- `strategy_code` identifies the strategy variant for the session
+- `strategy_version` identifies the immutable released version of that variant
 
 Response fields:
 - session_id

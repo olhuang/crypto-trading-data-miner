@@ -142,8 +142,17 @@ This means strategy work should eventually include:
 
 The platform should eventually think in these objects:
 
-### 4.1 Strategy Version
-The versioned implementation and parameterizable logic.
+### 4.1 Strategy Variant and Version
+Research identity should distinguish:
+- family
+- variant
+- version
+
+For the current repository:
+- `strategy.strategies` should be interpreted as the current variant registry
+- `strategy.strategy_versions` should be interpreted as immutable releases within each variant
+
+The versioned implementation and parameterizable logic should always be attributable to a stable variant identity.
 
 Already partially represented by:
 - `strategy.strategies`
@@ -175,6 +184,11 @@ Example:
 - same strategy, different windows
 - same window, different strategies
 - same strategy, different fee/slippage assumptions
+
+Comparison sets should eventually support grouping by:
+- family
+- variant
+- version
 
 ### 4.5 Promotion Candidate
 A run group or strategy version that has passed enough checks to move to paper trading.
