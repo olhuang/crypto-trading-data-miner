@@ -30,6 +30,10 @@ def _decimal_or_none(value: Any) -> Decimal | None:
     return Decimal(str(value))
 
 
+def _pair_from_symbol(symbol: str) -> str:
+    return symbol
+
+
 @dataclass(slots=True)
 class InstrumentSyncSummary:
     instruments_seen: int
@@ -67,16 +71,40 @@ class BinancePublicRestClient:
         limit: int = 1000,
         market_type: str = "perp",
     ) -> list[list[Any]]:
-        params = {
-            "symbol": symbol,
-            "interval": interval,
-            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
-            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
-            "limit": limit,
-        }
-        if market_type == "spot":
-            return list(self.http.get_json(f"{self.spot_base_url}/api/v3/klines", params))
-        return list(self.http.get_json(f"{self.futures_base_url}/fapi/v1/klines", params))
+        base_url = f"{self.spot_base_url}/api/v3/klines" if market_type == "spot" else f"{self.futures_base_url}/fapi/v1/klines"
+        if start_time is None or end_time is None:
+            params = {
+                "symbol": symbol,
+                "interval": interval,
+                "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+                "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+                "limit": limit,
+            }
+            return list(self.http.get_json(base_url, params))
+
+        rows: list[list[Any]] = []
+        next_start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
+        while next_start_ms <= end_ms:
+            page = list(
+                self.http.get_json(
+                    base_url,
+                    {
+                        "symbol": symbol,
+                        "interval": interval,
+                        "startTime": next_start_ms,
+                        "endTime": end_ms,
+                        "limit": limit,
+                    },
+                )
+            )
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < limit:
+                break
+            next_start_ms = int(page[-1][6]) + 1
+        return rows
 
     def fetch_funding_rate_history(
         self,
@@ -86,13 +114,38 @@ class BinancePublicRestClient:
         end_time: datetime | None = None,
         limit: int = 1000,
     ) -> list[dict[str, Any]]:
-        params = {
-            "symbol": symbol,
-            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
-            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
-            "limit": limit,
-        }
-        return list(self.http.get_json(f"{self.futures_base_url}/fapi/v1/fundingRate", params))
+        base_url = f"{self.futures_base_url}/fapi/v1/fundingRate"
+        if start_time is None or end_time is None:
+            params = {
+                "symbol": symbol,
+                "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+                "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+                "limit": limit,
+            }
+            return list(self.http.get_json(base_url, params))
+
+        rows: list[dict[str, Any]] = []
+        next_start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
+        while next_start_ms <= end_ms:
+            page = list(
+                self.http.get_json(
+                    base_url,
+                    {
+                        "symbol": symbol,
+                        "startTime": next_start_ms,
+                        "endTime": end_ms,
+                        "limit": limit,
+                    },
+                )
+            )
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < limit:
+                break
+            next_start_ms = int(page[-1]["fundingTime"]) + 1
+        return rows
 
     def fetch_open_interest(self, symbol: str) -> dict[str, Any]:
         return self.http.get_json(f"{self.futures_base_url}/fapi/v1/openInterest", {"symbol": symbol})
@@ -106,14 +159,40 @@ class BinancePublicRestClient:
         end_time: datetime | None = None,
         limit: int = 500,
     ) -> list[dict[str, Any]]:
-        params = {
-            "symbol": symbol,
-            "period": period,
-            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
-            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
-            "limit": limit,
-        }
-        return list(self.http.get_json(f"{self.futures_base_url}/futures/data/openInterestHist", params))
+        base_url = f"{self.futures_base_url}/futures/data/openInterestHist"
+        if start_time is None or end_time is None:
+            params = {
+                "symbol": symbol,
+                "period": period,
+                "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+                "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+                "limit": limit,
+            }
+            return list(self.http.get_json(base_url, params))
+
+        rows: list[dict[str, Any]] = []
+        next_start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
+        while next_start_ms <= end_ms:
+            page = list(
+                self.http.get_json(
+                    base_url,
+                    {
+                        "symbol": symbol,
+                        "period": period,
+                        "startTime": next_start_ms,
+                        "endTime": end_ms,
+                        "limit": limit,
+                    },
+                )
+            )
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < limit:
+                break
+            next_start_ms = int(page[-1]["timestamp"]) + 1
+        return rows
 
     def fetch_premium_index(self, symbol: str) -> dict[str, Any]:
         return self.http.get_json(f"{self.futures_base_url}/fapi/v1/premiumIndex", {"symbol": symbol})
@@ -127,14 +206,40 @@ class BinancePublicRestClient:
         end_time: datetime | None = None,
         limit: int = 500,
     ) -> list[list[Any]]:
-        params = {
-            "symbol": symbol,
-            "interval": interval,
-            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
-            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
-            "limit": limit,
-        }
-        return list(self.http.get_json(f"{self.futures_base_url}/fapi/v1/markPriceKlines", params))
+        base_url = f"{self.futures_base_url}/fapi/v1/markPriceKlines"
+        if start_time is None or end_time is None:
+            params = {
+                "symbol": symbol,
+                "interval": interval,
+                "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+                "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+                "limit": limit,
+            }
+            return list(self.http.get_json(base_url, params))
+
+        rows: list[list[Any]] = []
+        next_start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
+        while next_start_ms <= end_ms:
+            page = list(
+                self.http.get_json(
+                    base_url,
+                    {
+                        "symbol": symbol,
+                        "interval": interval,
+                        "startTime": next_start_ms,
+                        "endTime": end_ms,
+                        "limit": limit,
+                    },
+                )
+            )
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < limit:
+                break
+            next_start_ms = int(page[-1][6]) + 1
+        return rows
 
     def fetch_index_price_klines(
         self,
@@ -145,14 +250,41 @@ class BinancePublicRestClient:
         end_time: datetime | None = None,
         limit: int = 500,
     ) -> list[list[Any]]:
-        params = {
-            "symbol": symbol,
-            "interval": interval,
-            "startTime": int(start_time.timestamp() * 1000) if start_time else None,
-            "endTime": int(end_time.timestamp() * 1000) if end_time else None,
-            "limit": limit,
-        }
-        return list(self.http.get_json(f"{self.futures_base_url}/fapi/v1/indexPriceKlines", params))
+        base_url = f"{self.futures_base_url}/fapi/v1/indexPriceKlines"
+        pair = _pair_from_symbol(symbol)
+        if start_time is None or end_time is None:
+            params = {
+                "pair": pair,
+                "interval": interval,
+                "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+                "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+                "limit": limit,
+            }
+            return list(self.http.get_json(base_url, params))
+
+        rows: list[list[Any]] = []
+        next_start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
+        while next_start_ms <= end_ms:
+            page = list(
+                self.http.get_json(
+                    base_url,
+                    {
+                        "pair": pair,
+                        "interval": interval,
+                        "startTime": next_start_ms,
+                        "endTime": end_ms,
+                        "limit": limit,
+                    },
+                )
+            )
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < limit:
+                break
+            next_start_ms = int(page[-1][6]) + 1
+        return rows
 
     def normalize_spot_instruments(self, payload: dict[str, Any]) -> list[InstrumentMetadata]:
         instruments: list[InstrumentMetadata] = []

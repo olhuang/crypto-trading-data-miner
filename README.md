@@ -78,6 +78,7 @@ Major implementation areas now present include:
 - spot historical bar backfill support through the existing Binance bar-backfill job path
 - instrument sync now auto-upserts newly discovered reference assets needed by Binance symbol metadata before instrument writes
 - historical funding/OI/mark/index window support through the current market-snapshot refresh path
+- historical bars/funding/OI/mark/index fetches now paginate across Binance REST windows instead of only taking the first page
 - Phase 4 quality jobs under `src/jobs/data_quality.py`
 - dataset-level sanity checks for funding/OI/mark/index under the Phase 4 quality path
 - optional dev-only startup gap remediation under `src/services/startup_remediation.py`

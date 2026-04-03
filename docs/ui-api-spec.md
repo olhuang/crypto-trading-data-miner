@@ -474,6 +474,7 @@ Implementation note:
 - implemented in `src/api/app.py`
 - current implementation runs the Phase 3 backfill job inline and returns the resulting `job_id` and final `status`
 - the same endpoint now supports both perp and spot bars; market type is inferred from `unified_symbol`
+- the current backfill path now paginates Binance kline history across multi-page windows
 
 Request:
 ```json
@@ -536,6 +537,7 @@ Implementation note:
 - implemented in `src/api/app.py`
 - current request supports `funding_start_time` / `funding_end_time`
 - current request also supports `history_start_time` / `history_end_time` for bounded open-interest and mark/index history windows
+- the underlying Binance history fetch path now paginates funding/open-interest/mark/index windows across multiple REST pages when needed
 
 ### POST `/api/v1/ingestion/jobs/market-snapshot-remediation`
 Purpose:

@@ -263,6 +263,7 @@ Start collecting usable market data from the first exchange into the database.
 - [x] support configurable symbol and time window
 - [x] record row counts and status in `ops.ingestion_jobs`
 - [x] support both Binance perp and spot bar windows through the shared backfill path
+- [x] paginate historical bar windows beyond the first REST page
 
 ### Acceptance Checks
 - [x] historical bars are backfilled into `md.bars_1m`
@@ -295,6 +296,7 @@ Start collecting usable market data from the first exchange into the database.
 - [x] persist to `md.funding_rates` and `md.open_interest`
 - [x] schedule periodic refresh job
 - [x] support historical open-interest windows for backfill-style runs
+- [x] paginate historical funding/open-interest windows beyond the first REST page
 
 ### Acceptance Checks
 - [x] funding rates are persisted successfully
@@ -311,6 +313,7 @@ Start collecting usable market data from the first exchange into the database.
 - [x] normalize to canonical models
 - [x] persist to `md.mark_prices` and `md.index_prices`
 - [x] support historical mark/index windows for backfill-style runs
+- [x] paginate historical mark/index windows beyond the first REST page and use the correct Binance pair parameter for index-price history
 
 ### Acceptance Checks
 - [x] mark price data is stored continuously or on refresh

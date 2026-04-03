@@ -25,6 +25,8 @@ from storage.repositories.ops import IngestionJobRepository
 class Phase3IngestionTests(unittest.TestCase):
     @staticmethod
     def _transport(url: str, params):
+        if url.endswith("/fapi/v1/klines") and params and params.get("startTime") == 1712061300000:
+            return JsonHttpResponse(200, [])
         if url.endswith("/api/v3/exchangeInfo"):
             return JsonHttpResponse(
                 200,
@@ -136,6 +138,8 @@ class Phase3IngestionTests(unittest.TestCase):
                     ]
                 ],
             )
+        if url.endswith("/fapi/v1/fundingRate") and params and params.get("startTime") == 1712044800001:
+            return JsonHttpResponse(200, [])
         if url.endswith("/fapi/v1/fundingRate"):
             return JsonHttpResponse(
                 200,
@@ -151,6 +155,8 @@ class Phase3IngestionTests(unittest.TestCase):
         if url.endswith("/fapi/v1/openInterest"):
             return JsonHttpResponse(200, {"symbol": "BTCUSDT", "openInterest": "18542.991"})
         if url.endswith("/futures/data/openInterestHist"):
+            if params and params.get("startTime") == 1712061300001:
+                return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
@@ -177,6 +183,8 @@ class Phase3IngestionTests(unittest.TestCase):
                 },
             )
         if url.endswith("/fapi/v1/markPriceKlines"):
+            if params and params.get("startTime") == 1712061300001:
+                return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
@@ -201,6 +209,10 @@ class Phase3IngestionTests(unittest.TestCase):
                 ],
             )
         if url.endswith("/fapi/v1/indexPriceKlines"):
+            if params and params.get("pair") != "BTCUSDT":
+                raise AssertionError(f"unexpected pair for indexPriceKlines: {params}")
+            if params and params.get("startTime") == 1712061300001:
+                return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
@@ -426,6 +438,121 @@ class Phase3IngestionTests(unittest.TestCase):
             ).scalar_one()
 
         self.assertGreaterEqual(bar_count, 1)
+
+    def test_paginated_market_history_fetches_multiple_pages(self) -> None:
+        call_counts = {
+            "futures_klines": 0,
+            "funding": 0,
+            "oi": 0,
+            "mark": 0,
+            "index": 0,
+        }
+
+        def transport(url: str, params):
+            if url.endswith("/fapi/v1/klines"):
+                call_counts["futures_klines"] += 1
+                if call_counts["futures_klines"] == 1:
+                    return JsonHttpResponse(
+                        200,
+                        [
+                            [1000, "1", "1", "1", "1", "1", 1999, "1", 1],
+                            [2000, "1", "1", "1", "1", "1", 2999, "1", 1],
+                        ],
+                    )
+                return JsonHttpResponse(200, [])
+            if url.endswith("/fapi/v1/fundingRate"):
+                call_counts["funding"] += 1
+                if call_counts["funding"] == 1:
+                    return JsonHttpResponse(
+                        200,
+                        [
+                            {"symbol": "BTCUSDT", "fundingTime": 1000, "fundingRate": "0.001", "markPrice": "1"},
+                            {"symbol": "BTCUSDT", "fundingTime": 2000, "fundingRate": "0.001", "markPrice": "1"},
+                        ],
+                    )
+                return JsonHttpResponse(200, [])
+            if url.endswith("/futures/data/openInterestHist"):
+                call_counts["oi"] += 1
+                if call_counts["oi"] == 1:
+                    return JsonHttpResponse(
+                        200,
+                        [
+                            {"symbol": "BTCUSDT", "sumOpenInterest": "1", "timestamp": 1000},
+                            {"symbol": "BTCUSDT", "sumOpenInterest": "1", "timestamp": 2000},
+                        ],
+                    )
+                return JsonHttpResponse(200, [])
+            if url.endswith("/fapi/v1/markPriceKlines"):
+                call_counts["mark"] += 1
+                if call_counts["mark"] == 1:
+                    return JsonHttpResponse(
+                        200,
+                        [
+                            [1000, "1", "1", "1", "1", "0", 1999],
+                            [2000, "1", "1", "1", "1", "0", 2999],
+                        ],
+                    )
+                return JsonHttpResponse(200, [])
+            if url.endswith("/fapi/v1/indexPriceKlines"):
+                call_counts["index"] += 1
+                self.assertEqual(params.get("pair"), "BTCUSDT")
+                if call_counts["index"] == 1:
+                    return JsonHttpResponse(
+                        200,
+                        [
+                            [1000, "1", "1", "1", "1", "0", 1999],
+                            [2000, "1", "1", "1", "1", "0", 2999],
+                        ],
+                    )
+                return JsonHttpResponse(200, [])
+            raise AssertionError(f"unexpected url: {url} params={params}")
+
+        client = BinancePublicRestClient(http_client=JsonHttpClient(transport))
+        bars = client.fetch_klines(
+            "BTCUSDT",
+            interval="1m",
+            start_time=datetime.fromtimestamp(1, tz=timezone.utc),
+            end_time=datetime.fromtimestamp(10, tz=timezone.utc),
+            limit=2,
+        )
+        funding = client.fetch_funding_rate_history(
+            "BTCUSDT",
+            start_time=datetime.fromtimestamp(1, tz=timezone.utc),
+            end_time=datetime.fromtimestamp(10, tz=timezone.utc),
+            limit=2,
+        )
+        oi = client.fetch_open_interest_history(
+            "BTCUSDT",
+            period="5m",
+            start_time=datetime.fromtimestamp(1, tz=timezone.utc),
+            end_time=datetime.fromtimestamp(10, tz=timezone.utc),
+            limit=2,
+        )
+        mark = client.fetch_mark_price_klines(
+            "BTCUSDT",
+            interval="1m",
+            start_time=datetime.fromtimestamp(1, tz=timezone.utc),
+            end_time=datetime.fromtimestamp(10, tz=timezone.utc),
+            limit=2,
+        )
+        index = client.fetch_index_price_klines(
+            "BTCUSDT",
+            interval="1m",
+            start_time=datetime.fromtimestamp(1, tz=timezone.utc),
+            end_time=datetime.fromtimestamp(10, tz=timezone.utc),
+            limit=2,
+        )
+
+        self.assertEqual(len(bars), 2)
+        self.assertEqual(len(funding), 2)
+        self.assertEqual(len(oi), 2)
+        self.assertEqual(len(mark), 2)
+        self.assertEqual(len(index), 2)
+        self.assertGreaterEqual(call_counts["futures_klines"], 2)
+        self.assertGreaterEqual(call_counts["funding"], 2)
+        self.assertGreaterEqual(call_counts["oi"], 2)
+        self.assertGreaterEqual(call_counts["mark"], 2)
+        self.assertGreaterEqual(call_counts["index"], 2)
 
     def test_market_snapshot_remediation_plans_and_runs_scheduler_ready_refresh(self) -> None:
         client = self._client()

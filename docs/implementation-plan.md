@@ -36,6 +36,7 @@ The repository already has a strong design foundation and is now design-complete
 - the existing bar-backfill path now supports both Binance perp and spot historical bars
 - instrument sync now also auto-upserts newly discovered Binance assets into `ref.assets` before instrument writes
 - historical funding/open-interest/mark/index windows are now supported through the current market-snapshot refresh path
+- the current Binance historical fetch paths now paginate through multi-page REST windows for bars, funding, OI, mark, and index history
 - Phase 4 data-quality jobs for gap, freshness, and duplicate checks in `src/jobs/data_quality.py`
 - Phase 4 quality, raw-event traceability, and replay-readiness API endpoints in `src/api/`
 - replay and hot-retention baseline documented in `docs/replay-retention-policy.md`
