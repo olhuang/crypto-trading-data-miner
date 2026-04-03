@@ -309,6 +309,7 @@ Make collected market data reliable enough for research and downstream execution
 - validated locally with automated checks for gap detection, freshness checks, duplicate detection, raw-event traceability, and replay-readiness APIs
 - complete enough to support Phase 5 bars-based research on quality-gated market data
 - local development can optionally remediate recent bar gaps during app startup without introducing a continuous scheduler dependency yet
+- historical trades should remain manual bounded backfill work when introduced, rather than being added to startup remediation or continuous auto catch-up by default
 
 ---
 

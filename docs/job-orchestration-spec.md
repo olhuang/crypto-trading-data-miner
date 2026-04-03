@@ -103,6 +103,18 @@ It exists to prevent ambiguity about:
 | `md.orderbook_snapshots` | No | No | No | No |
 | `md.orderbook_deltas` | No | No | No | No |
 
+### Recorded Decision: Historical Trades Backfill Policy
+
+The current project decision is:
+- historical `md.trades` support should remain **manual-trigger only**
+- historical trade backfill should **not** be wired into app-startup remediation
+- historical trade backfill should **not** be wired into a continuous auto catch-up loop in the current implementation phase
+
+Reasons:
+- trade volume is materially larger than bars and would make startup behavior unpredictable
+- long-window trade backfill needs chunking, stronger checkpointing, and stricter DB/rate-limit controls than the current lightweight remediation path
+- the near-term goal is to preserve an operator-triggered way to fetch bounded historical trade windows without silently expanding background system load
+
 ### Meaning of Each Column
 
 #### Live auto collect
@@ -149,6 +161,7 @@ The system continuously detects missing history and remediates it without manual
 #### Trades
 - historical trade backfill would be much heavier than bars and needs chunking, dedupe discipline, and stricter DB/query safety.
 - trade volume makes startup-time catch-up a poor default.
+- even after historical trade backfill is implemented, the intended default is manual/operator-triggered bounded windows rather than automatic remediation.
 
 #### Funding / OI / Mark / Index
 - these now support bounded historical backfill windows.

@@ -458,6 +458,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] replay/retention policy is documented in `docs/replay-retention-policy.md`
 - [x] automated tests now cover Phase 4 jobs, traceability helpers, and API endpoints
 - [x] local/dev startup can optionally remediate recent bar gaps through an explicit config flag without requiring a continuous remediation scheduler
+- [x] historical trades are explicitly documented as a future manual bounded-backfill path, not a startup or continuous auto-remediation path
 
 ## Phase 4 Final Acceptance Summary
 - [x] bar gaps are detectable
