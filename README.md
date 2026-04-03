@@ -77,6 +77,7 @@ Major implementation areas now present include:
 - Binance public ingestion foundation under `src/ingestion/`, `src/jobs/`, and `src/runtime/`
 - historical funding/OI/mark/index window support through the current market-snapshot refresh path
 - Phase 4 quality jobs under `src/jobs/data_quality.py`
+- dataset-level sanity checks for funding/OI/mark/index under the Phase 4 quality path
 - optional dev-only startup gap remediation under `src/services/startup_remediation.py`
 - scheduler-ready market snapshot remediation job under `src/jobs/remediate_market_snapshots.py` for manual/API-triggered funding/OI/mark/index catch-up planning
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/quality/*`, `/api/v1/market/*`, `/api/v1/streams/*`, and `/api/v1/replay/readiness`

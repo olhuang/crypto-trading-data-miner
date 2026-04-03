@@ -405,6 +405,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] define freshness SLA for bars
 - [x] define freshness SLA for trades
 - [x] define freshness SLA for funding/open interest
+- [x] define freshness SLA for mark/index prices
 - [x] record pass/fail results in `ops.data_quality_checks`
 
 ### Acceptance Checks
@@ -417,12 +418,26 @@ Make the collected market data reliable enough for research, backtest, and repla
 ### Tasks
 - [x] validate duplicate trade detection
 - [x] validate duplicate bar detection
+- [x] validate duplicate mark/index detection
 - [x] validate duplicate raw event detection where possible
 - [x] persist findings to `ops.data_quality_checks`
 
 ### Acceptance Checks
 - [x] duplicate anomalies can be measured and reported
 - [x] duplicate counts can be inspected after ingestion runs
+
+---
+
+## Task 4.3a: Implement dataset-level snapshot sanity checks
+### Tasks
+- [x] add funding continuity checks
+- [x] add open-interest continuity checks
+- [x] add mark-price continuity checks
+- [x] add index-price continuity checks
+
+### Acceptance Checks
+- [x] funding/OI/mark/index sanity checks are persisted to `ops.data_quality_checks`
+- [x] quality summary and inspection APIs can surface these checks
 
 ---
 
@@ -461,6 +476,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] local/dev startup can optionally remediate recent bar gaps through an explicit config flag without requiring a continuous remediation scheduler
 - [x] historical trades are explicitly documented as a future manual bounded-backfill path, not a startup or continuous auto-remediation path
 - [x] funding/OI/mark/index now have a scheduler-ready remediation job path without turning on continuous auto catch-up
+- [x] funding/OI/mark/index now also have dataset-level sanity checks for freshness, duplicates, and bounded continuity
 
 ## Phase 4 Final Acceptance Summary
 - [x] bar gaps are detectable

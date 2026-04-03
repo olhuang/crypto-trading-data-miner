@@ -602,6 +602,10 @@ Implementation note:
 Purpose:
 - list data quality checks
 
+Implementation note:
+- implemented in `src/api/app.py`
+- current Phase 4 checks now cover bars/trades plus dataset-level sanity checks for funding/open-interest/mark/index
+
 Query params:
 - `data_type`
 - `status`
@@ -657,6 +661,7 @@ Response fields:
 - [x] UI can show open data gaps
 - [x] UI can inspect raw events and payloads
 - [x] UI can show replay readiness summary
+- [x] UI can inspect dataset-level sanity checks for funding/OI/mark/index through the existing quality endpoints
 
 ---
 

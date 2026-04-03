@@ -366,7 +366,7 @@ class Phase4QualityTests(unittest.TestCase):
         )
 
     def test_quality_suite_persists_checks_and_gap_rows(self) -> None:
-        self.assertEqual(self.__class__.quality_result.checks_written, 8)
+        self.assertEqual(self.__class__.quality_result.checks_written, 16)
         self.assertEqual(self.__class__.quality_result.gaps_written, 1)
 
         with connection_scope() as connection:
@@ -383,9 +383,23 @@ class Phase4QualityTests(unittest.TestCase):
                 limit=20,
             )
 
-        self.assertGreaterEqual(summary["total_checks"], 8)
+        self.assertGreaterEqual(summary["total_checks"], 16)
         self.assertGreaterEqual(summary["failed_checks"], 4)
         self.assertTrue(any(gap["gap_start"] == self.__class__.seed["middle_time"] for gap in gaps))
+
+    def test_quality_suite_now_covers_snapshot_dataset_checks(self) -> None:
+        with connection_scope() as connection:
+            checks = DataQualityCheckRepository().list_recent(
+                connection,
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_PERP",
+                limit=50,
+            )
+
+        self.assertTrue(any(check["data_type"] == "funding_rates" and check["check_name"] == "continuity_check" for check in checks))
+        self.assertTrue(any(check["data_type"] == "open_interest" and check["check_name"] == "continuity_check" for check in checks))
+        self.assertTrue(any(check["data_type"] == "mark_prices" and check["check_name"] == "duplicate_check" for check in checks))
+        self.assertTrue(any(check["data_type"] == "index_prices" and check["check_name"] == "freshness_check" for check in checks))
 
     def test_traceability_links_trade_raw_event_back_to_normalized_trade(self) -> None:
         with connection_scope() as connection:
