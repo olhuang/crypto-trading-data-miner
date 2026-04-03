@@ -692,6 +692,7 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Architecture Alignment Note
 Phase 6 should reuse the same lifecycle, ownership model, and protection concepts already planned in `docs/position-management-spec.md`.
+Phase 6 should also preserve the family/variant/version identity model planned in `docs/strategy-taxonomy-and-versioning-spec.md` so paper sessions, fills, and reports do not invent a separate strategy naming scheme.
 
 ## Goal
 Run strategy logic continuously in simulated real time using live market data and execution logic.
@@ -716,6 +717,7 @@ Run strategy logic continuously in simulated real time using live market data an
 - [ ] evaluate strategy on live/polled data
 - [ ] emit signals at configured cadence
 - [ ] support graceful stop/start behavior
+- [ ] keep session metadata attributable to stable `strategy_code` (variant) and `strategy_version`
 
 ### Acceptance Checks
 - [ ] paper runtime can run continuously for a session
@@ -729,6 +731,7 @@ Run strategy logic continuously in simulated real time using live market data an
 - [ ] enforce instrument trading rules
 - [ ] assign canonical `client_order_id`
 - [ ] record initial order state
+- [ ] preserve stable strategy variant/version identity on order and signal-linked records
 
 ### Acceptance Checks
 - [ ] orders are generated consistently from signals
@@ -756,6 +759,7 @@ Run strategy logic continuously in simulated real time using live market data an
 - [ ] update balances on fills and fees
 - [ ] generate snapshots for positions and balances
 - [ ] record PnL evolution
+- [ ] keep reporting and snapshots attributable to the originating strategy variant/version
 
 ### Acceptance Checks
 - [ ] positions and balances remain internally consistent
@@ -796,11 +800,13 @@ Run strategy logic continuously in simulated real time using live market data an
 - [ ] positions and balances update correctly
 - [ ] risk checks are enforced
 - [ ] timing metrics are recorded
+- [ ] paper-path records preserve stable strategy variant/version identity
 
 ## Handoff Criteria to Phase 7
 - [ ] execution flow is stable enough to swap simulated routing for exchange routing
 - [ ] canonical order lifecycle is already proven in paper mode
 - [ ] paper-path position/protection/reporting behavior remains compatible with `docs/position-management-spec.md`
+- [ ] paper sessions and reports remain attributable by stable strategy variant/version identity
 
 ---
 
@@ -808,6 +814,7 @@ Run strategy logic continuously in simulated real time using live market data an
 
 ## Architecture Alignment Note
 Phase 7 should continue the same shared lifecycle and ownership model from `docs/position-management-spec.md`, especially if shared-account execution or future fill allocation is introduced.
+Phase 7 should also continue the strategy family/variant/version semantics from `docs/strategy-taxonomy-and-versioning-spec.md`, especially for deployment, live session ownership, and later reporting.
 
 ## Goal
 Support the first real trading path on one exchange account.
@@ -845,6 +852,7 @@ Support the first real trading path on one exchange account.
 - [ ] persist exchange ack and exchange order id
 - [ ] implement cancel path
 - [ ] normalize exchange errors into order events
+- [ ] preserve stable strategy variant/version identity on all live order lifecycle records
 
 ### Acceptance Checks
 - [ ] system can place an order on one live account
@@ -872,6 +880,7 @@ Support the first real trading path on one exchange account.
 - [ ] fetch or stream positions
 - [ ] write snapshots to execution tables
 - [ ] reconcile state after fills or periodic sync
+- [ ] preserve attribution needed for future variant/version-level reporting and fill allocation
 
 ### Acceptance Checks
 - [ ] balances can be retrieved and persisted
@@ -886,6 +895,7 @@ Support the first real trading path on one exchange account.
 - [ ] write `execution.funding_pnl`
 - [ ] fetch account history for ledger entries where available
 - [ ] record `execution.execution_latency_metrics`
+- [ ] keep ledger/funding traces attributable to the deployed strategy variant/version where model scope allows
 
 ### Acceptance Checks
 - [ ] funding events can be stored for live account activity
@@ -901,10 +911,12 @@ Support the first real trading path on one exchange account.
 - [ ] order events and fills persist correctly
 - [ ] positions and balances sync correctly
 - [ ] funding/ledger/latency baseline exists
+- [ ] live-path records remain attributable to stable strategy variant/version identity
 
 ## Handoff Criteria to Phase 8
 - [ ] one live trading path is functional end to end
 - [ ] exchange state and DB state can now be compared for reconciliation
+- [ ] live execution and accounting records preserve enough strategy identity for later deployment audit and reconciliation reporting
 
 ---
 
@@ -912,6 +924,7 @@ Support the first real trading path on one exchange account.
 
 ## Architecture Alignment Note
 Phase 8 reconciliation and audit work should treat `docs/position-management-spec.md` as the intended backbone for fill truth, strategy/account ownership, protection history, and reporting traceability.
+Phase 8 should also treat `docs/strategy-taxonomy-and-versioning-spec.md` as the intended backbone for variant/version attribution and future family-aware reporting.
 
 ## Goal
 Make the live system auditable and safe enough for ongoing operation.
@@ -976,11 +989,13 @@ Make the live system auditable and safe enough for ongoing operation.
 - [ ] write strategy deployment records into `strategy.deployments`
 - [ ] write parameter/config changes into `strategy.config_change_audit`
 - [ ] link deployments to strategy versions and environments
+- [ ] keep deployment and config audit records aligned to stable variant/version identity rather than broad family labels
 
 ### Acceptance Checks
 - [ ] deployments are historically traceable
 - [ ] config changes are historically traceable
 - [ ] performance regressions can be tied back to config/deployment history
+- [ ] deployment audit records are attributable at strategy variant/version granularity
 
 ---
 
@@ -1016,6 +1031,7 @@ Make the live system auditable and safe enough for ongoing operation.
 - [ ] deployment/config audit exists
 - [ ] exchange status and forced reduction events exist
 - [ ] operational control workflow is documented
+- [ ] reconciliation and audit outputs preserve strategy variant/version attribution where applicable
 
 ## Handoff Criteria to Phase 9
 - [ ] the live system is operationally traceable enough to harden and scale

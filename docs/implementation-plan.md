@@ -410,6 +410,7 @@ Provide the first end-to-end research workflow using historical data.
 
 ### Architecture Prerequisite
 Phase 6 should reuse and extend the same lifecycle described in `docs/position-management-spec.md` rather than introducing a paper-only position or protection model.
+Phase 6 should also preserve the stable family/variant/version identity described in `docs/strategy-taxonomy-and-versioning-spec.md` so paper sessions and reports remain attributable by variant/version.
 
 ### Goal
 Run a strategy in simulated real time using live market data and execution logic.
@@ -443,6 +444,7 @@ Run a strategy in simulated real time using live market data and execution logic
 - risk violations are recorded as `risk.risk_events`
 - paper path uses the same canonical order/fill/position contracts intended for live trading
 - paper-path position/protection/reporting logic remains compatible with the phased strategy-book/account-book model in `docs/position-management-spec.md`
+- paper sessions and reports remain attributable by stable strategy variant/version identity
 
 ### Dependencies
 - Phase 5
@@ -456,6 +458,7 @@ Run a strategy in simulated real time using live market data and execution logic
 
 ### Architecture Prerequisite
 Phase 7 should continue the same shared lifecycle and ownership model from `docs/position-management-spec.md`, especially if shared-account execution or future fill allocation is introduced.
+Phase 7 should also preserve the stable family/variant/version identity described in `docs/strategy-taxonomy-and-versioning-spec.md` for live deployments, fills, and later reporting.
 
 ### Goal
 Support the first real trading path on one exchange.
@@ -488,6 +491,7 @@ Support the first real trading path on one exchange.
 - funding and ledger data are recoverable from exchange history
 - live path reuses the shared canonical execution model already established in paper mode
 - live execution stays compatible with future fill allocation, protection-rule persistence, and reporting layers defined in `docs/position-management-spec.md`
+- live-path records remain attributable to stable strategy variant/version identity
 
 ### Dependencies
 - Phase 6
@@ -498,6 +502,10 @@ Support the first real trading path on one exchange.
 ---
 
 ## Phase 8: Reconciliation, Treasury, and Operational Controls
+
+### Architecture Prerequisite
+Phase 8 should treat `docs/position-management-spec.md` as the intended backbone for fill truth, strategy/account ownership, protection history, and reporting traceability.
+Phase 8 should also treat `docs/strategy-taxonomy-and-versioning-spec.md` as the intended backbone for variant/version attribution and future family-aware reporting.
 
 ### Goal
 Make the live system safe and auditable enough for sustained operation.
@@ -527,6 +535,7 @@ Make the live system safe and auditable enough for sustained operation.
 - treasury movements are recorded with enough metadata to audit
 - deployments and config changes are traceable historically
 - exchange outages or pauses can be represented in the system
+- reconciliation and audit outputs preserve strategy variant/version attribution where applicable
 
 ### Dependencies
 - Phase 7
