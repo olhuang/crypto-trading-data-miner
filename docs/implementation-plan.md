@@ -47,6 +47,7 @@ The repository already has a strong design foundation and is now design-complete
 - quality summary/check inspection now supports a latest-only monitoring mode so dashboards can focus on current effective dataset health instead of cumulative historical runs
 - `docs/position-management-spec.md` now freezes the intended extensible architecture for Phase 5-8 position management, execution ownership, protection state, and reporting
 - `docs/strategy-input-and-feature-pipeline-spec.md` now freezes the intended long-lived plan for multi-dataset strategy inputs, feature alignment, and no-look-ahead handling
+- `docs/strategy-research-and-evaluation-spec.md` now freezes the intended long-lived plan for strategy development, research, testing, and comparative evaluation
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
 
@@ -351,6 +352,12 @@ Also treat `docs/strategy-input-and-feature-pipeline-spec.md` as the planning ba
 - future funding/OI/mark/index strategy inputs
 - time alignment and no-look-ahead rules
 - future feature-pipeline expansion beyond bars
+
+Also treat `docs/strategy-research-and-evaluation-spec.md` as the planning backbone for:
+- strategy development workflow
+- multi-window evaluation
+- multi-strategy and multi-parameter comparison
+- promotion-oriented research evidence
 
 ### Goal
 Provide the first end-to-end research workflow using historical data.

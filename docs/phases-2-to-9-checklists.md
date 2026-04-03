@@ -21,6 +21,7 @@ This file is intended to be used together with:
 - `docs/api-contracts.md`
 - `docs/position-management-spec.md` for all Phase 5-8 position/execution/protection/reporting work
 - `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
+- `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
 
 ---
 
@@ -523,6 +524,12 @@ Phase 5 should also follow `docs/strategy-input-and-feature-pipeline-spec.md` as
 - time alignment and no-look-ahead rules
 - later feature-pipeline expansion beyond bars
 
+Phase 5 should also follow `docs/strategy-research-and-evaluation-spec.md` as the planning backbone for:
+- new strategy development workflow
+- multi-window evaluation expectations
+- multi-strategy and multi-parameter comparison planning
+- promotion-oriented research evidence
+
 ## Goal
 Provide the first end-to-end research workflow using historical bar data.
 
@@ -560,6 +567,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] create strategy base interface
 - [x] create simple example strategy implementation
 - [x] define strategy loading or registration pattern
+- [ ] define how new strategy implementations move from local development to research evaluation
 
 ### Acceptance Checks
 - [x] strategy interface is clear and reusable
@@ -633,12 +641,26 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] at least one run produces interpretable performance output
 - [ ] performance summary matches timeseries-derived results
 
+---
+
+## Task 5.7: Plan comparative research workflow
+### Tasks
+- [ ] define multi-window evaluation workflow
+- [ ] define multi-parameter comparison workflow
+- [ ] define multi-strategy comparison workflow
+- [ ] define benchmark and promotion-review expectations
+
+### Acceptance Checks
+- [ ] the repository has a documented path from new strategy code to comparative research evidence
+- [ ] Phase 5 work remains compatible with future run-group and compare/analyze flows
+
 ## Phase 5 Current Implementation Snapshot
 - [x] `src/models/backtest.py` now defines strategy session, execution-policy, protection-policy, and backtest run config models
 - [x] `src/strategy/` now contains a base strategy interface, default registry, and seeded example strategy implementation
 - [x] `src/backtest/` now contains a lifecycle-planning and runner skeleton aligned to `docs/position-management-spec.md`
 - [x] automated tests now validate session config, default strategy loading, example strategy output, and initial lifecycle planning
 - [x] a dedicated strategy-input/feature-pipeline planning spec now exists for future non-bar strategy inputs
+- [x] a dedicated strategy-research/evaluation planning spec now exists for future multi-window and multi-strategy research workflows
 - [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 
 ---

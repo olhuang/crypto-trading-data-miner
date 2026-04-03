@@ -80,8 +80,9 @@ Read in this order:
 8. `docs/execution-and-risk-engine-spec.md`
 9. `docs/position-management-spec.md`
 10. `docs/strategy-input-and-feature-pipeline-spec.md`
-11. `docs/pnl-and-accounting-spec.md`
-12. `docs/testing-strategy-spec.md`
+11. `docs/strategy-research-and-evaluation-spec.md`
+12. `docs/pnl-and-accounting-spec.md`
+13. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -173,10 +174,12 @@ Read in this order:
 ## 4.5 Internal Payload and Domain Contracts
 - `docs/api-contracts.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
+- `docs/strategy-research-and-evaluation-spec.md`
 
 ### Source of Truth
 - canonical internal payload contracts: `docs/api-contracts.md`
 - strategy-input and future feature/alignment architecture: `docs/strategy-input-and-feature-pipeline-spec.md`
+- strategy development, research, testing, and comparison workflow: `docs/strategy-research-and-evaluation-spec.md`
 
 ---
 
@@ -297,6 +300,7 @@ Primary docs:
 - `docs/api-contracts.md`
 - `docs/position-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
+- `docs/strategy-research-and-evaluation-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 
@@ -414,6 +418,7 @@ Lower-change documents:
 - `docs/execution-and-risk-engine-spec.md`
 - `docs/position-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
+- `docs/strategy-research-and-evaluation-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/security-and-secrets-spec.md`
 
