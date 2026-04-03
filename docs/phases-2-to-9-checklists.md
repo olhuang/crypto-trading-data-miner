@@ -619,14 +619,14 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.3: Implement bars-based fill model
 ### Tasks
-- [ ] define order simulation logic for market orders
-- [ ] define order simulation logic for limit orders
-- [ ] implement fee model using `ref.fee_schedules`
-- [ ] implement slippage model abstraction
+- [x] define order simulation logic for market orders
+- [x] define order simulation logic for limit orders
+- [x] implement fee model using `ref.fee_schedules`
+- [x] implement slippage model abstraction
 
 ### Acceptance Checks
-- [ ] simulated fills can be generated deterministically
-- [ ] fee and slippage are reflected in results
+- [x] simulated fills can be generated deterministically
+- [x] fee and slippage are reflected in results
 
 ---
 
@@ -767,7 +767,8 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
 - [x] a dedicated strategy workbench planning spec now exists for strategy-lab, artifact, compare/analyze, replay-scenario, and review facilities
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
-- [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
+- [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
+- [ ] the Phase 5 skeleton has not yet been extended into a DB-backed run writer, diagnostics projector, or period-breakdown reporting layer
 
 ---
 

@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import Mapping
 
 from models.backtest import BacktestRunConfig
-from models.common import Direction, OrderSide
+from models.common import Direction, OrderSide, OrderType
 from models.strategy import Signal, TargetPosition, TargetPositionItem
 from strategy.base import StrategyDecision
 
@@ -24,6 +24,8 @@ class ExecutionIntent:
     target_qty: Decimal
     delta_qty: Decimal
     side: OrderSide
+    order_type: OrderType
+    limit_price: Decimal | None
     reduce_only: bool
     metadata_json: dict[str, object] = field(default_factory=dict)
 
@@ -133,6 +135,8 @@ class BacktestLifecycle:
                     target_qty=target_qty,
                     delta_qty=delta_qty,
                     side=OrderSide.BUY if delta_qty > 0 else OrderSide.SELL,
+                    order_type=execution_policy.order_type_preference,
+                    limit_price=None,
                     reduce_only=reduce_only and execution_policy.reduce_only_on_exit,
                     metadata_json={
                         "strategy_code": target_position.strategy_code,

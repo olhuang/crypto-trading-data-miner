@@ -15,12 +15,19 @@ if str(SRC_ROOT) not in sys.path:
 
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.runner import BacktestRunnerSkeleton
+from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, StaticFeeModel
 from backtest.signals import build_signals_from_target_position
 from models.backtest import BacktestRunConfig, StrategySessionConfig
-from models.common import OrderSide, SignalType
+from models.common import OrderSide, OrderType, SignalType
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
-from strategy import MovingAverageCrossStrategy, StrategyEvaluationInput, UnknownStrategyError, build_default_registry
+from strategy import (
+    MovingAverageCrossStrategy,
+    StrategyBase,
+    StrategyEvaluationInput,
+    UnknownStrategyError,
+    build_default_registry,
+)
 
 
 def build_bar(symbol: str, offset_minutes: int, close: str) -> BarEvent:
@@ -41,6 +48,37 @@ def build_bar(symbol: str, offset_minutes: int, close: str) -> BarEvent:
             "volume": "10",
         }
     )
+
+
+class OneShotTargetStrategy(StrategyBase):
+    strategy_code = "test_strategy"
+    strategy_version = "v1.0.0"
+
+    def __init__(self, *, target_qty: DecimalLike = "1") -> None:
+        self.target_qty = Decimal(str(target_qty))
+        self._has_fired = False
+
+    def evaluate(self, evaluation: StrategyEvaluationInput) -> TargetPosition | None:
+        if self._has_fired:
+            return None
+        self._has_fired = True
+        return TargetPosition.model_validate(
+            {
+                "strategy_code": evaluation.session.strategy_code,
+                "strategy_version": evaluation.session.strategy_version,
+                "target_time": evaluation.bar.bar_time,
+                "positions": [
+                    {
+                        "exchange_code": evaluation.bar.exchange_code,
+                        "unified_symbol": evaluation.bar.unified_symbol,
+                        "target_qty": str(self.target_qty),
+                    }
+                ],
+            }
+        )
+
+
+DecimalLike = Decimal | str | int | float
 
 
 class Phase5FoundationTests(unittest.TestCase):
@@ -222,7 +260,13 @@ class Phase5FoundationTests(unittest.TestCase):
             }
         )
         bars = [build_bar("BTCUSDT_PERP", index, str(100 + index)) for index in range(20)]
-        runner = BacktestRunnerSkeleton(run_config)
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
 
         result = runner.evaluate_bar(
             bars[-1],
@@ -288,7 +332,13 @@ class Phase5FoundationTests(unittest.TestCase):
             }
         )
         bars = [build_bar("BTCUSDT_PERP", index, str(100 + index)) for index in range(20)]
-        runner = BacktestRunnerSkeleton(run_config)
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
 
         result = runner.run_bars(bars)
 
@@ -296,6 +346,146 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertGreaterEqual(len(generated_signals), 1)
         self.assertEqual(generated_signals[0].unified_symbol, "BTCUSDT_PERP")
         self.assertEqual(result.final_positions["BTCUSDT_PERP"], Decimal("1"))
+        self.assertEqual(len(result.fills), 1)
+        self.assertEqual(result.fills[0].fill_price, bars[5].open + Decimal("0.0105"))
+
+    def test_market_fill_model_fills_on_next_bar_open_with_fee_and_slippage(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_market_fill",
+                "session": {
+                    "session_code": "bt_btc",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        bars = [
+            build_bar("BTCUSDT_PERP", 0, "100"),
+            build_bar("BTCUSDT_PERP", 1, "105"),
+        ]
+        fill_model = DeterministicBarsFillModel(
+            fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+            slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=fill_model,
+        )
+
+        result = runner.run_bars(bars)
+
+        self.assertEqual(len(result.orders), 1)
+        self.assertEqual(len(result.fills), 1)
+        self.assertEqual(result.orders[0].status, "filled")
+        self.assertEqual(result.orders[0].order_type, OrderType.MARKET)
+        self.assertEqual(result.fills[0].fill_price, Decimal("105.0105"))
+        self.assertEqual(result.fills[0].slippage_cost, Decimal("0.0105"))
+        self.assertEqual(result.fills[0].fee.quantize(Decimal("0.00000001")), Decimal("0.05775578"))
+        self.assertEqual(result.final_positions["BTCUSDT_PERP"], Decimal("1"))
+
+    def test_limit_fill_model_requires_price_touch(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_limit_fill",
+                "session": {
+                    "session_code": "bt_btc",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "execution_policy": {
+                        "order_type_preference": "limit",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        first_bar = BarEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "bar_interval": "1m",
+                "bar_time": "2026-04-01T00:00:00Z",
+                "event_time": "2026-04-01T00:00:00Z",
+                "ingest_time": "2026-04-01T00:00:01Z",
+                "open": "100",
+                "high": "100",
+                "low": "100",
+                "close": "100",
+                "volume": "10",
+            }
+        )
+        touched_bar = BarEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "bar_interval": "1m",
+                "bar_time": "2026-04-01T00:01:00Z",
+                "event_time": "2026-04-01T00:01:00Z",
+                "ingest_time": "2026-04-01T00:01:01Z",
+                "open": "101",
+                "high": "102",
+                "low": "99",
+                "close": "101",
+                "volume": "10",
+            }
+        )
+        untouched_bar = BarEvent.model_validate(
+            {
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "bar_interval": "1m",
+                "bar_time": "2026-04-01T00:01:00Z",
+                "event_time": "2026-04-01T00:01:00Z",
+                "ingest_time": "2026-04-01T00:01:01Z",
+                "open": "101",
+                "high": "102",
+                "low": "100.5",
+                "close": "101",
+                "volume": "10",
+            }
+        )
+
+        fill_model = DeterministicBarsFillModel(
+            fee_model=StaticFeeModel(maker_fee_bps="2"),
+            slippage_model=FixedBpsSlippageModel(market_order_bps="0", limit_order_bps="0"),
+        )
+        runner_touched = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=fill_model,
+        )
+        touched_result = runner_touched.run_bars([first_bar, touched_bar])
+
+        self.assertEqual(len(touched_result.fills), 1)
+        self.assertEqual(touched_result.orders[0].order_type, OrderType.LIMIT)
+        self.assertEqual(touched_result.fills[0].fill_price, Decimal("100"))
+        self.assertEqual(touched_result.fills[0].fee, Decimal("0.02"))
+
+        runner_untouched = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=fill_model,
+        )
+        untouched_result = runner_untouched.run_bars([first_bar, untouched_bar])
+
+        self.assertEqual(len(untouched_result.fills), 0)
+        self.assertEqual(len(untouched_result.open_orders), 1)
+        self.assertEqual(untouched_result.open_orders[0].status, "expired")
+        self.assertEqual(untouched_result.final_positions, {})
 
     def test_runner_rejects_bar_outside_session_universe(self) -> None:
         run_config = BacktestRunConfig.model_validate(

@@ -12,8 +12,10 @@ from storage.repositories.strategy import StrategySignalRepository
 from strategy import StrategyBase, StrategyEvaluationInput, StrategyRegistry, build_default_registry
 
 from .data import BacktestBarLoader
+from .fills import DeterministicBarsFillModel, SimulatedFill, SimulatedOrder
 from .lifecycle import BacktestLifecycle, BacktestStepPlan
 from .signals import build_signals_from_target_position
+from .state import PortfolioState
 
 
 @dataclass(slots=True)
@@ -21,13 +23,19 @@ class BacktestStepResult:
     bar_time: str
     plan: BacktestStepPlan
     signals: list[Signal]
+    created_orders: list[SimulatedOrder]
+    fills: list[SimulatedFill]
 
 
 @dataclass(slots=True)
 class BacktestRunLoopResult:
     steps: list[BacktestStepResult]
     final_positions: dict[str, Decimal]
+    final_cash: Decimal
     persisted_signal_ids: list[int]
+    orders: list[SimulatedOrder]
+    fills: list[SimulatedFill]
+    open_orders: list[SimulatedOrder]
 
 
 class BacktestRunnerSkeleton:
@@ -38,6 +46,7 @@ class BacktestRunnerSkeleton:
         registry: StrategyRegistry | None = None,
         strategy: StrategyBase | None = None,
         signal_repository: StrategySignalRepository | None = None,
+        fill_model: DeterministicBarsFillModel | None = None,
     ) -> None:
         self.run_config = run_config
         self.registry = registry or build_default_registry()
@@ -48,6 +57,7 @@ class BacktestRunnerSkeleton:
         )
         self.lifecycle = BacktestLifecycle(run_config)
         self.signal_repository = signal_repository or StrategySignalRepository()
+        self.fill_model = fill_model or DeterministicBarsFillModel()
 
     def evaluate_bar(
         self,
@@ -72,7 +82,13 @@ class BacktestRunnerSkeleton:
         )
         plan = self.lifecycle.plan_from_decision(decision, positions)
         signals = self._build_signals(decision, positions)
-        return BacktestStepResult(bar_time=bar.bar_time.isoformat(), plan=plan, signals=signals)
+        return BacktestStepResult(
+            bar_time=bar.bar_time.isoformat(),
+            plan=plan,
+            signals=signals,
+            created_orders=[],
+            fills=[],
+        )
 
     def run_bars(
         self,
@@ -83,36 +99,71 @@ class BacktestRunnerSkeleton:
         persist_signals: bool = False,
         connection: Connection | None = None,
     ) -> BacktestRunLoopResult:
-        current_positions: dict[str, Decimal] = {
-            symbol: Decimal(value) for symbol, value in (initial_positions or {}).items()
-        }
-        current_cash = initial_cash if initial_cash is not None else self.run_config.initial_cash
+        portfolio = PortfolioState(
+            cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
+            positions={symbol: Decimal(value) for symbol, value in (initial_positions or {}).items()},
+        )
         recent_bars_by_symbol: dict[str, list[BarEvent]] = {}
         step_results: list[BacktestStepResult] = []
         persisted_signal_ids: list[int] = []
+        pending_orders_by_symbol: dict[str, list[SimulatedOrder]] = {}
+        all_orders: list[SimulatedOrder] = []
+        all_fills: list[SimulatedFill] = []
 
         for bar in sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol)):
+            step_fills: list[SimulatedFill] = []
+            current_pending = pending_orders_by_symbol.get(bar.unified_symbol, [])
+            remaining_orders: list[SimulatedOrder] = []
+            for pending_order in current_pending:
+                order_update = self.fill_model.process_open_order(
+                    pending_order,
+                    current_bar=bar,
+                    connection=connection,
+                )
+                if order_update.fill is not None:
+                    portfolio.apply_fill(order_update.fill)
+                    step_fills.append(order_update.fill)
+                    all_fills.append(order_update.fill)
+                else:
+                    remaining_orders.append(order_update.order)
+            pending_orders_by_symbol[bar.unified_symbol] = remaining_orders
+
             recent_bars = recent_bars_by_symbol.setdefault(bar.unified_symbol, [])
             recent_bars.append(bar)
             step_result = self.evaluate_bar(
                 bar,
                 recent_bars,
-                current_positions=current_positions,
-                current_cash=current_cash,
+                current_positions=portfolio.positions,
+                current_cash=portfolio.cash,
             )
             if persist_signals:
                 if connection is None:
                     raise ValueError("connection is required when persist_signals is true")
                 for signal in step_result.signals:
                     persisted_signal_ids.append(self.signal_repository.insert(connection, signal))
-            for intent in step_result.plan.execution_intents:
-                current_positions[intent.unified_symbol] = intent.target_qty
+            created_orders = [
+                self.fill_model.create_order(intent, current_bar=bar)
+                for intent in step_result.plan.execution_intents
+            ]
+            all_orders.extend(created_orders)
+            pending_orders_by_symbol.setdefault(bar.unified_symbol, []).extend(created_orders)
+            step_result.created_orders.extend(created_orders)
+            step_result.fills.extend(step_fills)
             step_results.append(step_result)
+
+        open_orders: list[SimulatedOrder] = []
+        for remaining_orders in pending_orders_by_symbol.values():
+            for order in remaining_orders:
+                open_orders.append(self.fill_model.expire_open_order(order))
 
         return BacktestRunLoopResult(
             steps=step_results,
-            final_positions=current_positions,
+            final_positions=portfolio.positions,
+            final_cash=portfolio.cash,
             persisted_signal_ids=persisted_signal_ids,
+            orders=all_orders,
+            fills=all_fills,
+            open_orders=open_orders,
         )
 
     def load_and_run(
