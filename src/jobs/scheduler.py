@@ -26,6 +26,25 @@ def phase3_schedule_plan() -> list[ScheduledJobDefinition]:
     ]
 
 
+def phase4_schedule_plan() -> list[ScheduledJobDefinition]:
+    return [
+        ScheduledJobDefinition(
+            job_id="binance_market_snapshot_remediation",
+            trigger="interval:600s",
+            kwargs={
+                "job_type": "market_snapshot_remediation",
+                "exchange_code": "binance",
+                "datasets": ["funding_rates", "open_interest", "mark_prices", "index_prices"],
+            },
+        )
+    ]
+
+
 def register_phase3_jobs(scheduler: Any) -> None:
     for definition in phase3_schedule_plan():
+        scheduler.add_job(id=definition.job_id, trigger=definition.trigger, kwargs=definition.kwargs)
+
+
+def register_phase4_jobs(scheduler: Any) -> None:
+    for definition in phase4_schedule_plan():
         scheduler.add_job(id=definition.job_id, trigger=definition.trigger, kwargs=definition.kwargs)

@@ -180,6 +180,7 @@ The system continuously detects missing history and remediates it without manual
 - If the goal is **keep receiving new live data**, the current runtime/refresh paths are sufficient for trades and snapshot-style market data.
 - If the goal is **repair missed recent bars during local development**, use the dev-only startup remediation hook.
 - If the goal is **repair broader historical gaps**, use explicit backfill jobs today.
+- If the goal is **prepare funding/OI/mark/index remediation for future scheduling**, use the scheduler-ready market-snapshot remediation job and keep actual scheduling/manual triggering separate from the remediation logic.
 - If the goal is **fully automatic catch-up without manual intervention**, that remains future work and should be implemented as a scheduler/worker remediation flow rather than expanded app-startup behavior.
 
 ---

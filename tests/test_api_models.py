@@ -18,6 +18,7 @@ from config import settings
 from api.app import (
     BarBackfillRequest,
     InstrumentSyncRequest,
+    MarketSnapshotRemediationRequest,
     MarketSnapshotRefreshRequest,
     ValidatePayloadRequest,
     create_app,
@@ -54,6 +55,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.instrument_sync_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/instrument-sync", "POST")
         cls.bar_backfill_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/bar-backfill", "POST")
         cls.market_refresh_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/market-snapshot-refresh", "POST")
+        cls.market_remediation_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/market-snapshot-remediation", "POST")
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
 
     def test_system_health_returns_success_envelope(self) -> None:
@@ -188,6 +190,7 @@ class ModelsApiTests(unittest.TestCase):
         original_sync = app_module.run_instrument_sync
         original_backfill = app_module.run_bar_backfill
         original_refresh = app_module.run_market_snapshot_refresh
+        original_remediation = app_module.run_market_snapshot_remediation
 
         class _Result:
             def __init__(self, job_id: int, status: str) -> None:
@@ -198,6 +201,7 @@ class ModelsApiTests(unittest.TestCase):
             app_module.run_instrument_sync = lambda **_: _Result(101, "succeeded")
             app_module.run_bar_backfill = lambda **_: _Result(202, "succeeded")
             app_module.run_market_snapshot_refresh = lambda **_: _Result(303, "succeeded")
+            app_module.run_market_snapshot_remediation = lambda **_: _Result(404, "succeeded")
 
             instrument_response = self.__class__.instrument_sync_endpoint(InstrumentSyncRequest(exchange_code="binance"))
             backfill_response = self.__class__.bar_backfill_endpoint(
@@ -216,14 +220,23 @@ class ModelsApiTests(unittest.TestCase):
                     unified_symbol="BTCUSDT_PERP",
                 )
             )
+            remediation_response = self.__class__.market_remediation_endpoint(
+                MarketSnapshotRemediationRequest(
+                    exchange_code="binance",
+                    symbol="BTCUSDT",
+                    unified_symbol="BTCUSDT_PERP",
+                )
+            )
 
             self.assertEqual(instrument_response.data.job_id, 101)
             self.assertEqual(backfill_response.data.job_id, 202)
             self.assertEqual(refresh_response.data.job_id, 303)
+            self.assertEqual(remediation_response.data.job_id, 404)
         finally:
             app_module.run_instrument_sync = original_sync
             app_module.run_bar_backfill = original_backfill
             app_module.run_market_snapshot_refresh = original_refresh
+            app_module.run_market_snapshot_remediation = original_remediation
 
     def test_job_detail_endpoint_exposes_summary_and_diffs(self) -> None:
         with transaction_scope() as connection:

@@ -75,6 +75,7 @@ The following resources are already implemented in the current Phase 2 API slice
 - `POST /api/v1/ingestion/jobs/instrument-sync`
 - `POST /api/v1/ingestion/jobs/bar-backfill`
 - `POST /api/v1/ingestion/jobs/market-snapshot-refresh`
+- `POST /api/v1/ingestion/jobs/market-snapshot-remediation`
 - `GET /api/v1/ingestion/jobs/{job_id}`
 - `GET /api/v1/market/*`
 - `GET /api/v1/streams/*`
@@ -381,6 +382,7 @@ Used by:
 - implemented `POST /api/v1/ingestion/jobs/instrument-sync`
 - implemented `POST /api/v1/ingestion/jobs/bar-backfill`
 - implemented `POST /api/v1/ingestion/jobs/market-snapshot-refresh`
+- implemented `POST /api/v1/ingestion/jobs/market-snapshot-remediation`
 
 ```json
 {
@@ -391,6 +393,7 @@ Used by:
 
 Current implementation note:
 - `POST /api/v1/ingestion/jobs/market-snapshot-refresh` now supports bounded history windows for funding, open interest, mark prices, and index prices via the existing job path
+- `POST /api/v1/ingestion/jobs/market-snapshot-remediation` is the scheduler-ready parent job shape for manual/API-triggered funding/OI/mark/index catch-up planning
 
 ---
 

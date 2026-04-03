@@ -13,8 +13,9 @@ if str(SRC_ROOT) not in sys.path:
 from ingestion.base import JsonHttpClient, JsonHttpResponse
 from ingestion.binance.public_rest import BinancePublicRestClient
 from jobs.backfill_bars import run_bar_backfill
+from jobs.remediate_market_snapshots import build_market_snapshot_remediation_plan, run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
-from jobs.scheduler import phase3_schedule_plan
+from jobs.scheduler import phase3_schedule_plan, phase4_schedule_plan
 from jobs.sync_instruments import run_instrument_sync
 from runtime.binance_trade_stream import BinanceTradeStreamProcessor
 from storage.db import connection_scope
@@ -362,6 +363,49 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(mark_count, 2)
         self.assertEqual(index_count, 2)
 
+    def test_market_snapshot_remediation_plans_and_runs_scheduler_ready_refresh(self) -> None:
+        client = self._client()
+        observed_at = datetime(2035, 4, 2, 12, 35, tzinfo=timezone.utc)
+
+        plan_before = build_market_snapshot_remediation_plan(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            datasets=["funding_rates", "open_interest", "mark_prices", "index_prices"],
+            observed_at=observed_at,
+            lookback_hours=6,
+        )
+        self.assertTrue(all(item.remediation_required for item in plan_before))
+
+        result = run_market_snapshot_remediation(
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            client=client,
+            requested_by="test-user",
+            datasets=["funding_rates", "open_interest", "mark_prices", "index_prices"],
+            observed_at=observed_at,
+            lookback_hours=6,
+        )
+
+        self.assertEqual(result.status, "succeeded")
+        self.assertIsNotNone(result.refresh_job_id)
+        self.assertGreater(result.records_written, 0)
+
+        with connection_scope() as connection:
+            remediation_job = IngestionJobRepository().get_job(connection, result.ingestion_job_id)
+            refresh_job = IngestionJobRepository().get_job(connection, result.refresh_job_id)
+
+        self.assertEqual(remediation_job["status"], "succeeded")
+        self.assertTrue(remediation_job["metadata_json"]["scheduler_ready"])
+        self.assertEqual(remediation_job["metadata_json"]["refresh_job_id"], result.refresh_job_id)
+        self.assertEqual(
+            {action["data_type"] for action in remediation_job["metadata_json"]["remediation_actions"]},
+            {"funding_rates", "open_interest", "mark_prices", "index_prices"},
+        )
+        self.assertEqual(refresh_job["status"], "succeeded")
+        self.assertTrue(refresh_job["metadata_json"]["include_open_interest"])
+        self.assertTrue(refresh_job["metadata_json"]["include_mark_price"])
+        self.assertTrue(refresh_job["metadata_json"]["include_index_price"])
+
     def test_trade_stream_processor_persists_trade_raw_mark_and_liquidation_events(self) -> None:
         processor = BinanceTradeStreamProcessor()
         result = processor.consume_messages(
@@ -448,6 +492,10 @@ class Phase3IngestionTests(unittest.TestCase):
         job_ids = {definition.job_id for definition in phase3_schedule_plan()}
         self.assertIn("binance_instrument_sync_hourly", job_ids)
         self.assertIn("binance_market_snapshot_refresh", job_ids)
+
+    def test_phase4_schedule_plan_includes_market_snapshot_remediation_job(self) -> None:
+        job_ids = {definition.job_id for definition in phase4_schedule_plan()}
+        self.assertIn("binance_market_snapshot_remediation", job_ids)
 
 
 if __name__ == "__main__":

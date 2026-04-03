@@ -310,6 +310,7 @@ Make collected market data reliable enough for research and downstream execution
 - complete enough to support Phase 5 bars-based research on quality-gated market data
 - local development can optionally remediate recent bar gaps during app startup without introducing a continuous scheduler dependency yet
 - historical trades should remain manual bounded backfill work when introduced, rather than being added to startup remediation or continuous auto catch-up by default
+- funding/open-interest/mark/index now also have a scheduler-ready remediation job shape for manual/API-triggered catch-up planning without enabling a continuous remediation loop yet
 
 ---
 

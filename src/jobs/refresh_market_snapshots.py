@@ -35,6 +35,10 @@ def run_market_snapshot_refresh(
     history_end_time: datetime | None = None,
     open_interest_period: str = "5m",
     price_interval: str = "1m",
+    include_funding: bool = True,
+    include_open_interest: bool = True,
+    include_mark_price: bool = True,
+    include_index_price: bool = True,
 ) -> MarketSnapshotRefreshResult:
     snapshot_client = client or BinancePublicRestClient()
     observed_at = datetime.now(timezone.utc)
@@ -65,60 +69,82 @@ def run_market_snapshot_refresh(
         )
 
         try:
-            funding_rows = snapshot_client.fetch_funding_rate_history(
-                symbol,
-                start_time=funding_start_time,
-                end_time=funding_end_time,
-            )
-            funding_events = snapshot_client.normalize_funding_rates(symbol, funding_rows, unified_symbol=unified_symbol)
+            funding_events = []
+            if include_funding:
+                funding_rows = snapshot_client.fetch_funding_rate_history(
+                    symbol,
+                    start_time=funding_start_time,
+                    end_time=funding_end_time,
+                )
+                funding_events = snapshot_client.normalize_funding_rates(symbol, funding_rows, unified_symbol=unified_symbol)
             if history_start_time or history_end_time:
-                open_interest_events = snapshot_client.normalize_open_interest_history(
-                    symbol,
-                    snapshot_client.fetch_open_interest_history(
+                open_interest_events = (
+                    snapshot_client.normalize_open_interest_history(
                         symbol,
-                        period=open_interest_period,
-                        start_time=history_start_time,
-                        end_time=history_end_time,
-                    ),
-                    unified_symbol=unified_symbol,
+                        snapshot_client.fetch_open_interest_history(
+                            symbol,
+                            period=open_interest_period,
+                            start_time=history_start_time,
+                            end_time=history_end_time,
+                        ),
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_open_interest
+                    else []
                 )
-                mark_events = snapshot_client.normalize_mark_price_klines(
-                    symbol,
-                    snapshot_client.fetch_mark_price_klines(
+                mark_events = (
+                    snapshot_client.normalize_mark_price_klines(
                         symbol,
-                        interval=price_interval,
-                        start_time=history_start_time,
-                        end_time=history_end_time,
-                    ),
-                    unified_symbol=unified_symbol,
+                        snapshot_client.fetch_mark_price_klines(
+                            symbol,
+                            interval=price_interval,
+                            start_time=history_start_time,
+                            end_time=history_end_time,
+                        ),
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_mark_price
+                    else []
                 )
-                index_events = snapshot_client.normalize_index_price_klines(
-                    symbol,
-                    snapshot_client.fetch_index_price_klines(
+                index_events = (
+                    snapshot_client.normalize_index_price_klines(
                         symbol,
-                        interval=price_interval,
-                        start_time=history_start_time,
-                        end_time=history_end_time,
-                    ),
-                    unified_symbol=unified_symbol,
+                        snapshot_client.fetch_index_price_klines(
+                            symbol,
+                            interval=price_interval,
+                            start_time=history_start_time,
+                            end_time=history_end_time,
+                        ),
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_index_price
+                    else []
                 )
             else:
-                open_interest_events = [
-                    snapshot_client.normalize_open_interest(
+                open_interest_events = (
+                    [
+                        snapshot_client.normalize_open_interest(
+                            symbol,
+                            snapshot_client.fetch_open_interest(symbol),
+                            observed_at=observed_at,
+                            unified_symbol=unified_symbol,
+                        )
+                    ]
+                    if include_open_interest
+                    else []
+                )
+                if include_mark_price or include_index_price:
+                    mark_event, index_event = snapshot_client.normalize_premium_index(
                         symbol,
-                        snapshot_client.fetch_open_interest(symbol),
+                        snapshot_client.fetch_premium_index(symbol),
                         observed_at=observed_at,
                         unified_symbol=unified_symbol,
                     )
-                ]
-                mark_event, index_event = snapshot_client.normalize_premium_index(
-                    symbol,
-                    snapshot_client.fetch_premium_index(symbol),
-                    observed_at=observed_at,
-                    unified_symbol=unified_symbol,
-                )
-                mark_events = [mark_event]
-                index_events = [index_event]
+                    mark_events = [mark_event] if include_mark_price else []
+                    index_events = [index_event] if include_index_price else []
+                else:
+                    mark_events = []
+                    index_events = []
 
             for event in funding_events:
                 FundingRateRepository().upsert(connection, event)
@@ -145,6 +171,10 @@ def run_market_snapshot_refresh(
                     "history_end_time": history_end_time.isoformat() if history_end_time else None,
                     "history_rows_written": history_rows_written,
                     "funding_rows_written": len(funding_events),
+                    "include_funding": include_funding,
+                    "include_open_interest": include_open_interest,
+                    "include_mark_price": include_mark_price,
+                    "include_index_price": include_index_price,
                 },
             )
             log_repo.insert(
@@ -169,6 +199,10 @@ def run_market_snapshot_refresh(
                     "history_mode": bool(history_start_time or history_end_time),
                     "history_start_time": history_start_time.isoformat() if history_start_time else None,
                     "history_end_time": history_end_time.isoformat() if history_end_time else None,
+                    "include_funding": include_funding,
+                    "include_open_interest": include_open_interest,
+                    "include_mark_price": include_mark_price,
+                    "include_index_price": include_index_price,
                 },
             )
             log_repo.insert(

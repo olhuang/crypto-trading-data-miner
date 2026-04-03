@@ -531,6 +531,26 @@ Implementation note:
 - current request supports `funding_start_time` / `funding_end_time`
 - current request also supports `history_start_time` / `history_end_time` for bounded open-interest and mark/index history windows
 
+### POST `/api/v1/ingestion/jobs/market-snapshot-remediation`
+Purpose:
+- plan and run a scheduler-ready remediation pass for funding, open interest, mark prices, and index prices for one symbol
+
+Implementation note:
+- implemented in `src/api/app.py`
+- current implementation is intentionally manual/API-triggered
+- current implementation reuses the existing market-snapshot refresh job underneath and records a parent remediation job for future scheduler integration
+
+Request:
+```json
+{
+  "exchange_code": "binance",
+  "symbol": "BTCUSDT",
+  "unified_symbol": "BTCUSDT_PERP",
+  "datasets": ["funding_rates", "open_interest", "mark_prices", "index_prices"],
+  "lookback_hours": 24
+}
+```
+
 ### GET `/api/v1/market/liquidations`
 Purpose:
 - query liquidation events

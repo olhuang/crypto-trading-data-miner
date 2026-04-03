@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from config import settings
 from jobs.backfill_bars import run_bar_backfill
 from jobs.data_quality import run_phase4_quality_suite
+from jobs.remediate_market_snapshots import run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
 from services.startup_remediation import run_startup_gap_remediation
@@ -56,6 +57,17 @@ class MarketSnapshotRefreshRequest(ApiRequestModel):
     funding_end_time: datetime | None = None
     history_start_time: datetime | None = None
     history_end_time: datetime | None = None
+    open_interest_period: str = "5m"
+    price_interval: str = "1m"
+
+
+class MarketSnapshotRemediationRequest(ApiRequestModel):
+    exchange_code: str = "binance"
+    symbol: str
+    unified_symbol: str
+    datasets: list[str] | None = None
+    observed_at: datetime | None = None
+    lookback_hours: int = 24
     open_interest_period: str = "5m"
     price_interval: str = "1m"
 
@@ -422,6 +434,28 @@ def create_app() -> FastAPI:
             funding_end_time=request.funding_end_time,
             history_start_time=request.history_start_time,
             history_end_time=request.history_end_time,
+            open_interest_period=request.open_interest_period,
+            price_interval=request.price_interval,
+        )
+        return SuccessEnvelope[JobActionResource](
+            data=JobActionResource(job_id=result.ingestion_job_id, status=result.status),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/ingestion/jobs/market-snapshot-remediation")
+    def trigger_market_snapshot_remediation(
+        request: MarketSnapshotRemediationRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[JobActionResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        result = run_market_snapshot_remediation(
+            symbol=request.symbol,
+            unified_symbol=request.unified_symbol,
+            exchange_code=request.exchange_code,
+            requested_by=actor.user_id,
+            datasets=request.datasets,
+            observed_at=request.observed_at,
+            lookback_hours=request.lookback_hours,
             open_interest_period=request.open_interest_period,
             price_interval=request.price_interval,
         )
