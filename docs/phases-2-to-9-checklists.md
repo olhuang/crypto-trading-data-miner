@@ -19,6 +19,7 @@ This file is intended to be used together with:
 - `docs/data-catalog.md`
 - `docs/data-catalog-addendum.md`
 - `docs/api-contracts.md`
+- `docs/position-management-spec.md` for all Phase 5-8 position/execution/protection/reporting work
 
 ---
 
@@ -508,6 +509,13 @@ Make the collected market data reliable enough for research, backtest, and repla
 
 # Phase 5: Strategy Runner and Bars-Based Backtest
 
+## Architecture Alignment Note
+Phase 5 should follow `docs/position-management-spec.md` as the planning backbone for:
+- strategy book vs account book separation
+- fill-level execution truth
+- position/protection/reporting extensibility
+- future paper/live/reconciliation reuse
+
 ## Goal
 Provide the first end-to-end research workflow using historical bar data.
 
@@ -525,6 +533,19 @@ Provide the first end-to-end research workflow using historical bar data.
 - results writer to `backtest.*`
 
 ## Task Checklist
+
+## Task 5.0: Freeze Phase 5 architecture boundaries
+### Tasks
+- [ ] confirm the first Phase 5 slice follows `docs/position-management-spec.md`
+- [ ] keep fill-level execution truth as the canonical source for later projections
+- [ ] keep Phase 5 scoped to isolated strategy sessions and position-level protection
+- [ ] avoid introducing a backtest-only lifecycle vocabulary that would diverge from future paper/live work
+
+### Acceptance Checks
+- [ ] Phase 5 implementation choices remain compatible with later paper/live reuse
+- [ ] strategy/account ownership, protection, and reporting assumptions are explicit before coding deeper execution logic
+
+---
 
 ## Task 5.1: Create strategy package structure
 ### Tasks
@@ -616,10 +637,14 @@ Provide the first end-to-end research workflow using historical bar data.
 ## Handoff Criteria to Phase 6
 - [ ] research workflow exists from bars to persisted backtest results
 - [ ] execution and portfolio abstractions are stable enough for paper trading reuse
+- [ ] Phase 5 internals are still aligned to `docs/position-management-spec.md`
 
 ---
 
 # Phase 6: Paper Trading Engine
+
+## Architecture Alignment Note
+Phase 6 should reuse the same lifecycle, ownership model, and protection concepts already planned in `docs/position-management-spec.md`.
 
 ## Goal
 Run strategy logic continuously in simulated real time using live market data and execution logic.
@@ -728,10 +753,14 @@ Run strategy logic continuously in simulated real time using live market data an
 ## Handoff Criteria to Phase 7
 - [ ] execution flow is stable enough to swap simulated routing for exchange routing
 - [ ] canonical order lifecycle is already proven in paper mode
+- [ ] paper-path position/protection/reporting behavior remains compatible with `docs/position-management-spec.md`
 
 ---
 
 # Phase 7: Private Exchange Adapter and Live Trading MVP
+
+## Architecture Alignment Note
+Phase 7 should continue the same shared lifecycle and ownership model from `docs/position-management-spec.md`, especially if shared-account execution or future fill allocation is introduced.
 
 ## Goal
 Support the first real trading path on one exchange account.
@@ -833,6 +862,9 @@ Support the first real trading path on one exchange account.
 ---
 
 # Phase 8: Reconciliation, Treasury, and Operational Controls
+
+## Architecture Alignment Note
+Phase 8 reconciliation and audit work should treat `docs/position-management-spec.md` as the intended backbone for fill truth, strategy/account ownership, protection history, and reporting traceability.
 
 ## Goal
 Make the live system auditable and safe enough for ongoing operation.

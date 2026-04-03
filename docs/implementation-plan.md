@@ -45,6 +45,7 @@ The repository already has a strong design foundation and is now design-complete
 - dev-only startup gap-remediation support for recent bars windows in local app runs
 - a minimal static Monitoring Console under `frontend/monitoring/` for Overview, Jobs, Quality, and Traceability views backed by the existing Phase 3/4 APIs
 - quality summary/check inspection now supports a latest-only monitoring mode so dashboards can focus on current effective dataset health instead of cumulative historical runs
+- `docs/position-management-spec.md` now freezes the intended extensible architecture for Phase 5-8 position management, execution ownership, protection state, and reporting
 
 ### Not Yet Implemented
 - backtest engine
@@ -55,6 +56,7 @@ The repository already has a strong design foundation and is now design-complete
 
 ### Overall Assessment
 The project is currently strong on design and still weak on executable implementation.
+For upcoming work, the repo should be treated as architecture-ready for Phase 5-8 as long as implementation follows `docs/position-management-spec.md` instead of inventing separate backtest, paper, and live lifecycle models.
 However, the repository is now sufficiently specified to begin real implementation work for Phase 1–3 without another major architecture-planning round.
 
 ### Latest Local Validation Note
@@ -334,6 +336,13 @@ Make collected market data reliable enough for research and downstream execution
 
 ## Phase 5: Strategy Runner and Bars-Based Backtest
 
+### Architecture Prerequisite
+Before implementing Phase 5 internals, treat `docs/position-management-spec.md` as the planning backbone for:
+- strategy book vs account book separation
+- fill-level execution truth
+- phased TP / SL and protection rollout
+- future compatibility with paper/live/reconciliation work
+
 ### Goal
 Provide the first end-to-end research workflow using historical data.
 
@@ -363,6 +372,7 @@ Provide the first end-to-end research workflow using historical data.
 - at least one simple strategy can run from historical bars to performance output
 - backtest results persist to `backtest.runs`, `backtest.simulated_orders`, `backtest.simulated_fills`, `backtest.performance_summary`, and `backtest.performance_timeseries`
 - run metadata captures versions and assumptions for reproducibility
+- the first Phase 5 slice stays compatible with the phased position/protection/reporting architecture in `docs/position-management-spec.md`
 
 ### Dependencies
 - Phase 2
@@ -375,6 +385,9 @@ Provide the first end-to-end research workflow using historical data.
 ---
 
 ## Phase 6: Paper Trading Engine
+
+### Architecture Prerequisite
+Phase 6 should reuse and extend the same lifecycle described in `docs/position-management-spec.md` rather than introducing a paper-only position or protection model.
 
 ### Goal
 Run a strategy in simulated real time using live market data and execution logic.
@@ -407,6 +420,7 @@ Run a strategy in simulated real time using live market data and execution logic
 - fills update positions and balances consistently
 - risk violations are recorded as `risk.risk_events`
 - paper path uses the same canonical order/fill/position contracts intended for live trading
+- paper-path position/protection/reporting logic remains compatible with the phased strategy-book/account-book model in `docs/position-management-spec.md`
 
 ### Dependencies
 - Phase 5
@@ -417,6 +431,9 @@ Run a strategy in simulated real time using live market data and execution logic
 ---
 
 ## Phase 7: Private Exchange Adapter and Live Trading MVP
+
+### Architecture Prerequisite
+Phase 7 should continue the same shared lifecycle and ownership model from `docs/position-management-spec.md`, especially if shared-account execution or future fill allocation is introduced.
 
 ### Goal
 Support the first real trading path on one exchange.
@@ -448,6 +465,7 @@ Support the first real trading path on one exchange.
 - fills reconcile into positions and balances
 - funding and ledger data are recoverable from exchange history
 - live path reuses the shared canonical execution model already established in paper mode
+- live execution stays compatible with future fill allocation, protection-rule persistence, and reporting layers defined in `docs/position-management-spec.md`
 
 ### Dependencies
 - Phase 6
@@ -627,5 +645,6 @@ The next recommended implementation step is:
 - implement the first strategy registration/loading slice
 - build a deterministic bars-based backtest loop on top of the Phase 4 quality baseline
 - persist run metadata and results into `backtest.*`
+- keep the Phase 5 execution/position/protection design aligned to `docs/position-management-spec.md` so later paper/live work does not require a lifecycle redesign
 
 The completed Phase 4 quality baseline is now the intended base for all Phase 5 work.

@@ -78,8 +78,9 @@ Read in this order:
 6. `docs/job-orchestration-spec.md`
 7. `docs/data-storage-performance-spec.md`
 8. `docs/execution-and-risk-engine-spec.md`
-9. `docs/pnl-and-accounting-spec.md`
-10. `docs/testing-strategy-spec.md`
+9. `docs/position-management-spec.md`
+10. `docs/pnl-and-accounting-spec.md`
+11. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -108,10 +109,11 @@ Read in this order:
 Read in this order:
 1. `docs/backend-system-design.md`
 2. `docs/execution-and-risk-engine-spec.md`
-3. `docs/security-and-secrets-spec.md`
-4. `docs/observability-spec.md`
-5. `docs/pnl-and-accounting-spec.md`
-6. `docs/testing-strategy-spec.md`
+3. `docs/position-management-spec.md`
+4. `docs/security-and-secrets-spec.md`
+5. `docs/observability-spec.md`
+6. `docs/pnl-and-accounting-spec.md`
+7. `docs/testing-strategy-spec.md`
 
 ---
 
@@ -191,11 +193,13 @@ Read in this order:
 
 ## 4.7 Execution, Risk, and Accounting
 - `docs/execution-and-risk-engine-spec.md`
+- `docs/position-management-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/security-and-secrets-spec.md`
 
 ### Source of Truth
 - execution and risk semantics: `docs/execution-and-risk-engine-spec.md`
+- position-management, strategy/account book separation, protection, and phased rollout: `docs/position-management-spec.md`
 - accounting/PnL semantics: `docs/pnl-and-accounting-spec.md`
 - live control security model: `docs/security-and-secrets-spec.md`
 
@@ -288,6 +292,7 @@ Primary docs:
 Primary docs:
 - `docs/phases-2-to-9-checklists.md`
 - `docs/api-contracts.md`
+- `docs/position-management-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 
@@ -295,6 +300,7 @@ Primary docs:
 Primary docs:
 - `docs/phases-2-to-9-checklists.md`
 - `docs/execution-and-risk-engine-spec.md`
+- `docs/position-management-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/observability-spec.md`
 
@@ -302,6 +308,7 @@ Primary docs:
 Primary docs:
 - `docs/phases-2-to-9-checklists.md`
 - `docs/execution-and-risk-engine-spec.md`
+- `docs/position-management-spec.md`
 - `docs/security-and-secrets-spec.md`
 - `docs/observability-spec.md`
 - `docs/pnl-and-accounting-spec.md`
@@ -351,9 +358,10 @@ Start with:
 Start with:
 1. `docs/backend-system-design.md`
 2. `docs/execution-and-risk-engine-spec.md`
-3. `docs/security-and-secrets-spec.md`
-4. `docs/pnl-and-accounting-spec.md`
-5. `docs/observability-spec.md`
+3. `docs/position-management-spec.md`
+4. `docs/security-and-secrets-spec.md`
+5. `docs/pnl-and-accounting-spec.md`
+6. `docs/observability-spec.md`
 
 ---
 
@@ -400,6 +408,7 @@ Lower-change documents:
 - `docs/api-contracts.md`
 - `docs/backend-system-design.md`
 - `docs/execution-and-risk-engine-spec.md`
+- `docs/position-management-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/security-and-secrets-spec.md`
 

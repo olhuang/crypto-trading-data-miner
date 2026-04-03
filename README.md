@@ -32,6 +32,7 @@ This repository is no longer just an early scaffold. It now contains a fairly co
 - observability design
 - security and secrets model
 - execution/risk semantics
+- position-management and protection architecture
 - PnL and accounting semantics
 - testing strategy
 
@@ -64,6 +65,7 @@ Major design areas already covered include:
 - observability
 - security/secrets
 - execution/risk behavior
+- extensible position-management and protection architecture
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture
@@ -189,6 +191,7 @@ Use it to understand:
 - `docs/observability-spec.md`
 - `docs/security-and-secrets-spec.md`
 - `docs/execution-and-risk-engine-spec.md`
+- `docs/position-management-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 
@@ -274,7 +277,7 @@ The recommended first frontend slice is:
 ### If starting implementation now
 Recommended backend-first sequence:
 1. use the Phase 4 quality and replay APIs to validate current Binance data flows
-2. begin Phase 5 strategy/backtest work on top of the quality-gated market data
+2. begin Phase 5 strategy/backtest work on top of the quality-gated market data and the phased architecture freeze in `docs/position-management-spec.md`
 3. keep checklist and replay docs in sync as the first backtest slice lands
 
 Recommended frontend-first sequence:
