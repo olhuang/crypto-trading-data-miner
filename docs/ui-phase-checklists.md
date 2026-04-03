@@ -448,6 +448,14 @@ Required sections:
 - [ ] parameter summary viewer
 - [ ] active/inactive state display
 
+### Page 5.1A: Strategy Lab Workspace
+Required sections:
+- [ ] draft/released strategy split
+- [ ] parameter-set viewer
+- [ ] assumption-bundle viewer
+- [ ] validation-fixture panel
+- [ ] benchmark reference panel
+
 ### Page 5.2: Backtest Run Builder
 Required sections:
 - [ ] strategy selector
@@ -467,6 +475,15 @@ Required sections:
 - [ ] time range filter
 - [ ] compare selection support
 
+### Page 5.3A: Compare and Analyze
+Required sections:
+- [ ] compare-set selection
+- [ ] KPI comparison grid
+- [ ] assumption diff panel
+- [ ] benchmark overlay block
+- [ ] `year` / `quarter` / `month` breakdown view
+- [ ] diagnostics delta panel
+
 ### Page 5.4: Backtest Run Detail
 Required sections:
 - [ ] run metadata block
@@ -478,6 +495,16 @@ Required sections:
 - [ ] signal table if available
 - [ ] diagnostic summary block
 - [ ] debug trace viewer or trace table
+- [ ] artifact bundle panel
+- [ ] notes/review state block
+
+### Page 5.5: Replay Scenario Library
+Required sections:
+- [ ] replay scenario list
+- [ ] expected behavior summary
+- [ ] scenario tags/bookmarks
+- [ ] launch replay action
+- [ ] expected-vs-observed result link
 
 ## Required Components
 - [ ] strategy/version selector components
@@ -495,11 +522,15 @@ Required sections:
 - [ ] user inspects run KPIs
 - [ ] user inspects simulated orders/fills
 - [ ] user compares runs if compare view is available
+- [ ] user inspects artifact bundle and review notes
+- [ ] user opens a replay scenario and launches replay from it
 
 ## Data Dependencies
 - `/api/v1/strategies`
 - `/api/v1/strategies/{strategy_id}`
 - `/api/v1/strategy-versions`
+- `/api/v1/strategy-parameter-sets`
+- `/api/v1/assumption-bundles`
 - `/api/v1/backtests/runs`
 - `/api/v1/backtests/runs/{run_id}`
 - `/api/v1/backtests/runs/{run_id}/orders`
@@ -508,10 +539,15 @@ Required sections:
 - `/api/v1/backtests/runs/{run_id}/signals`
 - `/api/v1/backtests/runs/{run_id}/diagnostics`
 - `/api/v1/backtests/runs/{run_id}/debug-traces`
+- `/api/v1/backtests/runs/{run_id}/artifacts`
+- `/api/v1/backtests/runs/{run_id}/period-breakdown`
+- `/api/v1/backtests/compare-sets`
 - `/api/v1/replays/runs`
 - `/api/v1/replays/runs/{run_id}`
 - `/api/v1/replays/runs/{run_id}/timeline`
 - `/api/v1/replays/runs/{run_id}/debug-traces`
+- `/api/v1/replays/scenarios`
+- `/api/v1/replays/runs/{run_id}/expected-vs-observed`
 
 ## Acceptance Checks
 - [ ] Backtest Run Builder can launch a run from UI
@@ -519,6 +555,8 @@ Required sections:
 - [ ] Backtest Run Detail shows KPIs and equity curve
 - [ ] simulated orders/fills can be filtered and inspected
 - [ ] diagnostics/debug traces can be inspected from the run detail experience
+- [ ] compare/analyze flow has a planned home in the Phase 5 research UI
+- [ ] replay scenarios have a planned home in the Phase 5 research UI
 - [ ] replay result UI/API plan is explicit enough for the next research slice
 
 ## Handoff Criteria to Phase 6 UI

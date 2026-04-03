@@ -538,6 +538,20 @@ Actions:
 - inspect strategy versions
 - compare parameter sets
 
+### 7.5.1A Strategy Lab Workspace
+Displays:
+- draft strategies
+- released variants/versions
+- parameter sets
+- assumption bundles
+- validation fixtures
+- benchmark references
+
+Actions:
+- inspect draft-to-release progression
+- inspect assumption bundles
+- inspect strategy test/research readiness
+
 ### 7.5.2 Backtest Run Builder
 Form inputs:
 - strategy
@@ -565,6 +579,20 @@ Actions:
 - open run detail
 - compare runs
 
+### 7.5.3A Compare and Analyze Page
+Displays:
+- selected run set
+- KPI comparison grid
+- assumption diff viewer
+- benchmark overlay
+- `year` / `quarter` / `month` breakdown views
+- diagnostics delta summary
+
+Actions:
+- create compare set
+- open run-to-run diagnostics diff
+- save comparison configuration
+
 ### 7.5.4 Backtest Run Detail Page
 Sections:
 - run metadata
@@ -576,6 +604,22 @@ Sections:
 - optional signals
 - diagnostic summary
 - debug trace viewer
+- artifact bundle / exported evidence
+- notes and review state
+
+### 7.5.5 Replay Scenario Library
+Displays:
+- saved replay scenarios
+- symbol/universe
+- time window
+- scenario tags
+- expected behavior summary
+- linked incidents or notes
+
+Actions:
+- launch replay from scenario
+- inspect scenario detail
+- inspect expected-vs-observed replay result
 
 ## Primary User Actions
 - choose strategy and time range
@@ -584,6 +628,8 @@ Sections:
 - inspect simulated orders and fills
 - inspect diagnostics and debug traces
 - compare runs
+- inspect assumption bundles, artifacts, and review notes
+- launch replay from a saved scenario
 
 ## Validation Criteria
 A user must be able to confirm that:
@@ -592,6 +638,8 @@ A user must be able to confirm that:
 - KPIs and timeseries are visible
 - simulated orders/fills can be inspected
 - diagnostics/debug traces can be inspected
+- artifacts/review notes can be surfaced in UI
+- replay scenarios have a planned home in the research UI
 
 ## Suggested Acceptance UI Checks
 - [ ] Backtest Run Builder can launch a run

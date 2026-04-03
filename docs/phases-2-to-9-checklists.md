@@ -24,6 +24,7 @@ This file is intended to be used together with:
 - `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
 - `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
 - `docs/backtest-and-replay-diagnostics-spec.md` for report outputs, debug traces, replay diagnostics, and research-facing UI expectations
+- `docs/strategy-workbench-spec.md` for the broader strategy-lab, replay-workbench, artifact, compare/analyze, and review facilities
 
 ---
 
@@ -583,6 +584,19 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] define strategy loading or registration pattern
 - [ ] define how new strategy implementations move from local development to research evaluation
 
+---
+
+## Task 5.1B: Plan strategy-lab and research-workbench facilities
+### Tasks
+- [ ] define draft/candidate/released strategy workflow
+- [ ] define parameter-set workflow
+- [ ] define assumption-bundle workflow
+- [ ] define benchmark/baseline library expectations
+
+### Acceptance Checks
+- [ ] repository has an explicit strategy-lab/workbench plan beyond raw strategy registry rows
+- [ ] future strategy development can progress without relying on ad hoc notebook-only workflow
+
 ### Acceptance Checks
 - [x] strategy interface is clear and reusable
 - [x] at least one example strategy can be instantiated from code
@@ -638,11 +652,13 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] write summary stats to `backtest.performance_summary`
 - [ ] write equity/exposure series to `backtest.performance_timeseries`
 - [ ] preserve enough output structure to support later diagnostics and replay comparison views
+- [ ] preserve enough output structure to support later artifact bundles and benchmark comparison
 
 ### Acceptance Checks
 - [ ] all core backtest tables are populated after a run
 - [ ] run metadata contains assumptions and versions
 - [ ] stored outputs are compatible with later diagnostics/reporting surfaces
+- [ ] stored outputs preserve enough lineage for future compare/analyze and replay scenario surfaces
 
 ---
 
@@ -713,6 +729,32 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] long-window backtests can be analyzed by year, quarter, and month
 - [ ] period-level outputs are compatible with future compare/analyze and promotion-review workflows
 
+---
+
+## Task 5.7B: Plan experiment, compare-set, and review workflow
+### Tasks
+- [ ] define experiment and run-group workflow
+- [ ] define compare-set workflow
+- [ ] define artifact-bundle expectations
+- [ ] define notes/annotations/review decision workflow
+
+### Acceptance Checks
+- [ ] repository has an explicit plan for experiment organization and review evidence
+- [ ] compare/analyze work has a planned home beyond ad hoc run lists
+
+---
+
+## Task 5.7C: Plan replay-scenario and golden-case workflow
+### Tasks
+- [ ] define replay scenario library workflow
+- [ ] define bookmarks/expected-behavior notes
+- [ ] define golden replay or incident replay expectations
+- [ ] define expected-vs-observed replay review output
+
+### Acceptance Checks
+- [ ] repository has an explicit replay-workbench plan beyond generic replay runs
+- [ ] future replay investigations have a planned home for saved scenarios and regression cases
+
 ## Phase 5 Current Implementation Snapshot
 - [x] `src/models/backtest.py` now defines strategy session, execution-policy, protection-policy, and backtest run config models
 - [x] `src/strategy/` now contains a base strategy interface, default registry, and seeded example strategy implementation
@@ -723,6 +765,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated strategy taxonomy/versioning planning spec now exists for family, variant, and version identity
 - [x] a dedicated backtest/replay diagnostics planning spec now exists for report outputs, debug traces, and replay inspection
 - [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
+- [x] a dedicated strategy workbench planning spec now exists for strategy-lab, artifact, compare/analyze, replay-scenario, and review facilities
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 

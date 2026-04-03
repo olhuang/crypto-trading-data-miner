@@ -70,6 +70,7 @@ Major design areas already covered include:
 - strategy taxonomy and family/variant/version planning
 - backtest/replay reporting and diagnostics planning
 - staged backtest/replay diagnostics rollout and future period-level (`year` / `quarter` / `month`) analysis planning
+- strategy-lab/workbench planning for parameter sets, assumption bundles, artifacts, compare/analyze, replay scenarios, and review workflow
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture

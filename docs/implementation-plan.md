@@ -373,6 +373,13 @@ Also treat `docs/backtest-and-replay-diagnostics-spec.md` as the planning backbo
 - debug trace outputs
 - replay diagnostics and future replay UI/API surfaces
 
+Also treat `docs/strategy-workbench-spec.md` as the planning backbone for:
+- strategy lab facilities
+- assumption bundles and parameter-set workflow
+- run lineage and artifact bundle expectations
+- compare/analyze workflow
+- replay scenario library and review workflow
+
 ### Goal
 Provide the first end-to-end research workflow using historical data.
 
@@ -383,6 +390,7 @@ Provide the first end-to-end research workflow using historical data.
 - fee and slippage model support
 - performance output
 - diagnostics/reporting visibility
+- research workbench facilities around development, comparison, replay, and review
 
 ### Deliverables
 - `src/strategy/`
@@ -393,6 +401,7 @@ Provide the first end-to-end research workflow using historical data.
 - run diagnostics and trace-friendly inspection path
 - staged diagnostics/reporting rollout from summary baseline to replay inspection
 - period-level research outputs for long-window runs (`year` / `quarter` / `month`)
+- strategy workbench metadata for parameter sets, assumption bundles, artifacts, and comparison workflow
 
 ### Suggested Tasks
 - implement strategy registration and loading
@@ -407,6 +416,13 @@ Provide the first end-to-end research workflow using historical data.
   - full backtest diagnostics with period breakdown
   - replay diagnostics and UI completion
 - preserve enough run output structure to support later `per year` / `per quarter` / `per month` analysis without redesign
+- preserve enough metadata to support:
+  - parameter sets
+  - assumption bundles
+  - benchmark references
+  - artifact bundles
+  - replay scenarios
+  - review decisions
 
 ### Acceptance Criteria
 - at least one simple strategy can run from historical bars to performance output
@@ -414,6 +430,7 @@ Provide the first end-to-end research workflow using historical data.
 - run metadata captures versions and assumptions for reproducibility
 - the first Phase 5 slice stays compatible with the phased position/protection/reporting architecture in `docs/position-management-spec.md`
 - the phased diagnostics/reporting plan is explicit enough that later replay/UI work does not require redesign
+- the research tool plan is explicit enough that later compare/analyze and replay-scenario work does not require redesign
 
 ### Dependencies
 - Phase 2

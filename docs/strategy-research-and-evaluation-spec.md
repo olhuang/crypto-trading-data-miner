@@ -21,6 +21,7 @@ Researchers need a repeatable way to:
 This spec complements:
 - `docs/implementation-plan.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
+- `docs/strategy-workbench-spec.md`
 - `docs/position-management-spec.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
@@ -201,6 +202,29 @@ Comparison sets should eventually support grouping by:
 
 ### 4.5 Promotion Candidate
 A run group or strategy version that has passed enough checks to move to paper trading.
+
+### 4.6 Assumption Bundle
+A named grouping of:
+- fee model
+- slippage model
+- fill model
+- feature/input version
+- benchmark set
+
+### 4.7 Artifact Bundle
+A portable package of:
+- run metadata
+- report outputs
+- diagnostics summary
+- trace references
+- exported comparison evidence
+
+### 4.8 Replay Scenario
+A named historical window with:
+- context
+- expected behavior notes
+- bookmarked event anchors
+- optional golden-case status
 
 ---
 
@@ -434,19 +458,29 @@ The future internal console should support:
 - launch one backtest
 - launch grouped multi-window backtests
 - launch parameter comparisons
+- launch from named assumption bundles and saved experiment templates
 
 ### 11.3 Comparison and Analysis
 - compare multiple runs side by side
 - compare runs across windows
 - compare strategy vs benchmark
 - inspect KPI diffs and assumption diffs
+- inspect `year` / `quarter` / `month` period breakdowns
+- inspect diagnostics deltas across runs
+
+### 11.3A Replay Investigation
+- open replay scenarios
+- launch replay from saved scenario windows
+- inspect expected-vs-observed behavior
+- inspect replay diagnostics and traces
 
 ### 11.4 Promotion Review
 - mark a strategy version as:
   - exploratory
   - candidate
   - paper-ready
-  - rejected / archived
+- rejected / archived
+- attach notes, review decisions, and artifact-backed evidence
 
 This should later connect to the UI docs rather than remain a purely backend concept.
 

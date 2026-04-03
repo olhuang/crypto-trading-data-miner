@@ -685,9 +685,12 @@ Response fields:
 
 ## UI Surfaces Supported
 - Strategy Registry Page
+- Strategy Lab Workspace
 - Backtest Run Builder
 - Backtest Runs Page
+- Compare and Analyze Page
 - Backtest Run Detail Page
+- Replay Scenario Library
 
 ## Required Endpoints
 
@@ -711,6 +714,14 @@ Taxonomy note:
 Query params:
 - `strategy_code`
 - `is_active`
+
+### GET `/api/v1/strategy-parameter-sets`
+Purpose:
+- list named strategy parameter sets
+
+### GET `/api/v1/assumption-bundles`
+Purpose:
+- list named fee/slippage/fill/input assumption bundles for research runs
 
 ### POST `/api/v1/backtests/runs`
 Purpose:
@@ -772,6 +783,22 @@ Purpose:
 Purpose:
 - return step-level debug traces for a backtest run
 
+### GET `/api/v1/backtests/runs/{run_id}/artifacts`
+Purpose:
+- return artifact bundle references or exported research evidence for a run
+
+### GET `/api/v1/backtests/runs/{run_id}/period-breakdown`
+Purpose:
+- return `year` / `quarter` / `month` performance breakdown for a run
+
+### POST `/api/v1/backtests/compare-sets`
+Purpose:
+- create a named comparison set across runs
+
+### GET `/api/v1/backtests/compare-sets/{compare_set_id}`
+Purpose:
+- return comparison results, assumption diffs, benchmark overlays, and diagnostics deltas
+
 ### POST `/api/v1/replays/runs`
 Purpose:
 - create and start a replay run for a strategy over a bounded historical window
@@ -791,6 +818,18 @@ Purpose:
 ### GET `/api/v1/replays/runs/{run_id}/debug-traces`
 Purpose:
 - replay step-level debug traces
+
+### GET `/api/v1/replays/scenarios`
+Purpose:
+- list saved replay scenarios and investigation bookmarks
+
+### POST `/api/v1/replays/scenarios`
+Purpose:
+- create a saved replay scenario definition
+
+### GET `/api/v1/replays/runs/{run_id}/expected-vs-observed`
+Purpose:
+- compare replay outcome with saved expected behavior or golden-case notes
 
 ## Phase 5 Acceptance via UI/API
 - [ ] UI can launch backtest from form
