@@ -65,6 +65,7 @@ class BinancePublicRestClient:
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         limit: int = 1000,
+        market_type: str = "perp",
     ) -> list[list[Any]]:
         params = {
             "symbol": symbol,
@@ -73,6 +74,8 @@ class BinancePublicRestClient:
             "endTime": int(end_time.timestamp() * 1000) if end_time else None,
             "limit": limit,
         }
+        if market_type == "spot":
+            return list(self.http.get_json(f"{self.spot_base_url}/api/v3/klines", params))
         return list(self.http.get_json(f"{self.futures_base_url}/fapi/v1/klines", params))
 
     def fetch_funding_rate_history(

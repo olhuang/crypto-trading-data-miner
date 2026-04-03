@@ -260,11 +260,13 @@ Start collecting usable market data from the first exchange into the database.
 - [x] persist to `md.bars_1m`
 - [x] support configurable symbol and time window
 - [x] record row counts and status in `ops.ingestion_jobs`
+- [x] support both Binance perp and spot bar windows through the shared backfill path
 
 ### Acceptance Checks
 - [x] historical bars are backfilled into `md.bars_1m`
 - [x] rerunning the same backfill does not create duplicate bars
 - [x] failures and row counts are visible in ops tables
+- [x] spot bars can be backfilled through the same job/API shape used for perp bars
 
 ---
 
@@ -345,6 +347,7 @@ Start collecting usable market data from the first exchange into the database.
 ## Phase 3 Current Implementation Snapshot
 - [x] Binance public REST and websocket normalization code exists under `src/ingestion/binance/`
 - [x] instrument sync, bar backfill, and market snapshot refresh jobs exist under `src/jobs/`
+- [x] the bar backfill path now supports both Binance perp and spot historical bars
 - [x] scheduler-ready market snapshot remediation job now exists for manual/API-triggered funding/OI/mark/index catch-up planning
 - [x] runtime trade-stream processing exists under `src/runtime/`
 - [x] `/api/v1/ingestion/jobs/*`, `/api/v1/market/*`, and `/api/v1/streams/*` foundation endpoints now exist in the minimal API slice

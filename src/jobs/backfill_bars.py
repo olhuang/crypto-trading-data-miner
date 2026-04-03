@@ -16,6 +16,12 @@ class BarBackfillResult:
     rows_written: int
 
 
+def _market_type_from_unified_symbol(unified_symbol: str) -> str:
+    if unified_symbol.endswith("_SPOT"):
+        return "spot"
+    return "perp"
+
+
 def run_bar_backfill(
     *,
     symbol: str,
@@ -55,7 +61,13 @@ def run_bar_backfill(
         )
 
         try:
-            rows = backfill_client.fetch_klines(symbol, interval=interval, start_time=start_time, end_time=end_time)
+            rows = backfill_client.fetch_klines(
+                symbol,
+                interval=interval,
+                start_time=start_time,
+                end_time=end_time,
+                market_type=_market_type_from_unified_symbol(unified_symbol),
+            )
             events = backfill_client.normalize_klines(symbol, rows, unified_symbol=unified_symbol, interval=interval)
             repo = BarRepository()
             for event in events:

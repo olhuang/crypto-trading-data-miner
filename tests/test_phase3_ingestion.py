@@ -108,6 +108,23 @@ class Phase3IngestionTests(unittest.TestCase):
                     ]
                 ],
             )
+        if url.endswith("/api/v3/klines"):
+            return JsonHttpResponse(
+                200,
+                [
+                    [
+                        1712061240000,
+                        "61250.10",
+                        "61280.00",
+                        "61200.50",
+                        "61270.12",
+                        "52.2301",
+                        1712061299999,
+                        "3204611.91",
+                        689,
+                    ]
+                ],
+            )
         if url.endswith("/fapi/v1/fundingRate"):
             return JsonHttpResponse(
                 200,
@@ -362,6 +379,36 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(oi_count, 2)
         self.assertEqual(mark_count, 2)
         self.assertEqual(index_count, 2)
+
+    def test_spot_bar_backfill_uses_spot_klines_endpoint(self) -> None:
+        client = self._client()
+        run_instrument_sync(client=client, requested_by="test-user")
+
+        result = run_bar_backfill(
+            symbol="BTCUSDC",
+            unified_symbol="BTCUSDC_SPOT",
+            interval="1m",
+            start_time=datetime(2026, 4, 2, 12, 34, tzinfo=timezone.utc),
+            end_time=datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc),
+            client=client,
+            requested_by="test-user",
+        )
+
+        self.assertEqual(result.status, "succeeded")
+        self.assertEqual(result.rows_written, 1)
+
+        with connection_scope() as connection:
+            bar_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.bars_1m bar
+                join ref.instruments instrument on instrument.instrument_id = bar.instrument_id
+                where instrument.unified_symbol = %s
+                """,
+                ("BTCUSDC_SPOT",),
+            ).scalar_one()
+
+        self.assertGreaterEqual(bar_count, 1)
 
     def test_market_snapshot_remediation_plans_and_runs_scheduler_ready_refresh(self) -> None:
         client = self._client()

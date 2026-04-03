@@ -472,6 +472,7 @@ Purpose:
 Implementation note:
 - implemented in `src/api/app.py`
 - current implementation runs the Phase 3 backfill job inline and returns the resulting `job_id` and final `status`
+- the same endpoint now supports both perp and spot bars; market type is inferred from `unified_symbol`
 
 Request:
 ```json
