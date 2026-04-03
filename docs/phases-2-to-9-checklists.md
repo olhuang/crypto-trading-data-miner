@@ -536,27 +536,27 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.0: Freeze Phase 5 architecture boundaries
 ### Tasks
-- [ ] confirm the first Phase 5 slice follows `docs/position-management-spec.md`
-- [ ] keep fill-level execution truth as the canonical source for later projections
-- [ ] keep Phase 5 scoped to isolated strategy sessions and position-level protection
-- [ ] avoid introducing a backtest-only lifecycle vocabulary that would diverge from future paper/live work
+- [x] confirm the first Phase 5 slice follows `docs/position-management-spec.md`
+- [x] keep fill-level execution truth as the canonical source for later projections
+- [x] keep Phase 5 scoped to isolated strategy sessions and position-level protection
+- [x] avoid introducing a backtest-only lifecycle vocabulary that would diverge from future paper/live work
 
 ### Acceptance Checks
-- [ ] Phase 5 implementation choices remain compatible with later paper/live reuse
-- [ ] strategy/account ownership, protection, and reporting assumptions are explicit before coding deeper execution logic
+- [x] Phase 5 implementation choices remain compatible with later paper/live reuse
+- [x] strategy/account ownership, protection, and reporting assumptions are explicit before coding deeper execution logic
 
 ---
 
 ## Task 5.1: Create strategy package structure
 ### Tasks
-- [ ] create `src/strategy/__init__.py`
-- [ ] create strategy base interface
-- [ ] create simple example strategy implementation
-- [ ] define strategy loading or registration pattern
+- [x] create `src/strategy/__init__.py`
+- [x] create strategy base interface
+- [x] create simple example strategy implementation
+- [x] define strategy loading or registration pattern
 
 ### Acceptance Checks
-- [ ] strategy interface is clear and reusable
-- [ ] at least one example strategy can be instantiated from code
+- [x] strategy interface is clear and reusable
+- [x] at least one example strategy can be instantiated from code
 
 ---
 
@@ -624,6 +624,13 @@ Provide the first end-to-end research workflow using historical bar data.
 ### Acceptance Checks
 - [ ] at least one run produces interpretable performance output
 - [ ] performance summary matches timeseries-derived results
+
+## Phase 5 Current Implementation Snapshot
+- [x] `src/models/backtest.py` now defines strategy session, execution-policy, protection-policy, and backtest run config models
+- [x] `src/strategy/` now contains a base strategy interface, default registry, and seeded example strategy implementation
+- [x] `src/backtest/` now contains a lifecycle-planning and runner skeleton aligned to `docs/position-management-spec.md`
+- [x] automated tests now validate session config, default strategy loading, example strategy output, and initial lifecycle planning
+- [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 
 ---
 

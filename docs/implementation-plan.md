@@ -46,6 +46,8 @@ The repository already has a strong design foundation and is now design-complete
 - a minimal static Monitoring Console under `frontend/monitoring/` for Overview, Jobs, Quality, and Traceability views backed by the existing Phase 3/4 APIs
 - quality summary/check inspection now supports a latest-only monitoring mode so dashboards can focus on current effective dataset health instead of cumulative historical runs
 - `docs/position-management-spec.md` now freezes the intended extensible architecture for Phase 5-8 position management, execution ownership, protection state, and reporting
+- initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
+- automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
 
 ### Not Yet Implemented
 - backtest engine
@@ -380,7 +382,7 @@ Provide the first end-to-end research workflow using historical data.
 - minimum Phase 4 data-quality baseline for bars-based research inputs
 
 ### Recommended Status
-- not started
+- started with an architecture-aligned session/strategy/lifecycle skeleton
 
 ---
 
@@ -643,7 +645,7 @@ The next recommended implementation step is:
 
 ### Begin Phase 5 strategy and backtest work
 - implement the first strategy registration/loading slice
-- build a deterministic bars-based backtest loop on top of the Phase 4 quality baseline
+- extend the current strategy/session/lifecycle skeleton into a deterministic bars-based backtest loop on top of the Phase 4 quality baseline
 - persist run metadata and results into `backtest.*`
 - keep the Phase 5 execution/position/protection design aligned to `docs/position-management-spec.md` so later paper/live work does not require a lifecycle redesign
 

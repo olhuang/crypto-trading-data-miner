@@ -53,6 +53,7 @@ The repository is currently:
 - implemented through the full planned Phase 2 backend foundation, including models, repositories, validation/store service, automated tests, and a minimal models API
 - implemented through the first planned Phase 3 Binance public-ingestion slice, including sync/backfill/refresh/stream processing and ingestion-focused API endpoints
 - implemented through the planned Phase 4 market-data quality and replay-readiness baseline, including quality jobs, traceability/replay helpers, and quality/replay API endpoints
+- now started on Phase 5 with an architecture-aligned strategy/session/backtest skeleton under `src/strategy/`, `src/backtest/`, and `src/models/backtest.py`
 
 Major design areas already covered include:
 - product requirements
@@ -92,7 +93,11 @@ Major implementation areas now present include:
 - Monitoring Console quality cards/tables now read the latest effective check state instead of aggregating every historical quality run
 - minimal auth handling for the current models API slice
 - replay/retention guidance in `docs/replay-retention-policy.md`
+- initial Phase 5 strategy session, execution-policy, protection-policy, and backtest run models under `src/models/backtest.py`
+- strategy base interface, registry, and seeded example strategy under `src/strategy/`
+- Phase 5 backtest lifecycle/runner skeleton under `src/backtest/`
 - automated tests for the current Phase 2/Phase 3/Phase 4 model, storage, API, ingestion, and quality foundation
+- automated tests for the current Phase 5 session/strategy/lifecycle skeleton
 
 Current auth behavior for the implemented API slice:
 - `GET /api/v1/system/health` is public
