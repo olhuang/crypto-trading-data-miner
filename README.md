@@ -81,6 +81,8 @@ Major implementation areas now present include:
 - historical bars/funding/OI/mark/index fetches now paginate across Binance REST windows instead of only taking the first page
 - Phase 4 quality jobs under `src/jobs/data_quality.py`
 - dataset-level sanity checks for funding/OI/mark/index under the Phase 4 quality path
+- bars gap checks now align requested windows to minute boundaries before calculating expected 1m candles
+- spot quality runs now skip perp-only funding/OI/mark/index checks so spot bars can be validated without false snapshot failures
 - optional dev-only startup gap remediation under `src/services/startup_remediation.py`
 - scheduler-ready market snapshot remediation job under `src/jobs/remediate_market_snapshots.py` for manual/API-triggered funding/OI/mark/index catch-up planning
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/quality/*`, `/api/v1/market/*`, `/api/v1/streams/*`, and `/api/v1/replay/readiness`

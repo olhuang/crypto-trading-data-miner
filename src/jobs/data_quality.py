@@ -32,6 +32,19 @@ OPEN_INTEREST_CONTINUITY_INTERVAL = timedelta(minutes=5)
 MARK_INDEX_CONTINUITY_INTERVAL = timedelta(minutes=1)
 
 
+def _is_spot_symbol(unified_symbol: str) -> bool:
+    return unified_symbol.upper().endswith("_SPOT")
+
+
+def _align_bar_window(start_time: datetime, end_time: datetime) -> tuple[datetime, datetime]:
+    aligned_start = start_time.replace(second=0, microsecond=0)
+    if aligned_start < start_time:
+        aligned_start += timedelta(minutes=1)
+
+    aligned_end = end_time.replace(second=0, microsecond=0)
+    return aligned_start, aligned_end
+
+
 def run_bar_gap_checks(
     *,
     exchange_code: str,
@@ -42,10 +55,11 @@ def run_bar_gap_checks(
 ) -> DataQualityRunResult:
     checks_written = 0
     gaps_written = 0
+    aligned_start_time, aligned_end_time = _align_bar_window(start_time, end_time)
     expected_points = 0
-    current = start_time
+    current = aligned_start_time
     expected_timestamps: set[datetime] = set()
-    while current <= end_time:
+    while current <= aligned_end_time:
         expected_timestamps.add(current)
         expected_points += 1
         current += timedelta(minutes=interval_minutes)
@@ -60,7 +74,7 @@ def run_bar_gap_checks(
               and bar_time between %s and %s
             order by bar_time asc
             """,
-            (instrument_id, start_time, end_time),
+            (instrument_id, aligned_start_time, aligned_end_time),
         ).all()
         observed_timestamps = {row[0] for row in rows}
         missing_timestamps = sorted(expected_timestamps - observed_timestamps)
@@ -112,7 +126,13 @@ def run_bar_gap_checks(
                 status="fail" if missing_timestamps else "pass",
                 expected_value=str(expected_points),
                 observed_value=str(len(observed_timestamps)),
-                detail_json={"missing_timestamps": [ts.isoformat() for ts in missing_timestamps]},
+                detail_json={
+                    "requested_window_start": start_time.isoformat(),
+                    "requested_window_end": end_time.isoformat(),
+                    "aligned_window_start": aligned_start_time.isoformat(),
+                    "aligned_window_end": aligned_end_time.isoformat(),
+                    "missing_timestamps": [ts.isoformat() for ts in missing_timestamps],
+                },
             ),
         )
         checks_written += 1
@@ -144,11 +164,16 @@ def run_freshness_checks(
         freshness_specs = [
             ("bars_1m", "bar_time", "md.bars_1m", BAR_FRESHNESS_SLA),
             ("trades", "event_time", "md.trades", TRADE_FRESHNESS_SLA),
-            ("funding_rates", "funding_time", "md.funding_rates", FUNDING_FRESHNESS_SLA),
-            ("open_interest", "ts", "md.open_interest", OPEN_INTEREST_FRESHNESS_SLA),
-            ("mark_prices", "ts", "md.mark_prices", MARK_PRICE_FRESHNESS_SLA),
-            ("index_prices", "ts", "md.index_prices", INDEX_PRICE_FRESHNESS_SLA),
         ]
+        if not _is_spot_symbol(unified_symbol):
+            freshness_specs.extend(
+                [
+                    ("funding_rates", "funding_time", "md.funding_rates", FUNDING_FRESHNESS_SLA),
+                    ("open_interest", "ts", "md.open_interest", OPEN_INTEREST_FRESHNESS_SLA),
+                    ("mark_prices", "ts", "md.mark_prices", MARK_PRICE_FRESHNESS_SLA),
+                    ("index_prices", "ts", "md.index_prices", INDEX_PRICE_FRESHNESS_SLA),
+                ]
+            )
 
         for data_type, timestamp_column, table_name, sla in freshness_specs:
             latest = connection.exec_driver_sql(
@@ -255,63 +280,64 @@ def run_duplicate_checks(
         )
         checks_written += 1
 
-        mark_duplicates = connection.exec_driver_sql(
-            """
-            select count(*)
-            from (
-                select ts, count(*) as row_count
-                from md.mark_prices
-                where instrument_id = %s
-                group by ts
-                having count(*) > 1
-            ) duplicates
-            """,
-            (instrument_id,),
-        ).scalar_one()
-        quality_repo.insert(
-            connection,
-            DataQualityCheckRecord(
-                exchange_code=exchange_code,
-                unified_symbol=unified_symbol,
-                data_type="mark_prices",
-                check_name="duplicate_check",
-                severity="info" if mark_duplicates == 0 else "error",
-                status="pass" if mark_duplicates == 0 else "fail",
-                expected_value="0",
-                observed_value=str(mark_duplicates),
-                detail_json={},
-            ),
-        )
-        checks_written += 1
+        if not _is_spot_symbol(unified_symbol):
+            mark_duplicates = connection.exec_driver_sql(
+                """
+                select count(*)
+                from (
+                    select ts, count(*) as row_count
+                    from md.mark_prices
+                    where instrument_id = %s
+                    group by ts
+                    having count(*) > 1
+                ) duplicates
+                """,
+                (instrument_id,),
+            ).scalar_one()
+            quality_repo.insert(
+                connection,
+                DataQualityCheckRecord(
+                    exchange_code=exchange_code,
+                    unified_symbol=unified_symbol,
+                    data_type="mark_prices",
+                    check_name="duplicate_check",
+                    severity="info" if mark_duplicates == 0 else "error",
+                    status="pass" if mark_duplicates == 0 else "fail",
+                    expected_value="0",
+                    observed_value=str(mark_duplicates),
+                    detail_json={},
+                ),
+            )
+            checks_written += 1
 
-        index_duplicates = connection.exec_driver_sql(
-            """
-            select count(*)
-            from (
-                select ts, count(*) as row_count
-                from md.index_prices
-                where instrument_id = %s
-                group by ts
-                having count(*) > 1
-            ) duplicates
-            """,
-            (instrument_id,),
-        ).scalar_one()
-        quality_repo.insert(
-            connection,
-            DataQualityCheckRecord(
-                exchange_code=exchange_code,
-                unified_symbol=unified_symbol,
-                data_type="index_prices",
-                check_name="duplicate_check",
-                severity="info" if index_duplicates == 0 else "error",
-                status="pass" if index_duplicates == 0 else "fail",
-                expected_value="0",
-                observed_value=str(index_duplicates),
-                detail_json={},
-            ),
-        )
-        checks_written += 1
+            index_duplicates = connection.exec_driver_sql(
+                """
+                select count(*)
+                from (
+                    select ts, count(*) as row_count
+                    from md.index_prices
+                    where instrument_id = %s
+                    group by ts
+                    having count(*) > 1
+                ) duplicates
+                """,
+                (instrument_id,),
+            ).scalar_one()
+            quality_repo.insert(
+                connection,
+                DataQualityCheckRecord(
+                    exchange_code=exchange_code,
+                    unified_symbol=unified_symbol,
+                    data_type="index_prices",
+                    check_name="duplicate_check",
+                    severity="info" if index_duplicates == 0 else "error",
+                    status="pass" if index_duplicates == 0 else "fail",
+                    expected_value="0",
+                    observed_value=str(index_duplicates),
+                    detail_json={},
+                ),
+            )
+            checks_written += 1
 
         raw_filters = ["raw.instrument_id = %s"]
         params: list[object] = [instrument_id]
@@ -362,12 +388,16 @@ def run_snapshot_continuity_checks(
     with transaction_scope() as connection:
         instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
         quality_repo = DataQualityCheckRepository()
-        continuity_specs = [
-            ("funding_rates", "md.funding_rates", "funding_time", FUNDING_CONTINUITY_INTERVAL),
-            ("open_interest", "md.open_interest", "ts", OPEN_INTEREST_CONTINUITY_INTERVAL),
-            ("mark_prices", "md.mark_prices", "ts", MARK_INDEX_CONTINUITY_INTERVAL),
-            ("index_prices", "md.index_prices", "ts", MARK_INDEX_CONTINUITY_INTERVAL),
-        ]
+        continuity_specs: list[tuple[str, str, str, timedelta]] = []
+        if not _is_spot_symbol(unified_symbol):
+            continuity_specs.extend(
+                [
+                    ("funding_rates", "md.funding_rates", "funding_time", FUNDING_CONTINUITY_INTERVAL),
+                    ("open_interest", "md.open_interest", "ts", OPEN_INTEREST_CONTINUITY_INTERVAL),
+                    ("mark_prices", "md.mark_prices", "ts", MARK_INDEX_CONTINUITY_INTERVAL),
+                    ("index_prices", "md.index_prices", "ts", MARK_INDEX_CONTINUITY_INTERVAL),
+                ]
+            )
 
         for data_type, table_name, timestamp_column, expected_interval in continuity_specs:
             rows = connection.exec_driver_sql(

@@ -14,7 +14,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from api.app import Phase4QualityRunRequest, create_app
-from jobs.data_quality import run_phase4_quality_suite
+from jobs.data_quality import run_bar_gap_checks, run_freshness_checks, run_phase4_quality_suite
 from models.market import (
     BarEvent,
     FundingRateEvent,
@@ -499,6 +499,207 @@ class Phase4ApiTests(unittest.TestCase):
         self.assertIn("checks:", quality_run_response.data.status)
         self.assertTrue(replay_response.success)
         self.assertIn("phase4_trade_stream", replay_response.data.retained_streams)
+
+
+class Phase4QualityScopeTests(unittest.TestCase):
+    def test_bar_gap_checks_align_non_minute_windows(self) -> None:
+        start_time = datetime(2031, 6, 1, 0, 0, 30, tzinfo=timezone.utc)
+        end_time = datetime(2031, 6, 1, 0, 2, 45, tzinfo=timezone.utc)
+
+        with transaction_scope() as connection:
+            connection.exec_driver_sql(
+                """
+                delete from ops.data_quality_checks
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and check_name = 'bar_gap_check'
+                  and check_time > %s - interval '1 hour'
+                """,
+                ("binance", "BTCUSDT_SPOT", start_time),
+            )
+            connection.exec_driver_sql(
+                """
+                delete from ops.data_gaps
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and data_type = 'bars_1m'
+                  and gap_start between %s and %s
+                """,
+                ("binance", "BTCUSDT_SPOT", start_time, end_time),
+            )
+            connection.exec_driver_sql(
+                """
+                delete from md.bars_1m
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and bar_time between %s and %s
+                """,
+                ("binance", "BTCUSDT_SPOT", start_time, end_time),
+            )
+            bar_repo = BarRepository()
+            for bar_time in (
+                datetime(2031, 6, 1, 0, 1, tzinfo=timezone.utc),
+                datetime(2031, 6, 1, 0, 2, tzinfo=timezone.utc),
+            ):
+                bar_repo.upsert(
+                    connection,
+                    BarEvent(
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_SPOT",
+                        ingest_time=bar_time,
+                        bar_interval="1m",
+                        bar_time=bar_time,
+                        event_time=bar_time,
+                        open="100000.0",
+                        high="100010.0",
+                        low="99990.0",
+                        close="100005.0",
+                        volume="5.0",
+                        quote_volume="500025.0",
+                        trade_count=50,
+                    ),
+                )
+
+        result = run_bar_gap_checks(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=start_time,
+            end_time=end_time,
+        )
+        self.assertEqual(result.checks_written, 1)
+        self.assertEqual(result.gaps_written, 0)
+
+        with connection_scope() as connection:
+            checks = DataQualityCheckRepository().list_recent(
+                connection,
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                data_type="bars_1m",
+                limit=5,
+            )
+        latest = next(check for check in checks if check["check_name"] == "bar_gap_check")
+        self.assertEqual(latest["status"], "pass")
+        self.assertEqual(latest["expected_value"], "2")
+        self.assertEqual(latest["observed_value"], "2")
+        self.assertEqual(latest["detail_json"]["aligned_window_start"], "2031-06-01T00:01:00+00:00")
+        self.assertEqual(latest["detail_json"]["aligned_window_end"], "2031-06-01T00:02:00+00:00")
+
+    def test_spot_freshness_checks_skip_perp_only_datasets(self) -> None:
+        observed_at = datetime(2031, 6, 1, 0, 5, tzinfo=timezone.utc)
+        bar_time = datetime(2031, 6, 1, 0, 4, tzinfo=timezone.utc)
+        trade_time = datetime(2031, 6, 1, 0, 4, tzinfo=timezone.utc)
+
+        with transaction_scope() as connection:
+            connection.exec_driver_sql(
+                """
+                delete from ops.data_quality_checks
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and check_name = 'freshness_check'
+                  and check_time > %s - interval '1 hour'
+                """,
+                ("binance", "BTCUSDT_SPOT", observed_at),
+            )
+            connection.exec_driver_sql(
+                """
+                delete from md.trades
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and event_time between %s - interval '1 hour' and %s
+                """,
+                ("binance", "BTCUSDT_SPOT", observed_at, observed_at),
+            )
+            connection.exec_driver_sql(
+                """
+                delete from md.bars_1m
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and bar_time between %s - interval '1 hour' and %s
+                """,
+                ("binance", "BTCUSDT_SPOT", observed_at, observed_at),
+            )
+            BarRepository().upsert(
+                connection,
+                BarEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_SPOT",
+                    ingest_time=bar_time,
+                    bar_interval="1m",
+                    bar_time=bar_time,
+                    event_time=bar_time,
+                    open="100000.0",
+                    high="100010.0",
+                    low="99990.0",
+                    close="100005.0",
+                    volume="5.0",
+                    quote_volume="500025.0",
+                    trade_count=50,
+                ),
+            )
+            TradeRepository().upsert(
+                connection,
+                TradeEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_SPOT",
+                    exchange_trade_id=f"spot_quality_trade_{uuid4().hex[:8]}",
+                    event_time=trade_time,
+                    ingest_time=trade_time,
+                    price="100005.0",
+                    qty="0.1",
+                    aggressor_side="buy",
+                ),
+            )
+
+        result = run_freshness_checks(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            observed_at=observed_at,
+        )
+        self.assertEqual(result.checks_written, 2)
+
+        with connection_scope() as connection:
+            checks = DataQualityCheckRepository().list_recent(
+                connection,
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                limit=10,
+            )
+        freshness_data_types = {
+            check["data_type"]
+            for check in checks
+            if check["check_name"] == "freshness_check"
+        }
+        self.assertEqual(freshness_data_types, {"bars_1m", "trades"})
 
 
 if __name__ == "__main__":
