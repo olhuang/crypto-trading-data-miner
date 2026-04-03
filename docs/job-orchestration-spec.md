@@ -78,6 +78,99 @@ Examples:
 
 ---
 
+## 2.7 Current Backfill Capability Snapshot
+
+This section records the implemented backfill/remediation state as of the current local development baseline.
+
+It exists to prevent ambiguity about:
+- what data is collected automatically during a long-running app/runtime process
+- what data can be backfilled manually today
+- what data has dev-only startup remediation support
+- what data does **not** yet have continuous auto catch-up
+
+### Capability Matrix
+
+| Data type | Live auto collect | Historical manual backfill | Startup remediation | Continuous auto catch-up |
+| --- | --- | --- | --- | --- |
+| `md.bars_1m` | No | Yes | Yes, dev-only, recent window | No |
+| `md.trades` | Yes, when trade-stream runtime is running | No | No | No |
+| `md.funding_rates` | Yes, when market snapshot refresh runs | Yes | No | No |
+| `md.open_interest` | Yes, when market snapshot refresh runs | Yes | No | No |
+| `md.mark_prices` | Yes, when market snapshot refresh or stream path runs | Yes | No | No |
+| `md.index_prices` | Yes, when market snapshot refresh runs | Yes | No | No |
+| `md.liquidations` | Yes, when trade-stream runtime is running | No | No | No |
+| `md.raw_market_events` | Yes, for currently received live stream events | No | No | No |
+| `md.orderbook_snapshots` | No | No | No | No |
+| `md.orderbook_deltas` | No | No | No | No |
+
+### Meaning of Each Column
+
+#### Live auto collect
+The system continuously receives **new** data while the relevant runtime/job is operating.
+
+#### Historical manual backfill
+The system has an explicit backfill path today, but only when the developer/operator triggers it.
+
+#### Startup remediation
+The system may perform a one-time catch-up/remediation pass during app startup.
+
+#### Continuous auto catch-up
+The system continuously detects missing history and remediates it without manual triggers or startup-only hooks.
+
+### Current Constraints by Mode
+
+#### Why some data is not covered by `Live auto collect`
+- `bars_1m` currently come from explicit historical kline backfill, not from a continuously running candle collector.
+- order book datasets are not yet wired into runtime ingestion.
+
+#### Why some data is not covered by `Historical manual backfill`
+- `trades` do not yet have a dedicated historical trade-backfill job.
+- `liquidations` do not yet have a dedicated historical liquidation-backfill path.
+- `raw_market_events` represent stored live raw payloads; a complete historical raw replay source is not currently available from the implemented venue path.
+- order book snapshot/delta history is not yet implemented due to higher replay/state-merge complexity.
+
+#### Why some data is not covered by `Startup remediation`
+- startup remediation is intentionally limited to recent `bars_1m` windows in local/dev to keep app startup predictable.
+- `trades`, `liquidations`, and `raw_market_events` do not follow a simple fixed-cadence gap model like bars.
+- `funding_rates`, `open_interest`, `mark_prices`, and `index_prices` are backfillable today, but are not yet connected to startup remediation because the current startup hook is intentionally minimal and bars-focused.
+- large/high-volume datasets are not appropriate for automatic app-startup catch-up because they would slow startup and blur the boundary between local convenience and real orchestration.
+
+#### Why most data is not covered by `Continuous auto catch-up`
+- there is no recurring remediation worker yet that scans `ops.data_gaps`, schedules follow-up backfills, and marks gaps resolved continuously.
+- current remediation is either manual or dev-only startup behavior, not a long-running scheduler-driven control loop.
+- production-safe controls such as retry policies, concurrency guards, checkpointing, and remediation prioritization have not yet been built for a full catch-up engine.
+
+### Technical Limitations to Preserve for Future Work
+
+#### Bars
+- bars have the cleanest remediation shape because they have a fixed cadence and idempotent writes by `(instrument_id, bar_time)`.
+- this is why bars were the first and only dataset connected to startup remediation.
+
+#### Trades
+- historical trade backfill would be much heavier than bars and needs chunking, dedupe discipline, and stricter DB/query safety.
+- trade volume makes startup-time catch-up a poor default.
+
+#### Funding / OI / Mark / Index
+- these now support bounded historical backfill windows.
+- they are good candidates for future scheduler-driven catch-up, but they are not yet wired into a continuous remediation loop.
+
+#### Raw Events
+- raw live events can be captured only from currently observed streams.
+- historical raw events are not assumed to be fully recoverable from the venue in the same way normalized historical datasets may be.
+
+#### Order Book Data
+- order book replay requires more than persistence; it requires a consistent snapshot/delta merge and replay model.
+- this is intentionally deferred until replay/microstructure needs justify the complexity.
+
+### Current Recommended Interpretation
+
+- If the goal is **keep receiving new live data**, the current runtime/refresh paths are sufficient for trades and snapshot-style market data.
+- If the goal is **repair missed recent bars during local development**, use the dev-only startup remediation hook.
+- If the goal is **repair broader historical gaps**, use explicit backfill jobs today.
+- If the goal is **fully automatic catch-up without manual intervention**, that remains future work and should be implemented as a scheduler/worker remediation flow rather than expanded app-startup behavior.
+
+---
+
 ## 3. Orchestration Model
 
 ## 3.1 Recommended Runtime Model
