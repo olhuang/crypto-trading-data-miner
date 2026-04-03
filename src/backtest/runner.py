@@ -2,20 +2,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from itertools import groupby
 from typing import Iterable, Mapping, Sequence
 
 from models.backtest import BacktestRunConfig
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
 from sqlalchemy.engine import Connection
+from storage.repositories.backtest import BacktestRunRepository
 from storage.repositories.strategy import StrategySignalRepository
 from strategy import StrategyBase, StrategyEvaluationInput, StrategyRegistry, build_default_registry
 
 from .data import BacktestBarLoader
 from .fills import DeterministicBarsFillModel, SimulatedFill, SimulatedOrder
 from .lifecycle import BacktestLifecycle, BacktestStepPlan
+from .performance import PerformancePoint, PerformanceSummary, build_performance_point, summarize_performance
 from .signals import build_signals_from_target_position
-from .state import PortfolioState
+from .state import PortfolioState, PositionState
 
 
 @dataclass(slots=True)
@@ -36,6 +39,14 @@ class BacktestRunLoopResult:
     orders: list[SimulatedOrder]
     fills: list[SimulatedFill]
     open_orders: list[SimulatedOrder]
+    performance_points: list[PerformancePoint]
+    performance_summary: PerformanceSummary
+
+
+@dataclass(slots=True)
+class PersistedBacktestRunResult:
+    run_id: int
+    loop_result: BacktestRunLoopResult
 
 
 class BacktestRunnerSkeleton:
@@ -47,6 +58,7 @@ class BacktestRunnerSkeleton:
         strategy: StrategyBase | None = None,
         signal_repository: StrategySignalRepository | None = None,
         fill_model: DeterministicBarsFillModel | None = None,
+        run_repository: BacktestRunRepository | None = None,
     ) -> None:
         self.run_config = run_config
         self.registry = registry or build_default_registry()
@@ -58,6 +70,7 @@ class BacktestRunnerSkeleton:
         self.lifecycle = BacktestLifecycle(run_config)
         self.signal_repository = signal_repository or StrategySignalRepository()
         self.fill_model = fill_model or DeterministicBarsFillModel()
+        self.run_repository = run_repository or BacktestRunRepository()
 
     def evaluate_bar(
         self,
@@ -101,60 +114,95 @@ class BacktestRunnerSkeleton:
     ) -> BacktestRunLoopResult:
         portfolio = PortfolioState(
             cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
-            positions={symbol: Decimal(value) for symbol, value in (initial_positions or {}).items()},
+            position_states={},
         )
+        for symbol, value in (initial_positions or {}).items():
+            portfolio.position_states[symbol] = PositionState(qty=Decimal(value))
         recent_bars_by_symbol: dict[str, list[BarEvent]] = {}
         step_results: list[BacktestStepResult] = []
         persisted_signal_ids: list[int] = []
         pending_orders_by_symbol: dict[str, list[SimulatedOrder]] = {}
         all_orders: list[SimulatedOrder] = []
         all_fills: list[SimulatedFill] = []
+        performance_points: list[PerformancePoint] = []
+        latest_close_by_symbol: dict[str, Decimal] = {}
+        running_peak_equity = portfolio.cash
 
-        for bar in sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol)):
-            step_fills: list[SimulatedFill] = []
-            current_pending = pending_orders_by_symbol.get(bar.unified_symbol, [])
-            remaining_orders: list[SimulatedOrder] = []
-            for pending_order in current_pending:
-                order_update = self.fill_model.process_open_order(
-                    pending_order,
-                    current_bar=bar,
-                    connection=connection,
+        sorted_bars = sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
+        for bar_time, grouped_bars in groupby(sorted_bars, key=lambda item: item.bar_time):
+            for bar in grouped_bars:
+                existing_position = portfolio.position_states.get(bar.unified_symbol)
+                if existing_position is not None and existing_position.average_entry_price is None:
+                    existing_position.average_entry_price = bar.open
+                step_fills: list[SimulatedFill] = []
+                current_pending = pending_orders_by_symbol.get(bar.unified_symbol, [])
+                remaining_orders: list[SimulatedOrder] = []
+                for pending_order in current_pending:
+                    order_update = self.fill_model.process_open_order(
+                        pending_order,
+                        current_bar=bar,
+                        connection=connection,
+                    )
+                    if order_update.fill is not None:
+                        portfolio.apply_fill(order_update.fill)
+                        step_fills.append(order_update.fill)
+                        all_fills.append(order_update.fill)
+                    else:
+                        remaining_orders.append(order_update.order)
+                pending_orders_by_symbol[bar.unified_symbol] = remaining_orders
+
+                recent_bars = recent_bars_by_symbol.setdefault(bar.unified_symbol, [])
+                recent_bars.append(bar)
+                step_result = self.evaluate_bar(
+                    bar,
+                    recent_bars,
+                    current_positions=portfolio.positions,
+                    current_cash=portfolio.cash,
                 )
-                if order_update.fill is not None:
-                    portfolio.apply_fill(order_update.fill)
-                    step_fills.append(order_update.fill)
-                    all_fills.append(order_update.fill)
-                else:
-                    remaining_orders.append(order_update.order)
-            pending_orders_by_symbol[bar.unified_symbol] = remaining_orders
 
-            recent_bars = recent_bars_by_symbol.setdefault(bar.unified_symbol, [])
-            recent_bars.append(bar)
-            step_result = self.evaluate_bar(
-                bar,
-                recent_bars,
-                current_positions=portfolio.positions,
-                current_cash=portfolio.cash,
+                signal_id_by_symbol: dict[str, int] = {}
+                if persist_signals:
+                    if connection is None:
+                        raise ValueError("connection is required when persist_signals is true")
+                    for signal in step_result.signals:
+                        signal_id = self.signal_repository.insert(connection, signal)
+                        persisted_signal_ids.append(signal_id)
+                        signal_id_by_symbol[signal.unified_symbol] = signal_id
+
+                created_orders = [
+                    self.fill_model.create_order(
+                        intent,
+                        current_bar=bar,
+                        signal_id=signal_id_by_symbol.get(intent.unified_symbol),
+                    )
+                    for intent in step_result.plan.execution_intents
+                ]
+                all_orders.extend(created_orders)
+                pending_orders_by_symbol.setdefault(bar.unified_symbol, []).extend(created_orders)
+                latest_close_by_symbol[bar.unified_symbol] = bar.close
+                step_result.created_orders.extend(created_orders)
+                step_result.fills.extend(step_fills)
+                step_results.append(step_result)
+
+            mark = portfolio.mark_to_market(latest_close_by_symbol)
+            performance_point, running_peak_equity = build_performance_point(
+                ts=bar_time,
+                mark=mark,
+                running_peak_equity=running_peak_equity,
             )
-            if persist_signals:
-                if connection is None:
-                    raise ValueError("connection is required when persist_signals is true")
-                for signal in step_result.signals:
-                    persisted_signal_ids.append(self.signal_repository.insert(connection, signal))
-            created_orders = [
-                self.fill_model.create_order(intent, current_bar=bar)
-                for intent in step_result.plan.execution_intents
-            ]
-            all_orders.extend(created_orders)
-            pending_orders_by_symbol.setdefault(bar.unified_symbol, []).extend(created_orders)
-            step_result.created_orders.extend(created_orders)
-            step_result.fills.extend(step_fills)
-            step_results.append(step_result)
+            performance_points.append(performance_point)
 
         open_orders: list[SimulatedOrder] = []
         for remaining_orders in pending_orders_by_symbol.values():
             for order in remaining_orders:
                 open_orders.append(self.fill_model.expire_open_order(order))
+
+        performance_summary = summarize_performance(
+            initial_cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
+            run_start=self.run_config.start_time,
+            run_end=self.run_config.end_time,
+            performance_points=performance_points,
+        )
 
         return BacktestRunLoopResult(
             steps=step_results,
@@ -164,6 +212,8 @@ class BacktestRunnerSkeleton:
             orders=all_orders,
             fills=all_fills,
             open_orders=open_orders,
+            performance_points=performance_points,
+            performance_summary=performance_summary,
         )
 
     def load_and_run(
@@ -176,6 +226,34 @@ class BacktestRunnerSkeleton:
         loader = bar_loader or BacktestBarLoader()
         bars = loader.load_bars(connection, self.run_config)
         return self.run_bars(bars, persist_signals=persist_signals, connection=connection)
+
+    def load_run_and_persist(
+        self,
+        connection: Connection,
+        *,
+        bar_loader: BacktestBarLoader | None = None,
+        persist_signals: bool = True,
+    ) -> PersistedBacktestRunResult:
+        loop_result = self.load_and_run(connection, bar_loader=bar_loader, persist_signals=persist_signals)
+        run_id = self.run_repository.insert_run(connection, self.run_config)
+        order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
+        self.run_repository.insert_fills(
+            connection,
+            run_id=run_id,
+            fills=loop_result.fills,
+            order_id_map=order_id_map,
+        )
+        self.run_repository.upsert_summary(
+            connection,
+            run_id=run_id,
+            summary=loop_result.performance_summary,
+        )
+        self.run_repository.upsert_timeseries(
+            connection,
+            run_id=run_id,
+            performance_points=loop_result.performance_points,
+        )
+        return PersistedBacktestRunResult(run_id=run_id, loop_result=loop_result)
 
     def _build_signals(
         self,

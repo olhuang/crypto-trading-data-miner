@@ -102,6 +102,7 @@ Major implementation areas now present include:
 - Phase 5 backtest lifecycle/runner skeleton under `src/backtest/`
 - Phase 5 bars loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence under `src/backtest/` and `src/storage/repositories/strategy.py`
 - Phase 5 deterministic bars-based market/limit fill simulation with fee/slippage handling under `src/backtest/`
+- Phase 5 aggregate portfolio/equity projection plus DB-backed run/order/fill/performance persistence under `src/backtest/` and `src/storage/repositories/backtest.py`
 - automated tests for the current Phase 2/Phase 3/Phase 4 model, storage, API, ingestion, and quality foundation
 - automated tests for the current Phase 5 session/strategy/lifecycle skeleton and first bar-stream signal loop
 

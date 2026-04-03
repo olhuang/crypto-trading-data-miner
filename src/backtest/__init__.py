@@ -6,8 +6,9 @@ from .fills import (
     SimulatedOrder,
 )
 from .lifecycle import BacktestLifecycle, BacktestStepPlan, ExecutionIntent, LifecyclePlanningError
-from .runner import BacktestRunnerSkeleton, BacktestStepResult
-from .state import PortfolioState
+from .performance import PerformancePoint, PerformanceSummary
+from .runner import BacktestRunnerSkeleton, BacktestStepResult, PersistedBacktestRunResult
+from .state import PortfolioState, PositionState
 
 __all__ = [
     "BacktestLifecycle",
@@ -19,7 +20,11 @@ __all__ = [
     "ExecutionIntent",
     "FixedBpsSlippageModel",
     "LifecyclePlanningError",
+    "PerformancePoint",
+    "PerformanceSummary",
+    "PersistedBacktestRunResult",
     "PortfolioState",
+    "PositionState",
     "SimulatedFill",
     "SimulatedOrder",
 ]

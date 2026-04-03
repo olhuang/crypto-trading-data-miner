@@ -632,33 +632,33 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.4: Implement portfolio/account state in backtest
 ### Tasks
-- [ ] maintain cash state
-- [ ] maintain position state
-- [ ] maintain equity curve
-- [ ] calculate realized/unrealized PnL
-- [ ] calculate exposure series
+- [x] maintain cash state
+- [x] maintain position state
+- [x] maintain equity curve
+- [x] calculate realized/unrealized PnL
+- [x] calculate exposure series
 
 ### Acceptance Checks
-- [ ] positions and cash evolve consistently across a run
-- [ ] equity curve is reproducible for the same inputs
+- [x] positions and cash evolve consistently across a run
+- [x] equity curve is reproducible for the same inputs
 
 ---
 
 ## Task 5.5: Persist backtest outputs
 ### Tasks
-- [ ] write run metadata to `backtest.runs`
-- [ ] write simulated orders to `backtest.simulated_orders`
-- [ ] write simulated fills to `backtest.simulated_fills`
-- [ ] write summary stats to `backtest.performance_summary`
-- [ ] write equity/exposure series to `backtest.performance_timeseries`
-- [ ] preserve enough output structure to support later diagnostics and replay comparison views
-- [ ] preserve enough output structure to support later artifact bundles and benchmark comparison
+- [x] write run metadata to `backtest.runs`
+- [x] write simulated orders to `backtest.simulated_orders`
+- [x] write simulated fills to `backtest.simulated_fills`
+- [x] write summary stats to `backtest.performance_summary`
+- [x] write equity/exposure series to `backtest.performance_timeseries`
+- [x] preserve enough output structure to support later diagnostics and replay comparison views
+- [x] preserve enough output structure to support later artifact bundles and benchmark comparison
 
 ### Acceptance Checks
-- [ ] all core backtest tables are populated after a run
-- [ ] run metadata contains assumptions and versions
-- [ ] stored outputs are compatible with later diagnostics/reporting surfaces
-- [ ] stored outputs preserve enough lineage for future compare/analyze and replay scenario surfaces
+- [x] all core backtest tables are populated after a run
+- [x] run metadata contains assumptions and versions
+- [x] stored outputs are compatible with later diagnostics/reporting surfaces
+- [x] stored outputs preserve enough lineage for future compare/analyze and replay scenario surfaces
 
 ---
 
@@ -768,7 +768,8 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated strategy workbench planning spec now exists for strategy-lab, artifact, compare/analyze, replay-scenario, and review facilities
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
-- [ ] the Phase 5 skeleton has not yet been extended into a DB-backed run writer, diagnostics projector, or period-breakdown reporting layer
+- [x] the Phase 5 skeleton now includes aggregate portfolio state, reproducible equity/exposure projection, and a DB-backed run writer for `backtest.*`
+- [ ] the Phase 5 skeleton has not yet been extended into a diagnostics projector or period-breakdown reporting layer
 
 ---
 
@@ -776,7 +777,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] one strategy can run end-to-end on historical bars
 - [ ] signals are produced
 - [ ] simulated orders and fills are produced
-- [ ] run metadata and results persist to DB
+- [x] run metadata and results persist to DB
 - [ ] core KPIs are computed
 
 ## Handoff Criteria to Phase 6

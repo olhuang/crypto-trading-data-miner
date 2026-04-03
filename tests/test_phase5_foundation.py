@@ -7,20 +7,24 @@ import sys
 import unittest
 
 from pydantic import ValidationError
+from sqlalchemy import text
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
+from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.runner import BacktestRunnerSkeleton
-from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, StaticFeeModel
+from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
 from models.backtest import BacktestRunConfig, StrategySessionConfig
-from models.common import OrderSide, OrderType, SignalType
+from models.common import LiquidityFlag, OrderSide, OrderType, SignalType
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
+from storage.db import get_engine
+from storage.repositories.market_data import BarRepository
 from strategy import (
     MovingAverageCrossStrategy,
     StrategyBase,
@@ -33,6 +37,24 @@ from strategy import (
 def build_bar(symbol: str, offset_minutes: int, close: str) -> BarEvent:
     base_time = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
     bar_time = base_time + timedelta(minutes=offset_minutes)
+    return BarEvent.model_validate(
+        {
+            "exchange_code": "binance",
+            "unified_symbol": symbol,
+            "bar_interval": "1m",
+            "bar_time": bar_time.isoformat(),
+            "event_time": bar_time.isoformat(),
+            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+            "open": close,
+            "high": close,
+            "low": close,
+            "close": close,
+            "volume": "10",
+        }
+    )
+
+
+def build_bar_at(symbol: str, bar_time: datetime, close: str) -> BarEvent:
     return BarEvent.model_validate(
         {
             "exchange_code": "binance",
@@ -486,6 +508,138 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(len(untouched_result.open_orders), 1)
         self.assertEqual(untouched_result.open_orders[0].status, "expired")
         self.assertEqual(untouched_result.final_positions, {})
+
+    def test_portfolio_state_tracks_equity_and_realized_pnl(self) -> None:
+        portfolio = PortfolioState(cash=Decimal("1000"))
+        portfolio.apply_fill(
+            SimulatedFill(
+                fill_id="fill_buy",
+                order_id="order_buy",
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_PERP",
+                fill_time=datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+                side=OrderSide.BUY,
+                liquidity_flag=LiquidityFlag.TAKER,
+                reference_price=Decimal("100"),
+                fill_price=Decimal("100"),
+                qty=Decimal("1"),
+                fee=Decimal("1"),
+                slippage_cost=Decimal("0.5"),
+            )
+        )
+        mark_after_entry = portfolio.mark_to_market({"BTCUSDT_PERP": Decimal("105")})
+        self.assertEqual(mark_after_entry.equity, Decimal("1004"))
+        self.assertEqual(mark_after_entry.unrealized_pnl, Decimal("5"))
+
+        portfolio.apply_fill(
+            SimulatedFill(
+                fill_id="fill_sell",
+                order_id="order_sell",
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_PERP",
+                fill_time=datetime(2026, 4, 1, 0, 1, tzinfo=timezone.utc),
+                side=OrderSide.SELL,
+                liquidity_flag=LiquidityFlag.TAKER,
+                reference_price=Decimal("110"),
+                fill_price=Decimal("110"),
+                qty=Decimal("1"),
+                fee=Decimal("1"),
+                slippage_cost=Decimal("0.5"),
+            )
+        )
+        mark_after_exit = portfolio.mark_to_market({})
+        self.assertEqual(mark_after_exit.realized_pnl, Decimal("10"))
+        self.assertEqual(mark_after_exit.equity, Decimal("1008"))
+        self.assertEqual(portfolio.positions, {})
+
+    def test_load_run_and_persist_populates_backtest_tables(self) -> None:
+        run_start = datetime(2036, 1, 1, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), close)
+            for offset, close in enumerate(["100", "105", "110"])
+        ]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_persist",
+                "session": {
+                    "session_code": "bt_btc_persist",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {
+                    "target_qty": "1",
+                },
+            }
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+        bar_repository = BarRepository()
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for bar in bars:
+                bar_repository.upsert(connection, bar)
+
+            persisted = runner.load_run_and_persist(connection)
+
+            order_count = connection.execute(
+                text("select count(*) from backtest.simulated_orders where run_id = :run_id"),
+                {"run_id": persisted.run_id},
+            ).scalar_one()
+            fill_count = connection.execute(
+                text("select count(*) from backtest.simulated_fills where run_id = :run_id"),
+                {"run_id": persisted.run_id},
+            ).scalar_one()
+            timeseries_count = connection.execute(
+                text("select count(*) from backtest.performance_timeseries where run_id = :run_id"),
+                {"run_id": persisted.run_id},
+            ).scalar_one()
+            summary_row = connection.execute(
+                text(
+                    """
+                    select total_return, fee_cost, slippage_cost
+                    from backtest.performance_summary
+                    where run_id = :run_id
+                    """
+                ),
+                {"run_id": persisted.run_id},
+            ).mappings().one()
+            signal_link_count = connection.execute(
+                text(
+                    """
+                    select count(*)
+                    from backtest.simulated_orders
+                    where run_id = :run_id
+                      and signal_id is not null
+                    """
+                ),
+                {"run_id": persisted.run_id},
+            ).scalar_one()
+
+            self.assertGreater(persisted.run_id, 0)
+            self.assertEqual(order_count, 1)
+            self.assertEqual(fill_count, 1)
+            self.assertEqual(timeseries_count, 3)
+            self.assertEqual(signal_link_count, 1)
+            self.assertIsNotNone(summary_row["total_return"])
+            self.assertEqual(Decimal(summary_row["fee_cost"]), persisted.loop_result.performance_summary.fee_cost)
+            self.assertEqual(Decimal(summary_row["slippage_cost"]), persisted.loop_result.performance_summary.slippage_cost)
+        finally:
+            transaction.rollback()
+            connection.close()
 
     def test_runner_rejects_bar_outside_session_universe(self) -> None:
         run_config = BacktestRunConfig.model_validate(

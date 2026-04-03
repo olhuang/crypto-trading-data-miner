@@ -17,6 +17,7 @@ from .lifecycle import ExecutionIntent
 @dataclass(slots=True)
 class SimulatedOrder:
     order_id: str
+    signal_id: int | None
     exchange_code: str
     unified_symbol: str
     order_time: datetime
@@ -222,10 +223,12 @@ class DeterministicBarsFillModel:
         intent: ExecutionIntent,
         *,
         current_bar: BarEvent,
+        signal_id: int | None = None,
     ) -> SimulatedOrder:
         requested_price = self._derive_requested_price(intent, current_bar)
         return SimulatedOrder(
             order_id=f"bt_order_{next(self._order_sequence):06d}",
+            signal_id=signal_id,
             exchange_code=intent.exchange_code,
             unified_symbol=intent.unified_symbol,
             order_time=intent.generated_at,
