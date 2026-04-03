@@ -412,6 +412,69 @@ class BacktestRunDetailResource(BaseModel):
     session_metadata_json: dict[str, Any]
 
 
+class BacktestOrderRecordResource(BaseModel):
+    sim_order_id: int
+    signal_id: int | None = None
+    unified_symbol: str
+    order_time: str
+    side: str
+    order_type: str
+    price: str | None = None
+    qty: str
+    status: str
+
+
+class BacktestOrderRecordsResource(BaseModel):
+    run_id: int
+    orders: list[BacktestOrderRecordResource]
+
+
+class BacktestFillRecordResource(BaseModel):
+    sim_fill_id: int
+    sim_order_id: int
+    unified_symbol: str
+    fill_time: str
+    price: str
+    qty: str
+    fee: str | None = None
+    slippage_cost: str | None = None
+
+
+class BacktestFillRecordsResource(BaseModel):
+    run_id: int
+    fills: list[BacktestFillRecordResource]
+
+
+class BacktestSignalRecordResource(BaseModel):
+    signal_id: int
+    unified_symbol: str
+    signal_time: str
+    signal_type: str
+    direction: str | None = None
+    target_qty: str | None = None
+    target_notional: str | None = None
+    reason_code: str | None = None
+
+
+class BacktestSignalRecordsResource(BaseModel):
+    run_id: int
+    signals: list[BacktestSignalRecordResource]
+
+
+class BacktestTimeseriesPointResource(BaseModel):
+    ts: str
+    equity: str
+    cash: str | None = None
+    gross_exposure: str | None = None
+    net_exposure: str | None = None
+    drawdown: str | None = None
+
+
+class BacktestTimeseriesResource(BaseModel):
+    run_id: int
+    points: list[BacktestTimeseriesPointResource]
+
+
 class ValidationResultResource(BaseModel):
     valid: bool
     model_name: str
@@ -597,6 +660,57 @@ def _build_backtest_run_list_item(run_row: dict[str, Any]) -> BacktestRunListIte
         win_rate=detail.win_rate,
         fee_cost=detail.fee_cost,
         slippage_cost=detail.slippage_cost,
+    )
+
+
+def _build_backtest_order_resource(record: dict[str, Any]) -> BacktestOrderRecordResource:
+    return BacktestOrderRecordResource(
+        sim_order_id=int(record["sim_order_id"]),
+        signal_id=None if record.get("signal_id") is None else int(record["signal_id"]),
+        unified_symbol=str(record["unified_symbol"]),
+        order_time=record["order_time"].isoformat(),
+        side=str(record["side"]),
+        order_type=str(record["order_type"]),
+        price=_stringify_decimal(record.get("price")),
+        qty=str(record["qty"]),
+        status=str(record["status"]),
+    )
+
+
+def _build_backtest_fill_resource(record: dict[str, Any]) -> BacktestFillRecordResource:
+    return BacktestFillRecordResource(
+        sim_fill_id=int(record["sim_fill_id"]),
+        sim_order_id=int(record["sim_order_id"]),
+        unified_symbol=str(record["unified_symbol"]),
+        fill_time=record["fill_time"].isoformat(),
+        price=str(record["price"]),
+        qty=str(record["qty"]),
+        fee=_stringify_decimal(record.get("fee")),
+        slippage_cost=_stringify_decimal(record.get("slippage_cost")),
+    )
+
+
+def _build_backtest_signal_resource(record: dict[str, Any]) -> BacktestSignalRecordResource:
+    return BacktestSignalRecordResource(
+        signal_id=int(record["signal_id"]),
+        unified_symbol=str(record["unified_symbol"]),
+        signal_time=record["signal_time"].isoformat(),
+        signal_type=str(record["signal_type"]),
+        direction=record.get("direction"),
+        target_qty=_stringify_decimal(record.get("target_qty")),
+        target_notional=_stringify_decimal(record.get("target_notional")),
+        reason_code=record.get("reason_code"),
+    )
+
+
+def _build_backtest_timeseries_point_resource(record: dict[str, Any]) -> BacktestTimeseriesPointResource:
+    return BacktestTimeseriesPointResource(
+        ts=record["ts"].isoformat(),
+        equity=str(record["equity"]),
+        cash=_stringify_decimal(record.get("cash")),
+        gross_exposure=_stringify_decimal(record.get("gross_exposure")),
+        net_exposure=_stringify_decimal(record.get("net_exposure")),
+        drawdown=_stringify_decimal(record.get("drawdown")),
     )
 
 
@@ -1234,6 +1348,102 @@ def create_app() -> FastAPI:
             )
         return SuccessEnvelope[BacktestRunDetailResource](
             data=_build_backtest_run_resource(run_row, summary_row),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/orders")
+    def backtest_run_orders(
+        run_id: int,
+        limit: int = 100,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestOrderRecordsResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            repository = BacktestRunRepository()
+            run_row = repository.get_run(connection, run_id)
+            if run_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+                )
+            records = repository.list_order_records(connection, run_id=run_id, limit=limit)
+        return SuccessEnvelope[BacktestOrderRecordsResource](
+            data=BacktestOrderRecordsResource(
+                run_id=run_id,
+                orders=[_build_backtest_order_resource(record) for record in records],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/fills")
+    def backtest_run_fills(
+        run_id: int,
+        limit: int = 100,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestFillRecordsResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            repository = BacktestRunRepository()
+            run_row = repository.get_run(connection, run_id)
+            if run_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+                )
+            records = repository.list_fill_records(connection, run_id=run_id, limit=limit)
+        return SuccessEnvelope[BacktestFillRecordsResource](
+            data=BacktestFillRecordsResource(
+                run_id=run_id,
+                fills=[_build_backtest_fill_resource(record) for record in records],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/timeseries")
+    def backtest_run_timeseries(
+        run_id: int,
+        limit: int = 200,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestTimeseriesResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            repository = BacktestRunRepository()
+            run_row = repository.get_run(connection, run_id)
+            if run_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+                )
+            records = repository.list_timeseries(connection, run_id=run_id, limit=limit)
+        return SuccessEnvelope[BacktestTimeseriesResource](
+            data=BacktestTimeseriesResource(
+                run_id=run_id,
+                points=[_build_backtest_timeseries_point_resource(record) for record in records],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/signals")
+    def backtest_run_signals(
+        run_id: int,
+        limit: int = 100,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestSignalRecordsResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            repository = BacktestRunRepository()
+            run_row = repository.get_run(connection, run_id)
+            if run_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+                )
+            records = repository.list_signal_records(connection, run_id=run_id, limit=limit)
+        return SuccessEnvelope[BacktestSignalRecordsResource](
+            data=BacktestSignalRecordsResource(
+                run_id=run_id,
+                signals=[_build_backtest_signal_resource(record) for record in records],
+            ),
             meta=_meta(actor),
         )
 

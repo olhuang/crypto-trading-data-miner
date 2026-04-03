@@ -398,7 +398,93 @@ Used by:
 
 ---
 
-## 5.3 Backtest Diagnostics Summary Resource
+## 5.3 Backtest Run Orders Resource
+
+Used by:
+- `GET /api/v1/backtests/runs/{run_id}/orders`
+
+### Response Shape
+
+```json
+{
+  "run_id": 5001,
+  "orders": [
+    {
+      "sim_order_id": 11,
+      "signal_id": 101,
+      "unified_symbol": "BTCUSDT_PERP",
+      "order_time": "2026-03-05T00:05:00Z",
+      "side": "buy",
+      "order_type": "market",
+      "price": "102.50",
+      "qty": "1",
+      "status": "filled"
+    }
+  ]
+}
+```
+
+### Notes
+
+- current implementation returns the most recent records when `limit` is supplied, while preserving ascending time order inside the response
+
+---
+
+## 5.4 Backtest Run Fills Resource
+
+Used by:
+- `GET /api/v1/backtests/runs/{run_id}/fills`
+
+### Response Shape
+
+```json
+{
+  "run_id": 5001,
+  "fills": [
+    {
+      "sim_fill_id": 21,
+      "sim_order_id": 11,
+      "unified_symbol": "BTCUSDT_PERP",
+      "fill_time": "2026-03-05T00:06:00Z",
+      "price": "102.55",
+      "qty": "1",
+      "fee": "0.12",
+      "slippage_cost": "0.05"
+    }
+  ]
+}
+```
+
+---
+
+## 5.5 Backtest Run Signals Resource
+
+Used by:
+- `GET /api/v1/backtests/runs/{run_id}/signals`
+
+### Response Shape
+
+```json
+{
+  "run_id": 5001,
+  "signals": [
+    {
+      "signal_id": 101,
+      "unified_symbol": "BTCUSDT_PERP",
+      "signal_time": "2026-03-05T00:05:00Z",
+      "signal_type": "entry",
+      "direction": "long",
+      "target_qty": "1",
+      "target_notional": null,
+      "reason_code": "ma_cross_up"
+    }
+  ]
+}
+```
+
+---
+
+## 5.6 Backtest Diagnostics Summary Resource
 
 Used by:
 - `GET /api/v1/backtests/runs/{run_id}/diagnostics`
@@ -462,7 +548,7 @@ Used by:
 
 ---
 
-## 5.4 Backtest Period Breakdown Resource
+## 5.7 Backtest Period Breakdown Resource
 
 Used by:
 - `GET /api/v1/backtests/runs/{run_id}/period-breakdown`

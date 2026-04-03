@@ -786,17 +786,37 @@ Current implementation status:
 Purpose:
 - list simulated orders
 
+Current implementation status:
+- implemented for recent run-detail inspection in the internal research console
+- currently supports `limit`
+- current response returns canonical simulated-order rows with symbol, signal link, order time, side, type, qty, price, and status
+
 ### GET `/api/v1/backtests/runs/{run_id}/fills`
 Purpose:
 - list simulated fills
+
+Current implementation status:
+- implemented for recent run-detail inspection in the internal research console
+- currently supports `limit`
+- current response returns canonical simulated-fill rows with linked order id, symbol, fill time, price, qty, fee, and slippage cost
 
 ### GET `/api/v1/backtests/runs/{run_id}/timeseries`
 Purpose:
 - equity / exposure series
 
+Current implementation status:
+- implemented for recent run-detail inspection in the internal research console
+- currently supports `limit`
+- current response returns ascending time-series points for equity, cash, gross exposure, net exposure, and drawdown
+
 ### GET `/api/v1/backtests/runs/{run_id}/signals`
 Purpose:
 - optional signal inspection for a run
+
+Current implementation status:
+- implemented for recent run-detail inspection in the internal research console
+- currently supports `limit`
+- current response returns canonical signal rows with signal type, direction, target qty/notional, and reason code when persisted signals exist for the run
 
 ### GET `/api/v1/backtests/runs/{run_id}/diagnostics`
 Purpose:

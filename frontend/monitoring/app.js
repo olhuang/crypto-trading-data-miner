@@ -208,11 +208,15 @@ async function loadBacktests(filters = {}) {
     runs.runs,
     async (record) => {
       state.selectedBacktestRunId = record.run_id;
-      const [detail, diagnostics, artifacts, breakdown] = await Promise.all([
+      const [detail, diagnostics, artifacts, breakdown, signals, orders, fills, timeseries] = await Promise.all([
         fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}`),
         fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/diagnostics`),
         fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/artifacts`),
         fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/period-breakdown`, { period_type: "month" }),
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/signals`, { limit: 50 }),
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/orders`, { limit: 50 }),
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/fills`, { limit: 50 }),
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/timeseries`, { limit: 120 }),
       ]);
       renderJson("backtest-run-detail", detail);
       renderJson("backtest-run-diagnostics", diagnostics);
@@ -229,6 +233,55 @@ async function loadBacktests(filters = {}) {
           { key: "fill_count", label: "Fills" },
         ],
         breakdown.entries || []
+      );
+      renderTable(
+        "backtest-signals-table",
+        [
+          { key: "signal_time", label: "Signal Time" },
+          { key: "unified_symbol", label: "Symbol" },
+          { key: "signal_type", label: "Type", type: "status" },
+          { key: "direction", label: "Direction" },
+          { key: "target_qty", label: "Target Qty" },
+          { key: "reason_code", label: "Reason" },
+        ],
+        signals.signals || []
+      );
+      renderTable(
+        "backtest-orders-table",
+        [
+          { key: "order_time", label: "Order Time" },
+          { key: "unified_symbol", label: "Symbol" },
+          { key: "side", label: "Side", type: "status" },
+          { key: "order_type", label: "Type" },
+          { key: "price", label: "Price" },
+          { key: "qty", label: "Qty" },
+          { key: "status", label: "Status", type: "status" },
+        ],
+        orders.orders || []
+      );
+      renderTable(
+        "backtest-fills-table",
+        [
+          { key: "fill_time", label: "Fill Time" },
+          { key: "unified_symbol", label: "Symbol" },
+          { key: "price", label: "Price" },
+          { key: "qty", label: "Qty" },
+          { key: "fee", label: "Fee" },
+          { key: "slippage_cost", label: "Slippage" },
+        ],
+        fills.fills || []
+      );
+      renderTable(
+        "backtest-timeseries-table",
+        [
+          { key: "ts", label: "Time" },
+          { key: "equity", label: "Equity" },
+          { key: "cash", label: "Cash" },
+          { key: "gross_exposure", label: "Gross" },
+          { key: "net_exposure", label: "Net" },
+          { key: "drawdown", label: "Drawdown" },
+        ],
+        timeseries.points || []
       );
     }
   );

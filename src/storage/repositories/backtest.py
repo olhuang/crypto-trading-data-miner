@@ -436,59 +436,190 @@ class BacktestRunRepository:
         ).mappings().first()
         return dict(row) if row is not None else None
 
-    def list_timeseries(self, connection: Connection, *, run_id: int) -> list[dict[str, object]]:
-        rows = connection.execute(
-            text(
-                """
-                select
-                    ts,
-                    equity,
-                    cash,
-                    gross_exposure,
-                    net_exposure,
-                    drawdown
-                from backtest.performance_timeseries
-                where run_id = :run_id
+    def list_timeseries(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        query = """
+            select ts, equity, cash, gross_exposure, net_exposure, drawdown
+            from backtest.performance_timeseries
+            where run_id = :run_id
+            order by ts asc
+        """
+        params: dict[str, object] = {"run_id": run_id}
+        if limit is not None:
+            query = """
+                select ts, equity, cash, gross_exposure, net_exposure, drawdown
+                from (
+                    select
+                        ts,
+                        equity,
+                        cash,
+                        gross_exposure,
+                        net_exposure,
+                        drawdown
+                    from backtest.performance_timeseries
+                    where run_id = :run_id
+                    order by ts desc
+                    limit :limit
+                ) sliced
                 order by ts asc
-                """
-            ),
-            {"run_id": run_id},
-        ).mappings().all()
+            """
+            params["limit"] = limit
+
+        rows = connection.execute(text(query), params).mappings().all()
         return [dict(row) for row in rows]
 
-    def list_fill_records(self, connection: Connection, *, run_id: int) -> list[dict[str, object]]:
-        rows = connection.execute(
-            text(
-                """
-                select
-                    fill_time,
-                    price,
-                    qty,
-                    fee,
-                    slippage_cost
-                from backtest.simulated_fills
-                where run_id = :run_id
-                order by fill_time asc
-                """
-            ),
-            {"run_id": run_id},
-        ).mappings().all()
+    def list_order_records(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        query = """
+            select
+                sim_order.sim_order_id,
+                sim_order.signal_id,
+                instrument.unified_symbol,
+                sim_order.order_time,
+                sim_order.side,
+                sim_order.order_type,
+                sim_order.price,
+                sim_order.qty,
+                sim_order.status
+            from backtest.simulated_orders sim_order
+            join ref.instruments instrument on instrument.instrument_id = sim_order.instrument_id
+            where sim_order.run_id = :run_id
+            order by sim_order.order_time asc, sim_order.sim_order_id asc
+        """
+        params: dict[str, object] = {"run_id": run_id}
+        if limit is not None:
+            query = """
+                select *
+                from (
+                    select
+                        sim_order.sim_order_id,
+                        sim_order.signal_id,
+                        instrument.unified_symbol,
+                        sim_order.order_time,
+                        sim_order.side,
+                        sim_order.order_type,
+                        sim_order.price,
+                        sim_order.qty,
+                        sim_order.status
+                    from backtest.simulated_orders sim_order
+                    join ref.instruments instrument on instrument.instrument_id = sim_order.instrument_id
+                    where sim_order.run_id = :run_id
+                    order by sim_order.order_time desc, sim_order.sim_order_id desc
+                    limit :limit
+                ) sliced
+                order by order_time asc, sim_order_id asc
+            """
+            params["limit"] = limit
+
+        rows = connection.execute(text(query), params).mappings().all()
         return [dict(row) for row in rows]
 
-    def list_signal_records(self, connection: Connection, *, run_id: int) -> list[dict[str, object]]:
-        rows = connection.execute(
-            text(
-                """
-                select distinct
-                    signal.signal_id,
-                    signal.signal_time,
-                    signal.signal_type
-                from backtest.simulated_orders sim_order
-                join strategy.signals signal on signal.signal_id = sim_order.signal_id
-                where sim_order.run_id = :run_id
-                order by signal.signal_time asc
-                """
-            ),
-            {"run_id": run_id},
-        ).mappings().all()
+    def list_fill_records(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        query = """
+            select
+                fill.sim_fill_id,
+                fill.sim_order_id,
+                instrument.unified_symbol,
+                fill.fill_time,
+                fill.price,
+                fill.qty,
+                fill.fee,
+                fill.slippage_cost
+            from backtest.simulated_fills fill
+            join ref.instruments instrument on instrument.instrument_id = fill.instrument_id
+            where fill.run_id = :run_id
+            order by fill.fill_time asc, fill.sim_fill_id asc
+        """
+        params: dict[str, object] = {"run_id": run_id}
+        if limit is not None:
+            query = """
+                select *
+                from (
+                    select
+                        fill.sim_fill_id,
+                        fill.sim_order_id,
+                        instrument.unified_symbol,
+                        fill.fill_time,
+                        fill.price,
+                        fill.qty,
+                        fill.fee,
+                        fill.slippage_cost
+                    from backtest.simulated_fills fill
+                    join ref.instruments instrument on instrument.instrument_id = fill.instrument_id
+                    where fill.run_id = :run_id
+                    order by fill.fill_time desc, fill.sim_fill_id desc
+                    limit :limit
+                ) sliced
+                order by fill_time asc, sim_fill_id asc
+            """
+            params["limit"] = limit
+
+        rows = connection.execute(text(query), params).mappings().all()
+        return [dict(row) for row in rows]
+
+    def list_signal_records(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        query = """
+            select distinct
+                signal.signal_id,
+                instrument.unified_symbol,
+                signal.signal_time,
+                signal.signal_type,
+                signal.direction,
+                signal.target_qty,
+                signal.target_notional,
+                signal.reason_code
+            from backtest.simulated_orders sim_order
+            join strategy.signals signal on signal.signal_id = sim_order.signal_id
+            join ref.instruments instrument on instrument.instrument_id = signal.instrument_id
+            where sim_order.run_id = :run_id
+            order by signal.signal_time asc, signal.signal_id asc
+        """
+        params: dict[str, object] = {"run_id": run_id}
+        if limit is not None:
+            query = """
+                select *
+                from (
+                    select distinct
+                        signal.signal_id,
+                        instrument.unified_symbol,
+                        signal.signal_time,
+                        signal.signal_type,
+                        signal.direction,
+                        signal.target_qty,
+                        signal.target_notional,
+                        signal.reason_code
+                    from backtest.simulated_orders sim_order
+                    join strategy.signals signal on signal.signal_id = sim_order.signal_id
+                    join ref.instruments instrument on instrument.instrument_id = signal.instrument_id
+                    where sim_order.run_id = :run_id
+                    order by signal.signal_time desc, signal.signal_id desc
+                    limit :limit
+                ) sliced
+                order by signal_time asc, signal_id asc
+            """
+            params["limit"] = limit
+
+        rows = connection.execute(text(query), params).mappings().all()
         return [dict(row) for row in rows]

@@ -66,6 +66,10 @@ class ModelsApiTests(unittest.TestCase):
         cls.backtest_runs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "POST")
         cls.backtest_runs_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "GET")
         cls.backtest_run_detail_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}", "GET")
+        cls.backtest_run_orders_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/orders", "GET")
+        cls.backtest_run_fills_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/fills", "GET")
+        cls.backtest_run_timeseries_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/timeseries", "GET")
+        cls.backtest_run_signals_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/signals", "GET")
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
@@ -498,6 +502,110 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(detail_response.data.run_id, 601)
         self.assertEqual(detail_response.data.session_code, "bt_ui_demo")
         self.assertEqual(detail_response.data.run_metadata_json["source"], "ui")
+
+    def test_backtest_run_detail_endpoints_return_orders_fills_timeseries_and_signals(self) -> None:
+        original_repository = app_module.BacktestRunRepository
+
+        class StubRepository:
+            def get_run(self, connection, run_id: int):
+                if run_id != 601:
+                    return None
+                return {
+                    "run_id": 601,
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "account_code": "paper_main",
+                    "run_name": "btc_ui_demo",
+                    "universe_json": ["BTCUSDT_PERP"],
+                    "start_time": datetime.fromisoformat("2026-03-01T00:00:00+00:00"),
+                    "end_time": datetime.fromisoformat("2026-03-31T00:00:00+00:00"),
+                    "market_data_version": "md.bars_1m",
+                    "fee_model_version": "ref_fee_schedule_v1",
+                    "slippage_model_version": "fixed_bps_v1",
+                    "latency_model_version": "bars_next_open_v1",
+                    "params_json": {},
+                    "status": "finished",
+                    "created_at": datetime.fromisoformat("2026-04-03T09:30:00+00:00"),
+                }
+
+            def list_order_records(self, connection, *, run_id: int, limit: int | None = None):
+                return [
+                    {
+                        "sim_order_id": 11,
+                        "signal_id": 101,
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "order_time": datetime.fromisoformat("2026-03-05T00:05:00+00:00"),
+                        "side": "buy",
+                        "order_type": "market",
+                        "price": Decimal("102.5"),
+                        "qty": Decimal("1"),
+                        "status": "filled",
+                    }
+                ]
+
+            def list_fill_records(self, connection, *, run_id: int, limit: int | None = None):
+                return [
+                    {
+                        "sim_fill_id": 21,
+                        "sim_order_id": 11,
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "fill_time": datetime.fromisoformat("2026-03-05T00:06:00+00:00"),
+                        "price": Decimal("102.55"),
+                        "qty": Decimal("1"),
+                        "fee": Decimal("0.12"),
+                        "slippage_cost": Decimal("0.05"),
+                    }
+                ]
+
+            def list_timeseries(self, connection, *, run_id: int, limit: int | None = None):
+                return [
+                    {
+                        "ts": datetime.fromisoformat("2026-03-05T00:06:00+00:00"),
+                        "equity": Decimal("100100"),
+                        "cash": Decimal("99897.33"),
+                        "gross_exposure": Decimal("102.55"),
+                        "net_exposure": Decimal("102.55"),
+                        "drawdown": Decimal("0.01"),
+                    }
+                ]
+
+            def list_signal_records(self, connection, *, run_id: int, limit: int | None = None):
+                return [
+                    {
+                        "signal_id": 101,
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "signal_time": datetime.fromisoformat("2026-03-05T00:05:00+00:00"),
+                        "signal_type": "entry",
+                        "direction": "long",
+                        "target_qty": Decimal("1"),
+                        "target_notional": None,
+                        "reason_code": "ma_cross_up",
+                    }
+                ]
+
+        app_module.BacktestRunRepository = StubRepository
+        try:
+            orders_response = self.__class__.backtest_run_orders_endpoint(601, 50, "Bearer developer:u_123:Alice")
+            fills_response = self.__class__.backtest_run_fills_endpoint(601, 50, "Bearer developer:u_123:Alice")
+            timeseries_response = self.__class__.backtest_run_timeseries_endpoint(601, 120, "Bearer developer:u_123:Alice")
+            signals_response = self.__class__.backtest_run_signals_endpoint(601, 50, "Bearer developer:u_123:Alice")
+        finally:
+            app_module.BacktestRunRepository = original_repository
+
+        self.assertTrue(orders_response.success)
+        self.assertEqual(orders_response.data.orders[0].sim_order_id, 11)
+        self.assertEqual(orders_response.data.orders[0].status, "filled")
+
+        self.assertTrue(fills_response.success)
+        self.assertEqual(fills_response.data.fills[0].sim_fill_id, 21)
+        self.assertEqual(fills_response.data.fills[0].slippage_cost, "0.05")
+
+        self.assertTrue(timeseries_response.success)
+        self.assertEqual(timeseries_response.data.points[0].equity, "100100")
+
+        self.assertTrue(signals_response.success)
+        self.assertEqual(signals_response.data.signals[0].signal_type, "entry")
+        self.assertEqual(signals_response.data.signals[0].reason_code, "ma_cross_up")
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

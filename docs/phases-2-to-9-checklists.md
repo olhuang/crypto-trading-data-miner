@@ -791,7 +791,8 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs
 - [x] the Phase 5 skeleton now includes an ad hoc compare/analyze API surface for selected runs and optional benchmark overlays
 - [x] the Phase 5 skeleton now includes `POST /api/v1/backtests/runs`, `GET /api/v1/backtests/runs`, and `GET /api/v1/backtests/runs/{run_id}` for run launch and inspection
-- [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown
+- [x] the Phase 5 skeleton now includes run-detail APIs for persisted signals, simulated orders, simulated fills, and recent performance timeseries inspection
+- [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown plus signals/orders/fills/timeseries detail
 - [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
 - [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or saved compare-set workflow
 
