@@ -49,6 +49,7 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/strategy-taxonomy-and-versioning-spec.md` now freezes the intended family/variant/version identity model for strategy registration, research comparison, and future promotion
 - `docs/strategy-input-and-feature-pipeline-spec.md` now freezes the intended long-lived plan for multi-dataset strategy inputs, feature alignment, and no-look-ahead handling
 - `docs/strategy-research-and-evaluation-spec.md` now freezes the intended long-lived plan for strategy development, research, testing, and comparative evaluation
+- `docs/backtest-and-replay-diagnostics-spec.md` now freezes the intended plan for run reporting, debug traces, replay diagnostics, and UI inspection needs
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
 - Phase 5 bars loading, bar-by-bar strategy evaluation, canonical signal normalization, and optional signal persistence now exist under `src/backtest/` and `src/storage/repositories/strategy.py`
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
@@ -367,6 +368,11 @@ Also treat `docs/strategy-taxonomy-and-versioning-spec.md` as the planning backb
 - stable interpretation of current `strategy_code` and `strategy_version`
 - future compare/analyze grouping and promotion semantics
 
+Also treat `docs/backtest-and-replay-diagnostics-spec.md` as the planning backbone for:
+- backtest report outputs
+- debug trace outputs
+- replay diagnostics and future replay UI/API surfaces
+
 ### Goal
 Provide the first end-to-end research workflow using historical data.
 
@@ -376,6 +382,7 @@ Provide the first end-to-end research workflow using historical data.
 - bars-based backtest engine
 - fee and slippage model support
 - performance output
+- diagnostics/reporting visibility
 
 ### Deliverables
 - `src/strategy/`
@@ -383,6 +390,7 @@ Provide the first end-to-end research workflow using historical data.
 - simple strategy runner
 - bars-based fill model
 - backtest results writer
+- run diagnostics and trace-friendly inspection path
 
 ### Suggested Tasks
 - implement strategy registration and loading

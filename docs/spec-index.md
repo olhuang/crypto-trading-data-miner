@@ -82,8 +82,9 @@ Read in this order:
 10. `docs/strategy-input-and-feature-pipeline-spec.md`
 11. `docs/strategy-taxonomy-and-versioning-spec.md`
 12. `docs/strategy-research-and-evaluation-spec.md`
-13. `docs/pnl-and-accounting-spec.md`
-14. `docs/testing-strategy-spec.md`
+13. `docs/backtest-and-replay-diagnostics-spec.md`
+14. `docs/pnl-and-accounting-spec.md`
+15. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -177,12 +178,14 @@ Read in this order:
 - `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
+- `docs/backtest-and-replay-diagnostics-spec.md`
 
 ### Source of Truth
 - canonical internal payload contracts: `docs/api-contracts.md`
 - strategy family/variant/version identity and naming: `docs/strategy-taxonomy-and-versioning-spec.md`
 - strategy-input and future feature/alignment architecture: `docs/strategy-input-and-feature-pipeline-spec.md`
 - strategy development, research, testing, and comparison workflow: `docs/strategy-research-and-evaluation-spec.md`
+- backtest/replay report and trace diagnostics planning: `docs/backtest-and-replay-diagnostics-spec.md`
 
 ---
 
@@ -305,6 +308,7 @@ Primary docs:
 - `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
+- `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 

@@ -764,10 +764,40 @@ Purpose:
 Purpose:
 - optional signal inspection for a run
 
+### GET `/api/v1/backtests/runs/{run_id}/diagnostics`
+Purpose:
+- return backtest diagnostics summary
+
+### GET `/api/v1/backtests/runs/{run_id}/debug-traces`
+Purpose:
+- return step-level debug traces for a backtest run
+
+### POST `/api/v1/replays/runs`
+Purpose:
+- create and start a replay run for a strategy over a bounded historical window
+
+### GET `/api/v1/replays/runs`
+Purpose:
+- list replay runs
+
+### GET `/api/v1/replays/runs/{run_id}`
+Purpose:
+- replay run metadata and summary
+
+### GET `/api/v1/replays/runs/{run_id}/timeline`
+Purpose:
+- replay event/state timeline
+
+### GET `/api/v1/replays/runs/{run_id}/debug-traces`
+Purpose:
+- replay step-level debug traces
+
 ## Phase 5 Acceptance via UI/API
 - [ ] UI can launch backtest from form
 - [ ] UI can show run list and run detail
 - [ ] UI can inspect simulated orders/fills/timeseries
+- [ ] UI can inspect backtest diagnostics/debug traces
+- [ ] UI has a planned replay run surface and corresponding replay result APIs
 
 ---
 

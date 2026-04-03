@@ -20,6 +20,7 @@ Researchers need a repeatable way to:
 
 This spec complements:
 - `docs/implementation-plan.md`
+- `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/position-management-spec.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
@@ -107,6 +108,14 @@ And should follow:
 For the current repository, the practical rule is:
 - current `strategy_code` means stable variant identity
 - current `strategy_version` means immutable version identity
+
+### 2.7 Research Requires Both Reports and Debug Traces
+Backtest and replay workflows should produce:
+- summary/report outputs for evaluation
+- debug trace outputs for diagnosis
+
+See:
+- `docs/backtest-and-replay-diagnostics-spec.md`
 
 ---
 

@@ -68,6 +68,7 @@ Major design areas already covered include:
 - execution/risk behavior
 - extensible position-management and protection architecture
 - strategy taxonomy and family/variant/version planning
+- backtest/replay reporting and diagnostics planning
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture
@@ -202,6 +203,7 @@ Use it to understand:
 - `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
+- `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 

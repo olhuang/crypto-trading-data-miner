@@ -23,6 +23,7 @@ This file is intended to be used together with:
 - `docs/strategy-taxonomy-and-versioning-spec.md` for stable family/variant/version strategy identity
 - `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
 - `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
+- `docs/backtest-and-replay-diagnostics-spec.md` for report outputs, debug traces, replay diagnostics, and research-facing UI expectations
 
 ---
 
@@ -536,6 +537,11 @@ Phase 5 should also follow `docs/strategy-taxonomy-and-versioning-spec.md` as th
 - stable meaning of current `strategy_code` and `strategy_version`
 - future comparison and promotion grouping semantics
 
+Phase 5 should also follow `docs/backtest-and-replay-diagnostics-spec.md` as the planning backbone for:
+- backtest report outputs vs debug trace outputs
+- run diagnostics visibility
+- future replay run/result inspection
+
 ## Goal
 Provide the first end-to-end research workflow using historical bar data.
 
@@ -631,10 +637,12 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] write simulated fills to `backtest.simulated_fills`
 - [ ] write summary stats to `backtest.performance_summary`
 - [ ] write equity/exposure series to `backtest.performance_timeseries`
+- [ ] preserve enough output structure to support later diagnostics and replay comparison views
 
 ### Acceptance Checks
 - [ ] all core backtest tables are populated after a run
 - [ ] run metadata contains assumptions and versions
+- [ ] stored outputs are compatible with later diagnostics/reporting surfaces
 
 ---
 
@@ -644,10 +652,25 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] compute Sharpe and drawdown
 - [ ] compute turnover and fee costs
 - [ ] output a simple run summary to console or file
+- [ ] define or emit a first diagnostic summary separate from KPI-only output
 
 ### Acceptance Checks
 - [ ] at least one run produces interpretable performance output
 - [ ] performance summary matches timeseries-derived results
+- [ ] report output and debug/diagnostic output are not conflated
+
+---
+
+## Task 5.6A: Plan diagnostic traces and replay inspection
+### Tasks
+- [ ] define run-level diagnostic summary shape
+- [ ] define step-level debug trace shape
+- [ ] define how replay runs will expose event/state timelines
+- [ ] define how UI should inspect backtest and replay diagnostics
+
+### Acceptance Checks
+- [ ] repository has a documented plan for backtest diagnostics and replay debugging
+- [ ] future UI/API work has explicit report/trace surfaces to build against
 
 ---
 
@@ -670,6 +693,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated strategy-input/feature-pipeline planning spec now exists for future non-bar strategy inputs
 - [x] a dedicated strategy-research/evaluation planning spec now exists for future multi-window and multi-strategy research workflows
 - [x] a dedicated strategy taxonomy/versioning planning spec now exists for family, variant, and version identity
+- [x] a dedicated backtest/replay diagnostics planning spec now exists for report outputs, debug traces, and replay inspection
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 

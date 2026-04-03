@@ -574,12 +574,15 @@ Sections:
 - simulated fills
 - exposure series
 - optional signals
+- diagnostic summary
+- debug trace viewer
 
 ## Primary User Actions
 - choose strategy and time range
 - run bars-based backtest
 - inspect summary KPIs
 - inspect simulated orders and fills
+- inspect diagnostics and debug traces
 - compare runs
 
 ## Validation Criteria
@@ -588,12 +591,14 @@ A user must be able to confirm that:
 - run metadata is persisted
 - KPIs and timeseries are visible
 - simulated orders/fills can be inspected
+- diagnostics/debug traces can be inspected
 
 ## Suggested Acceptance UI Checks
 - [ ] Backtest Run Builder can launch a run
 - [ ] Backtest Runs page lists completed run
 - [ ] Backtest Run Detail shows equity curve and summary stats
 - [ ] simulated orders and fills are inspectable from the UI
+- [ ] diagnostics/debug traces are inspectable from the UI
 
 ---
 

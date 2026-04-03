@@ -476,6 +476,8 @@ Required sections:
 - [ ] simulated orders table
 - [ ] simulated fills table
 - [ ] signal table if available
+- [ ] diagnostic summary block
+- [ ] debug trace viewer or trace table
 
 ## Required Components
 - [ ] strategy/version selector components
@@ -504,12 +506,20 @@ Required sections:
 - `/api/v1/backtests/runs/{run_id}/fills`
 - `/api/v1/backtests/runs/{run_id}/timeseries`
 - `/api/v1/backtests/runs/{run_id}/signals`
+- `/api/v1/backtests/runs/{run_id}/diagnostics`
+- `/api/v1/backtests/runs/{run_id}/debug-traces`
+- `/api/v1/replays/runs`
+- `/api/v1/replays/runs/{run_id}`
+- `/api/v1/replays/runs/{run_id}/timeline`
+- `/api/v1/replays/runs/{run_id}/debug-traces`
 
 ## Acceptance Checks
 - [ ] Backtest Run Builder can launch a run from UI
 - [ ] Backtest Runs page lists completed run status
 - [ ] Backtest Run Detail shows KPIs and equity curve
 - [ ] simulated orders/fills can be filtered and inspected
+- [ ] diagnostics/debug traces can be inspected from the run detail experience
+- [ ] replay result UI/API plan is explicit enough for the next research slice
 
 ## Handoff Criteria to Phase 6 UI
 - [ ] user can operate a research workflow fully from UI
