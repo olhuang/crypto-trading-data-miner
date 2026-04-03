@@ -228,7 +228,85 @@ Should align diagnostics with:
 
 ---
 
-## 10. Final Summary
+## 10. Period Breakdown Expectations
+
+Long-window backtest or replay evaluation should not stop at one aggregate run summary.
+
+The platform should eventually support period-level views for at least:
+- `per year`
+- `per quarter`
+- `per month`
+
+These views are needed to answer:
+- whether performance is concentrated in one year or one short regime
+- whether recent quarters behave differently from earlier quarters
+- whether monthly stability is strong enough for promotion decisions
+
+Future report outputs should preserve enough underlying facts to project:
+- return by period
+- pnl by period
+- drawdown by period
+- turnover by period
+- fee/slippage cost by period
+- signal/fill counts by period
+
+This capability does not need a full UI implementation in the first slice, but it should be
+planned explicitly so long-window run analysis does not become an afterthought.
+
+---
+
+## 11. Staged Implementation Rollout
+
+The complete diagnostics/reporting/replay surface should be implemented in stages.
+
+### Stage A: Diagnostics Summary Baseline
+
+Deliver:
+- run-level diagnostics summary
+- separation between KPI output and diagnostics output
+- basic anomaly flags
+- enough metadata to support future trace linking
+
+This stage should land inside early Phase 5.
+
+### Stage B: Step Trace Foundation
+
+Deliver:
+- step-level trace schema
+- trace capture modes (`off`, `normal`, `verbose`)
+- trace list/detail API surfaces
+- UI drill-down entry from summary flags into traces
+
+This stage should follow once deterministic fills and state projection are stable enough to trace.
+
+### Stage C: Full Backtest Diagnostics and Period Analysis
+
+Deliver:
+- richer fill/protection/portfolio diagnostics
+- period-level research outputs:
+  - `per year`
+  - `per quarter`
+  - `per month`
+- compare/analyze support for run groups and period-level views
+- more opinionated anomaly flags for research/debug use
+
+This stage completes the backtest-side diagnostics surface.
+
+### Stage D: Replay Diagnostics and UI Completion
+
+Deliver:
+- replay run model and replay result persistence
+- replay timeline/event/state inspection
+- replay-specific diagnostics summary and debug traces
+- UI support to launch replay runs and inspect replay outputs
+- eventual backtest-vs-replay comparison surfaces
+
+This stage completes the replay-specific diagnostic path and the first full UI-backed
+inspection flow.
+
+---
+
+## 12. Final Summary
 
 The platform should treat:
 - report outputs

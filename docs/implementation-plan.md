@@ -391,6 +391,8 @@ Provide the first end-to-end research workflow using historical data.
 - bars-based fill model
 - backtest results writer
 - run diagnostics and trace-friendly inspection path
+- staged diagnostics/reporting rollout from summary baseline to replay inspection
+- period-level research outputs for long-window runs (`year` / `quarter` / `month`)
 
 ### Suggested Tasks
 - implement strategy registration and loading
@@ -399,12 +401,19 @@ Provide the first end-to-end research workflow using historical data.
 - implement fee model using `ref.fee_schedules`
 - implement slippage model abstraction
 - write run metadata and results into `backtest.*`
+- stage diagnostics implementation as:
+  - summary baseline
+  - step trace foundation
+  - full backtest diagnostics with period breakdown
+  - replay diagnostics and UI completion
+- preserve enough run output structure to support later `per year` / `per quarter` / `per month` analysis without redesign
 
 ### Acceptance Criteria
 - at least one simple strategy can run from historical bars to performance output
 - backtest results persist to `backtest.runs`, `backtest.simulated_orders`, `backtest.simulated_fills`, `backtest.performance_summary`, and `backtest.performance_timeseries`
 - run metadata captures versions and assumptions for reproducibility
 - the first Phase 5 slice stays compatible with the phased position/protection/reporting architecture in `docs/position-management-spec.md`
+- the phased diagnostics/reporting plan is explicit enough that later replay/UI work does not require redesign
 
 ### Dependencies
 - Phase 2

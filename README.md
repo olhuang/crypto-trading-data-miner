@@ -69,6 +69,7 @@ Major design areas already covered include:
 - extensible position-management and protection architecture
 - strategy taxonomy and family/variant/version planning
 - backtest/replay reporting and diagnostics planning
+- staged backtest/replay diagnostics rollout and future period-level (`year` / `quarter` / `month`) analysis planning
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture

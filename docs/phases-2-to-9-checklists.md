@@ -667,10 +667,24 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] define step-level debug trace shape
 - [ ] define how replay runs will expose event/state timelines
 - [ ] define how UI should inspect backtest and replay diagnostics
+- [ ] define staged rollout from diagnostics summary baseline to full replay diagnostics
 
 ### Acceptance Checks
 - [ ] repository has a documented plan for backtest diagnostics and replay debugging
 - [ ] future UI/API work has explicit report/trace surfaces to build against
+
+---
+
+## Task 5.6B: Stage diagnostics, reporting, and replay implementation
+### Tasks
+- [ ] Stage A: implement run-level diagnostics summary baseline
+- [ ] Stage B: implement step-level debug trace foundation
+- [ ] Stage C: implement full backtest diagnostics and period-level analysis
+- [ ] Stage D: implement replay diagnostics, replay timelines, and replay UI inspection support
+
+### Acceptance Checks
+- [ ] diagnostics/reporting/replay work is broken into explicit implementation stages
+- [ ] later replay/UI work can build on earlier report/trace surfaces without redesign
 
 ---
 
@@ -680,10 +694,24 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] define multi-parameter comparison workflow
 - [ ] define multi-strategy comparison workflow
 - [ ] define benchmark and promotion-review expectations
+- [ ] define how one long run will support `per year` / `per quarter` / `per month` analysis
 
 ### Acceptance Checks
 - [ ] the repository has a documented path from new strategy code to comparative research evidence
 - [ ] Phase 5 work remains compatible with future run-group and compare/analyze flows
+
+---
+
+## Task 5.7A: Implement period-level research outputs
+### Tasks
+- [ ] define run-period summary projection for `year`
+- [ ] define run-period summary projection for `quarter`
+- [ ] define run-period summary projection for `month`
+- [ ] preserve enough run-level reporting facts to derive period metrics consistently
+
+### Acceptance Checks
+- [ ] long-window backtests can be analyzed by year, quarter, and month
+- [ ] period-level outputs are compatible with future compare/analyze and promotion-review workflows
 
 ## Phase 5 Current Implementation Snapshot
 - [x] `src/models/backtest.py` now defines strategy session, execution-policy, protection-policy, and backtest run config models
@@ -694,6 +722,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated strategy-research/evaluation planning spec now exists for future multi-window and multi-strategy research workflows
 - [x] a dedicated strategy taxonomy/versioning planning spec now exists for family, variant, and version identity
 - [x] a dedicated backtest/replay diagnostics planning spec now exists for report outputs, debug traces, and replay inspection
+- [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 

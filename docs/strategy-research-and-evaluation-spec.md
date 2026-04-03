@@ -250,6 +250,25 @@ The platform should eventually support:
 
 This is not required in the first Phase 5 slice, but the research model should preserve room for it.
 
+### 5.6 Calendar Period Breakdown Inside a Run
+
+Long-window backtests should also support slicing one run into calendar periods.
+
+At minimum, future research/reporting should support:
+- `per year`
+- `per quarter`
+- `per month`
+
+This is different from multi-window orchestration:
+- multi-window evaluation compares separately defined windows or experiments
+- period breakdown explains how one long run behaved across time
+
+These views are important for:
+- stability analysis
+- regime-change detection
+- promotion review
+- identifying whether returns are concentrated in a small number of periods
+
 ---
 
 ## 6. Multi-Strategy and Multi-Parameter Comparison
@@ -305,6 +324,7 @@ The platform should eventually support:
 - win/loss distribution
 - performance dispersion by regime
 - sensitivity to parameter changes
+- performance dispersion by calendar period (`year` / `quarter` / `month`)
 
 ### 7.3 Exposure and Risk Diagnostics
 - gross/net exposure
@@ -451,6 +471,7 @@ Add:
 - grouped runs across multiple windows
 - grouped runs across multiple parameter sets
 - basic comparison output
+- first `per year` / `per quarter` / `per month` breakdown outputs for long-window runs
 
 ### 12.3 Phase 6 / Phase 7
 Use research evidence for:
