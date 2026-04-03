@@ -19,6 +19,7 @@ from fastapi.routing import APIRoute
 import api.app as app_module
 from config import settings
 from api.app import (
+    BacktestCompareSetRequest,
     BarBackfillRequest,
     InstrumentSyncRequest,
     MarketSnapshotRemediationRequest,
@@ -64,6 +65,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
+        cls.backtest_compare_sets_endpoint = _resolve_route(cls.app, "/api/v1/backtests/compare-sets", "POST")
 
     def test_system_health_returns_success_envelope(self) -> None:
         response = self.__class__.health_endpoint()
@@ -447,6 +449,105 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.run_id, 501)
         self.assertEqual(response.data.artifacts[0].artifact_type, "run_metadata")
         self.assertEqual(response.data.artifacts[1].record_count, 3)
+
+    def test_backtest_compare_sets_endpoint_returns_compare_projection(self) -> None:
+        original_projector = app_module.BacktestCompareProjector
+
+        class StubProjector:
+            def build(self, connection, *, run_ids, compare_name=None, benchmark_run_id=None):
+                return SimpleNamespace(
+                    compare_name=compare_name,
+                    run_ids=run_ids,
+                    benchmark_run_id=benchmark_run_id,
+                    persisted=False,
+                    available_period_types=["year", "quarter", "month"],
+                    compared_runs=[
+                        SimpleNamespace(
+                            run_id=501,
+                            run_name="btc_compare_a",
+                            strategy_code="btc_momentum",
+                            strategy_version="v1.0.0",
+                            account_code="paper_main",
+                            environment="backtest",
+                            status="finished",
+                            start_time=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+                            end_time=datetime.fromisoformat("2026-03-31T23:59:00+00:00"),
+                            universe=["BTCUSDT_PERP"],
+                            diagnostic_status="ok",
+                            total_return=Decimal("0.10"),
+                            annualized_return=Decimal("0.40"),
+                            max_drawdown=Decimal("0.05"),
+                            turnover=Decimal("1.20"),
+                            win_rate=Decimal("0.55"),
+                            fee_cost=Decimal("12.34"),
+                            slippage_cost=Decimal("5.67"),
+                        ),
+                        SimpleNamespace(
+                            run_id=502,
+                            run_name="btc_compare_b",
+                            strategy_code="btc_momentum",
+                            strategy_version="v1.1.0",
+                            account_code="paper_main",
+                            environment="backtest",
+                            status="finished",
+                            start_time=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+                            end_time=datetime.fromisoformat("2026-03-31T23:59:00+00:00"),
+                            universe=["BTCUSDT_PERP"],
+                            diagnostic_status="warning",
+                            total_return=Decimal("0.12"),
+                            annualized_return=Decimal("0.48"),
+                            max_drawdown=Decimal("0.04"),
+                            turnover=Decimal("1.50"),
+                            win_rate=Decimal("0.58"),
+                            fee_cost=Decimal("15.00"),
+                            slippage_cost=Decimal("7.00"),
+                        ),
+                    ],
+                    assumption_diffs=[
+                        SimpleNamespace(
+                            field_name="strategy_version",
+                            distinct_value_count=2,
+                            values_by_run=[
+                                SimpleNamespace(run_id=501, value="v1.0.0"),
+                                SimpleNamespace(run_id=502, value="v1.1.0"),
+                            ],
+                        )
+                    ],
+                    benchmark_deltas=[
+                        SimpleNamespace(
+                            run_id=502,
+                            benchmark_run_id=501,
+                            total_return_delta=Decimal("0.02"),
+                            annualized_return_delta=Decimal("0.08"),
+                            max_drawdown_delta=Decimal("-0.01"),
+                            turnover_delta=Decimal("0.30"),
+                            win_rate_delta=Decimal("0.03"),
+                        )
+                    ],
+                    comparison_flags=[
+                        SimpleNamespace(
+                            code="diagnostic_warnings_present",
+                            severity="warning",
+                            message="one or more selected runs already carry diagnostics warnings or errors",
+                        )
+                    ],
+                )
+
+        app_module.BacktestCompareProjector = StubProjector
+        try:
+            response = self.__class__.backtest_compare_sets_endpoint(
+                BacktestCompareSetRequest(run_ids=[501, 502], benchmark_run_id=501, compare_name="btc_compare_set"),
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.BacktestCompareProjector = original_projector
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.compare_name, "btc_compare_set")
+        self.assertEqual(response.data.run_ids, [501, 502])
+        self.assertEqual(response.data.benchmark_deltas[0].run_id, 502)
+        self.assertEqual(response.data.assumption_diffs[0].field_name, "strategy_version")
+        self.assertEqual(response.data.comparison_flags[0].code, "diagnostic_warnings_present")
 
 
 if __name__ == "__main__":

@@ -304,21 +304,53 @@ class BacktestRunRepository:
             text(
                 """
                 select
-                    run_id,
-                    strategy_version_id,
-                    account_id,
-                    run_name,
-                    universe_json,
-                    start_time,
-                    end_time,
-                    market_data_version,
-                    fee_model_version,
-                    slippage_model_version,
-                    latency_model_version,
-                    params_json,
-                    status,
-                    created_at
+                    backtest.runs.run_id,
+                    strategy_version.strategy_version_id,
+                    strategy.strategy_code,
+                    strategy_version.version_code as strategy_version,
+                    account.account_id,
+                    account.account_code,
+                    backtest.runs.run_name,
+                    backtest.runs.universe_json,
+                    backtest.runs.start_time,
+                    backtest.runs.end_time,
+                    backtest.runs.market_data_version,
+                    backtest.runs.fee_model_version,
+                    backtest.runs.slippage_model_version,
+                    backtest.runs.latency_model_version,
+                    backtest.runs.params_json,
+                    backtest.runs.status,
+                    backtest.runs.created_at
                 from backtest.runs
+                join strategy.strategy_versions strategy_version
+                  on strategy_version.strategy_version_id = backtest.runs.strategy_version_id
+                join strategy.strategies strategy
+                  on strategy.strategy_id = strategy_version.strategy_id
+                left join execution.accounts account
+                  on account.account_id = backtest.runs.account_id
+                where backtest.runs.run_id = :run_id
+                """
+            ),
+            {"run_id": run_id},
+        ).mappings().first()
+        return dict(row) if row is not None else None
+
+    def get_performance_summary(self, connection: Connection, *, run_id: int) -> dict[str, object] | None:
+        row = connection.execute(
+            text(
+                """
+                select
+                    total_return,
+                    annualized_return,
+                    sharpe,
+                    sortino,
+                    max_drawdown,
+                    turnover,
+                    win_rate,
+                    avg_holding_seconds,
+                    fee_cost,
+                    slippage_cost
+                from backtest.performance_summary
                 where run_id = :run_id
                 """
             ),

@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from backtest.artifacts import BacktestArtifactCatalogProjector
+from backtest.compare import BacktestCompareProjector
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
@@ -737,6 +738,88 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(monthly[1].fill_count, 1)
         self.assertEqual(quarterly[0].period_type, "quarter")
         self.assertEqual(yearly[0].end_equity, Decimal("1030"))
+
+    def test_compare_projector_supports_side_by_side_run_analysis(self) -> None:
+        run_start = datetime(2036, 2, 1, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), close)
+            for offset, close in enumerate(["100", "105", "110"])
+        ]
+        base_session = {
+            "session_code": "bt_btc_compare",
+            "environment": "backtest",
+            "account_code": "paper_main",
+            "strategy_code": "btc_momentum",
+            "strategy_version": "v1.0.0",
+            "exchange_code": "binance",
+            "universe": ["BTCUSDT_PERP"],
+        }
+        run_config_1 = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_compare_1x",
+                "session": base_session,
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "1"},
+            }
+        )
+        run_config_2 = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_compare_2x",
+                "session": {**base_session, "session_code": "bt_btc_compare_2"},
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "2"},
+            }
+        )
+        bar_repository = BarRepository()
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for bar in bars:
+                bar_repository.upsert(connection, bar)
+
+            runner_one = BacktestRunnerSkeleton(
+                run_config_1,
+                strategy=OneShotTargetStrategy(target_qty="1"),
+                fill_model=DeterministicBarsFillModel(
+                    fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                    slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+                ),
+            )
+            runner_two = BacktestRunnerSkeleton(
+                run_config_2,
+                strategy=OneShotTargetStrategy(target_qty="2"),
+                fill_model=DeterministicBarsFillModel(
+                    fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                    slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+                ),
+            )
+
+            persisted_one = runner_one.load_run_and_persist(connection)
+            persisted_two = runner_two.load_run_and_persist(connection)
+            compare_set = BacktestCompareProjector().build(
+                connection,
+                run_ids=[persisted_one.run_id, persisted_two.run_id],
+                benchmark_run_id=persisted_one.run_id,
+                compare_name="target_qty_compare",
+            )
+
+            self.assertEqual(compare_set.compare_name, "target_qty_compare")
+            self.assertFalse(compare_set.persisted)
+            self.assertEqual([run.run_id for run in compare_set.compared_runs], [persisted_one.run_id, persisted_two.run_id])
+            diff_fields = {diff.field_name for diff in compare_set.assumption_diffs}
+            self.assertIn("strategy_params", diff_fields)
+            self.assertEqual(len(compare_set.benchmark_deltas), 1)
+            self.assertEqual(compare_set.benchmark_deltas[0].run_id, persisted_two.run_id)
+            self.assertIsNotNone(compare_set.benchmark_deltas[0].total_return_delta)
+            flag_codes = {flag.code for flag in compare_set.comparison_flags}
+            self.assertIn("execution_assumption_mismatch", flag_codes)
+        finally:
+            transaction.rollback()
+            connection.close()
 
     def test_runner_rejects_bar_outside_session_universe(self) -> None:
         run_config = BacktestRunConfig.model_validate(

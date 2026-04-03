@@ -438,6 +438,86 @@ Used by:
 ### Notes
 
 - this is the first artifact-bundle baseline, not the final exported artifact system
+
+---
+
+## 4.6 Backtest Compare Set Resource
+
+Used by:
+- `POST /api/v1/backtests/compare-sets`
+
+### Response Shape
+
+```json
+{
+  "compare_name": "btc_momentum_compare",
+  "run_ids": [5001, 5002],
+  "benchmark_run_id": 5001,
+  "persisted": false,
+  "available_period_types": ["year", "quarter", "month"],
+  "compared_runs": [
+    {
+      "run_id": 5001,
+      "run_name": "btc_momentum_v1_baseline",
+      "strategy_code": "btc_momentum",
+      "strategy_version": "v1.0.0",
+      "account_code": "paper_main",
+      "environment": "backtest",
+      "status": "finished",
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-03-31T23:59:00Z",
+      "universe": ["BTCUSDT_PERP"],
+      "diagnostic_status": "ok",
+      "total_return": "0.1025",
+      "annualized_return": "0.4471",
+      "max_drawdown": "0.0510",
+      "turnover": "1.2450",
+      "win_rate": "0.5600",
+      "fee_cost": "45.10",
+      "slippage_cost": "19.24"
+    }
+  ],
+  "assumption_diffs": [
+    {
+      "field_name": "strategy_params",
+      "distinct_value_count": 2,
+      "values_by_run": [
+        {
+          "run_id": 5001,
+          "value": {
+            "short_window": 5,
+            "long_window": 20
+          }
+        }
+      ]
+    }
+  ],
+  "benchmark_deltas": [
+    {
+      "run_id": 5002,
+      "benchmark_run_id": 5001,
+      "total_return_delta": "0.0125",
+      "annualized_return_delta": "0.0210",
+      "max_drawdown_delta": "-0.0060",
+      "turnover_delta": "0.1500",
+      "win_rate_delta": "0.0200"
+    }
+  ],
+  "comparison_flags": [
+    {
+      "code": "execution_assumption_mismatch",
+      "severity": "warning",
+      "message": "selected runs differ on market-data, pricing, or execution assumptions"
+    }
+  ]
+}
+```
+
+### Notes
+
+- the current implementation is an ad hoc comparison projection, not yet a persisted compare-set workflow
+- it is intended to support research-side KPI comparison, assumption diffs, and benchmark overlays without requiring ad hoc SQL
+- the response is deliberately compatible with future saved compare sets, artifact bundles, and review workflows
 - the artifact list is intended to give UI/research workflows a stable inventory of what a run already exposes
 
 ---

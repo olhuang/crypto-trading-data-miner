@@ -1,4 +1,15 @@
 from .artifacts import ArtifactReference, BacktestArtifactBundle, BacktestArtifactCatalogProjector
+from .compare import (
+    AssumptionDiff,
+    AssumptionDiffValue,
+    BacktestCompareProjector,
+    BacktestCompareSet,
+    BacktestCompareNotFoundError,
+    BacktestCompareValidationError,
+    BenchmarkDelta,
+    ComparedRunSummary,
+    ComparisonFlag,
+)
 from .diagnostics import BacktestDiagnosticsProjector, BacktestDiagnosticsSummary, DiagnosticFlag
 from .fills import (
     DatabaseFeeScheduleModel,
@@ -15,13 +26,22 @@ from .state import PortfolioState, PositionState
 
 __all__ = [
     "ArtifactReference",
+    "AssumptionDiff",
+    "AssumptionDiffValue",
     "BacktestArtifactBundle",
     "BacktestArtifactCatalogProjector",
+    "BacktestCompareNotFoundError",
+    "BacktestCompareProjector",
+    "BacktestCompareSet",
+    "BacktestCompareValidationError",
     "BacktestLifecycle",
     "BacktestDiagnosticsProjector",
     "BacktestDiagnosticsSummary",
     "BacktestPeriodBreakdownProjector",
     "BacktestRunnerSkeleton",
+    "BenchmarkDelta",
+    "ComparedRunSummary",
+    "ComparisonFlag",
     "BacktestStepPlan",
     "BacktestStepResult",
     "DatabaseFeeScheduleModel",

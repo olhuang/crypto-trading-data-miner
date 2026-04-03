@@ -706,15 +706,15 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.7: Plan comparative research workflow
 ### Tasks
-- [ ] define multi-window evaluation workflow
-- [ ] define multi-parameter comparison workflow
-- [ ] define multi-strategy comparison workflow
-- [ ] define benchmark and promotion-review expectations
-- [ ] define how one long run will support `per year` / `per quarter` / `per month` analysis
+- [x] define multi-window evaluation workflow
+- [x] define multi-parameter comparison workflow
+- [x] define multi-strategy comparison workflow
+- [x] define benchmark and promotion-review expectations
+- [x] define how one long run will support `per year` / `per quarter` / `per month` analysis
 
 ### Acceptance Checks
-- [ ] the repository has a documented path from new strategy code to comparative research evidence
-- [ ] Phase 5 work remains compatible with future run-group and compare/analyze flows
+- [x] the repository has a documented path from new strategy code to comparative research evidence
+- [x] Phase 5 work remains compatible with future run-group and compare/analyze flows
 
 ---
 
@@ -733,27 +733,42 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.7B: Plan experiment, compare-set, and review workflow
 ### Tasks
-- [ ] define experiment and run-group workflow
-- [ ] define compare-set workflow
-- [ ] define artifact-bundle expectations
-- [ ] define notes/annotations/review decision workflow
+- [x] define experiment and run-group workflow
+- [x] define compare-set workflow
+- [x] define artifact-bundle expectations
+- [x] define notes/annotations/review decision workflow
 
 ### Acceptance Checks
-- [ ] repository has an explicit plan for experiment organization and review evidence
-- [ ] compare/analyze work has a planned home beyond ad hoc run lists
+- [x] repository has an explicit plan for experiment organization and review evidence
+- [x] compare/analyze work has a planned home beyond ad hoc run lists
+
+---
+
+## Task 5.7D: Implement compare/analyze foundation
+### Tasks
+- [x] implement ad hoc compare-set projector over selected run ids
+- [x] expose side-by-side run KPIs, diagnostic status, and optional benchmark deltas
+- [x] expose assumption diffs for run metadata, execution assumptions, and strategy params
+- [x] add `POST /api/v1/backtests/compare-sets`
+- [x] add automated tests for compare/analyze projection and API surface
+
+### Acceptance Checks
+- [x] selected runs can be compared without ad hoc SQL
+- [x] compare responses include KPI comparison, assumption diffs, and benchmark overlays
+- [x] compare/analyze output remains compatible with future saved compare-set and review workflow
 
 ---
 
 ## Task 5.7C: Plan replay-scenario and golden-case workflow
 ### Tasks
-- [ ] define replay scenario library workflow
-- [ ] define bookmarks/expected-behavior notes
-- [ ] define golden replay or incident replay expectations
-- [ ] define expected-vs-observed replay review output
+- [x] define replay scenario library workflow
+- [x] define bookmarks/expected-behavior notes
+- [x] define golden replay or incident replay expectations
+- [x] define expected-vs-observed replay review output
 
 ### Acceptance Checks
-- [ ] repository has an explicit replay-workbench plan beyond generic replay runs
-- [ ] future replay investigations have a planned home for saved scenarios and regression cases
+- [x] repository has an explicit replay-workbench plan beyond generic replay runs
+- [x] future replay investigations have a planned home for saved scenarios and regression cases
 
 ## Phase 5 Current Implementation Snapshot
 - [x] `src/models/backtest.py` now defines strategy session, execution-policy, protection-policy, and backtest run config models
@@ -771,7 +786,8 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes aggregate portfolio state, reproducible equity/exposure projection, and a DB-backed run writer for `backtest.*`
 - [x] the Phase 5 skeleton now includes a run-level diagnostics summary projector and the first `/api/v1/backtests/runs/{run_id}/diagnostics` API surface
 - [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs
-- [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or compare-set analyzer
+- [x] the Phase 5 skeleton now includes an ad hoc compare/analyze API surface for selected runs and optional benchmark overlays
+- [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or saved compare-set workflow
 
 ---
 

@@ -417,7 +417,9 @@ The backend API should preserve room for future endpoints such as:
 - `GET /api/v1/replays/runs/{run_id}/artifacts`
 - `GET /api/v1/replays/runs/{run_id}/expected-vs-observed`
 
-These are planning-level surfaces and do not all need immediate implementation.
+Current implementation note:
+- `POST /api/v1/backtests/compare-sets` now exists as an ad hoc compare/analyze baseline for selected run ids
+- the rest of these surfaces remain planning-level and do not all need immediate implementation
 
 ---
 

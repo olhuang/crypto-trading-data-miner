@@ -8,11 +8,12 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from fastapi.responses import JSONResponse
 
 from config import settings
 from backtest.artifacts import BacktestArtifactCatalogProjector
+from backtest.compare import BacktestCompareNotFoundError, BacktestCompareProjector, BacktestCompareValidationError
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.periods import BacktestPeriodBreakdownProjector
 from jobs.backfill_bars import run_bar_backfill
@@ -84,6 +85,21 @@ class Phase4QualityRunRequest(ApiRequestModel):
     gap_end_time: datetime
     observed_at: datetime | None = None
     raw_event_channel: str | None = None
+
+
+class BacktestCompareSetRequest(ApiRequestModel):
+    run_ids: list[int]
+    benchmark_run_id: int | None = None
+    compare_name: str | None = None
+
+    @model_validator(mode="after")
+    def validate_compare_request(self) -> "BacktestCompareSetRequest":
+        self.run_ids = list(dict.fromkeys(self.run_ids))
+        if len(self.run_ids) < 2:
+            raise ValueError("compare request requires at least two unique run_ids")
+        if self.benchmark_run_id is not None and self.benchmark_run_id not in self.run_ids:
+            raise ValueError("benchmark_run_id must be included in run_ids")
+        return self
 
 
 TData = TypeVar("TData")
@@ -265,6 +281,66 @@ class ArtifactReferenceResource(BaseModel):
 class BacktestArtifactBundleResource(BaseModel):
     run_id: int
     artifacts: list[ArtifactReferenceResource]
+
+
+class BacktestComparedRunResource(BaseModel):
+    run_id: int
+    run_name: str
+    strategy_code: str
+    strategy_version: str
+    account_code: str | None = None
+    environment: str | None = None
+    status: str
+    start_time: str
+    end_time: str
+    universe: list[str]
+    diagnostic_status: str | None = None
+    total_return: str | None = None
+    annualized_return: str | None = None
+    max_drawdown: str | None = None
+    turnover: str | None = None
+    win_rate: str | None = None
+    fee_cost: str | None = None
+    slippage_cost: str | None = None
+
+
+class ComparisonAssumptionValueResource(BaseModel):
+    run_id: int
+    value: Any
+
+
+class BacktestAssumptionDiffResource(BaseModel):
+    field_name: str
+    distinct_value_count: int
+    values_by_run: list[ComparisonAssumptionValueResource]
+
+
+class BacktestBenchmarkDeltaResource(BaseModel):
+    run_id: int
+    benchmark_run_id: int
+    total_return_delta: str | None = None
+    annualized_return_delta: str | None = None
+    max_drawdown_delta: str | None = None
+    turnover_delta: str | None = None
+    win_rate_delta: str | None = None
+
+
+class BacktestComparisonFlagResource(BaseModel):
+    code: str
+    severity: str
+    message: str
+
+
+class BacktestCompareSetResource(BaseModel):
+    compare_name: str | None = None
+    run_ids: list[int]
+    benchmark_run_id: int | None = None
+    persisted: bool
+    available_period_types: list[str]
+    compared_runs: list[BacktestComparedRunResource]
+    assumption_diffs: list[BacktestAssumptionDiffResource]
+    benchmark_deltas: list[BacktestBenchmarkDeltaResource]
+    comparison_flags: list[BacktestComparisonFlagResource]
 
 
 class ValidationResultResource(BaseModel):
@@ -1077,6 +1153,100 @@ def create_app() -> FastAPI:
                         description=artifact.description,
                     )
                     for artifact in artifact_bundle.artifacts
+                ],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/backtests/compare-sets")
+    def create_backtest_compare_set(
+        request: BacktestCompareSetRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestCompareSetResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            with connection_scope() as connection:
+                compare_set = BacktestCompareProjector().build(
+                    connection,
+                    run_ids=request.run_ids,
+                    compare_name=request.compare_name,
+                    benchmark_run_id=request.benchmark_run_id,
+                )
+        except BacktestCompareValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "VALIDATION_ERROR", "message": str(exc), "details": {}},
+            ) from exc
+        except BacktestCompareNotFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "NOT_FOUND",
+                    "message": str(exc),
+                    "details": {"missing_run_ids": exc.missing_run_ids},
+                },
+            ) from exc
+
+        return SuccessEnvelope[BacktestCompareSetResource](
+            data=BacktestCompareSetResource(
+                compare_name=compare_set.compare_name,
+                run_ids=compare_set.run_ids,
+                benchmark_run_id=compare_set.benchmark_run_id,
+                persisted=compare_set.persisted,
+                available_period_types=compare_set.available_period_types,
+                compared_runs=[
+                    BacktestComparedRunResource(
+                        run_id=run.run_id,
+                        run_name=run.run_name,
+                        strategy_code=run.strategy_code,
+                        strategy_version=run.strategy_version,
+                        account_code=run.account_code,
+                        environment=run.environment,
+                        status=run.status,
+                        start_time=run.start_time.isoformat(),
+                        end_time=run.end_time.isoformat(),
+                        universe=run.universe,
+                        diagnostic_status=run.diagnostic_status,
+                        total_return=None if run.total_return is None else str(run.total_return),
+                        annualized_return=None if run.annualized_return is None else str(run.annualized_return),
+                        max_drawdown=None if run.max_drawdown is None else str(run.max_drawdown),
+                        turnover=None if run.turnover is None else str(run.turnover),
+                        win_rate=None if run.win_rate is None else str(run.win_rate),
+                        fee_cost=None if run.fee_cost is None else str(run.fee_cost),
+                        slippage_cost=None if run.slippage_cost is None else str(run.slippage_cost),
+                    )
+                    for run in compare_set.compared_runs
+                ],
+                assumption_diffs=[
+                    BacktestAssumptionDiffResource(
+                        field_name=diff.field_name,
+                        distinct_value_count=diff.distinct_value_count,
+                        values_by_run=[
+                            ComparisonAssumptionValueResource(run_id=value.run_id, value=value.value)
+                            for value in diff.values_by_run
+                        ],
+                    )
+                    for diff in compare_set.assumption_diffs
+                ],
+                benchmark_deltas=[
+                    BacktestBenchmarkDeltaResource(
+                        run_id=delta.run_id,
+                        benchmark_run_id=delta.benchmark_run_id,
+                        total_return_delta=None if delta.total_return_delta is None else str(delta.total_return_delta),
+                        annualized_return_delta=None if delta.annualized_return_delta is None else str(delta.annualized_return_delta),
+                        max_drawdown_delta=None if delta.max_drawdown_delta is None else str(delta.max_drawdown_delta),
+                        turnover_delta=None if delta.turnover_delta is None else str(delta.turnover_delta),
+                        win_rate_delta=None if delta.win_rate_delta is None else str(delta.win_rate_delta),
+                    )
+                    for delta in compare_set.benchmark_deltas
+                ],
+                comparison_flags=[
+                    BacktestComparisonFlagResource(
+                        code=flag.code,
+                        severity=flag.severity,
+                        message=flag.message,
+                    )
+                    for flag in compare_set.comparison_flags
                 ],
             ),
             meta=_meta(actor),

@@ -807,6 +807,11 @@ Current implementation status:
 Purpose:
 - create a named comparison set across runs
 
+Current implementation status:
+- implemented as an ad hoc compare/analyze projection over supplied `run_ids`
+- currently returns side-by-side run KPIs, assumption diffs, diagnostic status, and optional benchmark deltas
+- saved compare-set persistence and `GET /api/v1/backtests/compare-sets/{compare_set_id}` remain future work
+
 ### GET `/api/v1/backtests/compare-sets/{compare_set_id}`
 Purpose:
 - return comparison results, assumption diffs, benchmark overlays, and diagnostics deltas
