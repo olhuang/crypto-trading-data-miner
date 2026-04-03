@@ -356,6 +356,7 @@ class ModelsApiTests(unittest.TestCase):
                         simulated_fill_count=10,
                         expired_order_count=2,
                         unlinked_order_count=0,
+                        blocked_intent_count=3,
                         fill_rate_pct="0.8333",
                     ),
                     pnl_summary=SimpleNamespace(
@@ -385,6 +386,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.run_id, 501)
         self.assertEqual(response.data.diagnostic_status, "warning")
         self.assertEqual(response.data.execution_summary.expired_order_count, 2)
+        self.assertEqual(response.data.execution_summary.blocked_intent_count, 3)
         self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
 
     def test_backtest_runs_endpoint_supports_create_list_and_detail(self) -> None:
@@ -404,18 +406,20 @@ class ModelsApiTests(unittest.TestCase):
             "fee_model_version": "ref_fee_schedule_v1",
             "slippage_model_version": "fixed_bps_v1",
             "latency_model_version": "bars_next_open_v1",
-            "params_json": {
-                "session_code": "bt_ui_demo",
-                "environment": "backtest",
-                "netting_mode": "isolated_strategy_session",
-                "bar_interval": "1m",
-                "initial_cash": "100000",
-                "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
-                "run_metadata": {"source": "ui"},
-                "session_metadata": {"slice": "research"},
-                "execution_policy": {"policy_code": "default"},
-                "protection_policy": {"policy_code": "default"},
-            },
+                "params_json": {
+                    "session_code": "bt_ui_demo",
+                    "environment": "backtest",
+                    "netting_mode": "isolated_strategy_session",
+                    "bar_interval": "1m",
+                    "initial_cash": "100000",
+                    "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
+                    "run_metadata": {"source": "ui"},
+                    "runtime_metadata": {"risk_summary": {"blocked_intent_count": 1}},
+                    "session_metadata": {"slice": "research"},
+                    "execution_policy": {"policy_code": "default"},
+                    "protection_policy": {"policy_code": "default"},
+                    "risk_policy": {"policy_code": "perp_medium_v1", "max_position_qty": "1"},
+                },
             "status": "finished",
             "created_at": datetime.fromisoformat("2026-04-03T09:30:00+00:00"),
             "total_return": Decimal("0.12"),
@@ -469,6 +473,10 @@ class ModelsApiTests(unittest.TestCase):
                             "strategy_version": "v1.0.0",
                             "exchange_code": "binance",
                             "universe": ["BTCUSDT_PERP"],
+                            "risk_policy": {
+                                "policy_code": "perp_medium_v1",
+                                "max_position_qty": "1",
+                            }
                         },
                         "start_time": "2026-03-01T00:00:00Z",
                         "end_time": "2026-03-31T00:00:00Z",
@@ -501,7 +509,9 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(detail_response.success)
         self.assertEqual(detail_response.data.run_id, 601)
         self.assertEqual(detail_response.data.session_code, "bt_ui_demo")
+        self.assertEqual(detail_response.data.risk_policy["policy_code"], "perp_medium_v1")
         self.assertEqual(detail_response.data.run_metadata_json["source"], "ui")
+        self.assertEqual(detail_response.data.runtime_metadata_json["risk_summary"]["blocked_intent_count"], 1)
 
     def test_backtest_run_detail_endpoints_return_orders_fills_timeseries_and_signals(self) -> None:
         original_repository = app_module.BacktestRunRepository

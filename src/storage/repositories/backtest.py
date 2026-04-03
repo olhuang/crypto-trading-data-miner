@@ -13,7 +13,13 @@ from storage.lookups import resolve_account_id, resolve_instrument_id, resolve_s
 
 
 class BacktestRunRepository:
-    def insert_run(self, connection: Connection, run_config: BacktestRunConfig) -> int:
+    def insert_run(
+        self,
+        connection: Connection,
+        run_config: BacktestRunConfig,
+        *,
+        runtime_metadata: dict[str, object] | None = None,
+    ) -> int:
         strategy_version_id = resolve_strategy_version_id(
             connection,
             run_config.session.strategy_code,
@@ -28,9 +34,11 @@ class BacktestRunRepository:
             "initial_cash": str(run_config.initial_cash),
             "strategy_params": run_config.strategy_params_json,
             "run_metadata": run_config.metadata_json,
+            "runtime_metadata": runtime_metadata or {},
             "session_metadata": run_config.session.metadata_json,
             "execution_policy": run_config.session.execution_policy.model_dump(mode="json", by_alias=True),
             "protection_policy": run_config.session.protection_policy.model_dump(mode="json", by_alias=True),
+            "risk_policy": run_config.session.risk_policy.model_dump(mode="json", by_alias=True),
         }
         return int(
             connection.execute(

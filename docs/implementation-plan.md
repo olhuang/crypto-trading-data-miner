@@ -50,10 +50,12 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/strategy-input-and-feature-pipeline-spec.md` now freezes the intended long-lived plan for multi-dataset strategy inputs, feature alignment, and no-look-ahead handling
 - `docs/strategy-research-and-evaluation-spec.md` now freezes the intended long-lived plan for strategy development, research, testing, and comparative evaluation
 - `docs/backtest-and-replay-diagnostics-spec.md` now freezes the intended plan for run reporting, debug traces, replay diagnostics, and UI inspection needs
+- `docs/backtest-risk-guardrails-spec.md` now freezes the intended shared pre-trade guardrail model for Phase 5 backtests and later paper/live reuse
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
 - Phase 5 bars loading, bar-by-bar strategy evaluation, canonical signal normalization, and optional signal persistence now exist under `src/backtest/` and `src/storage/repositories/strategy.py`
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
 - automated tests now also cover the current Phase 5 bar-stream loop and target-position-to-signal normalization path
+- the current Phase 5 runner now also includes a first shared backtest-risk-guardrail layer with session-level risk policy, blocked-intent diagnostics summary, and minimal UI launch controls
 
 ### Not Yet Implemented
 - backtest engine
@@ -374,6 +376,12 @@ Also treat `docs/backtest-and-replay-diagnostics-spec.md` as the planning backbo
 - debug trace outputs
 - replay diagnostics and future replay UI/API surfaces
 
+Also treat `docs/backtest-risk-guardrails-spec.md` as the planning backbone for:
+- shared pre-trade guardrails in backtest
+- session-level risk-policy configuration
+- phased reuse of guardrail semantics in paper/live
+- blocked-intent diagnostics and research inspection
+
 Also treat `docs/strategy-workbench-spec.md` as the planning backbone for:
 - strategy lab facilities
 - assumption bundles and parameter-set workflow
@@ -389,6 +397,7 @@ Provide the first end-to-end research workflow using historical data.
 - signal generation
 - bars-based backtest engine
 - fee and slippage model support
+- shared backtest risk guardrails
 - performance output
 - diagnostics/reporting visibility
 - research workbench facilities around development, comparison, replay, and review
@@ -398,6 +407,7 @@ Provide the first end-to-end research workflow using historical data.
 - `src/backtest/`
 - simple strategy runner
 - bars-based fill model
+- shared backtest risk-guardrail engine
 - backtest results writer
 - run diagnostics and trace-friendly inspection path
 - staged diagnostics/reporting rollout from summary baseline to replay inspection
@@ -410,6 +420,7 @@ Provide the first end-to-end research workflow using historical data.
 - implement backtest engine using `md.bars_1m`
 - implement fee model using `ref.fee_schedules`
 - implement slippage model abstraction
+- implement shared backtest risk guardrails using session risk policy
 - write run metadata and results into `backtest.*`
 - stage diagnostics implementation as:
   - summary baseline
@@ -429,6 +440,7 @@ Provide the first end-to-end research workflow using historical data.
 - at least one simple strategy can run from historical bars to performance output
 - backtest results persist to `backtest.runs`, `backtest.simulated_orders`, `backtest.simulated_fills`, `backtest.performance_summary`, and `backtest.performance_timeseries`
 - run metadata captures versions and assumptions for reproducibility
+- run metadata and diagnostics expose risk-policy assumptions and blocked-intent summary for later research comparison
 - the first Phase 5 slice stays compatible with the phased position/protection/reporting architecture in `docs/position-management-spec.md`
 - the phased diagnostics/reporting plan is explicit enough that later replay/UI work does not require redesign
 - the research tool plan is explicit enough that later compare/analyze and replay-scenario work does not require redesign
@@ -440,6 +452,7 @@ Provide the first end-to-end research workflow using historical data.
 
 ### Recommended Status
 - started with an architecture-aligned session/strategy/lifecycle skeleton, the first bar-stream signal-generation loop, a deterministic bars-based fill model with fee/slippage support, DB-backed run/order/fill/performance persistence, create/list/detail run APIs, a diagnostics-summary surface, baseline period/artifact outputs, and an ad hoc compare/analyze API foundation for research-side run comparison
+- now also has first-wave shared backtest risk guardrails, including session-level risk policy, blocked-intent diagnostics summary, and minimal UI launch controls for the first configurable risk knobs
 - now also has a minimal internal UI slice for launching backtests, browsing recent runs, inspecting diagnostics/artifacts/month breakdown, inspecting signals/orders/fills/timeseries, and invoking compare-set analysis without raw SQL or inline Python
 
 ---
@@ -448,6 +461,7 @@ Provide the first end-to-end research workflow using historical data.
 
 ### Architecture Prerequisite
 Phase 6 should reuse and extend the same lifecycle described in `docs/position-management-spec.md` rather than introducing a paper-only position or protection model.
+Phase 6 should also reuse the shared guardrail semantics staged in `docs/backtest-risk-guardrails-spec.md` rather than inventing a paper-only pre-trade risk gate.
 Phase 6 should also preserve the stable family/variant/version identity described in `docs/strategy-taxonomy-and-versioning-spec.md` so paper sessions and reports remain attributable by variant/version.
 
 ### Goal

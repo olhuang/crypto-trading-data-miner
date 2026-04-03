@@ -323,7 +323,24 @@ Used by:
   "protection_policy": {
     "policy_code": "default"
   },
+  "risk_policy": {
+    "policy_code": "perp_medium_v1",
+    "block_new_entries_below_equity": "0",
+    "max_position_qty": "1",
+    "max_gross_exposure_multiple": "1.5",
+    "allow_reduce_only_when_blocked": true
+  },
   "run_metadata_json": {},
+  "runtime_metadata_json": {
+    "risk_summary": {
+      "evaluated_intent_count": 42,
+      "allowed_intent_count": 40,
+      "blocked_intent_count": 2,
+      "block_counts_by_code": {
+        "max_gross_exposure_breach": 2
+      }
+    }
+  },
   "session_metadata_json": {}
 }
 ```
@@ -363,7 +380,7 @@ Used by:
 
 - `POST /api/v1/backtests/runs` is currently synchronous over the current bars-based backtest engine
 - list/detail responses are intended to support the internal research UI without requiring raw SQL inspection
-- the current resource focuses on run metadata, assumptions, and top-level KPI summary; orders/fills/timeseries remain separate surfaces
+- the current resource focuses on run metadata, assumptions, policy snapshots, runtime metadata, and top-level KPI summary; orders/fills/timeseries remain separate surfaces
 
 ---
 
@@ -520,6 +537,7 @@ Used by:
     "simulated_fill_count": 36,
     "expired_order_count": 2,
     "unlinked_order_count": 0,
+    "blocked_intent_count": 3,
     "fill_rate_pct": "0.9474"
   },
   "pnl_summary": {
@@ -535,6 +553,12 @@ Used by:
       "severity": "warning",
       "message": "one or more simulated orders expired without filling",
       "related_count": 2
+    },
+    {
+      "code": "risk_blocks_present",
+      "severity": "warning",
+      "message": "one or more execution intents were blocked by backtest risk guardrails",
+      "related_count": 3
     }
   ]
 }
@@ -543,6 +567,7 @@ Used by:
 ### Notes
 
 - this is the Stage A diagnostics surface from `docs/backtest-and-replay-diagnostics-spec.md`
+- the Stage A diagnostics surface now also includes blocked-intent counts from the first shared backtest guardrail layer
 - the response is a summary/projection, not a full step trace
 - later debug-trace endpoints should drill down from the flags and aggregates returned here
 

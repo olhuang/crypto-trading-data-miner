@@ -233,6 +233,7 @@ class BacktestExecutionSummaryResource(BaseModel):
     simulated_fill_count: int
     expired_order_count: int
     unlinked_order_count: int
+    blocked_intent_count: int = 0
     fill_rate_pct: str | None = None
 
 
@@ -408,7 +409,9 @@ class BacktestRunDetailResource(BaseModel):
     strategy_params_json: dict[str, Any]
     execution_policy: dict[str, Any]
     protection_policy: dict[str, Any]
+    risk_policy: dict[str, Any]
     run_metadata_json: dict[str, Any]
+    runtime_metadata_json: dict[str, Any]
     session_metadata_json: dict[str, Any]
 
 
@@ -632,7 +635,9 @@ def _build_backtest_run_resource(
         strategy_params_json=dict(params_json.get("strategy_params") or {}),
         execution_policy=dict(params_json.get("execution_policy") or {}),
         protection_policy=dict(params_json.get("protection_policy") or {}),
+        risk_policy=dict(params_json.get("risk_policy") or {}),
         run_metadata_json=dict(params_json.get("run_metadata") or {}),
+        runtime_metadata_json=dict(params_json.get("runtime_metadata") or {}),
         session_metadata_json=dict(params_json.get("session_metadata") or {}),
     )
 
@@ -1489,6 +1494,7 @@ def create_app() -> FastAPI:
                     simulated_fill_count=summary.execution_summary.simulated_fill_count,
                     expired_order_count=summary.execution_summary.expired_order_count,
                     unlinked_order_count=summary.execution_summary.unlinked_order_count,
+                    blocked_intent_count=summary.execution_summary.blocked_intent_count,
                     fill_rate_pct=summary.execution_summary.fill_rate_pct,
                 ),
                 pnl_summary=BacktestPnlSummaryResource(

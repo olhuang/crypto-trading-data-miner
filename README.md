@@ -66,6 +66,7 @@ Major design areas already covered include:
 - observability
 - security/secrets
 - execution/risk behavior
+- shared backtest risk-guardrail planning
 - extensible position-management and protection architecture
 - strategy taxonomy and family/variant/version planning
 - backtest/replay reporting and diagnostics planning
@@ -102,6 +103,7 @@ Major implementation areas now present include:
 - Phase 5 backtest lifecycle/runner skeleton under `src/backtest/`
 - Phase 5 bars loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence under `src/backtest/` and `src/storage/repositories/strategy.py`
 - Phase 5 deterministic bars-based market/limit fill simulation with fee/slippage handling under `src/backtest/`
+- Phase 5 first-wave shared risk guardrails with session-level risk policy and blocked-intent runtime summary under `src/backtest/`
 - Phase 5 aggregate portfolio/equity projection plus DB-backed run/order/fill/performance persistence under `src/backtest/` and `src/storage/repositories/backtest.py`
 - Phase 5 run-level diagnostics summary projection plus `/api/v1/backtests/runs/{run_id}/diagnostics` under `src/backtest/diagnostics.py` and `src/api/app.py`
 - Phase 5 derived `year` / `quarter` / `month` period breakdown plus baseline artifact catalog endpoints under `src/backtest/periods.py`, `src/backtest/artifacts.py`, and `src/api/app.py`
@@ -211,6 +213,7 @@ Use it to understand:
 - `docs/observability-spec.md`
 - `docs/security-and-secrets-spec.md`
 - `docs/execution-and-risk-engine-spec.md`
+- `docs/backtest-risk-guardrails-spec.md`
 - `docs/position-management-spec.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`

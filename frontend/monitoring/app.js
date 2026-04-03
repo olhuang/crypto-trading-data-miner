@@ -288,6 +288,30 @@ async function loadBacktests(filters = {}) {
 }
 
 async function launchBacktest(formValues) {
+  const riskPolicy = {};
+  const riskPolicyCode = String(formValues.risk_policy_code || "").trim();
+  if (riskPolicyCode) {
+    riskPolicy.policy_code = riskPolicyCode;
+  }
+  [
+    "block_new_entries_below_equity",
+    "max_position_qty",
+    "max_order_qty",
+    "max_order_notional",
+    "max_gross_exposure_multiple",
+  ].forEach((fieldName) => {
+    const value = String(formValues[fieldName] || "").trim();
+    if (value !== "") {
+      riskPolicy[fieldName] = value;
+    }
+  });
+  ["enforce_spot_cash_check", "allow_reduce_only_when_blocked"].forEach((fieldName) => {
+    const rawValue = String(formValues[fieldName] || "").trim();
+    if (rawValue !== "") {
+      riskPolicy[fieldName] = parseBooleanInput(rawValue);
+    }
+  });
+
   const payload = {
     run_name: formValues.run_name,
     session: {
@@ -310,6 +334,9 @@ async function launchBacktest(formValues) {
     },
     persist_signals: true,
   };
+  if (Object.keys(riskPolicy).length > 0) {
+    payload.session.risk_policy = riskPolicy;
+  }
   const created = await sendEnvelope("/api/v1/backtests/runs", "POST", payload);
   renderJson("backtest-launch-result", created);
   await loadBacktests();

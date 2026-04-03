@@ -74,6 +74,7 @@ def summarize_performance(
         final_equity = final_point.equity
         max_drawdown = max(point.drawdown for point in performance_points)
         turnover = final_point.turnover_notional / initial_cash if initial_cash > 0 else Decimal("0")
+        total_return = (final_equity - initial_cash) / initial_cash if initial_cash > 0 else Decimal("0")
         win_rate = None
         annualized_return = _annualize_return(
             initial_cash=initial_cash,
@@ -82,7 +83,7 @@ def summarize_performance(
             run_end=run_end,
         )
         return PerformanceSummary(
-            total_return=(final_equity - initial_cash) / initial_cash,
+            total_return=total_return,
             annualized_return=annualized_return,
             max_drawdown=max_drawdown,
             turnover=turnover,

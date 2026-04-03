@@ -509,6 +509,7 @@ Required sections:
 ## Required Components
 - [ ] strategy/version selector components
 - [ ] backtest launch form
+- [ ] first-wave backtest risk-policy inputs in the run builder
 - [ ] run status badges
 - [ ] KPI summary cards
 - [ ] equity curve chart
@@ -562,6 +563,7 @@ Required sections:
 ## Current Implementation Snapshot
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view
 - [x] the current internal Backtests view can launch a persisted bars-based run from UI
+- [x] the current internal Backtests launch form now includes first-wave risk-policy inputs for shared backtest guardrails
 - [x] the current internal Backtests view can list recent runs without raw SQL
 - [x] the current internal Backtests view can inspect run detail, diagnostics summary, artifact bundle, and month breakdown
 - [x] the current internal Backtests view can inspect recent persisted signals, simulated orders, simulated fills, and recent timeseries points for a selected run

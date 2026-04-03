@@ -738,7 +738,14 @@ Request:
     "strategy_code": "btc_momentum",
     "strategy_version": "v1.0.0",
     "exchange_code": "binance",
-    "universe": ["BTCUSDT_PERP"]
+    "universe": ["BTCUSDT_PERP"],
+    "risk_policy": {
+      "policy_code": "perp_medium_v1",
+      "block_new_entries_below_equity": "0",
+      "max_position_qty": "1",
+      "max_gross_exposure_multiple": "1.5",
+      "allow_reduce_only_when_blocked": true
+    }
   },
   "start_time": "2026-01-01T00:00:00Z",
   "end_time": "2026-02-01T00:00:00Z",
@@ -755,12 +762,14 @@ Request:
 Request semantics:
 - `strategy_code` identifies the strategy variant to run
 - `strategy_version` identifies the immutable released version of that variant
+- `session.risk_policy` captures first-wave backtest guardrail assumptions for the run
 - future family-level filtering/reporting should use separate metadata fields
 
 Current implementation status:
 - implemented as a synchronous launch surface over the current bars-based backtest engine
 - currently persists the run, simulated orders/fills, summary, and timeseries before responding
 - current request body follows the canonical `BacktestRunConfig` shape plus `persist_signals`
+- the current launch surface also accepts a first-wave session-level `risk_policy` block for shared backtest guardrails
 
 Response fields:
 - run detail resource with metadata, assumptions, and top-level KPI summary
@@ -780,7 +789,7 @@ Purpose:
 
 Current implementation status:
 - implemented
-- currently returns canonical run metadata, assumptions, execution/protection policy snapshot, and top-level KPI summary
+- currently returns canonical run metadata, assumptions, execution/protection/risk policy snapshots, runtime metadata, and top-level KPI summary
 
 ### GET `/api/v1/backtests/runs/{run_id}/orders`
 Purpose:
@@ -824,7 +833,7 @@ Purpose:
 
 Current implementation status:
 - implemented as the Stage A run-level diagnostics summary baseline
-- currently returns run integrity, strategy activity, execution summary, PnL summary, and deterministic warning flags
+- currently returns run integrity, strategy activity, execution summary, blocked-intent counts, PnL summary, and deterministic warning flags
 
 ### GET `/api/v1/backtests/runs/{run_id}/debug-traces`
 Purpose:

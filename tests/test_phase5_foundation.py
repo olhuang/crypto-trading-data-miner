@@ -24,8 +24,8 @@ from backtest.performance import PerformancePoint
 from backtest.runner import BacktestRunnerSkeleton
 from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
-from models.backtest import BacktestRunConfig, StrategySessionConfig
-from models.common import LiquidityFlag, OrderSide, OrderType, SignalType
+from models.backtest import BacktestRunConfig, RiskPolicyConfig, StrategySessionConfig
+from models.common import LiquidityFlag, OrderSide, OrderType, RiskDecision, SignalType
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
 from storage.db import get_engine
@@ -167,6 +167,25 @@ class Phase5FoundationTests(unittest.TestCase):
                     "initial_cash": "10000",
                 }
             )
+
+    def test_risk_policy_config_validates_thresholds(self) -> None:
+        with self.assertRaises(ValidationError):
+            RiskPolicyConfig.model_validate({"block_new_entries_below_equity": "-1"})
+
+        with self.assertRaises(ValidationError):
+            RiskPolicyConfig.model_validate({"max_position_qty": "0"})
+
+        policy = RiskPolicyConfig.model_validate(
+            {
+                "policy_code": "spot_conservative_v1",
+                "block_new_entries_below_equity": "0",
+                "max_position_qty": "1",
+                "max_order_notional": "10000",
+            }
+        )
+
+        self.assertEqual(policy.policy_code, "spot_conservative_v1")
+        self.assertEqual(policy.max_position_qty, Decimal("1"))
 
     def test_default_registry_loads_seeded_example_strategy(self) -> None:
         registry = build_default_registry()
@@ -386,6 +405,164 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(result.final_positions["BTCUSDT_PERP"], Decimal("1"))
         self.assertEqual(len(result.fills), 1)
         self.assertEqual(result.fills[0].fill_price, bars[5].open + Decimal("0.0105"))
+
+    def test_runner_blocks_new_entries_when_equity_floor_is_breached(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_risk_floor",
+                "session": {
+                    "session_code": "bt_btc_risk_floor",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "equity_floor_v1",
+                        "block_new_entries_below_equity": "0",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", 0, "100"), build_bar("BTCUSDT_PERP", 1, "105")]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="4.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+
+        result = runner.run_bars(bars, initial_cash=Decimal("0"))
+
+        self.assertEqual(len(result.orders), 0)
+        self.assertEqual(len(result.fills), 0)
+        self.assertEqual(result.risk_outcomes[0].decision, RiskDecision.BLOCK)
+        self.assertEqual(result.risk_outcomes[0].code, "equity_floor_breach")
+
+    def test_runner_blocks_spot_buys_when_cash_is_insufficient(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_spot_cash_guard",
+                "session": {
+                    "session_code": "bt_btc_spot_guard",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_SPOT"],
+                    "risk_policy": {
+                        "policy_code": "spot_cash_guard_v1",
+                        "enforce_spot_cash_check": True,
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        bars = [build_bar("BTCUSDT_SPOT", 0, "100"), build_bar("BTCUSDT_SPOT", 1, "101")]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="7.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+
+        result = runner.run_bars(bars, initial_cash=Decimal("50"))
+
+        self.assertEqual(len(result.orders), 0)
+        self.assertEqual(result.risk_outcomes[0].decision, RiskDecision.BLOCK)
+        self.assertEqual(result.risk_outcomes[0].code, "spot_cash_insufficient")
+
+    def test_reduce_only_exit_can_bypass_position_limit(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_reduce_only_bypass",
+                "session": {
+                    "session_code": "bt_btc_reduce_only",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "perp_size_limit_v1",
+                        "max_position_qty": "0.5",
+                        "allow_reduce_only_when_blocked": True,
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", 0, "100"), build_bar("BTCUSDT_PERP", 1, "101")]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="4.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+
+        result = runner.run_bars(
+            bars,
+            initial_positions={"BTCUSDT_PERP": Decimal("2")},
+            initial_cash=Decimal("0"),
+        )
+
+        self.assertEqual(len(result.orders), 1)
+        self.assertEqual(result.risk_outcomes[0].decision, RiskDecision.ALLOW)
+        self.assertEqual(result.risk_outcomes[0].code, "allowed_reduce_only_bypass")
+        self.assertEqual(result.final_positions["BTCUSDT_PERP"], Decimal("1"))
+
+    def test_runner_blocks_entries_exceeding_max_gross_exposure_multiple(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_gross_exposure_guard",
+                "session": {
+                    "session_code": "bt_btc_gross_guard",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "perp_gross_guard_v1",
+                        "max_gross_exposure_multiple": "1",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", 0, "100"), build_bar("BTCUSDT_PERP", 1, "101")]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="2"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="4.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+
+        result = runner.run_bars(bars, initial_cash=Decimal("100"))
+
+        self.assertEqual(len(result.orders), 0)
+        self.assertEqual(result.risk_outcomes[0].code, "max_gross_exposure_breach")
 
     def test_runner_caps_recent_bar_history_when_strategy_declares_requirement(self) -> None:
         run_config = BacktestRunConfig.model_validate(
@@ -685,6 +862,7 @@ class Phase5FoundationTests(unittest.TestCase):
             assert diagnostics is not None
             self.assertEqual(diagnostics.diagnostic_status, "ok")
             self.assertEqual(diagnostics.execution_summary.simulated_order_count, 1)
+            self.assertEqual(diagnostics.execution_summary.blocked_intent_count, 0)
             self.assertEqual(diagnostics.strategy_activity.signal_count, 1)
             self.assertIsNotNone(artifact_bundle)
             assert artifact_bundle is not None

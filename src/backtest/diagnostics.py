@@ -42,6 +42,7 @@ class ExecutionSummary:
     simulated_fill_count: int
     expired_order_count: int
     unlinked_order_count: int
+    blocked_intent_count: int
     fill_rate_pct: str | None
 
 
@@ -148,6 +149,8 @@ class BacktestDiagnosticsProjector:
         ).mappings().first()
 
         params_json = run_row["params_json"] or {}
+        runtime_metadata = params_json.get("runtime_metadata") or {}
+        risk_summary = runtime_metadata.get("risk_summary") or {}
         expected_timepoints = self._expected_timepoints(
             start_time=run_row["start_time"],
             end_time=run_row["end_time"],
@@ -155,6 +158,7 @@ class BacktestDiagnosticsProjector:
         )
         observed_timepoints = int(timeseries_row["timepoints_observed"])
         missing_timepoints = 0 if expected_timepoints is None else max(expected_timepoints - observed_timepoints, 0)
+        blocked_intent_count = int(risk_summary.get("blocked_intent_count") or 0)
 
         flags = self._build_flags(
             missing_timepoints=missing_timepoints,
@@ -163,6 +167,7 @@ class BacktestDiagnosticsProjector:
             expired_order_count=int(execution_row["expired_order_count"]),
             unlinked_order_count=int(execution_row["unlinked_order_count"]),
             signal_count=int(signal_row["signal_count"]),
+            blocked_intent_count=blocked_intent_count,
         )
         warning_count = sum(1 for flag in flags if flag.severity == "warning")
         error_count = sum(1 for flag in flags if flag.severity == "error")
@@ -196,6 +201,7 @@ class BacktestDiagnosticsProjector:
                 simulated_fill_count=fill_count,
                 expired_order_count=int(execution_row["expired_order_count"]),
                 unlinked_order_count=int(execution_row["unlinked_order_count"]),
+                blocked_intent_count=blocked_intent_count,
                 fill_rate_pct=self._format_ratio(fill_count, int(execution_row["simulated_order_count"])),
             ),
             pnl_summary=PnlSummary(
@@ -239,6 +245,7 @@ class BacktestDiagnosticsProjector:
         expired_order_count: int,
         unlinked_order_count: int,
         signal_count: int,
+        blocked_intent_count: int,
     ) -> list[DiagnosticFlag]:
         flags: list[DiagnosticFlag] = []
         if missing_timepoints > 0:
@@ -284,6 +291,15 @@ class BacktestDiagnosticsProjector:
                     severity="warning",
                     message="one or more simulated orders are not linked to a persisted signal",
                     related_count=unlinked_order_count,
+                )
+            )
+        if blocked_intent_count > 0:
+            flags.append(
+                DiagnosticFlag(
+                    code="risk_blocks_present",
+                    severity="warning",
+                    message="one or more execution intents were blocked by backtest risk guardrails",
+                    related_count=blocked_intent_count,
                 )
             )
         return flags

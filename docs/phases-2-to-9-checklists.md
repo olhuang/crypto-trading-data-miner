@@ -24,6 +24,7 @@ This file is intended to be used together with:
 - `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
 - `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
 - `docs/backtest-and-replay-diagnostics-spec.md` for report outputs, debug traces, replay diagnostics, and research-facing UI expectations
+- `docs/backtest-risk-guardrails-spec.md` for shared backtest guardrails, staged risk-policy rollout, and paper/live reuse expectations
 - `docs/strategy-workbench-spec.md` for the broader strategy-lab, replay-workbench, artifact, compare/analyze, and review facilities
 
 ---
@@ -630,6 +631,22 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ---
 
+## Task 5.3A: Implement minimal shared backtest risk guardrails
+### Tasks
+- [x] add session-level `RiskPolicyConfig` to the Phase 5 backtest models
+- [x] implement a shared pre-trade guardrail engine between lifecycle planning and fill simulation
+- [x] enforce first-wave checks for equity floor, spot cash sufficiency, max position qty, max order qty, max order notional, and max gross exposure multiple
+- [x] allow already reduce-only intents to bypass blocking when policy permits
+- [x] persist blocked-intent summary into run/runtime metadata and diagnostics-friendly output
+- [x] expose first-wave risk-policy fields through the current backtest run API surface and minimal internal Backtests launch UI
+
+### Acceptance Checks
+- [x] clearly disallowed new entries are blocked deterministically before order creation
+- [x] reduce-only exits can still proceed when configured even if another guardrail would otherwise block them
+- [x] persisted run detail and diagnostics now expose risk-policy assumptions and blocked-intent summary for later research comparison
+
+---
+
 ## Task 5.4: Implement portfolio/account state in backtest
 ### Tasks
 - [x] maintain cash state
@@ -782,10 +799,12 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated strategy-research/evaluation planning spec now exists for future multi-window and multi-strategy research workflows
 - [x] a dedicated strategy taxonomy/versioning planning spec now exists for family, variant, and version identity
 - [x] a dedicated backtest/replay diagnostics planning spec now exists for report outputs, debug traces, and replay inspection
+- [x] a dedicated backtest risk-guardrails planning spec now exists for shared pre-trade guardrails and later paper/live reuse
 - [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
 - [x] a dedicated strategy workbench planning spec now exists for strategy-lab, artifact, compare/analyze, replay-scenario, and review facilities
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
+- [x] the Phase 5 skeleton now includes a first shared pre-trade risk-guardrail engine with session risk policy and blocked-intent runtime summary
 - [x] the Phase 5 skeleton now includes aggregate portfolio state, reproducible equity/exposure projection, and a DB-backed run writer for `backtest.*`
 - [x] the Phase 5 skeleton now includes a run-level diagnostics summary projector and the first `/api/v1/backtests/runs/{run_id}/diagnostics` API surface
 - [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs
@@ -793,6 +812,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes `POST /api/v1/backtests/runs`, `GET /api/v1/backtests/runs`, and `GET /api/v1/backtests/runs/{run_id}` for run launch and inspection
 - [x] the Phase 5 skeleton now includes run-detail APIs for persisted signals, simulated orders, simulated fills, and recent performance timeseries inspection
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown plus signals/orders/fills/timeseries detail
+- [x] the current internal Backtests launch form now exposes first-wave risk-policy fields for the shared backtest guardrails
 - [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
 - [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or saved compare-set workflow
 
@@ -816,6 +836,7 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Architecture Alignment Note
 Phase 6 should reuse the same lifecycle, ownership model, and protection concepts already planned in `docs/position-management-spec.md`.
+Phase 6 should also reuse the shared risk-policy and guardrail semantics planned in `docs/backtest-risk-guardrails-spec.md` rather than inventing a paper-only pre-trade gate.
 Phase 6 should also preserve the family/variant/version identity model planned in `docs/strategy-taxonomy-and-versioning-spec.md` so paper sessions, fills, and reports do not invent a separate strategy naming scheme.
 
 ## Goal
@@ -894,12 +915,14 @@ Run strategy logic continuously in simulated real time using live market data an
 ## Task 6.5: Implement pre-trade risk checks
 ### Tasks
 - [ ] load `risk.risk_limits`
+- [ ] reuse the shared Phase 5 guardrail semantics where a paper-session risk policy is equivalent
 - [ ] validate order size and notional before simulated submission
 - [ ] record risk events on violations
 - [ ] prevent invalid orders from proceeding
 
 ### Acceptance Checks
 - [ ] oversized or disallowed orders are blocked
+- [ ] paper pre-trade risk behavior remains compatible with the Phase 5 backtest guardrail model
 - [ ] blocked actions create `risk.risk_events`
 
 ---

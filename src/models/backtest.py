@@ -87,6 +87,37 @@ class ProtectionPolicyConfig(BaseContractModel):
         return self
 
 
+class RiskPolicyConfig(BaseContractModel):
+    policy_code: str = "default"
+    enforce_spot_cash_check: bool = True
+    block_new_entries_below_equity: Decimal | None = Decimal("0")
+    max_position_qty: Decimal | None = None
+    max_order_qty: Decimal | None = None
+    max_order_notional: Decimal | None = None
+    max_gross_exposure_multiple: Decimal | None = None
+    allow_reduce_only_when_blocked: bool = True
+    metadata_json: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias="metadata",
+        serialization_alias="metadata_json",
+    )
+
+    @model_validator(mode="after")
+    def validate_risk_thresholds(self) -> "RiskPolicyConfig":
+        if self.block_new_entries_below_equity is not None and self.block_new_entries_below_equity < 0:
+            raise ValueError("block_new_entries_below_equity must be non-negative when provided")
+        threshold_fields = (
+            ("max_position_qty", self.max_position_qty),
+            ("max_order_qty", self.max_order_qty),
+            ("max_order_notional", self.max_order_notional),
+            ("max_gross_exposure_multiple", self.max_gross_exposure_multiple),
+        )
+        for field_name, value in threshold_fields:
+            if value is not None and value <= 0:
+                raise ValueError(f"{field_name} must be positive when provided")
+        return self
+
+
 class StrategySessionConfig(BaseContractModel):
     session_code: str
     environment: Environment
@@ -98,6 +129,7 @@ class StrategySessionConfig(BaseContractModel):
     netting_mode: PositionNettingMode = PositionNettingMode.ISOLATED_STRATEGY_SESSION
     execution_policy: ExecutionPolicyConfig = Field(default_factory=ExecutionPolicyConfig)
     protection_policy: ProtectionPolicyConfig = Field(default_factory=ProtectionPolicyConfig)
+    risk_policy: RiskPolicyConfig = Field(default_factory=RiskPolicyConfig)
     metadata_json: dict[str, Any] = Field(
         default_factory=dict,
         validation_alias="metadata",

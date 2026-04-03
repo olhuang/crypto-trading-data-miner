@@ -7,6 +7,7 @@ from itertools import groupby
 from typing import Iterable, Mapping, Sequence
 
 from models.backtest import BacktestRunConfig
+from models.common import RiskDecision
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
 from sqlalchemy.engine import Connection
@@ -18,6 +19,7 @@ from .data import BacktestBarLoader
 from .fills import DeterministicBarsFillModel, SimulatedFill, SimulatedOrder
 from .lifecycle import BacktestLifecycle, BacktestStepPlan
 from .performance import PerformancePoint, PerformanceSummary, build_performance_point, summarize_performance
+from .risk import BacktestRiskGuardrailEngine, RiskGuardrailOutcome
 from .signals import build_signals_from_target_position
 from .state import PortfolioState, PositionState
 
@@ -29,6 +31,7 @@ class BacktestStepResult:
     signals: list[Signal]
     created_orders: list[SimulatedOrder]
     fills: list[SimulatedFill]
+    risk_outcomes: list[RiskGuardrailOutcome]
 
 
 @dataclass(slots=True)
@@ -39,6 +42,7 @@ class BacktestRunLoopResult:
     persisted_signal_ids: list[int]
     orders: list[SimulatedOrder]
     fills: list[SimulatedFill]
+    risk_outcomes: list[RiskGuardrailOutcome]
     open_orders: list[SimulatedOrder]
     performance_points: list[PerformancePoint]
     performance_summary: PerformanceSummary
@@ -71,6 +75,11 @@ class BacktestRunnerSkeleton:
         self.lifecycle = BacktestLifecycle(run_config)
         self.signal_repository = signal_repository or StrategySignalRepository()
         self.fill_model = fill_model or DeterministicBarsFillModel()
+        self.risk_guardrails = BacktestRiskGuardrailEngine(
+            run_config,
+            fee_model=self.fill_model.fee_model,
+            slippage_model=self.fill_model.slippage_model,
+        )
         self.run_repository = run_repository or BacktestRunRepository()
 
     def evaluate_bar(
@@ -102,6 +111,7 @@ class BacktestRunnerSkeleton:
             signals=signals,
             created_orders=[],
             fills=[],
+            risk_outcomes=[],
         )
 
     def run_bars(
@@ -126,6 +136,7 @@ class BacktestRunnerSkeleton:
         pending_orders_by_symbol: dict[str, list[SimulatedOrder]] = {}
         all_orders: list[SimulatedOrder] = []
         all_fills: list[SimulatedFill] = []
+        all_risk_outcomes: list[RiskGuardrailOutcome] = []
         performance_points: list[PerformancePoint] = []
         latest_close_by_symbol: dict[str, Decimal] = {}
         running_peak_equity = portfolio.cash
@@ -175,13 +186,22 @@ class BacktestRunnerSkeleton:
                         persisted_signal_ids.append(signal_id)
                         signal_id_by_symbol[signal.unified_symbol] = signal_id
 
+                allowed_intents, risk_outcomes = self.risk_guardrails.filter_execution_intents(
+                    step_result.plan.execution_intents,
+                    current_bar=bar,
+                    portfolio=portfolio,
+                    latest_mark_prices=latest_close_by_symbol,
+                    connection=connection,
+                )
+                step_result.risk_outcomes.extend(risk_outcomes)
+                all_risk_outcomes.extend(risk_outcomes)
                 created_orders = [
                     self.fill_model.create_order(
                         intent,
                         current_bar=bar,
                         signal_id=signal_id_by_symbol.get(intent.unified_symbol),
                     )
-                    for intent in step_result.plan.execution_intents
+                    for intent in allowed_intents
                 ]
                 all_orders.extend(created_orders)
                 pending_orders_by_symbol.setdefault(bar.unified_symbol, []).extend(created_orders)
@@ -218,6 +238,7 @@ class BacktestRunnerSkeleton:
             persisted_signal_ids=persisted_signal_ids,
             orders=all_orders,
             fills=all_fills,
+            risk_outcomes=all_risk_outcomes,
             open_orders=open_orders,
             performance_points=performance_points,
             performance_summary=performance_summary,
@@ -254,7 +275,11 @@ class BacktestRunnerSkeleton:
             persist_signals=persist_signals,
             capture_steps=capture_steps,
         )
-        run_id = self.run_repository.insert_run(connection, self.run_config)
+        run_id = self.run_repository.insert_run(
+            connection,
+            self.run_config,
+            runtime_metadata=self._build_runtime_metadata(loop_result),
+        )
         order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
         self.run_repository.insert_fills(
             connection,
@@ -273,6 +298,24 @@ class BacktestRunnerSkeleton:
             performance_points=loop_result.performance_points,
         )
         return PersistedBacktestRunResult(run_id=run_id, loop_result=loop_result)
+
+    @staticmethod
+    def _build_runtime_metadata(loop_result: BacktestRunLoopResult) -> dict[str, object]:
+        blocked_outcomes = [outcome for outcome in loop_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK]
+        block_counts_by_code: dict[str, int] = {}
+        for outcome in blocked_outcomes:
+            block_counts_by_code[outcome.code] = block_counts_by_code.get(outcome.code, 0) + 1
+
+        return {
+            "risk_summary": {
+                "evaluated_intent_count": len(loop_result.risk_outcomes),
+                "allowed_intent_count": sum(
+                    1 for outcome in loop_result.risk_outcomes if outcome.decision == RiskDecision.ALLOW
+                ),
+                "blocked_intent_count": len(blocked_outcomes),
+                "block_counts_by_code": block_counts_by_code,
+            }
+        }
 
     def _build_signals(
         self,

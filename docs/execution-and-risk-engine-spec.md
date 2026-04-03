@@ -15,6 +15,7 @@ It focuses on:
 This spec complements:
 - `docs/api-contracts.md`
 - `docs/backend-system-design.md`
+- `docs/backtest-risk-guardrails-spec.md`
 - `docs/security-and-secrets-spec.md`
 
 ---
