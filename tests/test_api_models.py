@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import unittest
 from uuid import uuid4
 
@@ -58,6 +60,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.market_remediation_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/market-snapshot-remediation", "POST")
         cls.jobs_list_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs", "GET")
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
+        cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
 
     def test_system_health_returns_success_envelope(self) -> None:
         response = self.__class__.health_endpoint()
@@ -306,6 +309,70 @@ class ModelsApiTests(unittest.TestCase):
         returned_ids = {record["job_id"] for record in filtered_response.data.records}
         self.assertIn(remediation_job_id, returned_ids)
         self.assertNotIn(sync_job_id, returned_ids)
+
+    def test_backtest_diagnostics_endpoint_returns_typed_summary(self) -> None:
+        original_projector = app_module.BacktestDiagnosticsProjector
+
+        class StubProjector:
+            def build_summary(self, connection, run_id: int):
+                return SimpleNamespace(
+                    run_id=run_id,
+                    diagnostic_status="warning",
+                    has_errors=False,
+                    has_warnings=True,
+                    error_count=0,
+                    warning_count=1,
+                    run_integrity=SimpleNamespace(
+                        run_status="finished",
+                        start_time=datetime.fromisoformat("2026-04-01T00:00:00+00:00"),
+                        end_time=datetime.fromisoformat("2026-04-02T00:00:00+00:00"),
+                        timepoints_observed=100,
+                        expected_timepoints=120,
+                        missing_timepoints=20,
+                    ),
+                    strategy_activity=SimpleNamespace(
+                        signal_count=12,
+                        entry_signals=4,
+                        exit_signals=4,
+                        reduce_signals=2,
+                        reverse_signals=1,
+                        rebalance_signals=1,
+                    ),
+                    execution_summary=SimpleNamespace(
+                        simulated_order_count=12,
+                        simulated_fill_count=10,
+                        expired_order_count=2,
+                        unlinked_order_count=0,
+                        fill_rate_pct="0.8333",
+                    ),
+                    pnl_summary=SimpleNamespace(
+                        total_return="0.1234",
+                        max_drawdown="0.0456",
+                        turnover="1.2345",
+                        fee_cost="12.34",
+                        slippage_cost="5.67",
+                    ),
+                    diagnostic_flags=[
+                        SimpleNamespace(
+                            code="expired_orders_present",
+                            severity="warning",
+                            message="one or more simulated orders expired without filling",
+                            related_count=2,
+                        )
+                    ],
+                )
+
+        app_module.BacktestDiagnosticsProjector = StubProjector
+        try:
+            response = self.__class__.backtest_diagnostics_endpoint(501, "Bearer developer:u_123:Alice")
+        finally:
+            app_module.BacktestDiagnosticsProjector = original_projector
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.run_id, 501)
+        self.assertEqual(response.data.diagnostic_status, "warning")
+        self.assertEqual(response.data.execution_summary.expired_order_count, 2)
+        self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
 
 
 if __name__ == "__main__":

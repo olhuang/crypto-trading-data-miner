@@ -339,7 +339,7 @@ Make collected market data reliable enough for research and downstream execution
 - funding/open-interest/mark/index now also have a scheduler-ready remediation job shape for manual/API-triggered catch-up planning without enabling a continuous remediation loop yet
 - future enhancement still pending: cross-dataset diagnostic checks such as funding vs nearby mark/index alignment, mark-vs-index spread sanity, and raw-to-normalized coverage correlation summaries
 - current monitoring UI is intentionally a lightweight internal console, not the final long-term product frontend foundation
-- the Phase 5 backtest path now includes deterministic bars-based market/limit fill simulation, aggregate portfolio/equity projection, and DB-backed persisted runs, but still needs diagnostics projection and compare/analyze surfaces
+- the Phase 5 backtest path now includes deterministic bars-based market/limit fill simulation, aggregate portfolio/equity projection, DB-backed persisted runs, and a first run-level diagnostics summary API, but still needs step traces, period breakdown, and compare/analyze surfaces
 
 ---
 
@@ -439,7 +439,7 @@ Provide the first end-to-end research workflow using historical data.
 - minimum Phase 4 data-quality baseline for bars-based research inputs
 
 ### Recommended Status
-- started with an architecture-aligned session/strategy/lifecycle skeleton, the first bar-stream signal-generation loop, a deterministic bars-based fill model with fee/slippage support, and DB-backed run/order/fill/performance persistence
+- started with an architecture-aligned session/strategy/lifecycle skeleton, the first bar-stream signal-generation loop, a deterministic bars-based fill model with fee/slippage support, DB-backed run/order/fill/performance persistence, and the first diagnostics-summary surface
 
 ---
 

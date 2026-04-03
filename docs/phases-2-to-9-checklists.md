@@ -664,43 +664,43 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.6: Implement example report workflow
 ### Tasks
-- [ ] compute total return
+- [x] compute total return
 - [ ] compute Sharpe and drawdown
-- [ ] compute turnover and fee costs
+- [x] compute turnover and fee costs
 - [ ] output a simple run summary to console or file
-- [ ] define or emit a first diagnostic summary separate from KPI-only output
+- [x] define or emit a first diagnostic summary separate from KPI-only output
 
 ### Acceptance Checks
-- [ ] at least one run produces interpretable performance output
-- [ ] performance summary matches timeseries-derived results
-- [ ] report output and debug/diagnostic output are not conflated
+- [x] at least one run produces interpretable performance output
+- [x] performance summary matches timeseries-derived results
+- [x] report output and debug/diagnostic output are not conflated
 
 ---
 
 ## Task 5.6A: Plan diagnostic traces and replay inspection
 ### Tasks
-- [ ] define run-level diagnostic summary shape
-- [ ] define step-level debug trace shape
-- [ ] define how replay runs will expose event/state timelines
-- [ ] define how UI should inspect backtest and replay diagnostics
-- [ ] define staged rollout from diagnostics summary baseline to full replay diagnostics
+- [x] define run-level diagnostic summary shape
+- [x] define step-level debug trace shape
+- [x] define how replay runs will expose event/state timelines
+- [x] define how UI should inspect backtest and replay diagnostics
+- [x] define staged rollout from diagnostics summary baseline to full replay diagnostics
 
 ### Acceptance Checks
-- [ ] repository has a documented plan for backtest diagnostics and replay debugging
-- [ ] future UI/API work has explicit report/trace surfaces to build against
+- [x] repository has a documented plan for backtest diagnostics and replay debugging
+- [x] future UI/API work has explicit report/trace surfaces to build against
 
 ---
 
 ## Task 5.6B: Stage diagnostics, reporting, and replay implementation
 ### Tasks
-- [ ] Stage A: implement run-level diagnostics summary baseline
+- [x] Stage A: implement run-level diagnostics summary baseline
 - [ ] Stage B: implement step-level debug trace foundation
 - [ ] Stage C: implement full backtest diagnostics and period-level analysis
 - [ ] Stage D: implement replay diagnostics, replay timelines, and replay UI inspection support
 
 ### Acceptance Checks
-- [ ] diagnostics/reporting/replay work is broken into explicit implementation stages
-- [ ] later replay/UI work can build on earlier report/trace surfaces without redesign
+- [x] diagnostics/reporting/replay work is broken into explicit implementation stages
+- [x] later replay/UI work can build on earlier report/trace surfaces without redesign
 
 ---
 
@@ -769,16 +769,17 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
 - [x] the Phase 5 skeleton now includes aggregate portfolio state, reproducible equity/exposure projection, and a DB-backed run writer for `backtest.*`
-- [ ] the Phase 5 skeleton has not yet been extended into a diagnostics projector or period-breakdown reporting layer
+- [x] the Phase 5 skeleton now includes a run-level diagnostics summary projector and the first `/api/v1/backtests/runs/{run_id}/diagnostics` API surface
+- [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or period-breakdown reporting layer
 
 ---
 
 ## Phase 5 Final Acceptance Summary
-- [ ] one strategy can run end-to-end on historical bars
-- [ ] signals are produced
-- [ ] simulated orders and fills are produced
+- [x] one strategy can run end-to-end on historical bars
+- [x] signals are produced
+- [x] simulated orders and fills are produced
 - [x] run metadata and results persist to DB
-- [ ] core KPIs are computed
+- [x] core KPIs are computed
 
 ## Handoff Criteria to Phase 6
 - [ ] research workflow exists from bars to persisted backtest results

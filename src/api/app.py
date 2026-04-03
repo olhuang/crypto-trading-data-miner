@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from fastapi.responses import JSONResponse
 
 from config import settings
+from backtest.diagnostics import BacktestDiagnosticsProjector
 from jobs.backfill_bars import run_bar_backfill
 from jobs.data_quality import run_phase4_quality_suite
 from jobs.remediate_market_snapshots import run_market_snapshot_remediation
@@ -174,6 +175,61 @@ class ReplayReadinessResource(BaseModel):
     known_gaps: int
     retention_policy: dict[str, str]
     replay_ready_datasets: dict[str, bool]
+
+
+class DiagnosticFlagResource(BaseModel):
+    code: str
+    severity: str
+    message: str
+    related_count: int | None = None
+
+
+class BacktestRunIntegrityResource(BaseModel):
+    run_status: str
+    start_time: str
+    end_time: str
+    timepoints_observed: int
+    expected_timepoints: int | None = None
+    missing_timepoints: int
+
+
+class BacktestStrategyActivityResource(BaseModel):
+    signal_count: int
+    entry_signals: int
+    exit_signals: int
+    reduce_signals: int
+    reverse_signals: int
+    rebalance_signals: int
+
+
+class BacktestExecutionSummaryResource(BaseModel):
+    simulated_order_count: int
+    simulated_fill_count: int
+    expired_order_count: int
+    unlinked_order_count: int
+    fill_rate_pct: str | None = None
+
+
+class BacktestPnlSummaryResource(BaseModel):
+    total_return: str | None = None
+    max_drawdown: str | None = None
+    turnover: str | None = None
+    fee_cost: str | None = None
+    slippage_cost: str | None = None
+
+
+class BacktestDiagnosticsSummaryResource(BaseModel):
+    run_id: int
+    diagnostic_status: str
+    has_errors: bool
+    has_warnings: bool
+    error_count: int
+    warning_count: int
+    run_integrity: BacktestRunIntegrityResource
+    strategy_activity: BacktestStrategyActivityResource
+    execution_summary: BacktestExecutionSummaryResource
+    pnl_summary: BacktestPnlSummaryResource
+    diagnostic_flags: list[DiagnosticFlagResource]
 
 
 class ValidationResultResource(BaseModel):
@@ -845,6 +901,70 @@ def create_app() -> FastAPI:
                         "match_strategy": link.match_strategy,
                     }
                     for link in links
+                ],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/diagnostics")
+    def backtest_run_diagnostics(
+        run_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestDiagnosticsSummaryResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            summary = BacktestDiagnosticsProjector().build_summary(connection, run_id)
+        if summary is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+            )
+        return SuccessEnvelope[BacktestDiagnosticsSummaryResource](
+            data=BacktestDiagnosticsSummaryResource(
+                run_id=summary.run_id,
+                diagnostic_status=summary.diagnostic_status,
+                has_errors=summary.has_errors,
+                has_warnings=summary.has_warnings,
+                error_count=summary.error_count,
+                warning_count=summary.warning_count,
+                run_integrity=BacktestRunIntegrityResource(
+                    run_status=summary.run_integrity.run_status,
+                    start_time=summary.run_integrity.start_time.isoformat(),
+                    end_time=summary.run_integrity.end_time.isoformat(),
+                    timepoints_observed=summary.run_integrity.timepoints_observed,
+                    expected_timepoints=summary.run_integrity.expected_timepoints,
+                    missing_timepoints=summary.run_integrity.missing_timepoints,
+                ),
+                strategy_activity=BacktestStrategyActivityResource(
+                    signal_count=summary.strategy_activity.signal_count,
+                    entry_signals=summary.strategy_activity.entry_signals,
+                    exit_signals=summary.strategy_activity.exit_signals,
+                    reduce_signals=summary.strategy_activity.reduce_signals,
+                    reverse_signals=summary.strategy_activity.reverse_signals,
+                    rebalance_signals=summary.strategy_activity.rebalance_signals,
+                ),
+                execution_summary=BacktestExecutionSummaryResource(
+                    simulated_order_count=summary.execution_summary.simulated_order_count,
+                    simulated_fill_count=summary.execution_summary.simulated_fill_count,
+                    expired_order_count=summary.execution_summary.expired_order_count,
+                    unlinked_order_count=summary.execution_summary.unlinked_order_count,
+                    fill_rate_pct=summary.execution_summary.fill_rate_pct,
+                ),
+                pnl_summary=BacktestPnlSummaryResource(
+                    total_return=summary.pnl_summary.total_return,
+                    max_drawdown=summary.pnl_summary.max_drawdown,
+                    turnover=summary.pnl_summary.turnover,
+                    fee_cost=summary.pnl_summary.fee_cost,
+                    slippage_cost=summary.pnl_summary.slippage_cost,
+                ),
+                diagnostic_flags=[
+                    DiagnosticFlagResource(
+                        code=flag.code,
+                        severity=flag.severity,
+                        message=flag.message,
+                        related_count=flag.related_count,
+                    )
+                    for flag in summary.diagnostic_flags
                 ],
             ),
             meta=_meta(actor),

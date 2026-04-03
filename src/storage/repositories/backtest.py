@@ -24,6 +24,8 @@ class BacktestRunRepository:
             "session_code": run_config.session.session_code,
             "environment": run_config.session.environment,
             "netting_mode": run_config.session.netting_mode,
+            "bar_interval": run_config.bar_interval,
+            "initial_cash": str(run_config.initial_cash),
             "strategy_params": run_config.strategy_params_json,
             "run_metadata": run_config.metadata_json,
             "session_metadata": run_config.session.metadata_json,

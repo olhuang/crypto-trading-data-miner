@@ -306,6 +306,70 @@ Used by:
 
 ---
 
+## 4.3 Backtest Diagnostics Summary Resource
+
+Used by:
+- `GET /api/v1/backtests/runs/{run_id}/diagnostics`
+
+### Response Shape
+
+```json
+{
+  "run_id": 5001,
+  "diagnostic_status": "warning",
+  "has_errors": false,
+  "has_warnings": true,
+  "error_count": 0,
+  "warning_count": 1,
+  "run_integrity": {
+    "run_status": "finished",
+    "start_time": "2026-01-01T00:00:00Z",
+    "end_time": "2026-02-01T00:00:00Z",
+    "timepoints_observed": 43200,
+    "expected_timepoints": 44640,
+    "missing_timepoints": 1440
+  },
+  "strategy_activity": {
+    "signal_count": 38,
+    "entry_signals": 10,
+    "exit_signals": 10,
+    "reduce_signals": 6,
+    "reverse_signals": 2,
+    "rebalance_signals": 10
+  },
+  "execution_summary": {
+    "simulated_order_count": 38,
+    "simulated_fill_count": 36,
+    "expired_order_count": 2,
+    "unlinked_order_count": 0,
+    "fill_rate_pct": "0.9474"
+  },
+  "pnl_summary": {
+    "total_return": "0.0842",
+    "max_drawdown": "0.0310",
+    "turnover": "1.8420",
+    "fee_cost": "124.55",
+    "slippage_cost": "54.20"
+  },
+  "diagnostic_flags": [
+    {
+      "code": "expired_orders_present",
+      "severity": "warning",
+      "message": "one or more simulated orders expired without filling",
+      "related_count": 2
+    }
+  ]
+}
+```
+
+### Notes
+
+- this is the Stage A diagnostics surface from `docs/backtest-and-replay-diagnostics-spec.md`
+- the response is a summary/projection, not a full step trace
+- later debug-trace endpoints should drill down from the flags and aggregates returned here
+
+---
+
 ## 5. Mismatch Review Result Resource
 
 Used by:

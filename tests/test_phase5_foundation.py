@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
+from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.runner import BacktestRunnerSkeleton
 from backtest.state import PortfolioState
@@ -628,6 +629,7 @@ class Phase5FoundationTests(unittest.TestCase):
                 ),
                 {"run_id": persisted.run_id},
             ).scalar_one()
+            diagnostics = BacktestDiagnosticsProjector().build_summary(connection, persisted.run_id)
 
             self.assertGreater(persisted.run_id, 0)
             self.assertEqual(order_count, 1)
@@ -637,6 +639,11 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertIsNotNone(summary_row["total_return"])
             self.assertEqual(Decimal(summary_row["fee_cost"]), persisted.loop_result.performance_summary.fee_cost)
             self.assertEqual(Decimal(summary_row["slippage_cost"]), persisted.loop_result.performance_summary.slippage_cost)
+            self.assertIsNotNone(diagnostics)
+            assert diagnostics is not None
+            self.assertEqual(diagnostics.diagnostic_status, "ok")
+            self.assertEqual(diagnostics.execution_summary.simulated_order_count, 1)
+            self.assertEqual(diagnostics.strategy_activity.signal_count, 1)
         finally:
             transaction.rollback()
             connection.close()

@@ -779,6 +779,10 @@ Purpose:
 Purpose:
 - return backtest diagnostics summary
 
+Current implementation status:
+- implemented as the Stage A run-level diagnostics summary baseline
+- currently returns run integrity, strategy activity, execution summary, PnL summary, and deterministic warning flags
+
 ### GET `/api/v1/backtests/runs/{run_id}/debug-traces`
 Purpose:
 - return step-level debug traces for a backtest run

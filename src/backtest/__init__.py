@@ -1,3 +1,4 @@
+from .diagnostics import BacktestDiagnosticsProjector, BacktestDiagnosticsSummary, DiagnosticFlag
 from .fills import (
     DatabaseFeeScheduleModel,
     DeterministicBarsFillModel,
@@ -12,11 +13,14 @@ from .state import PortfolioState, PositionState
 
 __all__ = [
     "BacktestLifecycle",
+    "BacktestDiagnosticsProjector",
+    "BacktestDiagnosticsSummary",
     "BacktestRunnerSkeleton",
     "BacktestStepPlan",
     "BacktestStepResult",
     "DatabaseFeeScheduleModel",
     "DeterministicBarsFillModel",
+    "DiagnosticFlag",
     "ExecutionIntent",
     "FixedBpsSlippageModel",
     "LifecyclePlanningError",
