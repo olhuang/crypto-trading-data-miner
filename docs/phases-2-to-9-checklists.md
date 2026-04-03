@@ -477,6 +477,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] historical trades are explicitly documented as a future manual bounded-backfill path, not a startup or continuous auto-remediation path
 - [x] funding/OI/mark/index now have a scheduler-ready remediation job path without turning on continuous auto catch-up
 - [x] funding/OI/mark/index now also have dataset-level sanity checks for freshness, duplicates, and bounded continuity
+- [ ] future Phase 4 enhancement: add cross-dataset diagnostic checks such as funding-to-mark/index alignment, mark-vs-index spread sanity, and raw-to-normalized coverage correlation
 
 ## Phase 4 Final Acceptance Summary
 - [x] bar gaps are detectable

@@ -207,6 +207,17 @@ This table records which remediation model best fits each currently relevant dat
 - Use **manual bounded backfill** for high-volume or operator-sensitive datasets where automatic catch-up would create too much DB, startup, or rate-limit risk.
 - Use **specialized replay remediation later** for order book and other stateful stream datasets that cannot be safely modeled by simple freshness or gap checks.
 
+### Recorded Future Diagnostic Work
+
+The current quality baseline intentionally stops at dataset-level sanity checks for the implemented snapshot datasets.
+
+Future diagnostic work should add cross-dataset checks such as:
+- funding rows aligned against nearby mark/index observations
+- mark-vs-index spread sanity bands
+- raw-event coverage vs normalized-write coverage summaries
+
+These are explicitly future enhancements and should not be treated as already implemented by the current Phase 4 baseline.
+
 ---
 
 ## 3. Orchestration Model
