@@ -46,6 +46,7 @@ The repository already has a strong design foundation and is now design-complete
 - a minimal static Monitoring Console under `frontend/monitoring/` for Overview, Jobs, Quality, and Traceability views backed by the existing Phase 3/4 APIs
 - quality summary/check inspection now supports a latest-only monitoring mode so dashboards can focus on current effective dataset health instead of cumulative historical runs
 - `docs/position-management-spec.md` now freezes the intended extensible architecture for Phase 5-8 position management, execution ownership, protection state, and reporting
+- `docs/strategy-input-and-feature-pipeline-spec.md` now freezes the intended long-lived plan for multi-dataset strategy inputs, feature alignment, and no-look-ahead handling
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
 
@@ -344,6 +345,12 @@ Before implementing Phase 5 internals, treat `docs/position-management-spec.md` 
 - fill-level execution truth
 - phased TP / SL and protection rollout
 - future compatibility with paper/live/reconciliation work
+
+Also treat `docs/strategy-input-and-feature-pipeline-spec.md` as the planning backbone for:
+- bars-only MVP scope
+- future funding/OI/mark/index strategy inputs
+- time alignment and no-look-ahead rules
+- future feature-pipeline expansion beyond bars
 
 ### Goal
 Provide the first end-to-end research workflow using historical data.

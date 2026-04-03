@@ -20,6 +20,7 @@ This file is intended to be used together with:
 - `docs/data-catalog-addendum.md`
 - `docs/api-contracts.md`
 - `docs/position-management-spec.md` for all Phase 5-8 position/execution/protection/reporting work
+- `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
 
 ---
 
@@ -516,6 +517,12 @@ Phase 5 should follow `docs/position-management-spec.md` as the planning backbon
 - position/protection/reporting extensibility
 - future paper/live/reconciliation reuse
 
+Phase 5 should also follow `docs/strategy-input-and-feature-pipeline-spec.md` as the planning backbone for:
+- bars-only MVP scope
+- future aligned funding/OI/mark/index inputs
+- time alignment and no-look-ahead rules
+- later feature-pipeline expansion beyond bars
+
 ## Goal
 Provide the first end-to-end research workflow using historical bar data.
 
@@ -566,6 +573,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] evaluate strategy over historical bars
 - [ ] emit canonical signals
 - [ ] optionally persist signals to `strategy.signals`
+- [ ] keep the first loop compatible with future `StrategyInputSnapshot` expansion from `docs/strategy-input-and-feature-pipeline-spec.md`
 
 ### Acceptance Checks
 - [ ] backtest run can generate signals from historical bars
@@ -630,6 +638,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] `src/strategy/` now contains a base strategy interface, default registry, and seeded example strategy implementation
 - [x] `src/backtest/` now contains a lifecycle-planning and runner skeleton aligned to `docs/position-management-spec.md`
 - [x] automated tests now validate session config, default strategy loading, example strategy output, and initial lifecycle planning
+- [x] a dedicated strategy-input/feature-pipeline planning spec now exists for future non-bar strategy inputs
 - [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 
 ---
