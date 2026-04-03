@@ -71,6 +71,70 @@ class BarRepository:
             },
         )
 
+    def list_window(
+        self,
+        connection: Connection,
+        *,
+        exchange_code: str,
+        unified_symbol: str,
+        start_time,
+        end_time,
+        limit: int | None = None,
+    ) -> list[BarEvent]:
+        rows = connection.execute(
+            text(
+                """
+                select
+                    e.exchange_code,
+                    i.unified_symbol,
+                    b.bar_time,
+                    b.open,
+                    b.high,
+                    b.low,
+                    b.close,
+                    b.volume,
+                    b.quote_volume,
+                    b.trade_count
+                from md.bars_1m b
+                join ref.instruments i on i.instrument_id = b.instrument_id
+                join ref.exchanges e on e.exchange_id = i.exchange_id
+                where e.exchange_code = :exchange_code
+                  and i.unified_symbol = :unified_symbol
+                  and b.bar_time >= :start_time
+                  and b.bar_time < :end_time
+                order by b.bar_time asc
+                limit coalesce(:limit, 2147483647)
+                """
+            ),
+            {
+                "exchange_code": exchange_code,
+                "unified_symbol": unified_symbol,
+                "start_time": start_time,
+                "end_time": end_time,
+                "limit": limit,
+            },
+        ).mappings()
+        return [
+            BarEvent.model_validate(
+                {
+                    "exchange_code": row["exchange_code"],
+                    "unified_symbol": row["unified_symbol"],
+                    "bar_interval": "1m",
+                    "bar_time": row["bar_time"],
+                    "event_time": row["bar_time"],
+                    "ingest_time": row["bar_time"],
+                    "open": row["open"],
+                    "high": row["high"],
+                    "low": row["low"],
+                    "close": row["close"],
+                    "volume": row["volume"],
+                    "quote_volume": row["quote_volume"],
+                    "trade_count": row["trade_count"],
+                }
+            )
+            for row in rows
+        ]
+
 
 class TradeRepository:
     def upsert(self, connection: Connection, event: TradeEvent) -> None:

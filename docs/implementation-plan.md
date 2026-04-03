@@ -50,7 +50,9 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/strategy-input-and-feature-pipeline-spec.md` now freezes the intended long-lived plan for multi-dataset strategy inputs, feature alignment, and no-look-ahead handling
 - `docs/strategy-research-and-evaluation-spec.md` now freezes the intended long-lived plan for strategy development, research, testing, and comparative evaluation
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
+- Phase 5 bars loading, bar-by-bar strategy evaluation, canonical signal normalization, and optional signal persistence now exist under `src/backtest/` and `src/storage/repositories/strategy.py`
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
+- automated tests now also cover the current Phase 5 bar-stream loop and target-position-to-signal normalization path
 
 ### Not Yet Implemented
 - backtest engine
@@ -402,7 +404,7 @@ Provide the first end-to-end research workflow using historical data.
 - minimum Phase 4 data-quality baseline for bars-based research inputs
 
 ### Recommended Status
-- started with an architecture-aligned session/strategy/lifecycle skeleton
+- started with an architecture-aligned session/strategy/lifecycle skeleton plus the first bar-stream signal-generation loop
 
 ---
 

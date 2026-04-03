@@ -15,8 +15,9 @@ if str(SRC_ROOT) not in sys.path:
 
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.runner import BacktestRunnerSkeleton
+from backtest.signals import build_signals_from_target_position
 from models.backtest import BacktestRunConfig, StrategySessionConfig
-from models.common import OrderSide
+from models.common import OrderSide, SignalType
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
 from strategy import MovingAverageCrossStrategy, StrategyEvaluationInput, UnknownStrategyError, build_default_registry
@@ -231,8 +232,70 @@ class Phase5FoundationTests(unittest.TestCase):
         )
 
         self.assertIsInstance(result.plan.decision, TargetPosition)
+        self.assertEqual(len(result.signals), 1)
+        self.assertEqual(result.signals[0].signal_type, SignalType.ENTRY)
         self.assertEqual(len(result.plan.execution_intents), 1)
         self.assertEqual(result.plan.execution_intents[0].delta_qty, Decimal("1"))
+
+    def test_target_position_is_normalized_to_canonical_signal(self) -> None:
+        target = TargetPosition.model_validate(
+            {
+                "strategy_code": "btc_momentum",
+                "strategy_version": "v1.0.0",
+                "target_time": "2026-04-02T00:01:00Z",
+                "positions": [
+                    {
+                        "exchange_code": "binance",
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "target_qty": "-1",
+                    }
+                ],
+            }
+        )
+
+        signals = build_signals_from_target_position(
+            target,
+            {"BTCUSDT_PERP": Decimal("0")},
+            session_code="bt_btc",
+        )
+
+        self.assertEqual(len(signals), 1)
+        self.assertEqual(signals[0].signal_type, SignalType.ENTRY)
+        self.assertEqual(signals[0].direction, "short")
+        self.assertEqual(signals[0].target_qty, Decimal("1"))
+
+    def test_runner_loop_generates_signals_over_bar_stream(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_loop",
+                "session": {
+                    "session_code": "bt_btc",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+                "strategy_params": {
+                    "short_window": 3,
+                    "long_window": 5,
+                    "target_qty": "1",
+                },
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", index, str(100 + index)) for index in range(20)]
+        runner = BacktestRunnerSkeleton(run_config)
+
+        result = runner.run_bars(bars)
+
+        generated_signals = [signal for step in result.steps for signal in step.signals]
+        self.assertGreaterEqual(len(generated_signals), 1)
+        self.assertEqual(generated_signals[0].unified_symbol, "BTCUSDT_PERP")
+        self.assertEqual(result.final_positions["BTCUSDT_PERP"], Decimal("1"))
 
     def test_runner_rejects_bar_outside_session_universe(self) -> None:
         run_config = BacktestRunConfig.model_validate(

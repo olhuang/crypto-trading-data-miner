@@ -585,15 +585,15 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.2: Implement signal generation loop
 ### Tasks
-- [ ] load bar data from `md.bars_1m`
-- [ ] evaluate strategy over historical bars
-- [ ] emit canonical signals
-- [ ] optionally persist signals to `strategy.signals`
-- [ ] keep the first loop compatible with future `StrategyInputSnapshot` expansion from `docs/strategy-input-and-feature-pipeline-spec.md`
+- [x] load bar data from `md.bars_1m`
+- [x] evaluate strategy over historical bars
+- [x] emit canonical signals
+- [x] optionally persist signals to `strategy.signals`
+- [x] keep the first loop compatible with future `StrategyInputSnapshot` expansion from `docs/strategy-input-and-feature-pipeline-spec.md`
 
 ### Acceptance Checks
-- [ ] backtest run can generate signals from historical bars
-- [ ] signals follow canonical payload structure
+- [x] backtest run can generate signals from historical bars
+- [x] signals follow canonical payload structure
 
 ---
 
@@ -670,6 +670,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated strategy-input/feature-pipeline planning spec now exists for future non-bar strategy inputs
 - [x] a dedicated strategy-research/evaluation planning spec now exists for future multi-window and multi-strategy research workflows
 - [x] a dedicated strategy taxonomy/versioning planning spec now exists for family, variant, and version identity
+- [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [ ] the Phase 5 skeleton has not yet been extended into a full deterministic fill simulation or DB-backed run writer
 
 ---
