@@ -39,6 +39,7 @@ The repository already has a strong design foundation and is now design-complete
 - replay and hot-retention baseline documented in `docs/replay-retention-policy.md`
 - automated tests for the current Phase 4 quality, traceability, and replay-readiness slice
 - dev-only startup gap-remediation support for recent bars windows in local app runs
+- a minimal static Monitoring Console under `frontend/monitoring/` for Overview, Jobs, Quality, and Traceability views backed by the existing Phase 3/4 APIs
 
 ### Not Yet Implemented
 - backtest engine
@@ -313,6 +314,7 @@ Make collected market data reliable enough for research and downstream execution
 - historical trades should remain manual bounded backfill work when introduced, rather than being added to startup remediation or continuous auto catch-up by default
 - funding/open-interest/mark/index now also have a scheduler-ready remediation job shape for manual/API-triggered catch-up planning without enabling a continuous remediation loop yet
 - future enhancement still pending: cross-dataset diagnostic checks such as funding vs nearby mark/index alignment, mark-vs-index spread sanity, and raw-to-normalized coverage correlation summaries
+- current monitoring UI is intentionally a lightweight internal console, not the final long-term product frontend foundation
 
 ---
 

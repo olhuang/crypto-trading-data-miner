@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Monitoring Console</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <p class="eyebrow">Crypto Trading Data Miner</p>
+          <h1>Monitoring Console</h1>
+        </div>
+        <nav class="nav">
+          <button class="nav-link is-active" data-view="overview">Overview</button>
+          <button class="nav-link" data-view="jobs">Jobs</button>
+          <button class="nav-link" data-view="quality">Quality</button>
+          <button class="nav-link" data-view="traceability">Traceability</button>
+        </nav>
+        <div class="sidebar-note">
+          <p>Internal monitoring UI for current ingestion, quality, and traceability workflows.</p>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Phase 3-4 Monitoring</p>
+            <h2 id="view-title">Overview</h2>
+          </div>
+          <div class="topbar-actions">
+            <span class="env-badge">Local</span>
+            <button id="refresh-all" class="secondary-button">Refresh</button>
+          </div>
+        </header>
+
+        <section id="view-overview" class="view is-visible">
+          <div class="grid cards-grid">
+            <article class="card">
+              <p class="card-label">App Health</p>
+              <h3 id="health-status">Loading</h3>
+              <p id="health-checked-at" class="card-detail">Waiting for API</p>
+            </article>
+            <article class="card">
+              <p class="card-label">Quality Summary</p>
+              <h3 id="quality-total">-</h3>
+              <p id="quality-breakdown" class="card-detail">No data yet</p>
+            </article>
+            <article class="card">
+              <p class="card-label">Open Gaps</p>
+              <h3 id="gaps-count">-</h3>
+              <p id="gaps-detail" class="card-detail">No data yet</p>
+            </article>
+            <article class="card">
+              <p class="card-label">Replay Readiness</p>
+              <h3 id="replay-status">-</h3>
+              <p id="replay-detail" class="card-detail">No data yet</p>
+            </article>
+          </div>
+
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Recent Jobs</h3>
+                <p>Latest ingestion and remediation jobs</p>
+              </div>
+              <div id="overview-jobs" class="table-shell"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Stream Status</h3>
+                <p>Current websocket connection visibility</p>
+              </div>
+              <div id="overview-streams" class="table-shell"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-jobs" class="view">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Jobs</h3>
+              <p>List recent ingestion and remediation runs</p>
+            </div>
+            <form id="jobs-filter-form" class="filters">
+              <input name="service_name" placeholder="service_name" />
+              <input name="status" placeholder="status" />
+              <input name="data_type" placeholder="data_type" />
+              <input name="unified_symbol" placeholder="unified_symbol" />
+              <button type="submit">Apply Filters</button>
+            </form>
+            <div id="jobs-table" class="table-shell"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Selected Job Detail</h3>
+              <p>Click a job row to inspect metadata and summary</p>
+            </div>
+            <div id="job-detail" class="json-shell">Select a job row</div>
+          </div>
+        </section>
+
+        <section id="view-quality" class="view">
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Quality Checks</h3>
+                <p>Freshness, duplicate, continuity, and gap-related checks</p>
+              </div>
+              <form id="quality-filter-form" class="filters">
+                <input name="data_type" placeholder="data_type" />
+                <input name="status" placeholder="status" />
+                <input name="severity" placeholder="severity" />
+                <input name="unified_symbol" placeholder="unified_symbol" />
+                <button type="submit">Apply Filters</button>
+              </form>
+              <div id="quality-checks" class="table-shell"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Open Gaps</h3>
+                <p>Recent unresolved or historical gaps from ops.data_gaps</p>
+              </div>
+              <div id="quality-gaps" class="table-shell"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-traceability" class="view">
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Raw Events</h3>
+                <p>Recent raw events for drilling into payloads and links</p>
+              </div>
+              <form id="raw-filter-form" class="filters">
+                <input name="exchange_code" placeholder="exchange_code" />
+                <input name="channel" placeholder="channel" />
+                <input name="event_type" placeholder="event_type" />
+                <button type="submit">Apply Filters</button>
+              </form>
+              <div id="raw-events" class="table-shell"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Traceability Detail</h3>
+                <p>Selected raw event detail and normalized links</p>
+              </div>
+              <div class="traceability-stack">
+                <div id="raw-event-detail" class="json-shell">Select a raw event row</div>
+                <div id="raw-event-links" class="json-shell">Normalized links will appear here</div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>

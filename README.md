@@ -81,6 +81,7 @@ Major implementation areas now present include:
 - optional dev-only startup gap remediation under `src/services/startup_remediation.py`
 - scheduler-ready market snapshot remediation job under `src/jobs/remediate_market_snapshots.py` for manual/API-triggered funding/OI/mark/index catch-up planning
 - minimal FastAPI app with `/api/v1/system/health`, `/api/v1/models/*`, `/api/v1/ingestion/jobs/*`, `/api/v1/quality/*`, `/api/v1/market/*`, `/api/v1/streams/*`, and `/api/v1/replay/readiness`
+- a minimal static Monitoring Console under `frontend/monitoring/`, mounted by the API app at `/monitoring`
 - minimal auth handling for the current models API slice
 - replay/retention guidance in `docs/replay-retention-policy.md`
 - automated tests for the current Phase 2/Phase 3/Phase 4 model, storage, API, ingestion, and quality foundation
@@ -100,6 +101,11 @@ Current API response/resource reference:
 Current local remediation behavior:
 - when `APP_ENV=local` and `ENABLE_STARTUP_GAP_REMEDIATION=true`, app startup can run a one-time recent bars gap detection/remediation pass
 - this is intended for local/dev only and is not the production remediation model
+
+Current monitoring UI behavior:
+- `/monitoring` provides a lightweight internal console for Overview, Jobs, Quality, and Traceability views
+- it is intentionally an internal monitoring/diagnostic UI, not the full long-term frontend architecture
+- the current console depends on the existing API slice and local/shared auth behavior; it does not replace the future React app foundation described in the frontend specs
 
 ---
 
@@ -259,9 +265,9 @@ Recommended backend-first sequence:
 3. keep checklist and replay docs in sync as the first backtest slice lands
 
 Recommended frontend-first sequence:
-1. build first frontend foundation slice
-2. implement Phase 0 pages
-3. implement Phase 1 pages
+1. use `/monitoring` as the current operational console for data-flow monitoring
+2. build the longer-term frontend foundation slice when product UI work begins
+3. implement Phase 0 and Phase 1 product pages on top of that foundation
 
 ---
 

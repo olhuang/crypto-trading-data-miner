@@ -289,6 +289,63 @@ class IngestionJobRepository:
         ).mappings().first()
         return None if row is None else dict(row)
 
+    def list_recent(
+        self,
+        connection: Connection,
+        *,
+        limit: int = 100,
+        status: str | None = None,
+        service_name: str | None = None,
+        data_type: str | None = None,
+        exchange_code: str | None = None,
+        unified_symbol: str | None = None,
+    ) -> list[dict[str, Any]]:
+        filters = []
+        params: dict[str, Any] = {"limit": limit}
+        if status is not None:
+            filters.append("job.status = :status")
+            params["status"] = status
+        if service_name is not None:
+            filters.append("job.service_name = :service_name")
+            params["service_name"] = service_name
+        if data_type is not None:
+            filters.append("job.data_type = :data_type")
+            params["data_type"] = data_type
+        if exchange_code is not None:
+            filters.append("exchange.exchange_code = :exchange_code")
+            params["exchange_code"] = exchange_code
+        if unified_symbol is not None:
+            filters.append("instrument.unified_symbol = :unified_symbol")
+            params["unified_symbol"] = unified_symbol
+        where_clause = f"where {' and '.join(filters)}" if filters else ""
+        rows = connection.execute(
+            text(
+                f"""
+                select
+                    job.ingestion_job_id as job_id,
+                    job.service_name,
+                    job.data_type,
+                    job.status,
+                    job.started_at,
+                    job.finished_at,
+                    job.records_expected,
+                    job.records_written,
+                    job.error_message,
+                    job.metadata_json,
+                    exchange.exchange_code,
+                    instrument.unified_symbol
+                from ops.ingestion_jobs job
+                left join ref.exchanges exchange on exchange.exchange_id = job.exchange_id
+                left join ref.instruments instrument on instrument.instrument_id = job.instrument_id
+                {where_clause}
+                order by job.started_at desc, job.ingestion_job_id desc
+                limit :limit
+                """
+            ),
+            params,
+        ).mappings().all()
+        return [dict(row) for row in rows]
+
 
 class WsConnectionEventRepository:
     def insert(self, connection: Connection, record: WsConnectionEventRecord) -> int:

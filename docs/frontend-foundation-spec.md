@@ -54,6 +54,16 @@ This foundation spec covers only the modules that should be established first:
 - paper/live trading implementation
 - advanced charting
 - websocket-heavy views beyond initial system structure
+- the current lightweight static Monitoring Console at `frontend/monitoring/`
+
+### Current Implementation Relationship
+The repository now also contains a lightweight static monitoring console under `frontend/monitoring/`.
+
+That console:
+- is intended for immediate operational visibility over current Phase 3/4 APIs
+- provides Overview, Jobs, Quality, and Traceability monitoring views
+- is not the same thing as the long-term frontend foundation described in this document
+- should be treated as an interim operational UI slice, not as completion of the planned React/frontend architecture
 
 ---
 

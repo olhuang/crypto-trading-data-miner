@@ -434,13 +434,17 @@ Backend status note:
 Purpose:
 - list ingestion jobs
 
+Implementation note:
+- implemented in `src/api/app.py`
+- current implementation supports the minimum Monitoring Console needs for recent job inspection and filtering
+
 Query params:
 - `status`
+- `service_name`
 - `data_type`
 - `exchange_code`
-- `instrument_id`
+- `unified_symbol`
 - `limit`
-- `offset`
 
 ### POST `/api/v1/ingestion/jobs/instrument-sync`
 Purpose:
@@ -585,6 +589,7 @@ Implementation note:
 - [x] UI can trigger bar backfill
 - [x] UI can query newly ingested market data
 - [x] UI can inspect websocket health and connection events
+- [x] UI can list and inspect recent ingestion jobs for monitoring
 
 ---
 
@@ -662,6 +667,7 @@ Response fields:
 - [x] UI can inspect raw events and payloads
 - [x] UI can show replay readiness summary
 - [x] UI can inspect dataset-level sanity checks for funding/OI/mark/index through the existing quality endpoints
+- [x] UI can drive an internal monitoring console for Overview, Jobs, Quality, and Traceability using the existing implemented APIs
 
 ---
 

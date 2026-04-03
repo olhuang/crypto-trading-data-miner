@@ -76,6 +76,7 @@ The following resources are already implemented in the current Phase 2 API slice
 - `POST /api/v1/ingestion/jobs/bar-backfill`
 - `POST /api/v1/ingestion/jobs/market-snapshot-refresh`
 - `POST /api/v1/ingestion/jobs/market-snapshot-remediation`
+- `GET /api/v1/ingestion/jobs`
 - `GET /api/v1/ingestion/jobs/{job_id}`
 - `GET /api/v1/market/*`
 - `GET /api/v1/streams/*`
@@ -394,6 +395,38 @@ Used by:
 Current implementation note:
 - `POST /api/v1/ingestion/jobs/market-snapshot-refresh` now supports bounded history windows for funding, open interest, mark prices, and index prices via the existing job path
 - `POST /api/v1/ingestion/jobs/market-snapshot-remediation` is the scheduler-ready parent job shape for manual/API-triggered funding/OI/mark/index catch-up planning
+
+## 6.3 Ingestion Job List Resource
+
+Used by:
+- implemented `GET /api/v1/ingestion/jobs`
+
+```json
+{
+  "records": [
+    {
+      "job_id": 123,
+      "service_name": "market_snapshot_refresh",
+      "data_type": "funding_rates",
+      "status": "succeeded",
+      "exchange_code": "binance",
+      "unified_symbol": "BTCUSDT_PERP",
+      "started_at": "2026-04-03T12:00:00Z",
+      "finished_at": "2026-04-03T12:00:04Z",
+      "records_expected": null,
+      "records_written": 24,
+      "error_message": null,
+      "metadata_json": {
+        "requested_by": "local-dev"
+      }
+    }
+  ]
+}
+```
+
+Current implementation note:
+- this list endpoint is intended for recent operational inspection and Monitoring Console usage
+- current filtering supports `status`, `service_name`, `data_type`, `exchange_code`, `unified_symbol`, and `limit`
 
 ---
 

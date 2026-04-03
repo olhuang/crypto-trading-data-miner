@@ -348,6 +348,7 @@ Start collecting usable market data from the first exchange into the database.
 - [x] scheduler-ready market snapshot remediation job now exists for manual/API-triggered funding/OI/mark/index catch-up planning
 - [x] runtime trade-stream processing exists under `src/runtime/`
 - [x] `/api/v1/ingestion/jobs/*`, `/api/v1/market/*`, and `/api/v1/streams/*` foundation endpoints now exist in the minimal API slice
+- [x] `GET /api/v1/ingestion/jobs` now supports recent jobs listing/filtering for monitoring
 - [x] ingestion job detail now exposes summary/diff metadata for instrument sync
 - [x] market snapshot refresh now supports historical funding/OI/mark/index windows for the current Binance slice
 - [x] automated tests cover instrument sync, bar backfill, funding/open-interest refresh, trade stream processing, and scheduler planning
@@ -477,6 +478,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] historical trades are explicitly documented as a future manual bounded-backfill path, not a startup or continuous auto-remediation path
 - [x] funding/OI/mark/index now have a scheduler-ready remediation job path without turning on continuous auto catch-up
 - [x] funding/OI/mark/index now also have dataset-level sanity checks for freshness, duplicates, and bounded continuity
+- [x] a minimal internal Monitoring Console now exists for Overview, Jobs, Quality, and Traceability views using the implemented Phase 3/4 APIs
 - [ ] future Phase 4 enhancement: add cross-dataset diagnostic checks such as funding-to-mark/index alignment, mark-vs-index spread sanity, and raw-to-normalized coverage correlation
 
 ## Phase 4 Final Acceptance Summary

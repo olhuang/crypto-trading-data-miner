@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Any, Generic, TypeVar
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, ValidationError
 from fastapi.responses import JSONResponse
 
@@ -300,6 +302,9 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title="Crypto Trading Data Miner API", version="0.1.0", lifespan=lifespan)
+    monitoring_dir = Path(__file__).resolve().parents[2] / "frontend" / "monitoring"
+    if monitoring_dir.exists():
+        app.mount("/monitoring", StaticFiles(directory=monitoring_dir, html=True), name="monitoring")
 
     @app.get("/api/v1/system/health")
     def system_health() -> SuccessEnvelope[SystemHealthData]:
@@ -461,6 +466,32 @@ def create_app() -> FastAPI:
         )
         return SuccessEnvelope[JobActionResource](
             data=JobActionResource(job_id=result.ingestion_job_id, status=result.status),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/ingestion/jobs")
+    def ingestion_jobs(
+        status: str | None = None,
+        service_name: str | None = None,
+        data_type: str | None = None,
+        exchange_code: str | None = None,
+        unified_symbol: str | None = None,
+        limit: int = 100,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[RecordsResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            records = IngestionJobRepository().list_recent(
+                connection,
+                limit=limit,
+                status=status,
+                service_name=service_name,
+                data_type=data_type,
+                exchange_code=exchange_code,
+                unified_symbol=unified_symbol,
+            )
+        return SuccessEnvelope[RecordsResource](
+            data=RecordsResource(records=[_normalize_mapping(record) for record in records]),
             meta=_meta(actor),
         )
 

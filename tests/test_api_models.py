@@ -56,6 +56,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.bar_backfill_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/bar-backfill", "POST")
         cls.market_refresh_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/market-snapshot-refresh", "POST")
         cls.market_remediation_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/market-snapshot-remediation", "POST")
+        cls.jobs_list_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs", "GET")
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
 
     def test_system_health_returns_success_envelope(self) -> None:
@@ -269,6 +270,42 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.job_id, job_id)
         self.assertEqual(response.data.summary["instruments_seen"], 2)
         self.assertEqual(response.data.diffs[0]["unified_symbol"], "BTCUSDT_PERP")
+
+    def test_jobs_list_endpoint_supports_filters(self) -> None:
+        with transaction_scope() as connection:
+            repo = IngestionJobRepository()
+            sync_job_id = repo.create_job(
+                connection,
+                service_name="instrument_sync",
+                data_type="instrument_metadata",
+                status="succeeded",
+                requested_by="u_123",
+                exchange_code="binance",
+                metadata_json={"job_type": "instrument_sync"},
+            )
+            remediation_job_id = repo.create_job(
+                connection,
+                service_name="market_snapshot_remediation",
+                data_type="funding_open_interest_mark_index",
+                status="failed_terminal",
+                requested_by="u_123",
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_PERP",
+                metadata_json={"job_type": "market_snapshot_remediation"},
+            )
+
+        filtered_response = self.__class__.jobs_list_endpoint(
+            status="failed_terminal",
+            service_name="market_snapshot_remediation",
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            limit=20,
+        )
+
+        self.assertTrue(filtered_response.success)
+        returned_ids = {record["job_id"] for record in filtered_response.data.records}
+        self.assertIn(remediation_job_id, returned_ids)
+        self.assertNotIn(sync_job_id, returned_ids)
 
 
 if __name__ == "__main__":

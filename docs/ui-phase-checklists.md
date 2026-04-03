@@ -340,6 +340,15 @@ Required sections:
 - [ ] Market Data Explorer shows persisted data in each implemented tab
 - [ ] Websocket Stream Monitor shows active status and recent events
 
+## Current Implementation Note
+- a lightweight internal Monitoring Console now exists at `/monitoring`
+- current implemented views cover:
+  - Overview
+  - Jobs
+  - Quality
+  - Traceability
+- this is intentionally narrower than the full Phase 3 product UI checklist and should be treated as an operational monitoring slice rather than full UI completion
+
 ## Handoff Criteria to Phase 4 UI
 - [ ] user can operate and inspect ingestion without shell scripts
 - [ ] market data explorer pattern is stable enough for data quality diagnostics
@@ -410,6 +419,14 @@ Required sections:
 - [ ] Data Gaps Explorer lists open gaps when present
 - [ ] Raw Event Explorer displays payload JSON correctly
 - [ ] replay readiness summary is visible without reading docs directly
+
+## Current Implementation Note
+- `/monitoring` currently satisfies the first operational slice for:
+  - quality summary inspection
+  - recent gaps inspection
+  - raw-event detail inspection
+  - raw-to-normalized traceability inspection
+- it does not yet implement the full long-term product UI/component set described for Phase 4
 
 ## Handoff Criteria to Phase 5 UI
 - [ ] user can visually determine whether data is trustworthy enough to backtest
