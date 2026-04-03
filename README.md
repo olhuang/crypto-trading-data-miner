@@ -106,8 +106,11 @@ Major implementation areas now present include:
 - Phase 5 run-level diagnostics summary projection plus `/api/v1/backtests/runs/{run_id}/diagnostics` under `src/backtest/diagnostics.py` and `src/api/app.py`
 - Phase 5 derived `year` / `quarter` / `month` period breakdown plus baseline artifact catalog endpoints under `src/backtest/periods.py`, `src/backtest/artifacts.py`, and `src/api/app.py`
 - Phase 5 ad hoc compare/analyze foundation plus `POST /api/v1/backtests/compare-sets` under `src/backtest/compare.py` and `src/api/app.py`
+- Phase 5 backtest run launch/list/detail API surfaces under `src/api/app.py` and `src/storage/repositories/backtest.py`
+- bounded recent-bar history plus no-step-cache persisted-run defaults in the current Phase 5 runner to keep longer windows more practical
 - automated tests for the current Phase 2/Phase 3/Phase 4 model, storage, API, ingestion, and quality foundation
 - automated tests for the current Phase 5 session/strategy/lifecycle skeleton, first bar-stream signal loop, and compare/analyze foundation
+- automated tests for the current Phase 5 run launch/list/detail API slice and bounded-history runner behavior
 
 Current auth behavior for the implemented API slice:
 - `GET /api/v1/system/health` is public
@@ -126,8 +129,9 @@ Current local remediation behavior:
 - this is intended for local/dev only and is not the production remediation model
 
 Current monitoring UI behavior:
-- `/monitoring` provides a lightweight internal console for Overview, Jobs, Quality, and Traceability views
+- `/monitoring` provides a lightweight internal console for Overview, Backtests, Jobs, Quality, and Traceability views
 - it is intentionally an internal monitoring/diagnostic UI, not the full long-term frontend architecture
+- the current console now includes a minimal research slice for launching backtests, listing runs, inspecting diagnostics/artifacts/month breakdown, and calling ad hoc compare-set analysis
 - the current console depends on the existing API slice and local/shared auth behavior; it does not replace the future React app foundation described in the frontend specs
 
 Recent local collection validation:

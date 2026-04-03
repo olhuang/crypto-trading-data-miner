@@ -20,6 +20,7 @@ import api.app as app_module
 from config import settings
 from api.app import (
     BacktestCompareSetRequest,
+    BacktestRunStartRequest,
     BarBackfillRequest,
     InstrumentSyncRequest,
     MarketSnapshotRemediationRequest,
@@ -62,6 +63,9 @@ class ModelsApiTests(unittest.TestCase):
         cls.market_remediation_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/market-snapshot-remediation", "POST")
         cls.jobs_list_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs", "GET")
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
+        cls.backtest_runs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "POST")
+        cls.backtest_runs_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "GET")
+        cls.backtest_run_detail_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}", "GET")
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
@@ -378,6 +382,122 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.diagnostic_status, "warning")
         self.assertEqual(response.data.execution_summary.expired_order_count, 2)
         self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
+
+    def test_backtest_runs_endpoint_supports_create_list_and_detail(self) -> None:
+        original_runner = app_module.BacktestRunnerSkeleton
+        original_repository = app_module.BacktestRunRepository
+
+        run_row = {
+            "run_id": 601,
+            "strategy_code": "btc_momentum",
+            "strategy_version": "v1.0.0",
+            "account_code": "paper_main",
+            "run_name": "btc_ui_demo",
+            "universe_json": ["BTCUSDT_PERP"],
+            "start_time": datetime.fromisoformat("2026-03-01T00:00:00+00:00"),
+            "end_time": datetime.fromisoformat("2026-03-31T00:00:00+00:00"),
+            "market_data_version": "md.bars_1m",
+            "fee_model_version": "ref_fee_schedule_v1",
+            "slippage_model_version": "fixed_bps_v1",
+            "latency_model_version": "bars_next_open_v1",
+            "params_json": {
+                "session_code": "bt_ui_demo",
+                "environment": "backtest",
+                "netting_mode": "isolated_strategy_session",
+                "bar_interval": "1m",
+                "initial_cash": "100000",
+                "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
+                "run_metadata": {"source": "ui"},
+                "session_metadata": {"slice": "research"},
+                "execution_policy": {"policy_code": "default"},
+                "protection_policy": {"policy_code": "default"},
+            },
+            "status": "finished",
+            "created_at": datetime.fromisoformat("2026-04-03T09:30:00+00:00"),
+            "total_return": Decimal("0.12"),
+            "annualized_return": Decimal("0.48"),
+            "max_drawdown": Decimal("0.04"),
+            "turnover": Decimal("1.20"),
+            "win_rate": Decimal("0.58"),
+            "fee_cost": Decimal("12.34"),
+            "slippage_cost": Decimal("5.67"),
+        }
+
+        class StubRunner:
+            def __init__(self, run_config):
+                self.run_config = run_config
+
+            def load_run_and_persist(self, connection, *, persist_signals=True):
+                return SimpleNamespace(run_id=601, loop_result=SimpleNamespace())
+
+        class StubRepository:
+            def get_run(self, connection, run_id: int):
+                return dict(run_row) if run_id == 601 else None
+
+            def get_performance_summary(self, connection, *, run_id: int):
+                if run_id != 601:
+                    return None
+                return {
+                    "total_return": Decimal("0.12"),
+                    "annualized_return": Decimal("0.48"),
+                    "max_drawdown": Decimal("0.04"),
+                    "turnover": Decimal("1.20"),
+                    "win_rate": Decimal("0.58"),
+                    "fee_cost": Decimal("12.34"),
+                    "slippage_cost": Decimal("5.67"),
+                }
+
+            def list_runs(self, connection, **kwargs):
+                return [dict(run_row)]
+
+        app_module.BacktestRunnerSkeleton = StubRunner
+        app_module.BacktestRunRepository = StubRepository
+        try:
+            create_response = self.__class__.backtest_runs_create_endpoint(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_ui_demo",
+                        "session": {
+                            "session_code": "bt_ui_demo",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_momentum",
+                            "strategy_version": "v1.0.0",
+                            "exchange_code": "binance",
+                            "universe": ["BTCUSDT_PERP"],
+                        },
+                        "start_time": "2026-03-01T00:00:00Z",
+                        "end_time": "2026-03-31T00:00:00Z",
+                        "initial_cash": "100000",
+                        "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
+                    }
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+            list_response = self.__class__.backtest_runs_list_endpoint(
+                strategy_code="btc_momentum",
+                status="finished",
+                limit=20,
+                authorization="Bearer developer:u_123:Alice",
+            )
+            detail_response = self.__class__.backtest_run_detail_endpoint(601, "Bearer developer:u_123:Alice")
+        finally:
+            app_module.BacktestRunnerSkeleton = original_runner
+            app_module.BacktestRunRepository = original_repository
+
+        self.assertTrue(create_response.success)
+        self.assertEqual(create_response.data.run_id, 601)
+        self.assertEqual(create_response.data.strategy_params_json["short_window"], 5)
+
+        self.assertTrue(list_response.success)
+        self.assertEqual(len(list_response.data.runs), 1)
+        self.assertEqual(list_response.data.runs[0].run_id, 601)
+        self.assertEqual(list_response.data.runs[0].total_return, "0.12")
+
+        self.assertTrue(detail_response.success)
+        self.assertEqual(detail_response.data.run_id, 601)
+        self.assertEqual(detail_response.data.session_code, "bt_ui_demo")
+        self.assertEqual(detail_response.data.run_metadata_json["source"], "ui")
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

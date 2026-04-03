@@ -335,6 +335,84 @@ class BacktestRunRepository:
         ).mappings().first()
         return dict(row) if row is not None else None
 
+    def list_runs(
+        self,
+        connection: Connection,
+        *,
+        strategy_code: str | None = None,
+        strategy_version: str | None = None,
+        account_code: str | None = None,
+        unified_symbol: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, object]]:
+        filters: list[str] = []
+        params: dict[str, object] = {"limit": limit}
+
+        if strategy_code is not None:
+            filters.append("strategy.strategy_code = :strategy_code")
+            params["strategy_code"] = strategy_code
+        if strategy_version is not None:
+            filters.append("strategy_version.version_code = :strategy_version")
+            params["strategy_version"] = strategy_version
+        if account_code is not None:
+            filters.append("account.account_code = :account_code")
+            params["account_code"] = account_code
+        if unified_symbol is not None:
+            filters.append("backtest.runs.universe_json ? :unified_symbol")
+            params["unified_symbol"] = unified_symbol
+        if status is not None:
+            filters.append("backtest.runs.status = :status")
+            params["status"] = status
+
+        where_clause = ""
+        if filters:
+            where_clause = "where " + " and ".join(filters)
+
+        rows = connection.execute(
+            text(
+                f"""
+                select
+                    backtest.runs.run_id,
+                    strategy.strategy_code,
+                    strategy_version.version_code as strategy_version,
+                    account.account_code,
+                    backtest.runs.run_name,
+                    backtest.runs.universe_json,
+                    backtest.runs.start_time,
+                    backtest.runs.end_time,
+                    backtest.runs.market_data_version,
+                    backtest.runs.fee_model_version,
+                    backtest.runs.slippage_model_version,
+                    backtest.runs.latency_model_version,
+                    backtest.runs.params_json,
+                    backtest.runs.status,
+                    backtest.runs.created_at,
+                    performance.total_return,
+                    performance.annualized_return,
+                    performance.max_drawdown,
+                    performance.turnover,
+                    performance.win_rate,
+                    performance.fee_cost,
+                    performance.slippage_cost
+                from backtest.runs
+                join strategy.strategy_versions strategy_version
+                  on strategy_version.strategy_version_id = backtest.runs.strategy_version_id
+                join strategy.strategies strategy
+                  on strategy.strategy_id = strategy_version.strategy_id
+                left join execution.accounts account
+                  on account.account_id = backtest.runs.account_id
+                left join backtest.performance_summary performance
+                  on performance.run_id = backtest.runs.run_id
+                {where_clause}
+                order by backtest.runs.created_at desc, backtest.runs.run_id desc
+                limit :limit
+                """
+            ),
+            params,
+        ).mappings().all()
+        return [dict(row) for row in rows]
+
     def get_performance_summary(self, connection: Connection, *, run_id: int) -> dict[str, object] | None:
         row = connection.execute(
             text(

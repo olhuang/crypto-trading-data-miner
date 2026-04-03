@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
 from itertools import groupby
@@ -111,6 +112,7 @@ class BacktestRunnerSkeleton:
         initial_cash: Decimal | None = None,
         persist_signals: bool = False,
         connection: Connection | None = None,
+        capture_steps: bool = True,
     ) -> BacktestRunLoopResult:
         portfolio = PortfolioState(
             cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
@@ -118,7 +120,7 @@ class BacktestRunnerSkeleton:
         )
         for symbol, value in (initial_positions or {}).items():
             portfolio.position_states[symbol] = PositionState(qty=Decimal(value))
-        recent_bars_by_symbol: dict[str, list[BarEvent]] = {}
+        recent_bars_by_symbol: dict[str, list[BarEvent] | deque[BarEvent]] = {}
         step_results: list[BacktestStepResult] = []
         persisted_signal_ids: list[int] = []
         pending_orders_by_symbol: dict[str, list[SimulatedOrder]] = {}
@@ -128,6 +130,7 @@ class BacktestRunnerSkeleton:
         latest_close_by_symbol: dict[str, Decimal] = {}
         running_peak_equity = portfolio.cash
 
+        history_cap = self.strategy.required_bar_history
         sorted_bars = sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
         for bar_time, grouped_bars in groupby(sorted_bars, key=lambda item: item.bar_time):
             for bar in grouped_bars:
@@ -151,7 +154,10 @@ class BacktestRunnerSkeleton:
                         remaining_orders.append(order_update.order)
                 pending_orders_by_symbol[bar.unified_symbol] = remaining_orders
 
-                recent_bars = recent_bars_by_symbol.setdefault(bar.unified_symbol, [])
+                recent_bars = recent_bars_by_symbol.get(bar.unified_symbol)
+                if recent_bars is None:
+                    recent_bars = deque(maxlen=history_cap) if history_cap is not None else []
+                    recent_bars_by_symbol[bar.unified_symbol] = recent_bars
                 recent_bars.append(bar)
                 step_result = self.evaluate_bar(
                     bar,
@@ -180,9 +186,10 @@ class BacktestRunnerSkeleton:
                 all_orders.extend(created_orders)
                 pending_orders_by_symbol.setdefault(bar.unified_symbol, []).extend(created_orders)
                 latest_close_by_symbol[bar.unified_symbol] = bar.close
-                step_result.created_orders.extend(created_orders)
-                step_result.fills.extend(step_fills)
-                step_results.append(step_result)
+                if capture_steps:
+                    step_result.created_orders.extend(created_orders)
+                    step_result.fills.extend(step_fills)
+                    step_results.append(step_result)
 
             mark = portfolio.mark_to_market(latest_close_by_symbol)
             performance_point, running_peak_equity = build_performance_point(
@@ -222,10 +229,16 @@ class BacktestRunnerSkeleton:
         *,
         bar_loader: BacktestBarLoader | None = None,
         persist_signals: bool = False,
+        capture_steps: bool = True,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
         bars = loader.load_bars(connection, self.run_config)
-        return self.run_bars(bars, persist_signals=persist_signals, connection=connection)
+        return self.run_bars(
+            bars,
+            persist_signals=persist_signals,
+            connection=connection,
+            capture_steps=capture_steps,
+        )
 
     def load_run_and_persist(
         self,
@@ -233,8 +246,14 @@ class BacktestRunnerSkeleton:
         *,
         bar_loader: BacktestBarLoader | None = None,
         persist_signals: bool = True,
+        capture_steps: bool = False,
     ) -> PersistedBacktestRunResult:
-        loop_result = self.load_and_run(connection, bar_loader=bar_loader, persist_signals=persist_signals)
+        loop_result = self.load_and_run(
+            connection,
+            bar_loader=bar_loader,
+            persist_signals=persist_signals,
+            capture_steps=capture_steps,
+        )
         run_id = self.run_repository.insert_run(connection, self.run_config)
         order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
         self.run_repository.insert_fills(

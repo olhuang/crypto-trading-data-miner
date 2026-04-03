@@ -13,9 +13,11 @@ from fastapi.responses import JSONResponse
 
 from config import settings
 from backtest.artifacts import BacktestArtifactCatalogProjector
+from backtest.runner import BacktestRunnerSkeleton
 from backtest.compare import BacktestCompareNotFoundError, BacktestCompareProjector, BacktestCompareValidationError
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.periods import BacktestPeriodBreakdownProjector
+from models.backtest import BacktestRunConfig
 from jobs.backfill_bars import run_bar_backfill
 from jobs.data_quality import run_phase4_quality_suite
 from jobs.remediate_market_snapshots import run_market_snapshot_remediation
@@ -30,7 +32,9 @@ from services.validate_and_store import (
     validate_payload,
 )
 from storage.db import connection_scope, transaction_scope
+from storage.repositories.backtest import BacktestRunRepository
 from storage.repositories.ops import DataGapRepository, DataQualityCheckRepository, IngestionJobRepository
+from strategy import UnknownStrategyError
 
 
 class ApiRequestModel(BaseModel):
@@ -100,6 +104,10 @@ class BacktestCompareSetRequest(ApiRequestModel):
         if self.benchmark_run_id is not None and self.benchmark_run_id not in self.run_ids:
             raise ValueError("benchmark_run_id must be included in run_ids")
         return self
+
+
+class BacktestRunStartRequest(BacktestRunConfig):
+    persist_signals: bool = True
 
 
 TData = TypeVar("TData")
@@ -343,6 +351,67 @@ class BacktestCompareSetResource(BaseModel):
     comparison_flags: list[BacktestComparisonFlagResource]
 
 
+class BacktestRunListItemResource(BaseModel):
+    run_id: int
+    run_name: str
+    strategy_code: str
+    strategy_version: str
+    account_code: str | None = None
+    environment: str | None = None
+    status: str
+    start_time: str
+    end_time: str
+    created_at: str
+    universe: list[str]
+    bar_interval: str | None = None
+    initial_cash: str | None = None
+    total_return: str | None = None
+    annualized_return: str | None = None
+    max_drawdown: str | None = None
+    turnover: str | None = None
+    win_rate: str | None = None
+    fee_cost: str | None = None
+    slippage_cost: str | None = None
+
+
+class BacktestRunListResource(BaseModel):
+    runs: list[BacktestRunListItemResource]
+
+
+class BacktestRunDetailResource(BaseModel):
+    run_id: int
+    run_name: str
+    strategy_code: str
+    strategy_version: str
+    account_code: str | None = None
+    environment: str | None = None
+    session_code: str | None = None
+    status: str
+    start_time: str
+    end_time: str
+    created_at: str
+    universe: list[str]
+    market_data_version: str | None = None
+    fee_model_version: str | None = None
+    slippage_model_version: str | None = None
+    latency_model_version: str | None = None
+    bar_interval: str | None = None
+    initial_cash: str | None = None
+    netting_mode: str | None = None
+    total_return: str | None = None
+    annualized_return: str | None = None
+    max_drawdown: str | None = None
+    turnover: str | None = None
+    win_rate: str | None = None
+    fee_cost: str | None = None
+    slippage_cost: str | None = None
+    strategy_params_json: dict[str, Any]
+    execution_policy: dict[str, Any]
+    protection_policy: dict[str, Any]
+    run_metadata_json: dict[str, Any]
+    session_metadata_json: dict[str, Any]
+
+
 class ValidationResultResource(BaseModel):
     valid: bool
     model_name: str
@@ -458,6 +527,77 @@ def _normalize_mapping(row: dict[str, Any]) -> dict[str, Any]:
     for key, value in row.items():
         normalized[key] = value.isoformat() if isinstance(value, datetime) else value
     return normalized
+
+
+def _stringify_decimal(value: Any) -> str | None:
+    return None if value is None else str(value)
+
+
+def _build_backtest_run_resource(
+    run_row: dict[str, Any],
+    summary_row: dict[str, Any] | None = None,
+) -> BacktestRunDetailResource:
+    params_json = run_row.get("params_json") or {}
+    summary = summary_row or {}
+    return BacktestRunDetailResource(
+        run_id=int(run_row["run_id"]),
+        run_name=str(run_row["run_name"] or ""),
+        strategy_code=str(run_row["strategy_code"]),
+        strategy_version=str(run_row["strategy_version"]),
+        account_code=run_row.get("account_code"),
+        environment=params_json.get("environment"),
+        session_code=params_json.get("session_code"),
+        status=str(run_row["status"]),
+        start_time=run_row["start_time"].isoformat(),
+        end_time=run_row["end_time"].isoformat(),
+        created_at=run_row["created_at"].isoformat(),
+        universe=list(run_row.get("universe_json") or []),
+        market_data_version=run_row.get("market_data_version"),
+        fee_model_version=run_row.get("fee_model_version"),
+        slippage_model_version=run_row.get("slippage_model_version"),
+        latency_model_version=run_row.get("latency_model_version"),
+        bar_interval=params_json.get("bar_interval"),
+        initial_cash=_stringify_decimal(params_json.get("initial_cash")),
+        netting_mode=params_json.get("netting_mode"),
+        total_return=_stringify_decimal(summary.get("total_return")),
+        annualized_return=_stringify_decimal(summary.get("annualized_return")),
+        max_drawdown=_stringify_decimal(summary.get("max_drawdown")),
+        turnover=_stringify_decimal(summary.get("turnover")),
+        win_rate=_stringify_decimal(summary.get("win_rate")),
+        fee_cost=_stringify_decimal(summary.get("fee_cost")),
+        slippage_cost=_stringify_decimal(summary.get("slippage_cost")),
+        strategy_params_json=dict(params_json.get("strategy_params") or {}),
+        execution_policy=dict(params_json.get("execution_policy") or {}),
+        protection_policy=dict(params_json.get("protection_policy") or {}),
+        run_metadata_json=dict(params_json.get("run_metadata") or {}),
+        session_metadata_json=dict(params_json.get("session_metadata") or {}),
+    )
+
+
+def _build_backtest_run_list_item(run_row: dict[str, Any]) -> BacktestRunListItemResource:
+    detail = _build_backtest_run_resource(run_row, run_row)
+    return BacktestRunListItemResource(
+        run_id=detail.run_id,
+        run_name=detail.run_name,
+        strategy_code=detail.strategy_code,
+        strategy_version=detail.strategy_version,
+        account_code=detail.account_code,
+        environment=detail.environment,
+        status=detail.status,
+        start_time=detail.start_time,
+        end_time=detail.end_time,
+        created_at=detail.created_at,
+        universe=detail.universe,
+        bar_interval=detail.bar_interval,
+        initial_cash=detail.initial_cash,
+        total_return=detail.total_return,
+        annualized_return=detail.annualized_return,
+        max_drawdown=detail.max_drawdown,
+        turnover=detail.turnover,
+        win_rate=detail.win_rate,
+        fee_cost=detail.fee_cost,
+        slippage_cost=detail.slippage_cost,
+    )
 
 
 def create_app() -> FastAPI:
@@ -1014,6 +1154,86 @@ def create_app() -> FastAPI:
                     for link in links
                 ],
             ),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/backtests/runs")
+    def create_backtest_run(
+        request: BacktestRunStartRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestRunDetailResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            runner = BacktestRunnerSkeleton(request)
+            with transaction_scope() as connection:
+                persisted = runner.load_run_and_persist(connection, persist_signals=request.persist_signals)
+                run_repository = BacktestRunRepository()
+                run_row = run_repository.get_run(connection, persisted.run_id)
+                summary_row = run_repository.get_performance_summary(connection, run_id=persisted.run_id)
+        except UnknownStrategyError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": str(exc), "details": {}},
+            ) from exc
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": "backtest request validation failed",
+                    "details": exc.errors(),
+                },
+            ) from exc
+
+        assert run_row is not None
+        return SuccessEnvelope[BacktestRunDetailResource](
+            data=_build_backtest_run_resource(run_row, summary_row),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs")
+    def list_backtest_runs(
+        strategy_code: str | None = None,
+        strategy_version: str | None = None,
+        account_code: str | None = None,
+        unified_symbol: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestRunListResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            rows = BacktestRunRepository().list_runs(
+                connection,
+                strategy_code=strategy_code,
+                strategy_version=strategy_version,
+                account_code=account_code,
+                unified_symbol=unified_symbol,
+                status=status,
+                limit=limit,
+            )
+        return SuccessEnvelope[BacktestRunListResource](
+            data=BacktestRunListResource(runs=[_build_backtest_run_list_item(row) for row in rows]),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}")
+    def get_backtest_run(
+        run_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestRunDetailResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            repository = BacktestRunRepository()
+            run_row = repository.get_run(connection, run_id)
+            summary_row = repository.get_performance_summary(connection, run_id=run_id)
+        if run_row is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+            )
+        return SuccessEnvelope[BacktestRunDetailResource](
+            data=_build_backtest_run_resource(run_row, summary_row),
             meta=_meta(actor),
         )
 

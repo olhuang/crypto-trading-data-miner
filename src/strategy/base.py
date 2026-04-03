@@ -26,6 +26,7 @@ class StrategyEvaluationInput:
 class StrategyBase(ABC):
     strategy_code: str
     strategy_version: str
+    required_bar_history: int | None = None
 
     @abstractmethod
     def evaluate(self, evaluation: StrategyEvaluationInput) -> StrategyDecision:

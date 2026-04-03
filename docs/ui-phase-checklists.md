@@ -559,6 +559,15 @@ Required sections:
 - [ ] replay scenarios have a planned home in the Phase 5 research UI
 - [ ] replay result UI/API plan is explicit enough for the next research slice
 
+## Current Implementation Snapshot
+- [x] the current internal `/monitoring` console now includes a minimal Backtests view
+- [x] the current internal Backtests view can launch a persisted bars-based run from UI
+- [x] the current internal Backtests view can list recent runs without raw SQL
+- [x] the current internal Backtests view can inspect run detail, diagnostics summary, artifact bundle, and month breakdown
+- [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
+- [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
+- [ ] charts, orders/fills explorers, debug traces, and replay scenario pages remain future UI work
+
 ## Handoff Criteria to Phase 6 UI
 - [ ] user can operate a research workflow fully from UI
 - [ ] run detail patterns are reusable for paper/live session detail pages

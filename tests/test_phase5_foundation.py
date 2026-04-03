@@ -105,6 +105,17 @@ class OneShotTargetStrategy(StrategyBase):
         )
 
 
+class HistoryBoundAssertionStrategy(StrategyBase):
+    strategy_code = "history_bound_strategy"
+    strategy_version = "v1.0.0"
+    required_bar_history = 3
+
+    def evaluate(self, evaluation: StrategyEvaluationInput) -> TargetPosition | None:
+        if len(evaluation.recent_bars) > self.required_bar_history:
+            raise AssertionError("recent_bars exceeded configured required_bar_history")
+        return None
+
+
 DecimalLike = Decimal | str | int | float
 
 
@@ -376,6 +387,31 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(len(result.fills), 1)
         self.assertEqual(result.fills[0].fill_price, bars[5].open + Decimal("0.0105"))
 
+    def test_runner_caps_recent_bar_history_when_strategy_declares_requirement(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_history_cap",
+                "session": {
+                    "session_code": "bt_btc",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "history_bound_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", index, str(100 + index)) for index in range(10)]
+        runner = BacktestRunnerSkeleton(run_config, strategy=HistoryBoundAssertionStrategy())
+
+        result = runner.run_bars(bars)
+
+        self.assertEqual(result.final_positions, {})
+
     def test_market_fill_model_fills_on_next_bar_open_with_fee_and_slippage(self) -> None:
         run_config = BacktestRunConfig.model_validate(
             {
@@ -637,6 +673,7 @@ class Phase5FoundationTests(unittest.TestCase):
             artifact_bundle = BacktestArtifactCatalogProjector().build(connection, run_id=persisted.run_id)
 
             self.assertGreater(persisted.run_id, 0)
+            self.assertEqual(persisted.loop_result.steps, [])
             self.assertEqual(order_count, 1)
             self.assertEqual(fill_count, 1)
             self.assertEqual(timeseries_count, 3)

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Monitoring Console</title>
+    <title>Monitoring and Research Console</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -11,23 +11,24 @@
       <aside class="sidebar">
         <div class="brand">
           <p class="eyebrow">Crypto Trading Data Miner</p>
-          <h1>Monitoring Console</h1>
+          <h1>Monitoring and Research Console</h1>
         </div>
         <nav class="nav">
           <button class="nav-link is-active" data-view="overview">Overview</button>
+          <button class="nav-link" data-view="backtests">Backtests</button>
           <button class="nav-link" data-view="jobs">Jobs</button>
           <button class="nav-link" data-view="quality">Quality</button>
           <button class="nav-link" data-view="traceability">Traceability</button>
         </nav>
         <div class="sidebar-note">
-          <p>Internal monitoring UI for current ingestion, quality, and traceability workflows.</p>
+          <p>Internal console for ingestion monitoring, strategy research, backtests, and diagnostics.</p>
         </div>
       </aside>
 
       <main class="content">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Phase 3-4 Monitoring</p>
+            <p class="eyebrow">Phase 3-5 Monitoring and Research</p>
             <h2 id="view-title">Overview</h2>
           </div>
           <div class="topbar-actions">
@@ -74,6 +75,83 @@
                 <p>Current websocket connection visibility</p>
               </div>
               <div id="overview-streams" class="table-shell"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-backtests" class="view">
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Launch Backtest</h3>
+                <p>Run the current bars-based backtest flow without leaving the console.</p>
+              </div>
+              <form id="backtest-launch-form" class="filters stacked-form">
+                <input name="run_name" placeholder="run_name" value="btc_ui_demo" />
+                <input name="strategy_code" placeholder="strategy_code" value="btc_momentum" />
+                <input name="strategy_version" placeholder="strategy_version" value="v1.0.0" />
+                <input name="account_code" placeholder="account_code" value="paper_main" />
+                <input name="exchange_code" placeholder="exchange_code" value="binance" />
+                <input name="unified_symbol" placeholder="unified_symbol" value="BTCUSDT_PERP" />
+                <input name="start_time" placeholder="start_time" value="2026-03-20T00:00:00Z" />
+                <input name="end_time" placeholder="end_time" value="2026-04-03T00:00:00Z" />
+                <input name="initial_cash" placeholder="initial_cash" value="100000" />
+                <input name="short_window" placeholder="short_window" value="5" />
+                <input name="long_window" placeholder="long_window" value="20" />
+                <input name="target_qty" placeholder="target_qty" value="1" />
+                <input name="allow_short" placeholder="allow_short true/false" value="false" />
+                <button type="submit">Launch Run</button>
+              </form>
+              <div id="backtest-launch-result" class="json-shell compact-shell">Submit a run to see the response.</div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Compare Runs</h3>
+                <p>Build an ad hoc compare-set from persisted runs.</p>
+              </div>
+              <form id="backtest-compare-form" class="filters stacked-form">
+                <input name="run_ids" placeholder="run_ids comma separated" />
+                <input name="benchmark_run_id" placeholder="benchmark_run_id" />
+                <input name="compare_name" placeholder="compare_name" value="ui_compare_set" />
+                <button type="submit">Compare Runs</button>
+              </form>
+              <div id="backtest-compare-result" class="json-shell compact-shell">Comparison output will appear here.</div>
+            </section>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Backtest Runs</h3>
+              <p>Browse persisted runs and inspect diagnostics, artifacts, and period breakdowns.</p>
+            </div>
+            <form id="backtest-filter-form" class="filters">
+              <input name="strategy_code" placeholder="strategy_code" />
+              <input name="strategy_version" placeholder="strategy_version" />
+              <input name="unified_symbol" placeholder="unified_symbol" />
+              <input name="status" placeholder="status" />
+              <button type="submit">Apply Filters</button>
+            </form>
+            <div id="backtest-runs-table" class="table-shell"></div>
+          </div>
+
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Selected Run Detail</h3>
+                <p>Metadata, assumptions, diagnostics, and artifact bundle.</p>
+              </div>
+              <div class="traceability-stack">
+                <div id="backtest-run-detail" class="json-shell">Select a backtest run row.</div>
+                <div id="backtest-run-diagnostics" class="json-shell">Diagnostics summary will appear here.</div>
+                <div id="backtest-run-artifacts" class="json-shell">Artifact bundle will appear here.</div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Month Breakdown</h3>
+                <p>Current month-level performance breakdown for the selected run.</p>
+              </div>
+              <div id="backtest-period-breakdown" class="table-shell"></div>
             </section>
           </div>
         </section>

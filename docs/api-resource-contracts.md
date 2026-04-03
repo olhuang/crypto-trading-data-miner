@@ -275,12 +275,104 @@ List endpoints should return an array of strategy version resources plus paginat
 
 ---
 
-## 4. Backtest Run Timeseries Resource
+## 4. Backtest Run Resource
+
+Used by:
+- `POST /api/v1/backtests/runs`
+- `GET /api/v1/backtests/runs`
+- `GET /api/v1/backtests/runs/{run_id}`
+
+## 4.1 Detail Resource Shape
+
+```json
+{
+  "run_id": 5001,
+  "run_name": "btc_ui_demo",
+  "strategy_code": "btc_momentum",
+  "strategy_version": "v1.0.0",
+  "account_code": "paper_main",
+  "environment": "backtest",
+  "session_code": "bt_btc_ui_demo",
+  "status": "finished",
+  "start_time": "2026-03-01T00:00:00Z",
+  "end_time": "2026-03-31T00:00:00Z",
+  "created_at": "2026-04-03T09:30:00Z",
+  "universe": ["BTCUSDT_PERP"],
+  "market_data_version": "md.bars_1m",
+  "fee_model_version": "ref_fee_schedule_v1",
+  "slippage_model_version": "fixed_bps_v1",
+  "latency_model_version": "bars_next_open_v1",
+  "bar_interval": "1m",
+  "initial_cash": "100000",
+  "netting_mode": "isolated_strategy_session",
+  "total_return": "0.0842",
+  "annualized_return": "0.4231",
+  "max_drawdown": "0.0310",
+  "turnover": "1.8420",
+  "win_rate": "0.5520",
+  "fee_cost": "124.55",
+  "slippage_cost": "54.20",
+  "strategy_params_json": {
+    "short_window": 5,
+    "long_window": 20,
+    "target_qty": "1"
+  },
+  "execution_policy": {
+    "policy_code": "default"
+  },
+  "protection_policy": {
+    "policy_code": "default"
+  },
+  "run_metadata_json": {},
+  "session_metadata_json": {}
+}
+```
+
+## 4.2 List Resource Shape
+
+```json
+{
+  "runs": [
+    {
+      "run_id": 5001,
+      "run_name": "btc_ui_demo",
+      "strategy_code": "btc_momentum",
+      "strategy_version": "v1.0.0",
+      "account_code": "paper_main",
+      "environment": "backtest",
+      "status": "finished",
+      "start_time": "2026-03-01T00:00:00Z",
+      "end_time": "2026-03-31T00:00:00Z",
+      "created_at": "2026-04-03T09:30:00Z",
+      "universe": ["BTCUSDT_PERP"],
+      "bar_interval": "1m",
+      "initial_cash": "100000",
+      "total_return": "0.0842",
+      "annualized_return": "0.4231",
+      "max_drawdown": "0.0310",
+      "turnover": "1.8420",
+      "win_rate": "0.5520",
+      "fee_cost": "124.55",
+      "slippage_cost": "54.20"
+    }
+  ]
+}
+```
+
+## 4.3 Notes
+
+- `POST /api/v1/backtests/runs` is currently synchronous over the current bars-based backtest engine
+- list/detail responses are intended to support the internal research UI without requiring raw SQL inspection
+- the current resource focuses on run metadata, assumptions, and top-level KPI summary; orders/fills/timeseries remain separate surfaces
+
+---
+
+## 5. Backtest Run Timeseries Resource
 
 Used by:
 - `GET /api/v1/backtests/runs/{run_id}/timeseries`
 
-## 4.1 Response Shape
+## 5.1 Response Shape
 
 ```json
 {
@@ -298,7 +390,7 @@ Used by:
 }
 ```
 
-## 4.2 Notes
+## 5.2 Notes
 
 - `series` is ordered by ascending timestamp
 - numeric values may be returned as strings for exact decimal handling
@@ -306,7 +398,7 @@ Used by:
 
 ---
 
-## 4.3 Backtest Diagnostics Summary Resource
+## 5.3 Backtest Diagnostics Summary Resource
 
 Used by:
 - `GET /api/v1/backtests/runs/{run_id}/diagnostics`
@@ -370,7 +462,7 @@ Used by:
 
 ---
 
-## 4.4 Backtest Period Breakdown Resource
+## 5.4 Backtest Period Breakdown Resource
 
 Used by:
 - `GET /api/v1/backtests/runs/{run_id}/period-breakdown`

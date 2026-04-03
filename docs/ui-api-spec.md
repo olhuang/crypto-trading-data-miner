@@ -730,15 +730,25 @@ Purpose:
 Request:
 ```json
 {
-  "strategy_code": "btc_momentum",
-  "strategy_version": "v1.0.0",
-  "exchange_code": "binance",
-  "universe": ["BTCUSDT_PERP"],
+  "run_name": "btc_ui_demo",
+  "session": {
+    "session_code": "bt_btc_ui_demo",
+    "environment": "backtest",
+    "account_code": "paper_main",
+    "strategy_code": "btc_momentum",
+    "strategy_version": "v1.0.0",
+    "exchange_code": "binance",
+    "universe": ["BTCUSDT_PERP"]
+  },
   "start_time": "2026-01-01T00:00:00Z",
   "end_time": "2026-02-01T00:00:00Z",
-  "fee_model_version": "default",
-  "slippage_model_version": "default",
-  "params_override": {}
+  "initial_cash": "100000",
+  "strategy_params": {
+    "short_window": 5,
+    "long_window": 20,
+    "target_qty": "1"
+  },
+  "persist_signals": true
 }
 ```
 
@@ -747,17 +757,30 @@ Request semantics:
 - `strategy_version` identifies the immutable released version of that variant
 - future family-level filtering/reporting should use separate metadata fields
 
+Current implementation status:
+- implemented as a synchronous launch surface over the current bars-based backtest engine
+- currently persists the run, simulated orders/fills, summary, and timeseries before responding
+- current request body follows the canonical `BacktestRunConfig` shape plus `persist_signals`
+
 Response fields:
-- run_id
-- status
+- run detail resource with metadata, assumptions, and top-level KPI summary
 
 ### GET `/api/v1/backtests/runs`
 Purpose:
 - list backtest runs
 
+Current implementation status:
+- implemented for recent run browsing and internal research UI use
+- currently supports filtering by `strategy_code`, `strategy_version`, `account_code`, `unified_symbol`, `status`, and `limit`
+- currently returns run metadata plus top-level KPI summary fields
+
 ### GET `/api/v1/backtests/runs/{run_id}`
 Purpose:
 - run metadata and summary
+
+Current implementation status:
+- implemented
+- currently returns canonical run metadata, assumptions, execution/protection policy snapshot, and top-level KPI summary
 
 ### GET `/api/v1/backtests/runs/{run_id}/orders`
 Purpose:

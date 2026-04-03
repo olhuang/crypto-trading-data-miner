@@ -31,6 +31,7 @@ class MovingAverageCrossStrategy(StrategyBase):
         self.long_window = long_window
         self.target_qty = target_qty
         self.allow_short = allow_short
+        self.required_bar_history = long_window
 
     def evaluate(self, evaluation: StrategyEvaluationInput) -> TargetPosition | None:
         if len(evaluation.recent_bars) < self.long_window:

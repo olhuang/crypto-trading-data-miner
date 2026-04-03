@@ -651,12 +651,14 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] write simulated fills to `backtest.simulated_fills`
 - [x] write summary stats to `backtest.performance_summary`
 - [x] write equity/exposure series to `backtest.performance_timeseries`
+- [x] add backtest run create/list/detail API surfaces over persisted outputs
 - [x] preserve enough output structure to support later diagnostics and replay comparison views
 - [x] preserve enough output structure to support later artifact bundles and benchmark comparison
 
 ### Acceptance Checks
 - [x] all core backtest tables are populated after a run
 - [x] run metadata contains assumptions and versions
+- [x] persisted runs can now be launched and inspected through API without ad hoc SQL
 - [x] stored outputs are compatible with later diagnostics/reporting surfaces
 - [x] stored outputs preserve enough lineage for future compare/analyze and replay scenario surfaces
 
@@ -750,6 +752,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] expose side-by-side run KPIs, diagnostic status, and optional benchmark deltas
 - [x] expose assumption diffs for run metadata, execution assumptions, and strategy params
 - [x] add `POST /api/v1/backtests/compare-sets`
+- [x] expose the current compare/analyze baseline in the internal research UI
 - [x] add automated tests for compare/analyze projection and API surface
 
 ### Acceptance Checks
@@ -787,6 +790,9 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes a run-level diagnostics summary projector and the first `/api/v1/backtests/runs/{run_id}/diagnostics` API surface
 - [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs
 - [x] the Phase 5 skeleton now includes an ad hoc compare/analyze API surface for selected runs and optional benchmark overlays
+- [x] the Phase 5 skeleton now includes `POST /api/v1/backtests/runs`, `GET /api/v1/backtests/runs`, and `GET /api/v1/backtests/runs/{run_id}` for run launch and inspection
+- [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown
+- [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
 - [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or saved compare-set workflow
 
 ---
@@ -799,9 +805,9 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] core KPIs are computed
 
 ## Handoff Criteria to Phase 6
-- [ ] research workflow exists from bars to persisted backtest results
+- [x] research workflow exists from bars to persisted backtest results
 - [ ] execution and portfolio abstractions are stable enough for paper trading reuse
-- [ ] Phase 5 internals are still aligned to `docs/position-management-spec.md`
+- [x] Phase 5 internals are still aligned to `docs/position-management-spec.md`
 
 ---
 

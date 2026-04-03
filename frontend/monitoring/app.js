@@ -3,6 +3,7 @@ const DEFAULT_HEADERS = {};
 const state = {
   selectedJobId: null,
   selectedRawEventId: null,
+  selectedBacktestRunId: null,
 };
 
 function statusClass(value) {
@@ -30,6 +31,22 @@ async function fetchEnvelope(path, query = {}) {
     }
   }
   const response = await fetch(url, { headers: DEFAULT_HEADERS });
+  const envelope = await response.json();
+  if (!response.ok || envelope.success === false) {
+    throw new Error(envelope?.error?.message || `Request failed for ${path}`);
+  }
+  return envelope.data;
+}
+
+async function sendEnvelope(path, method, payload) {
+  const response = await fetch(path, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...DEFAULT_HEADERS,
+    },
+    body: JSON.stringify(payload),
+  });
   const envelope = await response.json();
   if (!response.ok || envelope.success === false) {
     throw new Error(envelope?.error?.message || `Request failed for ${path}`);
@@ -170,6 +187,96 @@ async function loadJobs(filters = {}) {
   );
 }
 
+function parseBooleanInput(value) {
+  return String(value || "").trim().toLowerCase() === "true";
+}
+
+async function loadBacktests(filters = {}) {
+  const runs = await fetchEnvelope("/api/v1/backtests/runs", { limit: 30, ...filters });
+  renderTable(
+    "backtest-runs-table",
+    [
+      { key: "run_id", label: "Run" },
+      { key: "run_name", label: "Run Name" },
+      { key: "strategy_code", label: "Strategy" },
+      { key: "strategy_version", label: "Version" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "account_code", label: "Account" },
+      { key: "total_return", label: "Return" },
+      { key: "created_at", label: "Created" },
+    ],
+    runs.runs,
+    async (record) => {
+      state.selectedBacktestRunId = record.run_id;
+      const [detail, diagnostics, artifacts, breakdown] = await Promise.all([
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}`),
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/diagnostics`),
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/artifacts`),
+        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/period-breakdown`, { period_type: "month" }),
+      ]);
+      renderJson("backtest-run-detail", detail);
+      renderJson("backtest-run-diagnostics", diagnostics);
+      renderJson("backtest-run-artifacts", artifacts);
+      renderTable(
+        "backtest-period-breakdown",
+        [
+          { key: "period_start", label: "Period Start" },
+          { key: "period_end", label: "Period End" },
+          { key: "total_return", label: "Return" },
+          { key: "max_drawdown", label: "Max DD" },
+          { key: "turnover", label: "Turnover" },
+          { key: "signal_count", label: "Signals" },
+          { key: "fill_count", label: "Fills" },
+        ],
+        breakdown.entries || []
+      );
+    }
+  );
+}
+
+async function launchBacktest(formValues) {
+  const payload = {
+    run_name: formValues.run_name,
+    session: {
+      session_code: `${formValues.strategy_code}_${Date.now()}`,
+      environment: "backtest",
+      account_code: formValues.account_code || "paper_main",
+      strategy_code: formValues.strategy_code,
+      strategy_version: formValues.strategy_version,
+      exchange_code: formValues.exchange_code || "binance",
+      universe: [formValues.unified_symbol],
+    },
+    start_time: formValues.start_time,
+    end_time: formValues.end_time,
+    initial_cash: formValues.initial_cash || "100000",
+    strategy_params: {
+      short_window: Number(formValues.short_window || 5),
+      long_window: Number(formValues.long_window || 20),
+      target_qty: formValues.target_qty || "1",
+      allow_short: parseBooleanInput(formValues.allow_short),
+    },
+    persist_signals: true,
+  };
+  const created = await sendEnvelope("/api/v1/backtests/runs", "POST", payload);
+  renderJson("backtest-launch-result", created);
+  await loadBacktests();
+}
+
+async function compareBacktestRuns(formValues) {
+  const runIds = String(formValues.run_ids || "")
+    .split(",")
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  const benchmarkRunId = formValues.benchmark_run_id ? Number(formValues.benchmark_run_id) : null;
+  const payload = {
+    run_ids: runIds,
+    benchmark_run_id: Number.isInteger(benchmarkRunId) ? benchmarkRunId : null,
+    compare_name: formValues.compare_name || null,
+  };
+  const result = await sendEnvelope("/api/v1/backtests/compare-sets", "POST", payload);
+  renderJson("backtest-compare-result", result);
+}
+
 async function loadQuality(filters = {}) {
   const [checks, gaps] = await Promise.all([
     fetchEnvelope("/api/v1/quality/checks", { limit: 30, latest_only: "true", ...filters }),
@@ -233,6 +340,9 @@ async function refreshCurrentView() {
   if (active === "overview") {
     await loadOverview();
   }
+  if (active === "backtests") {
+    await loadBacktests(Object.fromEntries(new FormData(document.getElementById("backtest-filter-form")).entries()));
+  }
   if (active === "jobs") {
     await loadJobs(Object.fromEntries(new FormData(document.getElementById("jobs-filter-form")).entries()));
   }
@@ -280,8 +390,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     refreshCurrentView().catch((error) => window.alert(error.message));
   });
   bindForm("jobs-filter-form", loadJobs);
+  bindForm("backtest-filter-form", loadBacktests);
   bindForm("quality-filter-form", loadQuality);
   bindForm("raw-filter-form", loadTraceability);
+  bindForm("backtest-launch-form", launchBacktest);
+  bindForm("backtest-compare-form", compareBacktestRuns);
 
   try {
     await loadOverview();
