@@ -18,6 +18,7 @@ Current bootstrap sequence:
 4. `004_seed.sql`
 5. `005_execution_fill_dedup.sql`
 6. `006_seed_strategy_and_accounts.sql`
+7. `007_update_starter_fee_schedule_defaults.sql`
 
 This should result in:
 - all project schemas created
@@ -28,6 +29,9 @@ This should result in:
 - starter fee schedules seeded
 - execution fill dedup protection added for new clean bootstraps
 - starter strategy/version/account rows seeded for later phases
+- current starter fee defaults aligned to:
+  - `spot default`: maker/taker `7.5 bps`
+  - `perp default`: maker `1.8 bps`, taker `4.5 bps`
 
 ---
 
@@ -154,6 +158,9 @@ order by e.exchange_code, f.instrument_type, f.effective_from;
 Expected result:
 - each exchange has a starter `spot` fee row
 - each exchange has a starter `perp` fee row
+- current starter defaults should read:
+  - `spot`: maker/taker `7.5`
+  - `perp`: maker `1.8`, taker `4.5`
 
 ### 4.7 Verify no duplicate exchanges
 ```sql

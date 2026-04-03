@@ -238,6 +238,7 @@ Relevant files:
 - `db/init/004_seed.sql`
 - `db/init/005_execution_fill_dedup.sql`
 - `db/init/006_seed_strategy_and_accounts.sql`
+- `db/init/007_update_starter_fee_schedule_defaults.sql`
 - `docs/database-bootstrap.md`
 - `db/verify/phase_1_verification.sql`
 - `scripts/verify_phase1.sh`

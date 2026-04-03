@@ -339,8 +339,8 @@ select
     e.exchange_id,
     'spot',
     'default',
-    10.0,
-    10.0,
+    7.5,
+    7.5,
     '2025-01-01 00:00:00+00'::timestamptz
 from ref.exchanges e
 where not exists (
@@ -364,8 +364,8 @@ select
     e.exchange_id,
     'perp',
     'default',
-    2.0,
-    5.5,
+    1.8,
+    4.5,
     '2025-01-01 00:00:00+00'::timestamptz
 from ref.exchanges e
 where not exists (

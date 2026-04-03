@@ -233,6 +233,9 @@ Provide a starter fee model so backtest and execution code can use realistic def
 - [x] if fee schedules are seeded, there is at least one fee row per instrument type per exchange
 - [x] seeded fee rows have non-null maker and taker fee values
 - [x] repeated seed runs do not create unintended duplicates
+- [x] current starter defaults are documented and verifiable:
+  - `spot`: maker/taker `7.5 bps`
+  - `perp`: maker `1.8 bps`, taker `4.5 bps`
 
 ### Suggested Verification Query
 ```sql
