@@ -287,6 +287,84 @@ Therefore, the engine must not assume one symbol equals one strategy-owned posit
 - schema and interfaces: remain compatible with later Mode B
 - Phase 6/7: introduce explicit fill allocation and strategy/account separation if shared-account execution is needed
 
+### 9.4 Recommended Code Architecture
+Different strategies should not each implement their own private position/accounting engine.
+
+Instead, future code should separate:
+- strategy logic
+- session configuration
+- execution policy
+- protection policy
+- shared lifecycle services
+
+Recommended module boundaries:
+- `src/strategy/`
+  - strategy signal or target-position generation
+- `src/session/`
+  - strategy session config, ownership, runtime identity
+- `src/execution/`
+  - execution planning, order lifecycle, routing, fill handling
+- `src/protection/`
+  - TP / SL / trailing state, triggers, rule events
+- `src/portfolio/`
+  - position projection, equity, exposure, portfolio state
+- `src/reporting/`
+  - run/session/account/portfolio reporting and attribution
+
+Recommended long-lived services:
+- `StrategyRunner`
+  - asks one strategy/session for its next intent
+- `ExecutionPlanner`
+  - turns target position changes into order plans using execution policy
+- `OrderLifecycleService`
+  - manages canonical order and order-event transitions
+- `FillAccountingService`
+  - turns fills into position, lot, balance, and ledger updates
+- `ProtectionService`
+  - manages protection rules and trigger outcomes
+- `FillAllocationService`
+  - maps account-book fills back into strategy ownership when accounts are shared
+- `PortfolioProjector`
+  - derives position and portfolio snapshots
+- `ReportingProjector`
+  - derives strategy/account/portfolio reports from persisted facts
+
+### 9.5 Recommended Multi-Strategy Data Flow
+The intended architecture should look like this:
+
+```text
+Strategy
+  -> StrategySession
+  -> ExecutionPolicy / ProtectionPolicy
+  -> ExecutionIntent
+  -> ExecutionPlanner
+  -> Orders / OrderEvents
+  -> Fills
+  -> FillAllocationService (when needed)
+  -> Strategy Book update
+  -> Account Book update
+  -> ProtectionService update
+  -> PortfolioProjector / ReportingProjector
+```
+
+With explicit ownership boundaries:
+
+```text
+strategy output        = what this strategy wants
+execution policy       = how this strategy prefers to get filled
+account fills          = what the venue actually filled
+fill allocation        = how actual fills map back to strategies
+position/protection    = shared canonical state engine
+reporting              = derived views for strategy/account/portfolio
+```
+
+### 9.6 Rule for Future Extensibility
+To preserve future multi-strategy flexibility:
+- strategies may vary by signal logic, execution policy, and protection policy
+- strategies must not vary by private accounting semantics
+- shared lifecycle services should remain canonical for backtest, paper, and live
+- if shared-account execution is added later, it should extend through fill allocation and strategy/account book separation rather than replacing the existing lifecycle
+
 ---
 
 ## 10. Fill Allocation
