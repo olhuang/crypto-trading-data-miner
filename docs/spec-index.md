@@ -89,8 +89,9 @@ Read in this order:
 17. `docs/ai-memory-and-handoff-spec.md`
 18. `docs/object-level-notes-and-annotations-spec.md`
 19. `docs/debug-trace-rollout-plan.md`
-20. `docs/pnl-and-accounting-spec.md`
-21. `docs/testing-strategy-spec.md`
+20. `docs/frontend-ui-usability-improvement-plan.md`
+21. `docs/pnl-and-accounting-spec.md`
+22. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -113,6 +114,7 @@ Read in this order:
 4. `docs/ui-information-architecture.md`
 5. `docs/frontend-architecture-spec.md`
 6. `docs/frontend-foundation-spec.md`
+7. `docs/frontend-ui-usability-improvement-plan.md`
 
 ## 3.5 For Operators / Trading Runtime Contributors
 
@@ -190,6 +192,7 @@ Read in this order:
 - `docs/ai-memory-and-handoff-spec.md`
 - `docs/object-level-notes-and-annotations-spec.md`
 - `docs/debug-trace-rollout-plan.md`
+- `docs/frontend-ui-usability-improvement-plan.md`
 - `docs/agent-memory/SESSION_START_PROMPT.md`
 - `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
 - `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
@@ -205,6 +208,7 @@ Read in this order:
 - AI working-memory, summary, and cross-session handoff workflow: `docs/ai-memory-and-handoff-spec.md`
 - object-linked compare/review notes, replay investigation notes, and future workbench annotations: `docs/object-level-notes-and-annotations-spec.md`
 - step-level debug trace phased rollout tracking: `docs/debug-trace-rollout-plan.md`
+- front-end usability cleanup and phased `/monitoring` workbench restructuring: `docs/frontend-ui-usability-improvement-plan.md`
 - reusable session start/stop and CLI/VS Code memory-workflow templates: `docs/agent-memory/*`
 
 ---
@@ -260,6 +264,7 @@ Read in this order:
 - `docs/ui-information-architecture.md`
 - `docs/frontend-architecture-spec.md`
 - `docs/frontend-foundation-spec.md`
+- `docs/frontend-ui-usability-improvement-plan.md`
 
 ### Source of Truth
 - UI intent and phase mapping: `docs/ui-spec.md`
@@ -268,6 +273,7 @@ Read in this order:
 - page/route/IA structure: `docs/ui-information-architecture.md`
 - long-term frontend architecture: `docs/frontend-architecture-spec.md`
 - first frontend slice: `docs/frontend-foundation-spec.md`
+- current `/monitoring` usability cleanup and phased research-workbench restructuring: `docs/frontend-ui-usability-improvement-plan.md`
 
 ---
 

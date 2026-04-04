@@ -6,6 +6,7 @@ A design-first repository for building a crypto quantitative trading platform co
 - backtest / paper trading / live trading workflows
 - strategy, execution, risk, treasury, and reconciliation models
 - internal operator UI and frontend/backend API design
+- a dedicated usability-improvement path for evolving the current internal `/monitoring` console into a clearer research workbench
 - system architecture, performance, observability, security, and testing strategy
 
 This repository is no longer just an early scaffold. It now contains a fairly complete specification system for turning the platform into a runnable product.
@@ -42,6 +43,7 @@ This repository is no longer just an early scaffold. It now contains a fairly co
 - UI information architecture
 - frontend architecture spec
 - first frontend foundation slice spec
+- current `/monitoring` usability improvement plan
 
 ---
 
@@ -116,6 +118,7 @@ Major implementation areas now present include:
 - Phase 5 aggregate portfolio/equity projection plus DB-backed run/order/fill/performance persistence under `src/backtest/` and `src/storage/repositories/backtest.py`
 - Phase 5 run-level diagnostics summary projection plus `/api/v1/backtests/runs/{run_id}/diagnostics` under `src/backtest/diagnostics.py` and `src/api/app.py`
 - Phase 5 derived `year` / `quarter` / `month` period breakdown plus baseline artifact catalog endpoints under `src/backtest/periods.py`, `src/backtest/artifacts.py`, and `src/api/app.py`
+- a dedicated UI cleanup plan for the current Backtests experience now lives in `docs/frontend-ui-usability-improvement-plan.md`
 - Phase 5 compare/analyze foundation now includes persisted compare-set identity plus `POST /api/v1/backtests/compare-sets` under `src/backtest/compare.py`, `src/backtest/compare_review.py`, and `src/api/app.py`
 - Phase 5 compare-review note foundation now includes seeded system review drafts and `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes` under `src/backtest/compare_review.py`, `src/storage/repositories/research.py`, and `src/api/app.py`
 - the current internal Backtests research slice now surfaces compare-set tables plus compare-review notes, including seeded system facts and editable human/agent review notes

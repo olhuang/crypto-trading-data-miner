@@ -169,3 +169,18 @@ Implement Level 2 targeted trace filters directly on the existing debug-trace AP
 - `GET /api/v1/backtests/runs/{run_id}/debug-traces` now supports targeted filters for blocked traces, specific risk codes, signals, orders, and fills
 - the internal Backtests trace viewer now exposes the same filter set and shows the active filters in context
 - diagnostics-anchor clicks now align the filter state with blocked-evidence investigation instead of inheriting potentially conflicting trace toggles
+
+## 2026-04-04
+
+### Decision
+Plan the next front-end work as a phased usability cleanup of the current `/monitoring` Backtests surface, starting with launch-form cleanup before attempting larger workspace restructuring.
+
+### Reason
+- the current Backtests page is functionally rich but mixes launch, compare, run inspection, and trace investigation into one flat scroll
+- the most immediate user-facing confusion comes from placeholder-only form fields and unlabeled boolean/debug inputs such as `persist_debug_traces`
+- starting with the launch form gives the highest usability gain with the lowest layout risk
+
+### Impact
+- `docs/frontend-ui-usability-improvement-plan.md` now tracks the front-end cleanup path
+- the next recommended UI slice is `UI Phase A: Launch Form Cleanup`
+- broader workspace restructuring should wait until that smaller slice has landed cleanly

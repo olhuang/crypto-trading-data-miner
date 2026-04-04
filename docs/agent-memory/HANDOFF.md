@@ -4,6 +4,7 @@
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
 - continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
+- start cleaning up the current `/monitoring` Backtests UX so the Phase 5 research flow becomes easier to operate
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -23,10 +24,12 @@
 - diagnostics summaries now also project typed trace anchors, and the internal UI can use those anchors to focus the trace viewer on matching evidence windows
 - the debug-trace API and internal viewer now support targeted investigation filters for blocked-only traces, specific risk codes, signal presence, order presence, and fill presence
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
+- `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
 - replay/debug trace linkage is still missing
+- the current Backtests page is still too dense and mixes launch, compare, run inspection, and trace investigation into one flat scroll
 - richer saved-compare workflow remains future work
 - replay investigation notes and unified annotation service remain future work
 
@@ -45,6 +48,7 @@
 - `docs/strategy-risk-assumption-management-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/debug-trace-rollout-plan.md`
+- `docs/frontend-ui-usability-improvement-plan.md`
 - `db/init/009_backtest_debug_traces.sql`
 - `db/init/010_backtest_debug_trace_level2.sql`
 - `src/backtest/traces.py`
@@ -61,4 +65,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only the replay-investigation trace-linkage slice before moving on to richer replay/annotation polish
+- when continuing the UI line, start from `docs/frontend-ui-usability-improvement-plan.md` and implement only `UI Phase A: Launch Form Cleanup` before attempting larger Backtests workspace restructuring

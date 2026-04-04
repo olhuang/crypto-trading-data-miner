@@ -5,6 +5,7 @@
 - Phase 5 has a working bars-based backtest foundation.
 - The repo already supports strategy session config, named risk policies, named assumption bundles, diagnostics summary, period breakdown, persisted compare sets, and compare-review note API baseline.
 - `/monitoring` now includes a minimal internal Backtests research slice with compare-review notes, Level 1 debug-trace inspection, Level 2 linkage-aware trace payloads, structured trace drill-down, diagnostics-to-trace anchor navigation, and targeted trace filters.
+- a dedicated front-end usability plan now exists for cleaning up the current `/monitoring` Backtests experience before larger workbench expansion
 
 ## Current Strong Areas
 - design/spec coverage
