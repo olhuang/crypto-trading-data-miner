@@ -33,6 +33,7 @@
 - added `--incremental` so future catch-up runs can derive their start point from DB coverage rather than from the bootstrap task count in the old status file
 - hardened `--incremental` so it ignores future-dated local test contamination by using bounded `safe_available_to` checkpoints and exposing `future_row_count` in coverage summaries
 - added `scripts/binance_btc_history_backfill.ps1` as a Windows-friendly wrapper for bootstrap, resume, incremental, and status-only operations
+- added `scripts/cleanup_future_dated_binance_market_data.py` and used it to remove the current future-dated Binance BTC fixture contamination from the local database
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -93,6 +94,7 @@
 - the actual historical Binance pull still has to be executed locally outside the harness because network access remains blocked in this environment
 - the open-interest history endpoint appears to be availability-limited and may only cover a recent lookback window, so older futures windows will intentionally show no open-interest history
 - future monthly catch-up should use `--incremental`; `--resume-from-status` should stay scoped to interrupted bootstrap execution
+- the on-disk status file still reflects the last completed backfill run, so it needs a fresh incremental run if we want the status payload to reflect the post-cleanup raw coverage
 
 ## Next
 - finish the current bootstrap with `--resume-from-status`, then use `--incremental` for future catch-up runs; after data coverage is verified, continue from `UI Phase B: Backtest Workspace Restructure` in `docs/frontend-ui-usability-improvement-plan.md`

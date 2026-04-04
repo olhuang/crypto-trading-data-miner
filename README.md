@@ -193,6 +193,9 @@ Recent local collection validation:
   - `Get-Content .\tmp\binance_btc_history_backfill_status.json`
 - PowerShell status-only:
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\binance_btc_history_backfill.ps1 -StatusOnly`
+- future-dated local test contamination cleanup:
+  - `& .\.venv\Scripts\python.exe .\scripts\cleanup_future_dated_binance_market_data.py --dry-run`
+  - `& .\.venv\Scripts\python.exe .\scripts\cleanup_future_dated_binance_market_data.py`
 
 ---
 

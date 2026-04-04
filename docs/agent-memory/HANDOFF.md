@@ -41,6 +41,7 @@
 - the script now also supports `--incremental`, using DB coverage instead of task-count resume so future monthly catch-up runs can fetch only the missing tail
 - local DB coverage for Binance BTC is currently contaminated by a few future-dated test fixtures, so the script now uses `safe_available_to` and `future_row_count` to avoid treating those anomalies as real checkpoints
 - a PowerShell wrapper now exists at `scripts/binance_btc_history_backfill.ps1` so Windows-local bootstrap/resume/incremental/status operations no longer require hand-building the Python command
+- a cleanup tool now exists at `scripts/cleanup_future_dated_binance_market_data.py`, and the current local DB has already had the known future-dated Binance BTC contamination rows removed
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -83,7 +84,9 @@
 - `frontend/monitoring/app.js`
 - `frontend/monitoring/styles.css`
 - `scripts/binance_btc_history_backfill.py`
+- `scripts/binance_btc_history_backfill.ps1`
+- `scripts/cleanup_future_dated_binance_market_data.py`
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- if the current bootstrap is still incomplete, run `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py --resume-from-status`; after bootstrap is complete, use `--incremental` for future catch-up runs, then return to the UI line at `UI Phase B: Backtest Workspace Restructure`
+- after the cleanup, rerun the BTC backfill in `--incremental` mode when you want a fresh status file/coverage snapshot; then return to the UI line at `UI Phase B: Backtest Workspace Restructure`

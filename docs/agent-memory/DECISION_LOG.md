@@ -258,3 +258,17 @@ Protect incremental Binance catch-up from future-dated local test contamination 
 - coverage summaries now expose both raw `available_to` and bounded `safe_available_to`
 - incremental catch-up now uses `safe_available_to` as the checkpoint source
 - future-row anomalies are now visible instead of silently poisoning incremental planning
+
+## 2026-04-05
+
+### Decision
+Provide a dedicated cleanup utility for future-dated local Binance market-data contamination and use it to remove the current BTC fixture leakage from the local DB.
+
+### Reason
+- a few future-dated BTC rows from local test fixtures had already landed in the database and were polluting raw `available_to`
+- keeping a reusable cleanup path is safer than relying on ad hoc SQL every time this happens again
+- after cleanup, raw coverage should once again match the real stored horizon so operators do not have to mentally translate around anomaly rows
+
+### Impact
+- `scripts/cleanup_future_dated_binance_market_data.py` is now the reusable cleanup entrypoint
+- the known future-dated Binance BTC rows in `md.bars_1m`, `md.funding_rates`, `md.open_interest`, and `md.mark_prices` have been removed from the local DB
