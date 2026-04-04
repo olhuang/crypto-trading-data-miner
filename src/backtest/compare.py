@@ -75,6 +75,7 @@ class BenchmarkDelta:
 
 @dataclass(slots=True)
 class BacktestCompareSet:
+    compare_set_id: int | None
     compare_name: str | None
     run_ids: list[int]
     benchmark_run_id: int | None
@@ -189,6 +190,7 @@ class BacktestCompareProjector:
         benchmark_deltas = _build_benchmark_deltas(envelopes, benchmark_run_id)
         comparison_flags = _build_comparison_flags(envelopes, assumption_diffs)
         return BacktestCompareSet(
+            compare_set_id=None,
             compare_name=compare_name,
             run_ids=deduped_run_ids,
             benchmark_run_id=benchmark_run_id,

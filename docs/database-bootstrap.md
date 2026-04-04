@@ -19,6 +19,7 @@ Current bootstrap sequence:
 5. `005_execution_fill_dedup.sql`
 6. `006_seed_strategy_and_accounts.sql`
 7. `007_update_starter_fee_schedule_defaults.sql`
+8. `008_compare_sets_and_annotations.sql`
 
 This should result in:
 - all project schemas created
@@ -32,6 +33,7 @@ This should result in:
 - current starter fee defaults aligned to:
   - `spot default`: maker/taker `7.5 bps`
   - `perp default`: maker `1.8 bps`, taker `4.5 bps`
+- persisted compare-set and object-annotation tables available for later Phase 5+ research workflows
 
 ---
 
@@ -83,7 +85,7 @@ This will:
 ```sql
 select schema_name
 from information_schema.schemata
-where schema_name in ('ref', 'md', 'strategy', 'execution', 'backtest', 'risk', 'ops')
+where schema_name in ('ref', 'md', 'strategy', 'execution', 'backtest', 'risk', 'ops', 'research')
 order by schema_name;
 ```
 
@@ -92,6 +94,7 @@ Expected result:
 - `execution`
 - `md`
 - `ops`
+- `research`
 - `ref`
 - `risk`
 - `strategy`

@@ -6,18 +6,20 @@
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
-- formalize object-level notes and annotation planning for compare sets, replay runs, and replay scenarios
+- land the first compare-review note foundation with durable compare-set identity and object-linked notes
 
 ## Blocked
 - none currently recorded
 
 ## Next
 - integrate memory workflow with future strategy workbench annotation / review surfaces
+- expose compare-review notes in the internal research UI
 - add step-level debug trace foundation for replay/backtest diagnosis
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- implemented the first compare-review note foundation with persisted compare sets, seeded system review drafts, and compare note APIs
 - added a dedicated object-level notes/annotations planning spec for compare-review and replay investigation workflows
 - added repo-owned VS Code tasks and local PowerShell helpers for memory-session start/stop
 - added reusable session-start, session-stop, and CLI/VS Code workflow templates under `docs/agent-memory/`

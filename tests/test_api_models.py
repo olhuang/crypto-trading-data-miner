@@ -20,6 +20,7 @@ import api.app as app_module
 from config import settings
 from api.app import (
     BacktestCompareSetRequest,
+    CompareReviewNoteWriteRequest,
     BacktestRunStartRequest,
     BarBackfillRequest,
     InstrumentSyncRequest,
@@ -76,6 +77,8 @@ class ModelsApiTests(unittest.TestCase):
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
         cls.backtest_compare_sets_endpoint = _resolve_route(cls.app, "/api/v1/backtests/compare-sets", "POST")
+        cls.backtest_compare_notes_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/compare-sets/{compare_set_id}/notes", "GET")
+        cls.backtest_compare_notes_write_endpoint = _resolve_route(cls.app, "/api/v1/backtests/compare-sets/{compare_set_id}/notes", "POST")
 
     def test_system_health_returns_success_envelope(self) -> None:
         response = self.__class__.health_endpoint()
@@ -869,10 +872,12 @@ class ModelsApiTests(unittest.TestCase):
 
     def test_backtest_compare_sets_endpoint_returns_compare_projection(self) -> None:
         original_projector = app_module.BacktestCompareProjector
+        original_compare_review_service = app_module.CompareReviewService
 
         class StubProjector:
             def build(self, connection, *, run_ids, compare_name=None, benchmark_run_id=None):
                 return SimpleNamespace(
+                    compare_set_id=None,
                     compare_name=compare_name,
                     run_ids=run_ids,
                     benchmark_run_id=benchmark_run_id,
@@ -950,7 +955,14 @@ class ModelsApiTests(unittest.TestCase):
                     ],
                 )
 
+        class StubCompareReviewService:
+            def persist_compare_set(self, connection, *, compare_set, actor_name: str):
+                compare_set.compare_set_id = 9001
+                compare_set.persisted = True
+                return compare_set
+
         app_module.BacktestCompareProjector = StubProjector
+        app_module.CompareReviewService = StubCompareReviewService
         try:
             response = self.__class__.backtest_compare_sets_endpoint(
                 BacktestCompareSetRequest(run_ids=[501, 502], benchmark_run_id=501, compare_name="btc_compare_set"),
@@ -958,13 +970,117 @@ class ModelsApiTests(unittest.TestCase):
             )
         finally:
             app_module.BacktestCompareProjector = original_projector
+            app_module.CompareReviewService = original_compare_review_service
 
         self.assertTrue(response.success)
+        self.assertEqual(response.data.compare_set_id, 9001)
         self.assertEqual(response.data.compare_name, "btc_compare_set")
         self.assertEqual(response.data.run_ids, [501, 502])
+        self.assertTrue(response.data.persisted)
         self.assertEqual(response.data.benchmark_deltas[0].run_id, 502)
         self.assertEqual(response.data.assumption_diffs[0].field_name, "strategy_version")
         self.assertEqual(response.data.comparison_flags[0].code, "diagnostic_warnings_present")
+
+    def test_backtest_compare_notes_endpoints_return_seeded_and_human_notes(self) -> None:
+        original_compare_review_service = app_module.CompareReviewService
+
+        class StubCompareReviewService:
+            def list_compare_notes(self, connection, *, compare_set_id: int):
+                return (
+                    {"compare_set_id": compare_set_id, "compare_name": "btc_compare_set"},
+                    [
+                        {
+                            "annotation_id": 301,
+                            "entity_type": "compare_set",
+                            "entity_id": str(compare_set_id),
+                            "annotation_type": "review",
+                            "status": "draft",
+                            "title": "btc_compare_set review",
+                            "summary": "System-seeded compare review draft.",
+                            "note_source": "system",
+                            "verification_state": "system_fact",
+                            "verified_findings_json": [],
+                            "open_questions_json": [],
+                            "next_action": "Review KPI diff.",
+                            "source_refs_json": {"compare_set_id": compare_set_id, "run_ids": [501, 502]},
+                            "facts_snapshot_json": {"compare_name": "btc_compare_set"},
+                            "created_by": "system",
+                            "updated_by": "system",
+                            "created_at": datetime.fromisoformat("2026-04-04T12:00:00+00:00"),
+                            "updated_at": datetime.fromisoformat("2026-04-04T12:00:00+00:00"),
+                        }
+                    ],
+                )
+
+            def create_or_update_compare_note(
+                self,
+                connection,
+                *,
+                compare_set_id: int,
+                annotation_id: int | None,
+                annotation_type: str,
+                status: str,
+                title: str,
+                summary: str | None,
+                note_source: str,
+                verification_state: str,
+                verified_findings: list[str],
+                open_questions: list[str],
+                next_action: str | None,
+                actor_name: str,
+            ):
+                return {
+                    "annotation_id": 302 if annotation_id is None else annotation_id,
+                    "entity_type": "compare_set",
+                    "entity_id": str(compare_set_id),
+                    "annotation_type": annotation_type,
+                    "status": status,
+                    "title": title,
+                    "summary": summary,
+                    "note_source": note_source,
+                    "verification_state": verification_state,
+                    "verified_findings_json": verified_findings,
+                    "open_questions_json": open_questions,
+                    "next_action": next_action,
+                    "source_refs_json": {"compare_set_id": compare_set_id, "run_ids": [501, 502]},
+                    "facts_snapshot_json": {"compare_name": "btc_compare_set"},
+                    "created_by": actor_name,
+                    "updated_by": actor_name,
+                    "created_at": datetime.fromisoformat("2026-04-04T12:05:00+00:00"),
+                    "updated_at": datetime.fromisoformat("2026-04-04T12:05:00+00:00"),
+                }
+
+        app_module.CompareReviewService = StubCompareReviewService
+        try:
+            list_response = self.__class__.backtest_compare_notes_list_endpoint(
+                9001,
+                "Bearer developer:u_123:Alice",
+            )
+            write_response = self.__class__.backtest_compare_notes_write_endpoint(
+                9001,
+                CompareReviewNoteWriteRequest(
+                    title="Human compare review",
+                    summary="Run 502 looks better but assumptions differ.",
+                    verified_findings=["run 502 has higher total return"],
+                    open_questions=["rerun with matched assumptions"],
+                    next_action="rerun with aligned assumption bundle",
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.CompareReviewService = original_compare_review_service
+
+        self.assertTrue(list_response.success)
+        self.assertEqual(list_response.data.compare_set_id, 9001)
+        self.assertEqual(list_response.data.compare_name, "btc_compare_set")
+        self.assertEqual(list_response.data.notes[0].note_source, "system")
+        self.assertEqual(list_response.data.notes[0].verification_state, "system_fact")
+
+        self.assertTrue(write_response.success)
+        self.assertEqual(write_response.data.entity_id, "9001")
+        self.assertEqual(write_response.data.note_source, "human")
+        self.assertEqual(write_response.data.verified_findings[0], "run 502 has higher total return")
+        self.assertEqual(write_response.data.next_action, "rerun with aligned assumption bundle")
 
 
 if __name__ == "__main__":

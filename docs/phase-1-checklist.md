@@ -315,7 +315,7 @@ Prove that an empty database can be initialized successfully using the current S
 ```sql
 select schema_name
 from information_schema.schemata
-where schema_name in ('ref', 'md', 'strategy', 'execution', 'backtest', 'risk', 'ops')
+where schema_name in ('ref', 'md', 'strategy', 'execution', 'backtest', 'risk', 'ops', 'research')
 order by schema_name;
 ```
 

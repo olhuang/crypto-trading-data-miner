@@ -16,7 +16,8 @@ from backtest.assumption_registry import UnknownAssumptionBundleError, build_def
 from backtest.artifacts import BacktestArtifactCatalogProjector
 from backtest.risk_registry import UnknownRiskPolicyError, build_default_risk_policy_registry
 from backtest.runner import BacktestRunnerSkeleton
-from backtest.compare import BacktestCompareNotFoundError, BacktestCompareProjector, BacktestCompareValidationError
+from backtest.compare import BacktestCompareNotFoundError, BacktestCompareProjector, BacktestCompareSet, BacktestCompareValidationError
+from backtest.compare_review import CompareReviewAnnotationError, CompareReviewNotFoundError, CompareReviewService
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.periods import BacktestPeriodBreakdownProjector
 from models.backtest import BacktestRunConfig
@@ -105,6 +106,37 @@ class BacktestCompareSetRequest(ApiRequestModel):
             raise ValueError("compare request requires at least two unique run_ids")
         if self.benchmark_run_id is not None and self.benchmark_run_id not in self.run_ids:
             raise ValueError("benchmark_run_id must be included in run_ids")
+        return self
+
+
+class CompareReviewNoteWriteRequest(ApiRequestModel):
+    annotation_id: int | None = None
+    annotation_type: str = "review"
+    status: str = "in_review"
+    title: str
+    summary: str | None = None
+    note_source: str = "human"
+    verification_state: str = "verified"
+    verified_findings: list[str] = []
+    open_questions: list[str] = []
+    next_action: str | None = None
+
+    @model_validator(mode="after")
+    def validate_note_request(self) -> "CompareReviewNoteWriteRequest":
+        allowed_annotation_types = {"review", "follow_up", "promotion_decision", "note"}
+        if self.annotation_type not in allowed_annotation_types:
+            raise ValueError(f"annotation_type must be one of {', '.join(sorted(allowed_annotation_types))}")
+        allowed_statuses = {"draft", "in_review", "confirmed", "follow_up", "accepted", "rejected", "resolved", "unresolved"}
+        if self.status not in allowed_statuses:
+            raise ValueError(f"status must be one of {', '.join(sorted(allowed_statuses))}")
+        allowed_sources = {"human", "agent"}
+        if self.note_source not in allowed_sources:
+            raise ValueError(f"note_source must be one of {', '.join(sorted(allowed_sources))}")
+        allowed_verification_states = {"assumption", "verified"}
+        if self.verification_state not in allowed_verification_states:
+            raise ValueError(f"verification_state must be one of {', '.join(sorted(allowed_verification_states))}")
+        if not self.title.strip():
+            raise ValueError("title must not be empty")
         return self
 
 
@@ -351,6 +383,7 @@ class BacktestComparisonFlagResource(BaseModel):
 
 
 class BacktestCompareSetResource(BaseModel):
+    compare_set_id: int | None = None
     compare_name: str | None = None
     run_ids: list[int]
     benchmark_run_id: int | None = None
@@ -360,6 +393,33 @@ class BacktestCompareSetResource(BaseModel):
     assumption_diffs: list[BacktestAssumptionDiffResource]
     benchmark_deltas: list[BacktestBenchmarkDeltaResource]
     comparison_flags: list[BacktestComparisonFlagResource]
+
+
+class ObjectAnnotationResource(BaseModel):
+    annotation_id: int
+    entity_type: str
+    entity_id: str
+    annotation_type: str
+    status: str
+    title: str
+    summary: str | None = None
+    note_source: str
+    verification_state: str
+    verified_findings: list[str]
+    open_questions: list[str]
+    next_action: str | None = None
+    source_refs_json: dict[str, Any]
+    facts_snapshot_json: dict[str, Any]
+    created_by: str
+    updated_by: str
+    created_at: str
+    updated_at: str
+
+
+class BacktestCompareNotesResource(BaseModel):
+    compare_set_id: int
+    compare_name: str | None = None
+    notes: list[ObjectAnnotationResource]
 
 
 class BacktestRunListItemResource(BaseModel):
@@ -663,6 +723,94 @@ def _build_backtest_assumption_bundle_resource(entry) -> BacktestAssumptionBundl
         description=entry.description,
         market_scope=entry.market_scope,
         assumptions=entry.assumptions.model_dump(mode="json", by_alias=True),
+    )
+
+
+def _build_annotation_resource(annotation_row: dict[str, Any]) -> ObjectAnnotationResource:
+    return ObjectAnnotationResource(
+        annotation_id=int(annotation_row["annotation_id"]),
+        entity_type=str(annotation_row["entity_type"]),
+        entity_id=str(annotation_row["entity_id"]),
+        annotation_type=str(annotation_row["annotation_type"]),
+        status=str(annotation_row["status"]),
+        title=str(annotation_row["title"]),
+        summary=annotation_row.get("summary"),
+        note_source=str(annotation_row["note_source"]),
+        verification_state=str(annotation_row["verification_state"]),
+        verified_findings=list(annotation_row.get("verified_findings_json") or []),
+        open_questions=list(annotation_row.get("open_questions_json") or []),
+        next_action=annotation_row.get("next_action"),
+        source_refs_json=dict(annotation_row.get("source_refs_json") or {}),
+        facts_snapshot_json=dict(annotation_row.get("facts_snapshot_json") or {}),
+        created_by=str(annotation_row["created_by"]),
+        updated_by=str(annotation_row["updated_by"]),
+        created_at=annotation_row["created_at"].isoformat(),
+        updated_at=annotation_row["updated_at"].isoformat(),
+    )
+
+
+def _build_backtest_compare_resource(compare_set: BacktestCompareSet) -> BacktestCompareSetResource:
+    return BacktestCompareSetResource(
+        compare_set_id=compare_set.compare_set_id,
+        compare_name=compare_set.compare_name,
+        run_ids=compare_set.run_ids,
+        benchmark_run_id=compare_set.benchmark_run_id,
+        persisted=compare_set.persisted,
+        available_period_types=compare_set.available_period_types,
+        compared_runs=[
+            BacktestComparedRunResource(
+                run_id=run.run_id,
+                run_name=run.run_name,
+                strategy_code=run.strategy_code,
+                strategy_version=run.strategy_version,
+                account_code=run.account_code,
+                environment=run.environment,
+                status=run.status,
+                start_time=run.start_time.isoformat(),
+                end_time=run.end_time.isoformat(),
+                universe=run.universe,
+                diagnostic_status=run.diagnostic_status,
+                total_return=None if run.total_return is None else str(run.total_return),
+                annualized_return=None if run.annualized_return is None else str(run.annualized_return),
+                max_drawdown=None if run.max_drawdown is None else str(run.max_drawdown),
+                turnover=None if run.turnover is None else str(run.turnover),
+                win_rate=None if run.win_rate is None else str(run.win_rate),
+                fee_cost=None if run.fee_cost is None else str(run.fee_cost),
+                slippage_cost=None if run.slippage_cost is None else str(run.slippage_cost),
+            )
+            for run in compare_set.compared_runs
+        ],
+        assumption_diffs=[
+            BacktestAssumptionDiffResource(
+                field_name=diff.field_name,
+                distinct_value_count=diff.distinct_value_count,
+                values_by_run=[
+                    ComparisonAssumptionValueResource(run_id=value.run_id, value=value.value)
+                    for value in diff.values_by_run
+                ],
+            )
+            for diff in compare_set.assumption_diffs
+        ],
+        benchmark_deltas=[
+            BacktestBenchmarkDeltaResource(
+                run_id=delta.run_id,
+                benchmark_run_id=delta.benchmark_run_id,
+                total_return_delta=None if delta.total_return_delta is None else str(delta.total_return_delta),
+                annualized_return_delta=None if delta.annualized_return_delta is None else str(delta.annualized_return_delta),
+                max_drawdown_delta=None if delta.max_drawdown_delta is None else str(delta.max_drawdown_delta),
+                turnover_delta=None if delta.turnover_delta is None else str(delta.turnover_delta),
+                win_rate_delta=None if delta.win_rate_delta is None else str(delta.win_rate_delta),
+            )
+            for delta in compare_set.benchmark_deltas
+        ],
+        comparison_flags=[
+            BacktestComparisonFlagResource(
+                code=flag.code,
+                severity=flag.severity,
+                message=flag.message,
+            )
+            for flag in compare_set.comparison_flags
+        ],
     )
 
 
@@ -1744,12 +1892,17 @@ def create_app() -> FastAPI:
     ) -> SuccessEnvelope[BacktestCompareSetResource]:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
         try:
-            with connection_scope() as connection:
+            with transaction_scope() as connection:
                 compare_set = BacktestCompareProjector().build(
                     connection,
                     run_ids=request.run_ids,
                     compare_name=request.compare_name,
                     benchmark_run_id=request.benchmark_run_id,
+                )
+                compare_set = CompareReviewService().persist_compare_set(
+                    connection,
+                    compare_set=compare_set,
+                    actor_name=actor.user_name,
                 )
         except BacktestCompareValidationError as exc:
             raise HTTPException(
@@ -1767,67 +1920,71 @@ def create_app() -> FastAPI:
             ) from exc
 
         return SuccessEnvelope[BacktestCompareSetResource](
-            data=BacktestCompareSetResource(
-                compare_name=compare_set.compare_name,
-                run_ids=compare_set.run_ids,
-                benchmark_run_id=compare_set.benchmark_run_id,
-                persisted=compare_set.persisted,
-                available_period_types=compare_set.available_period_types,
-                compared_runs=[
-                    BacktestComparedRunResource(
-                        run_id=run.run_id,
-                        run_name=run.run_name,
-                        strategy_code=run.strategy_code,
-                        strategy_version=run.strategy_version,
-                        account_code=run.account_code,
-                        environment=run.environment,
-                        status=run.status,
-                        start_time=run.start_time.isoformat(),
-                        end_time=run.end_time.isoformat(),
-                        universe=run.universe,
-                        diagnostic_status=run.diagnostic_status,
-                        total_return=None if run.total_return is None else str(run.total_return),
-                        annualized_return=None if run.annualized_return is None else str(run.annualized_return),
-                        max_drawdown=None if run.max_drawdown is None else str(run.max_drawdown),
-                        turnover=None if run.turnover is None else str(run.turnover),
-                        win_rate=None if run.win_rate is None else str(run.win_rate),
-                        fee_cost=None if run.fee_cost is None else str(run.fee_cost),
-                        slippage_cost=None if run.slippage_cost is None else str(run.slippage_cost),
-                    )
-                    for run in compare_set.compared_runs
-                ],
-                assumption_diffs=[
-                    BacktestAssumptionDiffResource(
-                        field_name=diff.field_name,
-                        distinct_value_count=diff.distinct_value_count,
-                        values_by_run=[
-                            ComparisonAssumptionValueResource(run_id=value.run_id, value=value.value)
-                            for value in diff.values_by_run
-                        ],
-                    )
-                    for diff in compare_set.assumption_diffs
-                ],
-                benchmark_deltas=[
-                    BacktestBenchmarkDeltaResource(
-                        run_id=delta.run_id,
-                        benchmark_run_id=delta.benchmark_run_id,
-                        total_return_delta=None if delta.total_return_delta is None else str(delta.total_return_delta),
-                        annualized_return_delta=None if delta.annualized_return_delta is None else str(delta.annualized_return_delta),
-                        max_drawdown_delta=None if delta.max_drawdown_delta is None else str(delta.max_drawdown_delta),
-                        turnover_delta=None if delta.turnover_delta is None else str(delta.turnover_delta),
-                        win_rate_delta=None if delta.win_rate_delta is None else str(delta.win_rate_delta),
-                    )
-                    for delta in compare_set.benchmark_deltas
-                ],
-                comparison_flags=[
-                    BacktestComparisonFlagResource(
-                        code=flag.code,
-                        severity=flag.severity,
-                        message=flag.message,
-                    )
-                    for flag in compare_set.comparison_flags
-                ],
+            data=_build_backtest_compare_resource(compare_set),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/compare-sets/{compare_set_id}/notes")
+    def list_backtest_compare_notes(
+        compare_set_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestCompareNotesResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            with connection_scope() as connection:
+                compare_row, notes = CompareReviewService().list_compare_notes(connection, compare_set_id=compare_set_id)
+        except CompareReviewNotFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": str(exc), "details": {"compare_set_id": compare_set_id}},
+            ) from exc
+
+        return SuccessEnvelope[BacktestCompareNotesResource](
+            data=BacktestCompareNotesResource(
+                compare_set_id=compare_set_id,
+                compare_name=compare_row.get("compare_name"),
+                notes=[_build_annotation_resource(note) for note in notes],
             ),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/backtests/compare-sets/{compare_set_id}/notes")
+    def create_or_update_backtest_compare_note(
+        compare_set_id: int,
+        request: CompareReviewNoteWriteRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[ObjectAnnotationResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            with transaction_scope() as connection:
+                note = CompareReviewService().create_or_update_compare_note(
+                    connection,
+                    compare_set_id=compare_set_id,
+                    annotation_id=request.annotation_id,
+                    annotation_type=request.annotation_type,
+                    status=request.status,
+                    title=request.title,
+                    summary=request.summary,
+                    note_source=request.note_source,
+                    verification_state=request.verification_state,
+                    verified_findings=request.verified_findings,
+                    open_questions=request.open_questions,
+                    next_action=request.next_action,
+                    actor_name=actor.user_name,
+                )
+        except CompareReviewNotFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": str(exc), "details": {"compare_set_id": compare_set_id}},
+            ) from exc
+        except CompareReviewAnnotationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "VALIDATION_ERROR", "message": str(exc), "details": {"compare_set_id": compare_set_id}},
+            ) from exc
+
+        return SuccessEnvelope[ObjectAnnotationResource](
+            data=_build_annotation_resource(note),
             meta=_meta(actor),
         )
 

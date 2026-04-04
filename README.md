@@ -115,12 +115,13 @@ Major implementation areas now present include:
 - Phase 5 aggregate portfolio/equity projection plus DB-backed run/order/fill/performance persistence under `src/backtest/` and `src/storage/repositories/backtest.py`
 - Phase 5 run-level diagnostics summary projection plus `/api/v1/backtests/runs/{run_id}/diagnostics` under `src/backtest/diagnostics.py` and `src/api/app.py`
 - Phase 5 derived `year` / `quarter` / `month` period breakdown plus baseline artifact catalog endpoints under `src/backtest/periods.py`, `src/backtest/artifacts.py`, and `src/api/app.py`
-- Phase 5 ad hoc compare/analyze foundation plus `POST /api/v1/backtests/compare-sets` under `src/backtest/compare.py` and `src/api/app.py`
+- Phase 5 compare/analyze foundation now includes persisted compare-set identity plus `POST /api/v1/backtests/compare-sets` under `src/backtest/compare.py`, `src/backtest/compare_review.py`, and `src/api/app.py`
+- Phase 5 compare-review note foundation now includes seeded system review drafts and `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes` under `src/backtest/compare_review.py`, `src/storage/repositories/research.py`, and `src/api/app.py`
 - Phase 5 backtest run launch/list/detail API surfaces under `src/api/app.py` and `src/storage/repositories/backtest.py`
 - Phase 5 run detail endpoints for simulated orders, fills, signals, and recent timeseries under `src/api/app.py` and `src/storage/repositories/backtest.py`
 - bounded recent-bar history plus no-step-cache persisted-run defaults in the current Phase 5 runner to keep longer windows more practical
 - automated tests for the current Phase 2/Phase 3/Phase 4 model, storage, API, ingestion, and quality foundation
-- automated tests for the current Phase 5 session/strategy/lifecycle skeleton, first bar-stream signal loop, and compare/analyze foundation
+- automated tests for the current Phase 5 session/strategy/lifecycle skeleton, first bar-stream signal loop, compare/analyze foundation, and compare-review note persistence/API baseline
 - automated tests for the current Phase 5 run launch/list/detail API slice and bounded-history runner behavior
 
 Current auth behavior for the implemented API slice:
@@ -264,6 +265,7 @@ Relevant files:
 - `db/init/005_execution_fill_dedup.sql`
 - `db/init/006_seed_strategy_and_accounts.sql`
 - `db/init/007_update_starter_fee_schedule_defaults.sql`
+- `db/init/008_compare_sets_and_annotations.sql`
 - `docs/database-bootstrap.md`
 - `db/verify/phase_1_verification.sql`
 - `scripts/verify_phase1.sh`

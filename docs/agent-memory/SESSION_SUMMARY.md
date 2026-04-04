@@ -1,7 +1,7 @@
 # Session Summary
 
 ## Goal
-- define a practical AI memory and cross-session handoff workflow tailored to this repository
+- define and start landing durable memory workflow foundations for long-running research/review work in this repository
 
 ## Done
 - studied the proposed chunking / summary / external-memory / handoff ideas
@@ -10,6 +10,7 @@
 - added reusable operator templates for session start, session stop, and minimal CLI/VS Code execution
 - added repo-owned VS Code tasks and local PowerShell helper scripts so the workflow is directly runnable
 - added a dedicated object-level notes/annotations planning spec and wired it into Phase 5 planning/docs
+- added the first compare-review note foundation with persisted compare-set identity, seeded system review drafts, and compare note APIs
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -25,6 +26,12 @@
 - `scripts/start_memory_session.ps1`
 - `scripts/stop_memory_session.ps1`
 - `docs/object-level-notes-and-annotations-spec.md`
+- `db/init/008_compare_sets_and_annotations.sql`
+- `src/backtest/compare_review.py`
+- `src/storage/repositories/research.py`
+- `src/api/app.py`
+- `tests/test_phase5_foundation.py`
+- `tests/test_api_models.py`
 - `docs/strategy-workbench-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/ui-api-spec.md`
@@ -39,7 +46,9 @@
 - keep memory layered instead of mixing stable state, task state, and session state together
 
 ## Risks
-- this is now runnable locally, but still not yet enforced by runtime/UI
+- compare-review memory is backend/API-backed now, but the internal research UI still does not expose it
+- replay investigation notes and unified annotation service remain future slices
 
 ## Next
-- implement compare-review note foundation first, then replay investigation notes, then future workbench annotation UI
+- expose compare-review notes in the internal research UI
+- add step-level debug trace foundation and then use the same annotation direction for replay investigation notes

@@ -898,9 +898,9 @@ Purpose:
 - create a named comparison set across runs
 
 Current implementation status:
-- implemented as an ad hoc compare/analyze projection over supplied `run_ids`
-- currently returns side-by-side run KPIs, assumption diffs, diagnostic status, and optional benchmark deltas
-- saved compare-set persistence and `GET /api/v1/backtests/compare-sets/{compare_set_id}` remain future work
+- implemented as a persisted compare/analyze baseline over supplied `run_ids`
+- currently returns a durable `compare_set_id` plus side-by-side run KPIs, assumption diffs, diagnostic status, and optional benchmark deltas
+- `GET /api/v1/backtests/compare-sets/{compare_set_id}` remains future work
 
 ### GET `/api/v1/backtests/compare-sets/{compare_set_id}`
 Purpose:
@@ -910,15 +910,19 @@ Purpose:
 Purpose:
 - list review notes attached to a compare set
 
-Future direction:
-- should expose object-linked compare-review notes with system facts, human/agent findings, open questions, and next action
+Current implementation status:
+- implemented as the first object-level compare-review note list surface
+- returns seeded system review drafts and any later human/agent review notes
+- preserves the distinction between machine facts and human/agent review state
 
 ### POST `/api/v1/backtests/compare-sets/{compare_set_id}/notes`
 Purpose:
 - create or update review notes attached to a compare set
 
-Future direction:
-- should support seeded review drafts, review-status updates, and explicit next-action workflow
+Current implementation status:
+- implemented as the first manual/agent compare-review write surface
+- supports creating human/agent review notes and updating non-system notes
+- system-seeded fact notes remain read-only
 
 ### POST `/api/v1/replays/runs`
 Purpose:

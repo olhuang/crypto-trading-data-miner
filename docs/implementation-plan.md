@@ -347,7 +347,7 @@ Make collected market data reliable enough for research and downstream execution
 - funding/open-interest/mark/index now also have a scheduler-ready remediation job shape for manual/API-triggered catch-up planning without enabling a continuous remediation loop yet
 - future enhancement still pending: cross-dataset diagnostic checks such as funding vs nearby mark/index alignment, mark-vs-index spread sanity, and raw-to-normalized coverage correlation summaries
 - current monitoring UI is intentionally a lightweight internal console, not the final long-term product frontend foundation
-- the Phase 5 backtest path now includes deterministic bars-based market/limit fill simulation, aggregate portfolio/equity projection, DB-backed persisted runs, run launch/list/detail API surfaces, run detail endpoints for signals/orders/fills/timeseries, a first run-level diagnostics summary API, derived year/quarter/month period-breakdown plus artifact-catalog outputs, and an ad hoc compare/analyze foundation for side-by-side run KPI comparison, assumption diffs, diagnostic status, and benchmark overlays; it still needs step traces, saved compare-set workflow, and a fuller research UI
+- the Phase 5 backtest path now includes deterministic bars-based market/limit fill simulation, aggregate portfolio/equity projection, DB-backed persisted runs, run launch/list/detail API surfaces, run detail endpoints for signals/orders/fills/timeseries, a first run-level diagnostics summary API, derived year/quarter/month period-breakdown plus artifact-catalog outputs, a persisted compare-set baseline for side-by-side run KPI comparison/assumption diffs/benchmark overlays, and the first compare-review note API foundation; it still needs compare-note UI, step traces, replay-note workflow, and a fuller research UI
 
 ---
 
@@ -484,7 +484,7 @@ Provide the first end-to-end research workflow using historical data.
 - minimum Phase 4 data-quality baseline for bars-based research inputs
 
 ### Recommended Status
-- started with an architecture-aligned session/strategy/lifecycle skeleton, the first bar-stream signal-generation loop, a deterministic bars-based fill model with fee/slippage support, DB-backed run/order/fill/performance persistence, create/list/detail run APIs, a diagnostics-summary surface, baseline period/artifact outputs, and an ad hoc compare/analyze API foundation for research-side run comparison
+- started with an architecture-aligned session/strategy/lifecycle skeleton, the first bar-stream signal-generation loop, a deterministic bars-based fill model with fee/slippage support, DB-backed run/order/fill/performance persistence, create/list/detail run APIs, a diagnostics-summary surface, baseline period/artifact outputs, a persisted compare-set API foundation for research-side run comparison, and a first compare-review note API baseline
 - now also has first-wave shared backtest risk guardrails, including session-level risk policy, blocked-intent diagnostics summary, and minimal UI launch controls for the first configurable risk knobs
 - now also has Phase 5B baseline support for run-level risk overrides, effective risk-policy snapshot persistence, assumption-bundle metadata linkage, and compare/analyze-compatible risk assumption diffs
 - now also has a first Phase 5C foundation for named risk-policy selection through a code-seeded registry, dedicated API list surface, and Backtests UI launch support

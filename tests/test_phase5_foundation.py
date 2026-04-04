@@ -17,6 +17,7 @@ if str(SRC_ROOT) not in sys.path:
 from backtest.artifacts import BacktestArtifactCatalogProjector
 from backtest.assumption_registry import build_default_assumption_bundle_registry
 from backtest.compare import BacktestCompareProjector
+from backtest.compare_review import CompareReviewService
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
@@ -1495,6 +1496,15 @@ class Phase5FoundationTests(unittest.TestCase):
                 benchmark_run_id=persisted_one.run_id,
                 compare_name="target_qty_compare",
             )
+            persisted_compare = CompareReviewService().persist_compare_set(
+                connection,
+                compare_set=compare_set,
+                actor_name="Phase5FoundationTests",
+            )
+            compare_row, compare_notes = CompareReviewService().list_compare_notes(
+                connection,
+                compare_set_id=int(persisted_compare.compare_set_id or 0),
+            )
 
             self.assertEqual(compare_set.compare_name, "target_qty_compare")
             self.assertFalse(compare_set.persisted)
@@ -1509,6 +1519,16 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertIsNotNone(compare_set.benchmark_deltas[0].total_return_delta)
             flag_codes = {flag.code for flag in compare_set.comparison_flags}
             self.assertIn("execution_assumption_mismatch", flag_codes)
+            self.assertTrue(persisted_compare.persisted)
+            self.assertIsNotNone(persisted_compare.compare_set_id)
+            self.assertEqual(compare_row["compare_name"], "target_qty_compare")
+            self.assertEqual(list(compare_row["run_ids_json"]), [persisted_one.run_id, persisted_two.run_id])
+            self.assertEqual(len(compare_notes), 1)
+            self.assertEqual(compare_notes[0]["annotation_type"], "review")
+            self.assertEqual(compare_notes[0]["note_source"], "system")
+            self.assertEqual(compare_notes[0]["verification_state"], "system_fact")
+            self.assertEqual(compare_notes[0]["source_refs_json"]["run_ids"], [persisted_one.run_id, persisted_two.run_id])
+            self.assertEqual(compare_notes[0]["facts_snapshot_json"]["compare_name"], "target_qty_compare")
         finally:
             transaction.rollback()
             connection.close()

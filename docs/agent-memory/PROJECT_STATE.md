@@ -3,7 +3,7 @@
 ## Current Repo Maturity
 - Phase 1-4 core scope is implemented and validated.
 - Phase 5 has a working bars-based backtest foundation.
-- The repo already supports strategy session config, named risk policies, named assumption bundles, diagnostics summary, period breakdown, and compare/analyze baseline.
+- The repo already supports strategy session config, named risk policies, named assumption bundles, diagnostics summary, period breakdown, persisted compare sets, and compare-review note API baseline.
 - `/monitoring` now includes a minimal internal Backtests research slice.
 
 ## Current Strong Areas
@@ -11,12 +11,12 @@
 - phased implementation planning
 - Binance market-data ingestion baseline
 - market-data quality and replay-readiness baseline
-- bars-based backtest, diagnostics, and compare foundation
+- bars-based backtest, diagnostics, compare foundation, and first object-level compare-review memory
 
 ## Current Gaps
 - no replay engine yet
 - no step-level debug trace foundation yet
-- compare-set persistence is still future work
+- compare-review notes are backend/API-backed, but the research UI does not yet expose them
 - cooldown semantics are still tied to a losing-close proxy instead of explicit protection events
 
 ## Most Important Source-of-Truth Docs

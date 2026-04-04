@@ -824,10 +824,11 @@ Used by:
 
 ```json
 {
+  "compare_set_id": 9001,
   "compare_name": "btc_momentum_compare",
   "run_ids": [5001, 5002],
   "benchmark_run_id": 5001,
-  "persisted": false,
+  "persisted": true,
   "available_period_types": ["year", "quarter", "month"],
   "compared_runs": [
     {
@@ -889,16 +890,16 @@ Used by:
 
 ### Notes
 
-- the current implementation is an ad hoc comparison projection, not yet a persisted compare-set workflow
-- it is intended to support research-side KPI comparison, assumption diffs, and benchmark overlays without requiring ad hoc SQL
-- the response is deliberately compatible with future saved compare sets, artifact bundles, and review workflows
+- the current implementation now persists compare-set identity and returns a durable `compare_set_id`
+- compare creation also seeds a system review note so compare-review work has an object-linked starting point
+- it is intended to support research-side KPI comparison, assumption diffs, benchmark overlays, and durable review workflow without requiring ad hoc SQL or chat-only memory
 - the artifact list is intended to give UI/research workflows a stable inventory of what a run already exposes
 
 ---
 
 ## 4.7 Object Annotation Resource
 
-Used by future endpoints such as:
+Used by current and future endpoints such as:
 - `GET /api/v1/backtests/compare-sets/{compare_set_id}/notes`
 - `POST /api/v1/backtests/compare-sets/{compare_set_id}/notes`
 - `GET /api/v1/replays/runs/{run_id}/notes`
@@ -912,7 +913,7 @@ Used by future endpoints such as:
 {
   "annotation_id": 9001,
   "entity_type": "compare_set",
-  "entity_id": "cmp_20260404_001",
+  "entity_id": "9001",
   "annotation_type": "review",
   "status": "draft",
   "title": "BTC momentum compare review",
@@ -922,12 +923,13 @@ Used by future endpoints such as:
   "verified_findings": [],
   "open_questions": [],
   "next_action": "Inspect assumption diff before deciding rerun.",
-  "source_refs": {
-    "run_ids": [5001, 5002],
-    "trace_refs": [],
-    "file_refs": []
+  "source_refs_json": {
+    "compare_set_id": 9001,
+    "run_ids": [5001, 5002]
   },
-  "facts_snapshot_json": {},
+  "facts_snapshot_json": {
+    "compare_name": "BTC momentum compare review"
+  },
   "created_by": "system",
   "updated_by": "system",
   "created_at": "2026-04-04T12:00:00Z",
@@ -937,7 +939,7 @@ Used by future endpoints such as:
 
 ### Notes
 
-- the first implementation should prefer one generic annotation resource shape even if compare and replay use different UI forms
+- the first implementation now uses this generic shape for compare-review note listing/writing while leaving replay note work for a later slice
 - the system should preserve the distinction between:
   - seeded/system facts
   - human or agent review content

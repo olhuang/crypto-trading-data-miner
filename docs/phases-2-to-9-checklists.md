@@ -915,16 +915,16 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.7F: Implement compare/review note foundation
 ### Tasks
-- [ ] persist compare-set review notes as first-class object-linked annotations
-- [ ] seed compare review drafts from compare-set identity and compared run ids
-- [ ] enrich seeded review drafts with KPI, benchmark, assumption-diff, and diagnostics-diff facts
-- [ ] expose compare-review note list/detail/create/update API surfaces
+- [x] persist compare-set review notes as first-class object-linked annotations
+- [x] seed compare review drafts from compare-set identity and compared run ids
+- [x] enrich seeded review drafts with KPI, benchmark, assumption-diff, and diagnostics-diff facts
+- [x] expose compare-review note list/create/update API surfaces
 - [ ] expose compare-review notes in the internal research UI
 
 ### Acceptance Checks
-- [ ] compare work can leave durable review state without relying on repo-level markdown or chat transcripts alone
-- [ ] system facts and human/agent review conclusions remain distinguishable in compare-review notes
-- [ ] compare-review notes are compatible with future saved compare sets and promotion review workflow
+- [x] compare work can leave durable review state without relying on repo-level markdown or chat transcripts alone
+- [x] system facts and human/agent review conclusions remain distinguishable in compare-review notes
+- [x] compare-review notes are compatible with future saved compare sets and promotion review workflow
 
 ---
 
@@ -978,6 +978,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes a run-level diagnostics summary projector and the first `/api/v1/backtests/runs/{run_id}/diagnostics` API surface
 - [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs
 - [x] the Phase 5 skeleton now includes an ad hoc compare/analyze API surface for selected runs and optional benchmark overlays
+- [x] the Phase 5 skeleton now includes persisted compare-set identity plus seeded compare-review note APIs for durable compare workflow memory
 - [x] the Phase 5 skeleton now includes `POST /api/v1/backtests/runs`, `GET /api/v1/backtests/runs`, and `GET /api/v1/backtests/runs/{run_id}` for run launch and inspection
 - [x] the Phase 5 skeleton now includes run-detail APIs for persisted signals, simulated orders, simulated fills, and recent performance timeseries inspection
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown plus signals/orders/fills/timeseries detail

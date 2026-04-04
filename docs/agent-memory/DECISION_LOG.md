@@ -67,3 +67,18 @@ Treat compare/review notes and replay investigation notes as object-level memory
 ### Impact
 - repo-level memory remains the session/handoff layer
 - future compare/replay/workbench notes should use a shared annotation model and be linked from repo-level handoff when relevant
+
+## 2026-04-04
+
+### Decision
+Implement compare-review notes as persisted compare-set identity plus a seeded system review draft before building replay notes or full annotation UI.
+
+### Reason
+- compare work already exists in Phase 5, so it is the lowest-risk place to introduce object-linked memory
+- seeding a system-fact note first keeps machine facts separate from later human/agent conclusions
+- durable compare-set identity is needed before review memory can be resumed across sessions
+
+### Impact
+- `POST /api/v1/backtests/compare-sets` now returns a durable `compare_set_id`
+- compare creation now seeds a system review note in the generic annotation store
+- replay investigation notes can later reuse the same object-level annotation direction instead of inventing a separate notes path
