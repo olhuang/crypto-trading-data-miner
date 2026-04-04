@@ -10,6 +10,7 @@
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
+- provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 
 ## Blocked
 - none currently recorded
@@ -23,6 +24,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- added `scripts/binance_btc_history_backfill.py` for chunked local backfill of `BTCUSDT_SPOT` and `BTCUSDT_PERP` from `2020-01-01` to YTD, plus rolling status output in `tmp/binance_btc_history_backfill_status.json`
 - added a one-click copy icon to the persistent JSON panels across `/monitoring`, covering run payloads, diagnostics, artifacts, compare-note detail, trace detail, and traceability payloads
 - moved the Backtests `Signals / Orders / Fills / Timeseries` sections to after the `Investigate` workspace so the page flow reaches diagnostics and traces before execution detail tables
 - cleaned up the selected Backtests run detail so the main run payload is now labeled and split into named sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before the raw API payload

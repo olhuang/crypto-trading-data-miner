@@ -171,6 +171,12 @@ Recent local collection validation:
   - `BTCUSDT_SPOT`: instrument sync, historical bars
   - `BTCUSDT_PERP`: instrument sync, historical bars, funding rates, open interest, mark prices, index prices
 - `trades` remain intentionally out of the default historical collection flow
+- for a full local BTC bootstrap from `2020-01-01` to YTD, use `scripts/binance_btc_history_backfill.py`
+- that script writes rolling progress to `tmp/binance_btc_history_backfill_status.json`
+- example:
+  - `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py`
+- progress check:
+  - `Get-Content .\tmp\binance_btc_history_backfill_status.json`
 
 ---
 

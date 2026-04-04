@@ -25,3 +25,4 @@ logs/
 *.feather
 *.csv
 /data/
+tmp/

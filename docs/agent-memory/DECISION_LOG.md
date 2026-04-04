@@ -199,3 +199,17 @@ Adopt a three-part frontend strategy: keep the current `/monitoring` console as 
 - `docs/frontend-keep-evolve-replace-strategy.md` is now the source of truth for the frontend transition path
 - `/monitoring` usability work should continue through the evolve path, starting with `UI Phase A: Launch Form Cleanup`
 - future product-grade frontend work should land on the planned route-based foundation instead of accumulating inside `frontend/monitoring/app.js`
+
+## 2026-04-04
+
+### Decision
+Handle the requested Binance BTC long-history pull through a repo-local backfill script with a rolling JSON status file, instead of trying to execute the operation inside the current harness.
+
+### Reason
+- outbound Binance access is blocked in the current execution harness, so the historical pull cannot complete here
+- the repository already has working spot/perp backfill jobs, so packaging them into a local runnable script is safer than inventing a second ingestion path
+- the operator also needs visible progress during a long pull, which is better served by a durable status file than by terminal scrollback alone
+
+### Impact
+- `scripts/binance_btc_history_backfill.py` is now the canonical local bootstrap entrypoint for `BTCUSDT_SPOT` and `BTCUSDT_PERP`
+- `tmp/binance_btc_history_backfill_status.json` is the durable progress artifact while the script is running

@@ -6,6 +6,7 @@
 - continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
 - continue cleaning up the current `/monitoring` Backtests UX now that the first launch-form cleanup slice has landed
 - keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
+- provide a local runnable Binance BTC history backfill path with explicit progress/status output now that direct outbound execution is blocked inside the current harness
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -33,6 +34,9 @@
 - the selected Backtests run detail now breaks the run payload into named sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before exposing the raw API payload
 - the Backtests page now places `Signals / Orders / Fills / Timeseries` after the `Investigate` workspace so users reach diagnostics and debug traces earlier in the inspection flow
 - every persistent `json-shell` surface in `/monitoring` now has a one-click copy icon, so raw payloads, diagnostics, trace detail, compare-note detail, and traceability payloads can be copied without manual selection
+- the current harness cannot directly execute the requested Binance historical pull because outbound network access remains blocked in-sandbox
+- a repo-local script now exists at `scripts/binance_btc_history_backfill.py` to backfill `BTCUSDT_SPOT` and `BTCUSDT_PERP` from `2020-01-01` to YTD outside the harness
+- that script writes rolling progress to `tmp/binance_btc_history_backfill_status.json` and prints per-chunk status to the console while it runs
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -41,6 +45,7 @@
 - the selected-run workspace is clearer, but the broader page still needs stronger separation between launch, compare, run inspection, and investigation flows
 - richer saved-compare workflow remains future work
 - replay investigation notes and unified annotation service remain future work
+- the actual Binance BTC long-history pull still has to be run on the local machine outside the harness
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -73,6 +78,8 @@
 - `frontend/monitoring/index.html`
 - `frontend/monitoring/app.js`
 - `frontend/monitoring/styles.css`
+- `scripts/binance_btc_history_backfill.py`
+- `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- when continuing the UI line, first align with `docs/frontend-keep-evolve-replace-strategy.md`, then continue from `docs/frontend-ui-usability-improvement-plan.md` at `UI Phase B: Backtest Workspace Restructure`, now that selected-run metadata has been split into named summary sections
+- run `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py` on the local machine, watch progress through `tmp/binance_btc_history_backfill_status.json`, verify the final coverage summary, then return to the UI line at `UI Phase B: Backtest Workspace Restructure`

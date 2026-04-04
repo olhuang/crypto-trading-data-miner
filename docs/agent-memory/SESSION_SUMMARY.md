@@ -27,6 +27,8 @@
 - reworked the selected Backtests run detail so users now see labeled sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before the raw API payload
 - moved the execution-detail tables so `Signals / Orders / Fills / Timeseries` now appear after the `Investigate` workspace instead of before it
 - added a reusable copy icon to the persistent JSON panels in `/monitoring`, so users can copy diagnostics, raw payloads, compare-note detail, and trace detail without manual text selection
+- added `scripts/binance_btc_history_backfill.py` so `BTCUSDT_SPOT` and `BTCUSDT_PERP` can be backfilled locally from `2020-01-01` to YTD even though outbound Binance access is blocked inside the current harness
+- added a rolling status-file path at `tmp/binance_btc_history_backfill_status.json` so progress can be inspected while the local backfill is running
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -56,6 +58,8 @@
 - `frontend/monitoring/index.html`
 - `frontend/monitoring/app.js`
 - `frontend/monitoring/styles.css`
+- `scripts/binance_btc_history_backfill.py`
+- `.gitignore`
 - `tests/test_phase5_foundation.py`
 - `tests/test_api_models.py`
 - `docs/strategy-workbench-spec.md`
@@ -82,6 +86,7 @@
 - the current Backtests page is improved, but the next remaining UI need is a cleaner phase-B workspace split between launch, compare, runs, and investigation
 - the raw selected-run payload is now better labeled, but the broader Backtests page still needs stronger workspace separation in the next UI phase
 - the repository still needs discipline to avoid turning the current static `/monitoring` console into the accidental long-term frontend architecture
+- the actual historical Binance pull still has to be executed locally outside the harness because network access remains blocked in this environment
 
 ## Next
-- align future frontend work to `docs/frontend-keep-evolve-replace-strategy.md`, continue from `UI Phase B: Backtest Workspace Restructure` in `docs/frontend-ui-usability-improvement-plan.md`, then return to later replay-linked investigation flow
+- run `scripts/binance_btc_history_backfill.py` locally, verify the final coverage summary for `BTCUSDT_SPOT` / `BTCUSDT_PERP`, then continue from `UI Phase B: Backtest Workspace Restructure` in `docs/frontend-ui-usability-improvement-plan.md`
