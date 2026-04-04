@@ -17,6 +17,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- added reusable session-start, session-stop, and CLI/VS Code workflow templates under `docs/agent-memory/`
 - formalized the repo-local AI memory and cross-session handoff workflow
 - added `docs/agent-memory/` memory artifacts for stable state, task state, decisions, handoff, and session summary
 - wired the memory workflow into README, spec index, implementation plan, and Phase 5 checklist

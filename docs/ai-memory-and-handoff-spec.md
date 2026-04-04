@@ -374,6 +374,9 @@ Then:
 - do not begin coding before the current state is clear
 ```
 
+The reusable file form of this prompt lives at:
+- `docs/agent-memory/SESSION_START_PROMPT.md`
+
 ---
 
 ## 8. Project-Specific Recommended Session Stop Prompt
@@ -394,6 +397,12 @@ The handoff must include:
 - exact files/specs to inspect next
 - recommended next action
 ```
+
+The reusable stop checklist lives at:
+- `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
+
+An operator-facing automation template for CLI / VS Code lives at:
+- `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
 
 ---
 
@@ -426,6 +435,7 @@ Enforce by habit/process:
 - session start reads memory files
 - session stop writes handoff
 - milestone updates keep task board fresh
+- start/stop templates are easy to reuse from CLI / editor tooling
 
 This can happen without new runtime code.
 

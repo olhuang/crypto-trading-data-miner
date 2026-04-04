@@ -186,6 +186,9 @@ Read in this order:
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/ai-memory-and-handoff-spec.md`
+- `docs/agent-memory/SESSION_START_PROMPT.md`
+- `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
+- `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
 
 ### Source of Truth
 - canonical internal payload contracts: `docs/api-contracts.md`
@@ -196,6 +199,7 @@ Read in this order:
 - backtest/replay report and trace diagnostics planning: `docs/backtest-and-replay-diagnostics-spec.md`
 - strategy-lab, workbench, artifact, compare/analyze, replay-scenario, and review planning: `docs/strategy-workbench-spec.md`
 - AI working-memory, summary, and cross-session handoff workflow: `docs/ai-memory-and-handoff-spec.md`
+- reusable session start/stop and CLI/VS Code memory-workflow templates: `docs/agent-memory/*`
 
 ---
 

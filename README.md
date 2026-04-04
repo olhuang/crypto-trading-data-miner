@@ -149,6 +149,7 @@ Current AI memory/handoff workflow behavior:
 - repo-visible working memory now has a dedicated home under `docs/agent-memory/`
 - the intended stable/task/session/handoff workflow is documented in `docs/ai-memory-and-handoff-spec.md`
 - for long-running AI-assisted work, durable state should live in repo files rather than chat history alone
+- reusable operator templates now exist for session start, session stop, and CLI/VS Code launch patterns under `docs/agent-memory/`
 
 Recent local collection validation:
 - a real local Binance collection run has been completed for `BTCUSDT_SPOT` and `BTCUSDT_PERP`

@@ -619,11 +619,13 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] define a session start/stop workflow for loading stable memory, choosing one subtask, summarizing progress, and writing handoff state
 - [x] define source-of-truth precedence so repo-visible memory complements specs/checklists without replacing them
 - [x] define how the memory workflow should later connect to workbench annotations, replay investigation, and review surfaces
+- [x] provide reusable session-start, session-stop, and operator automation templates so the workflow can be applied consistently from CLI/editor tooling
 
 ### Acceptance Checks
 - [x] repository has an explicit source of truth for resumable AI-assisted long-running work
 - [x] future sessions can resume from repo-visible handoff files instead of relying on transcript continuity alone
 - [x] the memory workflow remains compatible with future strategy workbench and replay-diagnostics facilities
+- [x] operators have a minimal start/stop/template toolkit instead of only a prose process description
 
 ---
 
@@ -918,6 +920,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
 - [x] a dedicated strategy workbench planning spec now exists for strategy-lab, artifact, compare/analyze, replay-scenario, and review facilities
 - [x] a dedicated AI memory/handoff planning spec now exists for repo-local stable/task/session memory and cross-session continuation
+- [x] reusable session-start, session-stop, and CLI/VS Code workflow templates now exist under `docs/agent-memory/`
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
 - [x] the Phase 5 skeleton now includes a first shared pre-trade risk-guardrail engine with session risk policy and blocked-intent runtime summary

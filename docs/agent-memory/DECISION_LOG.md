@@ -26,3 +26,17 @@ Treat AI memory as a layered system: stable project state, active task state, se
 ### Impact
 - `PROJECT_STATE.md` should stay low-frequency
 - `TASK_BOARD.md` / `SESSION_SUMMARY.md` / `HANDOFF.md` should carry the active working state
+
+## 2026-04-04
+
+### Decision
+Ship reusable start/stop/operator templates with the repo-local memory workflow instead of leaving the process only as prose in the main spec.
+
+### Reason
+- a workflow that exists only as theory is easy to skip
+- long-running AI-assisted work becomes more consistent when operators can reuse the same start and stop packets every session
+
+### Impact
+- `docs/agent-memory/SESSION_START_PROMPT.md` is the default session-start packet
+- `docs/agent-memory/SESSION_STOP_CHECKLIST.md` is the default stop packet
+- `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md` is the baseline CLI/editor launch reference
