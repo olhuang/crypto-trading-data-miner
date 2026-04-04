@@ -881,6 +881,7 @@ Current implementation status:
 - implemented as the Level 1 backend foundation
 - currently returns compact per-step trace rows with decision JSON, risk outcomes JSON, counts, and portfolio/equity fields
 - currently supports `limit`, `unified_symbol`, `bar_time_from`, and `bar_time_to`
+- the current internal `/monitoring` Backtests run detail now uses this endpoint for a compact trace table plus selected-trace JSON inspection
 
 ### GET `/api/v1/backtests/runs/{run_id}/artifacts`
 Purpose:

@@ -4,6 +4,7 @@ const state = {
   selectedJobId: null,
   selectedRawEventId: null,
   selectedBacktestRunId: null,
+  selectedBacktestDebugTraceId: null,
   selectedCompareSetId: null,
   selectedCompareNoteId: null,
 };
@@ -122,6 +123,75 @@ function normalizeLineList(value) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function getBacktestTraceFilters(formValues = null) {
+  const form = document.getElementById("backtest-trace-filter-form");
+  const values =
+    formValues || (form ? Object.fromEntries(new FormData(form).entries()) : {});
+  const parsedLimit = Number(String(values.limit || "").trim() || "100");
+  const filters = {
+    limit: Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 100,
+    unified_symbol: String(values.unified_symbol || "").trim() || undefined,
+  };
+  if (form) {
+    form.elements.limit.value = String(filters.limit);
+    form.elements.unified_symbol.value = filters.unified_symbol || "";
+  }
+  return filters;
+}
+
+function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
+  const records = debugTraces.records || [];
+  const contextParts = [`run_id=${runId}`];
+  if (debugTraces.trace_count !== undefined && debugTraces.trace_count !== null) {
+    contextParts.push(`trace_count=${debugTraces.trace_count}`);
+  }
+  if (appliedFilters?.limit) {
+    contextParts.push(`limit=${appliedFilters.limit}`);
+  }
+  if (appliedFilters?.unified_symbol) {
+    contextParts.push(`symbol=${appliedFilters.unified_symbol}`);
+  }
+  setText("backtest-debug-trace-context", contextParts.join(" | "));
+
+  const preferredTrace =
+    records.find((record) => record.debug_trace_id === state.selectedBacktestDebugTraceId) ||
+    records[0] ||
+    null;
+  state.selectedBacktestDebugTraceId = preferredTrace?.debug_trace_id || null;
+
+  renderTable(
+    "backtest-debug-traces-table",
+    [
+      { key: "step_index", label: "Step" },
+      { key: "bar_time", label: "Bar Time" },
+      { key: "unified_symbol", label: "Symbol" },
+      { key: "signal_count", label: "Signals" },
+      { key: "intent_count", label: "Intents" },
+      { key: "blocked_intent_count", label: "Blocked" },
+      { key: "created_order_count", label: "Orders" },
+      { key: "fill_count", label: "Fills" },
+      { key: "current_position_qty", label: "Position Qty" },
+      { key: "equity", label: "Equity" },
+      { key: "drawdown", label: "Drawdown" },
+    ],
+    records,
+    (record) => {
+      state.selectedBacktestDebugTraceId = record.debug_trace_id;
+      renderJson("backtest-debug-trace-detail", record);
+    }
+  );
+
+  if (preferredTrace) {
+    renderJson("backtest-debug-trace-detail", preferredTrace);
+  } else {
+    renderJson("backtest-debug-trace-detail", {
+      run_id: runId,
+      trace_count: debugTraces.trace_count || 0,
+      message: "No persisted debug traces matched the current filter for this run.",
+    });
+  }
 }
 
 function resetCompareNoteForm() {
@@ -379,85 +449,104 @@ async function loadBacktests(filters = {}) {
       { key: "created_at", label: "Created" },
     ],
     runs.runs,
-    async (record) => {
-      state.selectedBacktestRunId = record.run_id;
-      const [detail, diagnostics, artifacts, breakdown, signals, orders, fills, timeseries] = await Promise.all([
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}`),
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/diagnostics`),
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/artifacts`),
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/period-breakdown`, { period_type: "month" }),
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/signals`, { limit: 50 }),
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/orders`, { limit: 50 }),
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/fills`, { limit: 50 }),
-        fetchEnvelope(`/api/v1/backtests/runs/${record.run_id}/timeseries`, { limit: 120 }),
-      ]);
-      renderJson("backtest-run-detail", detail);
-      renderJson("backtest-run-diagnostics", diagnostics);
-      renderJson("backtest-run-artifacts", artifacts);
-      renderTable(
-        "backtest-period-breakdown",
-        [
-          { key: "period_start", label: "Period Start" },
-          { key: "period_end", label: "Period End" },
-          { key: "total_return", label: "Return" },
-          { key: "max_drawdown", label: "Max DD" },
-          { key: "turnover", label: "Turnover" },
-          { key: "signal_count", label: "Signals" },
-          { key: "fill_count", label: "Fills" },
-        ],
-        breakdown.entries || []
-      );
-      renderTable(
-        "backtest-signals-table",
-        [
-          { key: "signal_time", label: "Signal Time" },
-          { key: "unified_symbol", label: "Symbol" },
-          { key: "signal_type", label: "Type", type: "status" },
-          { key: "direction", label: "Direction" },
-          { key: "target_qty", label: "Target Qty" },
-          { key: "reason_code", label: "Reason" },
-        ],
-        signals.signals || []
-      );
-      renderTable(
-        "backtest-orders-table",
-        [
-          { key: "order_time", label: "Order Time" },
-          { key: "unified_symbol", label: "Symbol" },
-          { key: "side", label: "Side", type: "status" },
-          { key: "order_type", label: "Type" },
-          { key: "price", label: "Price" },
-          { key: "qty", label: "Qty" },
-          { key: "status", label: "Status", type: "status" },
-        ],
-        orders.orders || []
-      );
-      renderTable(
-        "backtest-fills-table",
-        [
-          { key: "fill_time", label: "Fill Time" },
-          { key: "unified_symbol", label: "Symbol" },
-          { key: "price", label: "Price" },
-          { key: "qty", label: "Qty" },
-          { key: "fee", label: "Fee" },
-          { key: "slippage_cost", label: "Slippage" },
-        ],
-        fills.fills || []
-      );
-      renderTable(
-        "backtest-timeseries-table",
-        [
-          { key: "ts", label: "Time" },
-          { key: "equity", label: "Equity" },
-          { key: "cash", label: "Cash" },
-          { key: "gross_exposure", label: "Gross" },
-          { key: "net_exposure", label: "Net" },
-          { key: "drawdown", label: "Drawdown" },
-        ],
-        timeseries.points || []
-      );
-    }
+    (record) => loadSelectedBacktestRun(record.run_id)
   );
+}
+
+async function loadSelectedBacktestRun(runId) {
+  state.selectedBacktestRunId = runId;
+  state.selectedBacktestDebugTraceId = null;
+  const traceFilters = getBacktestTraceFilters();
+  const [detail, diagnostics, artifacts, breakdown, signals, orders, fills, timeseries, debugTraces] =
+    await Promise.all([
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}`),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/diagnostics`),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/artifacts`),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/period-breakdown`, { period_type: "month" }),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/signals`, { limit: 50 }),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/orders`, { limit: 50 }),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/fills`, { limit: 50 }),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/timeseries`, { limit: 120 }),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/debug-traces`, traceFilters),
+    ]);
+  renderJson("backtest-run-detail", detail);
+  renderJson("backtest-run-diagnostics", diagnostics);
+  renderJson("backtest-run-artifacts", artifacts);
+  renderTable(
+    "backtest-period-breakdown",
+    [
+      { key: "period_start", label: "Period Start" },
+      { key: "period_end", label: "Period End" },
+      { key: "total_return", label: "Return" },
+      { key: "max_drawdown", label: "Max DD" },
+      { key: "turnover", label: "Turnover" },
+      { key: "signal_count", label: "Signals" },
+      { key: "fill_count", label: "Fills" },
+    ],
+    breakdown.entries || []
+  );
+  renderTable(
+    "backtest-signals-table",
+    [
+      { key: "signal_time", label: "Signal Time" },
+      { key: "unified_symbol", label: "Symbol" },
+      { key: "signal_type", label: "Type", type: "status" },
+      { key: "direction", label: "Direction" },
+      { key: "target_qty", label: "Target Qty" },
+      { key: "reason_code", label: "Reason" },
+    ],
+    signals.signals || []
+  );
+  renderTable(
+    "backtest-orders-table",
+    [
+      { key: "order_time", label: "Order Time" },
+      { key: "unified_symbol", label: "Symbol" },
+      { key: "side", label: "Side", type: "status" },
+      { key: "order_type", label: "Type" },
+      { key: "price", label: "Price" },
+      { key: "qty", label: "Qty" },
+      { key: "status", label: "Status", type: "status" },
+    ],
+    orders.orders || []
+  );
+  renderTable(
+    "backtest-fills-table",
+    [
+      { key: "fill_time", label: "Fill Time" },
+      { key: "unified_symbol", label: "Symbol" },
+      { key: "price", label: "Price" },
+      { key: "qty", label: "Qty" },
+      { key: "fee", label: "Fee" },
+      { key: "slippage_cost", label: "Slippage" },
+    ],
+    fills.fills || []
+  );
+  renderTable(
+    "backtest-timeseries-table",
+    [
+      { key: "ts", label: "Time" },
+      { key: "equity", label: "Equity" },
+      { key: "cash", label: "Cash" },
+      { key: "gross_exposure", label: "Gross" },
+      { key: "net_exposure", label: "Net" },
+      { key: "drawdown", label: "Drawdown" },
+    ],
+    timeseries.points || []
+  );
+  renderBacktestDebugTraces(runId, debugTraces, traceFilters);
+}
+
+async function loadBacktestDebugTraces(formValues = null) {
+  if (!state.selectedBacktestRunId) {
+    throw new Error("Select a backtest run before loading debug traces.");
+  }
+  const traceFilters = getBacktestTraceFilters(formValues);
+  const debugTraces = await fetchEnvelope(
+    `/api/v1/backtests/runs/${state.selectedBacktestRunId}/debug-traces`,
+    traceFilters
+  );
+  renderBacktestDebugTraces(state.selectedBacktestRunId, debugTraces, traceFilters);
 }
 
 async function loadBacktestAssumptionBundles() {
@@ -600,6 +689,7 @@ async function launchBacktest(formValues) {
       allow_short: parseBooleanInput(formValues.allow_short),
     },
     persist_signals: true,
+    persist_debug_traces: parseBooleanInput(formValues.persist_debug_traces),
   };
   if (Object.keys(riskPolicy).length > 0) {
     payload.session.risk_policy = riskPolicy;
@@ -784,6 +874,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-launch-form", launchBacktest);
   bindForm("backtest-compare-form", compareBacktestRuns);
   bindForm("backtest-compare-note-form", saveCompareReviewNote);
+  bindForm("backtest-trace-filter-form", loadBacktestDebugTraces);
   document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {
     resetCompareNoteForm();
   });

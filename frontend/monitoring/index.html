@@ -108,6 +108,7 @@
                 <input name="long_window" placeholder="long_window" value="20" />
                 <input name="target_qty" placeholder="target_qty" value="1" />
                 <input name="allow_short" placeholder="allow_short true/false" value="false" />
+                <input name="persist_debug_traces" placeholder="persist_debug_traces true/false" value="false" />
                 <input
                   name="risk_policy_code"
                   list="backtest-risk-policy-options"
@@ -270,6 +271,29 @@
                 <p>Recent equity, exposure, and drawdown points for the selected run.</p>
               </div>
               <div id="backtest-timeseries-table" class="table-shell"></div>
+            </section>
+          </div>
+
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Debug Traces</h3>
+                <p>Compact step-level trace rows for strategy decisions, risk outcomes, and per-step portfolio state.</p>
+              </div>
+              <form id="backtest-trace-filter-form" class="filters">
+                <input name="limit" placeholder="limit" value="100" />
+                <input name="unified_symbol" placeholder="unified_symbol (optional)" />
+                <button type="submit">Load Traces</button>
+              </form>
+              <p id="backtest-debug-trace-context" class="card-detail">Select a run to inspect persisted debug traces.</p>
+              <div id="backtest-debug-traces-table" class="table-shell"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Selected Trace Detail</h3>
+                <p>Inspect the full decision and risk payload for a single step.</p>
+              </div>
+              <div id="backtest-debug-trace-detail" class="json-shell">Select a debug trace row to inspect detail.</div>
             </section>
           </div>
         </section>

@@ -97,3 +97,17 @@ Implement Level 1 backtest debug traces as compact, opt-in persisted rows rather
 - persisted runs now support `persist_debug_traces` as an explicit opt-in
 - `backtest.debug_traces` stores compact per-step evidence plus small JSON payloads
 - the next trace slice should focus on internal UI inspection, not on widening the schema into a replay payload too early
+
+## 2026-04-04
+
+### Decision
+Expose Level 1 debug traces in the internal Backtests UI as a compact table plus selected-trace JSON detail instead of skipping directly to charts, anchors, or replay-style timeline controls.
+
+### Reason
+- the immediate goal is to make persisted trace evidence inspectable without SQL or raw API calls
+- keeping the first UI slice compact preserves the Level 1 design boundary and avoids pulling replay concerns into the current monitoring console too early
+- a table/detail pattern is enough to validate the trace substrate before investing in richer drill-down UX
+
+### Impact
+- `/monitoring` Backtests run detail now surfaces persisted debug traces with minimal filters
+- the next debug-trace slice should focus on richer linkage and diagnostics anchors, not on replacing the current compact UI with a heavy timeline view

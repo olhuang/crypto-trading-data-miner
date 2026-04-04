@@ -51,14 +51,14 @@ Without this layer:
 - [x] compare-review note backend
 - [x] compare-review note UI in `/monitoring`
 - [x] Level 1 backend foundation for persisted compact debug traces
+- [x] Level 1 internal debug-trace table/detail in `/monitoring`
 
 ### Not Yet Implemented
-- [ ] backtest debug-trace UI surface
 - [ ] trace-to-diagnostics anchors
 - [ ] replay investigation trace linkage
 
 ### Current Recommended Resume Point
-- Continue with `Level 1` internal UI table/detail on top of the completed backend foundation.
+- Continue with `Level 2` richer trace linkage on top of the completed Level 1 backend/UI foundation.
 
 ---
 
@@ -100,13 +100,13 @@ Each trace row should be compact and queryable, not a full replay engine payload
 - [x] support `unified_symbol`
 - [x] support `bar_time_from`
 - [x] support `bar_time_to`
-- [ ] add a minimal `/monitoring` debug-trace table and detail JSON view
+- [x] add a minimal `/monitoring` debug-trace table and detail JSON view
 - [x] add automated tests for projection, persistence, and API shape
 
 ### Acceptance Checks
 - [x] a persisted run can return trace rows from API
 - [x] trace rows show strategy/execution/risk evidence per bar
-- [ ] the internal UI can inspect trace rows without SQL
+- [x] the internal UI can inspect trace rows without SQL
 - [x] the trace payload stays compact enough for normal development use
 
 ### Guardrails
@@ -172,7 +172,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 ## Recommended Implementation Order
 
 1. [x] `Level 1 backend foundation`
-2. `Level 1 internal UI table/detail`
+2. [x] `Level 1 internal UI table/detail`
 3. `Level 2 richer trace linkage`
 4. `Level 2 richer UI drill-down`
 5. `Level 3 replay/investigation trace integration`
@@ -186,15 +186,15 @@ Do not skip directly to Level 3.
 If resuming from here, implement only this slice:
 
 ### Slice
-`Level 1 internal UI table/detail`
+`Level 2 richer trace linkage`
 
 ### Exact Work
-- minimal trace table in `/monitoring`
-- trace detail JSON pane
-- run-detail fetch wiring for `/debug-traces`
+- enrich Level 1 trace rows with linked order/fill refs and clearer state-delta fields where justified
+- keep the Level 1 UI stable while the richer backend shape is introduced
+- prepare the trace substrate for later diagnostics anchors and replay-note linkage
 
 ### Leave For Immediately After
-- trace-to-diagnostics anchors
+- Level 2 richer UI drill-down
 
 ### Explicitly Defer
 - replay note integration
@@ -244,10 +244,10 @@ When returning to this work:
 
 ## Summary
 
-The repository now has `Level 1` backend debug traces in place.
+The repository now has `Level 1` backend and internal UI debug traces in place.
 
 The correct next move is:
-- expose the trace rows in the internal `/monitoring` research slice
+- enrich trace linkage and state evidence in Level 2
 - then connect trace rows to richer diagnostics and replay-note work later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.

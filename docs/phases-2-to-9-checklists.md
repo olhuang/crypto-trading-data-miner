@@ -834,7 +834,7 @@ Provide the first end-to-end research workflow using historical bar data.
 ### Tasks
 - [x] Stage A: implement run-level diagnostics summary baseline
 - [x] Stage B backend foundation: implement compact persisted step-level debug traces plus read API
-- [ ] Stage B UI surface: expose debug traces in the internal research console
+- [x] Stage B UI surface: expose debug traces in the internal research console
 - [ ] Stage C: implement full backtest diagnostics and period-level analysis
 - [ ] Stage D: implement replay diagnostics, replay timelines, and replay UI inspection support
 - [x] create a dedicated debug-trace rollout tracking document with current status, staged scope, and resume guidance

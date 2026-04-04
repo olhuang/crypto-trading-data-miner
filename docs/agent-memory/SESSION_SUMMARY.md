@@ -14,6 +14,7 @@
 - exposed compare-review notes in the internal `/monitoring` Backtests UI, including compare tables, system-note inspection, and human/agent note write flow
 - created `docs/debug-trace-rollout-plan.md` so the next debug-trace slice has a dedicated tracking and resume document
 - implemented Level 1 backend debug traces with persisted compact rows, artifact inventory, and `GET /api/v1/backtests/runs/{run_id}/debug-traces`
+- exposed Level 1 debug traces in the internal `/monitoring` Backtests run detail with a compact table, selected-trace JSON detail, and minimal trace filters
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -39,11 +40,15 @@
 - `src/backtest/compare_review.py`
 - `src/storage/repositories/research.py`
 - `src/api/app.py`
+- `frontend/monitoring/index.html`
+- `frontend/monitoring/app.js`
 - `tests/test_phase5_foundation.py`
 - `tests/test_api_models.py`
 - `docs/strategy-workbench-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/ui-api-spec.md`
+- `docs/ui-phase-checklists.md`
+- `docs/repo-self-review-tracker.md`
 - `docs/api-resource-contracts.md`
 - `README.md`
 - `docs/implementation-plan.md`
@@ -56,7 +61,7 @@
 
 ## Risks
 - replay investigation notes and unified annotation service remain future slices
-- step-level debug traces still need the internal UI table/detail slice before they become easy to inspect without API calls
+- richer trace linkage, diagnostics anchors, and replay-linked investigation flow are still future slices
 
 ## Next
-- add the internal `/monitoring` debug-trace table/detail slice, then use the same trace substrate for replay investigation notes
+- move from the completed Level 1 debug-trace UI slice into Level 2 richer trace linkage, then use the same trace substrate for replay investigation notes

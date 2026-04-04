@@ -25,14 +25,15 @@ The intent is to keep one explicit place for:
 | `SR-2026-04-04-02` | Phase 5 checklist consistency | `Task 5.6` still showed drawdown as incomplete even though max drawdown is already computed and persisted; the report-output wording was also stale relative to the current API/UI surfaces. | Split the checklist into explicit `Sharpe` vs `max drawdown`, marked drawdown complete, and updated summary-output wording to match the current persisted/API/UI reality. | `fixed` |
 | `SR-2026-04-04-03` | Assumption bundle semantics | `stress_costs@v1` looked like a real higher-cost runtime bundle even though current Phase 5 foundation does not yet alter fee/slippage behavior from that bundle. | Clarified the bundle display/description as a placeholder lineage bundle so UI/API users are not misled into thinking runtime costs already change. | `fixed` |
 | `SR-2026-04-04-04` | Daily loss guardrail | `max_daily_loss_pct` used UTC day boundaries, which would drift from the intended session semantics for non-UTC research runs. | Added `session.trading_timezone`, switched daily-loss trading-day resets to session-local dates, exposed the chosen timezone in run detail/runtime metadata, and updated the launch UI surface. | `fixed` |
+| `SR-2026-04-04-06` | Diagnostics depth | Stage A diagnostics now exposes richer risk summary, and Level 1 backend debug traces now exist, but there was still no internal debug-trace UI surface. | Added the Level 1 internal trace table/detail slice in `/monitoring`, including run-detail fetch wiring and compact trace JSON inspection. | `fixed` |
 
 ### Open Follow-Ups
 
 | ID | Area | Finding | Planned Direction | Status |
 |---|---|---|---|---|
 | `SR-2026-04-04-05` | Cooldown semantics | `cooldown_bars_after_stop` currently uses a realized losing close as the first stop-like proxy. It is not yet linked to explicit protection-trigger events. | Rebind cooldown to TP/SL/protection events once the fuller protection lifecycle exists. | `open` |
-| `SR-2026-04-04-06` | Diagnostics depth | Stage A diagnostics now exposes richer risk summary, and Level 1 backend debug traces now exist, but there is still no internal debug-trace UI surface or diagnostics-to-trace drill-down. | Finish the Level 1 internal trace table/detail slice, then link summary flags to trace drill-down in later stages. | `open` |
 | `SR-2026-04-04-07` | Compare/analyze maturity | Compare currently focuses on assumptions and KPI deltas, but not yet on richer runtime risk-state deltas or persisted compare-set workflows. | Extend compare-set persistence and runtime-risk diff views in later Phase 5 workbench stages. | `open` |
+| `SR-2026-04-04-08` | Diagnostics trace drill-down | The internal trace table now exists, but diagnostics flags still do not jump directly to matching trace ranges or prefiltered trace views. | Add diagnostics-to-trace anchors after Level 2 richer trace linkage is in place. | `open` |
 
 ---
 

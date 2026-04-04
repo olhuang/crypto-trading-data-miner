@@ -119,6 +119,7 @@ Major implementation areas now present include:
 - Phase 5 compare/analyze foundation now includes persisted compare-set identity plus `POST /api/v1/backtests/compare-sets` under `src/backtest/compare.py`, `src/backtest/compare_review.py`, and `src/api/app.py`
 - Phase 5 compare-review note foundation now includes seeded system review drafts and `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes` under `src/backtest/compare_review.py`, `src/storage/repositories/research.py`, and `src/api/app.py`
 - the current internal Backtests research slice now surfaces compare-set tables plus compare-review notes, including seeded system facts and editable human/agent review notes
+- the current internal Backtests research slice now also surfaces persisted step-level debug traces for a selected run through a compact table and JSON detail view
 - Phase 5 backtest run launch/list/detail API surfaces under `src/api/app.py` and `src/storage/repositories/backtest.py`
 - Phase 5 run detail endpoints for simulated orders, fills, signals, and recent timeseries under `src/api/app.py` and `src/storage/repositories/backtest.py`
 - bounded recent-bar history plus no-step-cache persisted-run defaults in the current Phase 5 runner to keep longer windows more practical
@@ -147,6 +148,7 @@ Current monitoring UI behavior:
 - it is intentionally an internal monitoring/diagnostic UI, not the full long-term frontend architecture
 - the current console now includes a minimal research slice for launching backtests, listing runs, inspecting diagnostics/artifacts/month breakdown, inspecting signals/orders/fills/timeseries, and calling ad hoc compare-set analysis
 - the current console now also surfaces compare-review notes for persisted compare sets, including seeded system facts and human/agent review-write flow
+- the current console now also surfaces compact persisted debug traces for selected runs when those runs were created with `persist_debug_traces=true`
 - the current console now also surfaces available named backtest risk policies so reusable guardrail profiles can be selected before applying run-level overrides
 - the current console depends on the existing API slice and local/shared auth behavior; it does not replace the future React app foundation described in the frontend specs
 

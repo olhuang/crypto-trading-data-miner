@@ -3,6 +3,7 @@
 ## Current Focus
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
+- continue the debug-trace rollout from completed Level 1 backend/UI into Level 2 richer linkage and later diagnostics anchors
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -16,11 +17,12 @@
 - compare-review notes now have first object-linked API surfaces at `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes`
 - compare-review notes are now exposed in the internal `/monitoring` Backtests research slice, including system-note inspection and human/agent note entry
 - Level 1 backend debug traces now exist end-to-end: schema, runner projection, persisted run support, artifact inventory, and `GET /api/v1/backtests/runs/{run_id}/debug-traces`
+- Level 1 debug traces are now also exposed in the internal `/monitoring` Backtests run detail through a compact table, selected-trace JSON detail, and minimal trace filters
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
-- the debug-trace backend exists, but the internal UI trace table/detail slice is still missing
+- richer debug-trace linkage and diagnostics-to-trace anchors are still missing
 - replay/debug trace linkage and richer saved-compare workflow are still future work
 - replay investigation notes and unified annotation service remain future work
 
@@ -54,4 +56,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only the `Level 1` internal UI trace table/detail slice before moving on to richer trace linkage or replay-note linkage
+- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only the `Level 2` richer trace linkage slice before moving on to diagnostics anchors or replay-note linkage
