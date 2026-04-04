@@ -244,6 +244,55 @@ function enhanceJsonShells() {
   });
 }
 
+function createJsonCopyButton() {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "json-copy-button";
+  button.setAttribute("aria-label", "Copy contents");
+  button.setAttribute("title", "Copy contents");
+  button.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M9 9h9v11H9z"></path>
+      <path d="M6 5h9v2H8v9H6z"></path>
+    </svg>
+  `;
+  return button;
+}
+
+function enhanceJsonShells() {
+  document.querySelectorAll(".json-shell").forEach((shell) => {
+    if (shell.parentElement?.classList.contains("json-shell-frame")) {
+      return;
+    }
+
+    const frame = document.createElement("div");
+    frame.className = "json-shell-frame";
+    shell.parentNode.insertBefore(frame, shell);
+    frame.appendChild(shell);
+
+    const button = createJsonCopyButton();
+    let resetTimer = null;
+    button.addEventListener("click", async () => {
+      const text = shell.textContent || "";
+      if (!text.trim()) {
+        return;
+      }
+      try {
+        await copyTextToClipboard(text);
+        setJsonCopyButtonState(button, true);
+        window.clearTimeout(resetTimer);
+        resetTimer = window.setTimeout(() => {
+          setJsonCopyButtonState(button, false);
+        }, 1200);
+      } catch (error) {
+        window.alert(`Unable to copy contents: ${error.message}`);
+      }
+    });
+
+    frame.appendChild(button);
+  });
+}
+
 function humanizeKey(key) {
   return String(key || "")
     .replaceAll("_", " ")
