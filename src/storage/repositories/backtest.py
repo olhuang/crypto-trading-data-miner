@@ -26,6 +26,8 @@ class BacktestRunRepository:
             run_config.session.strategy_version,
         )
         account_id = resolve_account_id(connection, run_config.session.account_code)
+        selected_assumption_bundle = run_config.resolve_selected_assumption_bundle()
+        effective_assumptions = run_config.build_effective_assumption_snapshot()
         resolved_session_risk_policy = run_config.resolve_session_risk_policy()
         effective_risk_policy = run_config.build_effective_risk_policy()
         params_json = {
@@ -36,6 +38,13 @@ class BacktestRunRepository:
             "initial_cash": str(run_config.initial_cash),
             "assumption_bundle_code": run_config.assumption_bundle_code,
             "assumption_bundle_version": run_config.assumption_bundle_version,
+            "assumption_bundle": (
+                selected_assumption_bundle.model_dump(mode="json", by_alias=True)
+                if selected_assumption_bundle is not None
+                else {}
+            ),
+            "assumption_overrides": run_config.build_assumption_overrides(),
+            "effective_assumptions": effective_assumptions.model_dump(mode="json", by_alias=True),
             "strategy_params": run_config.strategy_params_json,
             "run_metadata": run_config.metadata_json,
             "runtime_metadata": runtime_metadata or {},
@@ -87,10 +96,10 @@ class BacktestRunRepository:
                     "universe_json": json.dumps(run_config.session.universe),
                     "start_time": run_config.start_time,
                     "end_time": run_config.end_time,
-                    "market_data_version": run_config.market_data_version,
-                    "fee_model_version": run_config.fee_model_version,
-                    "slippage_model_version": run_config.slippage_model_version,
-                    "latency_model_version": run_config.latency_model_version,
+                    "market_data_version": effective_assumptions.market_data_version,
+                    "fee_model_version": effective_assumptions.fee_model_version,
+                    "slippage_model_version": effective_assumptions.slippage_model_version,
+                    "latency_model_version": effective_assumptions.latency_model_version,
                     "params_json": json.dumps(params_json, default=str),
                     "status": "finished",
                 },

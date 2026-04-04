@@ -258,7 +258,9 @@ Current implementation status:
 - compare/analyze now preserves room to diff session default risk policy, run-level overrides, and effective risk policy separately
 - implemented for a code-seeded named risk-policy registry foundation plus `GET /api/v1/backtests/risk-policies`
 - the current internal Backtests UI can inspect and select those named policies before applying run-level overrides
-- named assumption-bundle registry and fuller registry normalization remain future work
+- implemented for a code-seeded named assumption-bundle registry foundation plus `GET /api/v1/backtests/assumption-bundles`
+- the current internal Backtests UI can inspect and select those named bundles before applying explicit run-level assumption fields
+- fuller DB-backed registry normalization remains future work
 
 ### Phase 5C / 6A: Richer Session Guardrails
 

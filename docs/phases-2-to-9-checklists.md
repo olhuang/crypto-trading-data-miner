@@ -699,6 +699,24 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ---
 
+## Task 5.3D: Implement named assumption-bundle registry foundation
+### Tasks
+- [x] add a reusable named assumption-bundle registry for the current Phase 5 backtest slice
+- [x] resolve `assumption_bundle_code` / optional `assumption_bundle_version` through the registry before persisting run metadata
+- [x] merge named bundle defaults with explicit run-level assumption fields into one effective assumption snapshot
+- [x] let bundle defaults contribute a risk-policy layer between session defaults and explicit run-level risk overrides
+- [x] persist selected bundle identity, resolved bundle snapshot, explicit assumption overrides, and effective assumption snapshot separately in run metadata/detail
+- [x] expose available named assumption bundles through a dedicated API surface
+- [x] expose available named assumption bundles in the current internal Backtests UI launch flow
+- [x] extend compare/analyze assumptions so bundle identity, bundle snapshot, explicit assumption overrides, and effective assumptions can diverge visibly
+
+### Acceptance Checks
+- [x] a run can select a named assumption bundle without copying every research assumption into the request body
+- [x] persisted run detail can explain the difference between selected bundle identity, bundle defaults, explicit run-level assumption overrides, and effective assumptions
+- [x] compare/analyze output remains compatible with later DB-normalized assumption-bundle registries and richer workbench review flows
+
+---
+
 ## Task 5.4: Implement portfolio/account state in backtest
 ### Tasks
 - [x] maintain cash state
@@ -868,8 +886,10 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown plus signals/orders/fills/timeseries detail
 - [x] the current internal Backtests launch form now exposes first-wave risk-policy fields for the shared backtest guardrails
 - [x] the current internal Backtests launch form now also exposes and loads named risk policies from the current registry foundation
+- [x] the current internal Backtests launch form now also exposes and loads named assumption bundles from the current registry foundation
 - [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
 - [x] the current Phase 5 planning baseline now explicitly preserves room for named risk policies, assumption bundles, and run-level effective snapshot precedence
+- [x] the current Phase 5 run metadata now persists selected assumption-bundle identity, resolved bundle snapshot, explicit assumption overrides, and effective assumption snapshot for later compare/analyze and review work
 - [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or saved compare-set workflow
 
 ---

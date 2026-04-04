@@ -400,6 +400,10 @@ The backend API should preserve room for future endpoints such as:
 - `GET /api/v1/strategy-parameter-sets`
 - `GET /api/v1/assumption-bundles`
 
+Current Phase 5 foundation note:
+- the generic workbench endpoint above remains the long-term target
+- the current backtest-only registry foundation is implemented as `GET /api/v1/backtests/assumption-bundles`
+
 ### Research Orchestration
 - `POST /api/v1/backtests/experiments`
 - `GET /api/v1/backtests/experiments`

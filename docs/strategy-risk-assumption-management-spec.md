@@ -380,6 +380,13 @@ Implement:
 Minimum result:
 - users can launch and compare runs using reusable research templates
 
+Current foundation status:
+- implemented as a code-seeded named assumption-bundle registry for the current Phase 5 backtest slice
+- current API/UI can list available named bundles and use `assumption_bundle_code` as a reusable launch surface
+- current runs now persist selected bundle identity, resolved bundle snapshot, explicit assumption overrides, and effective assumption snapshot
+- current effective risk resolution can now include bundle-provided risk-policy defaults before applying explicit run-level risk overrides
+- DB-backed registry normalization and richer bundle CRUD/workbench flows remain future work
+
 ### Phase E: Workbench Compare/Review Maturity
 
 Implement:

@@ -192,6 +192,7 @@ function parseBooleanInput(value) {
 }
 
 async function loadBacktests(filters = {}) {
+  await loadBacktestAssumptionBundles();
   await loadBacktestRiskPolicies();
   const runs = await fetchEnvelope("/api/v1/backtests/runs", { limit: 30, ...filters });
   renderTable(
@@ -286,6 +287,47 @@ async function loadBacktests(filters = {}) {
       );
     }
   );
+}
+
+async function loadBacktestAssumptionBundles() {
+  const bundles = await fetchEnvelope("/api/v1/backtests/assumption-bundles");
+  const records = (bundles.assumption_bundles || []).map((entry) => ({
+    assumption_bundle_code: entry.assumption_bundle_code,
+    assumption_bundle_version: entry.assumption_bundle_version,
+    market_scope: entry.market_scope,
+    fee_model_version: entry.assumptions.fee_model_version,
+    slippage_model_version: entry.assumptions.slippage_model_version,
+    feature_input_version: entry.assumptions.feature_input_version,
+    benchmark_set_code: entry.assumptions.benchmark_set_code,
+    risk_policy_code: entry.assumptions.risk_policy?.policy_code,
+    description: entry.description,
+  }));
+
+  renderTable(
+    "backtest-assumption-bundles-table",
+    [
+      { key: "assumption_bundle_code", label: "Bundle" },
+      { key: "assumption_bundle_version", label: "Version" },
+      { key: "market_scope", label: "Scope" },
+      { key: "fee_model_version", label: "Fee" },
+      { key: "slippage_model_version", label: "Slippage" },
+      { key: "feature_input_version", label: "Input" },
+      { key: "risk_policy_code", label: "Risk Policy" },
+      { key: "description", label: "Description" },
+    ],
+    records
+  );
+
+  const codeList = document.getElementById("backtest-assumption-bundle-options");
+  if (codeList) {
+    codeList.innerHTML = "";
+    (bundles.assumption_bundles || []).forEach((entry) => {
+      const option = document.createElement("option");
+      option.value = entry.assumption_bundle_code;
+      option.label = `${entry.display_name} (${entry.assumption_bundle_version})`;
+      codeList.appendChild(option);
+    });
+  }
 }
 
 async function loadBacktestRiskPolicies() {

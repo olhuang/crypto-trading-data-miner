@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from backtest.artifacts import BacktestArtifactCatalogProjector
+from backtest.assumption_registry import build_default_assumption_bundle_registry
 from backtest.compare import BacktestCompareProjector
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.diagnostics import BacktestDiagnosticsProjector
@@ -303,6 +304,49 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(effective.max_order_qty, Decimal("2"))
         self.assertEqual(effective.max_order_notional, Decimal("125000"))
         self.assertEqual(effective.max_gross_exposure_multiple, Decimal("3.0"))
+
+    def test_named_assumption_bundle_registry_resolves_effective_snapshot(self) -> None:
+        registry = build_default_assumption_bundle_registry()
+        bundle_keys = {
+            (entry.assumption_bundle_code, entry.assumption_bundle_version)
+            for entry in registry.list_entries()
+        }
+
+        self.assertIn(("baseline_perp_research", "v1"), bundle_keys)
+        self.assertIn(("baseline_spot_research", "v1"), bundle_keys)
+        self.assertIn(("stress_costs", "v1"), bundle_keys)
+
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_assumption_bundle_resolution",
+                "session": {
+                    "session_code": "bt_btc_assumption_bundle_resolution",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+                "assumption_bundle_code": "baseline_perp_research",
+                "slippage_model_version": "fixed_bps_v2",
+            }
+        )
+
+        effective_assumptions = run_config.build_effective_assumption_snapshot()
+        effective_risk = run_config.build_effective_risk_policy()
+
+        self.assertEqual(effective_assumptions.assumption_bundle_code, "baseline_perp_research")
+        self.assertEqual(effective_assumptions.assumption_bundle_version, "v1")
+        self.assertEqual(effective_assumptions.fill_model_version, "deterministic_bars_v1")
+        self.assertEqual(effective_assumptions.feature_input_version, "bars_only_v1")
+        self.assertEqual(effective_assumptions.benchmark_set_code, "btc_perp_baseline_v1")
+        self.assertEqual(effective_assumptions.slippage_model_version, "fixed_bps_v2")
+        self.assertEqual(effective_risk.policy_code, "perp_medium_v1")
+        self.assertEqual(effective_risk.max_gross_exposure_multiple, Decimal("1.5"))
 
     def test_default_registry_loads_seeded_example_strategy(self) -> None:
         registry = build_default_registry()

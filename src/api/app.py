@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from fastapi.responses import JSONResponse
 
 from config import settings
+from backtest.assumption_registry import UnknownAssumptionBundleError, build_default_assumption_bundle_registry
 from backtest.artifacts import BacktestArtifactCatalogProjector
 from backtest.risk_registry import UnknownRiskPolicyError, build_default_risk_policy_registry
 from backtest.runner import BacktestRunnerSkeleton
@@ -392,6 +393,19 @@ class BacktestRiskPolicyListResource(BaseModel):
     risk_policies: list[BacktestRiskPolicyResource]
 
 
+class BacktestAssumptionBundleResource(BaseModel):
+    assumption_bundle_code: str
+    assumption_bundle_version: str
+    display_name: str
+    description: str
+    market_scope: str
+    assumptions: dict[str, Any]
+
+
+class BacktestAssumptionBundleListResource(BaseModel):
+    assumption_bundles: list[BacktestAssumptionBundleResource]
+
+
 class BacktestRunDetailResource(BaseModel):
     run_id: int
     run_name: str
@@ -408,7 +422,10 @@ class BacktestRunDetailResource(BaseModel):
     market_data_version: str | None = None
     fee_model_version: str | None = None
     slippage_model_version: str | None = None
+    fill_model_version: str | None = None
     latency_model_version: str | None = None
+    feature_input_version: str | None = None
+    benchmark_set_code: str | None = None
     assumption_bundle_code: str | None = None
     assumption_bundle_version: str | None = None
     bar_interval: str | None = None
@@ -427,6 +444,9 @@ class BacktestRunDetailResource(BaseModel):
     session_risk_policy: dict[str, Any]
     risk_overrides_json: dict[str, Any]
     risk_policy: dict[str, Any]
+    assumption_bundle_json: dict[str, Any]
+    assumption_overrides_json: dict[str, Any]
+    effective_assumptions_json: dict[str, Any]
     run_metadata_json: dict[str, Any]
     runtime_metadata_json: dict[str, Any]
     session_metadata_json: dict[str, Any]
@@ -626,11 +646,23 @@ def _build_backtest_risk_policy_resource(entry) -> BacktestRiskPolicyResource:
     )
 
 
+def _build_backtest_assumption_bundle_resource(entry) -> BacktestAssumptionBundleResource:
+    return BacktestAssumptionBundleResource(
+        assumption_bundle_code=entry.assumption_bundle_code,
+        assumption_bundle_version=entry.assumption_bundle_version,
+        display_name=entry.display_name,
+        description=entry.description,
+        market_scope=entry.market_scope,
+        assumptions=entry.assumptions.model_dump(mode="json", by_alias=True),
+    )
+
+
 def _build_backtest_run_resource(
     run_row: dict[str, Any],
     summary_row: dict[str, Any] | None = None,
 ) -> BacktestRunDetailResource:
     params_json = run_row.get("params_json") or {}
+    effective_assumptions = dict(params_json.get("effective_assumptions") or {})
     summary = summary_row or {}
     return BacktestRunDetailResource(
         run_id=int(run_row["run_id"]),
@@ -648,7 +680,10 @@ def _build_backtest_run_resource(
         market_data_version=run_row.get("market_data_version"),
         fee_model_version=run_row.get("fee_model_version"),
         slippage_model_version=run_row.get("slippage_model_version"),
+        fill_model_version=effective_assumptions.get("fill_model_version"),
         latency_model_version=run_row.get("latency_model_version"),
+        feature_input_version=effective_assumptions.get("feature_input_version"),
+        benchmark_set_code=effective_assumptions.get("benchmark_set_code"),
         assumption_bundle_code=params_json.get("assumption_bundle_code"),
         assumption_bundle_version=params_json.get("assumption_bundle_version"),
         bar_interval=params_json.get("bar_interval"),
@@ -667,6 +702,9 @@ def _build_backtest_run_resource(
         session_risk_policy=dict(params_json.get("session_risk_policy") or params_json.get("risk_policy") or {}),
         risk_overrides_json=dict(params_json.get("risk_overrides") or {}),
         risk_policy=dict(params_json.get("risk_policy") or {}),
+        assumption_bundle_json=dict(params_json.get("assumption_bundle") or {}),
+        assumption_overrides_json=dict(params_json.get("assumption_overrides") or {}),
+        effective_assumptions_json=effective_assumptions,
         run_metadata_json=dict(params_json.get("run_metadata") or {}),
         runtime_metadata_json=dict(params_json.get("runtime_metadata") or {}),
         session_metadata_json=dict(params_json.get("session_metadata") or {}),
@@ -1334,6 +1372,15 @@ def create_app() -> FastAPI:
                     "details": {"field": "risk_policy_code"},
                 },
             ) from exc
+        except UnknownAssumptionBundleError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "details": {"field": "assumption_bundle_code"},
+                },
+            ) from exc
         except ValidationError as exc:
             raise HTTPException(
                 status_code=422,
@@ -1347,6 +1394,26 @@ def create_app() -> FastAPI:
         assert run_row is not None
         return SuccessEnvelope[BacktestRunDetailResource](
             data=_build_backtest_run_resource(run_row, summary_row),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/assumption-bundles")
+    def list_backtest_assumption_bundles(
+        market_scope: str | None = None,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestAssumptionBundleListResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        entries = build_default_assumption_bundle_registry().list_entries()
+        if market_scope is not None:
+            entries = [
+                entry
+                for entry in entries
+                if entry.market_scope == market_scope or entry.market_scope == "shared"
+            ]
+        return SuccessEnvelope[BacktestAssumptionBundleListResource](
+            data=BacktestAssumptionBundleListResource(
+                assumption_bundles=[_build_backtest_assumption_bundle_resource(entry) for entry in entries]
+            ),
             meta=_meta(actor),
         )
 

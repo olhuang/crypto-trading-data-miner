@@ -166,6 +166,60 @@ class RiskPolicyOverrideConfig(BaseContractModel):
         return payload
 
 
+class AssumptionBundleConfig(BaseContractModel):
+    assumption_bundle_code: str | None = None
+    assumption_bundle_version: str | None = None
+    market_data_version: str = "md.bars_1m"
+    fee_model_version: str = "ref_fee_schedule_v1"
+    slippage_model_version: str = "fixed_bps_v1"
+    fill_model_version: str = "deterministic_bars_v1"
+    latency_model_version: str = "bars_next_open_v1"
+    feature_input_version: str = "bars_only_v1"
+    benchmark_set_code: str | None = None
+    risk_policy: RiskPolicyOverrideConfig = Field(default_factory=RiskPolicyOverrideConfig)
+    metadata_json: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias="metadata",
+        serialization_alias="metadata_json",
+    )
+
+    @model_validator(mode="after")
+    def validate_assumption_bundle(self) -> "AssumptionBundleConfig":
+        if self.assumption_bundle_code is not None and not self.assumption_bundle_code.strip():
+            raise ValueError("assumption_bundle_code must not be empty when provided")
+        if self.assumption_bundle_version is not None and not self.assumption_bundle_version.strip():
+            raise ValueError("assumption_bundle_version must not be empty when provided")
+        if self.assumption_bundle_version is not None and self.assumption_bundle_code is None:
+            raise ValueError("assumption_bundle_version requires assumption_bundle_code")
+        for field_name in (
+            "market_data_version",
+            "fee_model_version",
+            "slippage_model_version",
+            "fill_model_version",
+            "latency_model_version",
+            "feature_input_version",
+        ):
+            if not getattr(self, field_name):
+                raise ValueError(f"{field_name} must not be empty")
+        if self.benchmark_set_code is not None and not self.benchmark_set_code.strip():
+            raise ValueError("benchmark_set_code must not be empty when provided")
+        return self
+
+    def as_patch_dict(self, *, explicit_only: bool = False) -> dict[str, Any]:
+        payload = self.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=explicit_only,
+        )
+        if not payload.get("metadata_json"):
+            payload.pop("metadata_json", None)
+        risk_policy = payload.get("risk_policy")
+        if isinstance(risk_policy, dict) and not risk_policy:
+            payload.pop("risk_policy", None)
+        return payload
+
+
 class StrategySessionConfig(BaseContractModel):
     session_code: str
     environment: Environment
@@ -202,7 +256,10 @@ class BacktestRunConfig(BaseContractModel):
     market_data_version: str = "md.bars_1m"
     fee_model_version: str = "ref_fee_schedule_v1"
     slippage_model_version: str = "fixed_bps_v1"
+    fill_model_version: str = "deterministic_bars_v1"
     latency_model_version: str = "bars_next_open_v1"
+    feature_input_version: str = "bars_only_v1"
+    benchmark_set_code: str | None = None
     assumption_bundle_code: str | None = None
     assumption_bundle_version: str | None = None
     risk_overrides: RiskPolicyOverrideConfig = Field(default_factory=RiskPolicyOverrideConfig)
@@ -231,7 +288,62 @@ class BacktestRunConfig(BaseContractModel):
             raise ValueError("assumption_bundle_code must not be empty when provided")
         if self.assumption_bundle_version is not None and not self.assumption_bundle_version.strip():
             raise ValueError("assumption_bundle_version must not be empty when provided")
+        if not self.fee_model_version:
+            raise ValueError("fee_model_version must not be empty")
+        if not self.slippage_model_version:
+            raise ValueError("slippage_model_version must not be empty")
+        if not self.fill_model_version:
+            raise ValueError("fill_model_version must not be empty")
+        if not self.latency_model_version:
+            raise ValueError("latency_model_version must not be empty")
+        if not self.feature_input_version:
+            raise ValueError("feature_input_version must not be empty")
+        if self.benchmark_set_code is not None and not self.benchmark_set_code.strip():
+            raise ValueError("benchmark_set_code must not be empty when provided")
         return self
+
+    def build_assumption_overrides(self) -> dict[str, Any]:
+        overrides: dict[str, Any] = {}
+        for field_name in (
+            "market_data_version",
+            "fee_model_version",
+            "slippage_model_version",
+            "fill_model_version",
+            "latency_model_version",
+            "feature_input_version",
+            "benchmark_set_code",
+        ):
+            if field_name in self.model_fields_set:
+                value = getattr(self, field_name)
+                if value is not None:
+                    overrides[field_name] = value
+        return overrides
+
+    def resolve_selected_assumption_bundle(self) -> AssumptionBundleConfig | None:
+        if self.assumption_bundle_code is None:
+            return None
+
+        from backtest.assumption_registry import build_default_assumption_bundle_registry
+
+        registry = build_default_assumption_bundle_registry()
+        return registry.resolve(self.assumption_bundle_code, self.assumption_bundle_version)
+
+    def build_effective_assumption_snapshot(self) -> AssumptionBundleConfig:
+        base_payload = AssumptionBundleConfig(
+            assumption_bundle_code=self.assumption_bundle_code,
+            assumption_bundle_version=self.assumption_bundle_version,
+        ).model_dump(mode="json", by_alias=True, exclude_none=True)
+
+        selected_bundle = self.resolve_selected_assumption_bundle()
+        if selected_bundle is not None:
+            bundle_payload = selected_bundle.model_dump(mode="json", by_alias=True, exclude_none=True)
+            base_payload = _merge_assumption_payload(base_payload, bundle_payload)
+
+        override_payload = self.build_assumption_overrides()
+        if override_payload:
+            base_payload = _merge_assumption_payload(base_payload, override_payload)
+
+        return AssumptionBundleConfig.model_validate(base_payload)
 
     def resolve_session_risk_policy(self) -> RiskPolicyConfig:
         from backtest.risk_registry import build_default_risk_policy_registry
@@ -244,4 +356,25 @@ class BacktestRunConfig(BaseContractModel):
 
         registry = build_default_risk_policy_registry()
         session_policy = self.resolve_session_risk_policy()
+        effective_assumptions = self.build_effective_assumption_snapshot()
+        assumption_risk_policy = effective_assumptions.risk_policy
+        if assumption_risk_policy.as_patch_dict():
+            session_policy = registry.apply_run_overrides(session_policy, assumption_risk_policy)
         return registry.apply_run_overrides(session_policy, self.risk_overrides)
+
+
+def _merge_assumption_payload(base_payload: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base_payload)
+    patch = dict(patch)
+    if patch.get("metadata_json"):
+        merged_metadata = dict(merged.get("metadata_json") or {})
+        merged_metadata.update(patch["metadata_json"])
+        merged["metadata_json"] = merged_metadata
+        patch.pop("metadata_json", None)
+    if patch.get("risk_policy"):
+        merged_risk_policy = dict(merged.get("risk_policy") or {})
+        merged_risk_policy.update(patch["risk_policy"])
+        merged["risk_policy"] = merged_risk_policy
+        patch.pop("risk_policy", None)
+    merged.update(patch)
+    return merged

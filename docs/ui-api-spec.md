@@ -723,6 +723,10 @@ Purpose:
 Purpose:
 - list named fee/slippage/fill/input assumption bundles for research runs
 
+Current planning note:
+- the long-term workbench endpoint remains `GET /api/v1/assumption-bundles`
+- the current Phase 5 foundation is implemented as `GET /api/v1/backtests/assumption-bundles` for the backtest slice
+
 ### POST `/api/v1/backtests/runs`
 Purpose:
 - create and start a backtest run
@@ -770,14 +774,14 @@ Request semantics:
 - `strategy_version` identifies the immutable released version of that variant
 - `session.risk_policy` captures the session-default backtest guardrail assumptions for the run
 - `risk_overrides` captures explicit run-level risk changes over the session default
-- `assumption_bundle_code` / `assumption_bundle_version` preserve the current named research-template linkage even before a full registry exists
+- `assumption_bundle_code` / `assumption_bundle_version` select an optional named research-template bundle for the run
 - future family-level filtering/reporting should use separate metadata fields
 
 Current implementation status:
 - implemented as a synchronous launch surface over the current bars-based backtest engine
 - currently persists the run, simulated orders/fills, summary, and timeseries before responding
 - current request body follows the canonical `BacktestRunConfig` shape plus `persist_signals`
-- the current launch surface also accepts a session-level `risk_policy`, top-level `risk_overrides`, and optional assumption-bundle metadata for shared backtest guardrails and research lineage
+- the current launch surface also accepts a session-level `risk_policy`, top-level `risk_overrides`, and optional named assumption-bundle selection for shared backtest guardrails and research lineage
 
 Response fields:
 - run detail resource with metadata, assumptions, and top-level KPI summary
@@ -790,6 +794,15 @@ Current implementation status:
 - implemented as a code-seeded registry list for the current Phase 5 backtest slice
 - currently supports optional `market_scope` filtering
 - currently returns reusable named policy snapshots that can be referenced by `session.risk_policy.policy_code`
+
+### GET `/api/v1/backtests/assumption-bundles`
+Purpose:
+- list the currently available named backtest assumption bundles for the run builder and research inspection
+
+Current implementation status:
+- implemented as a code-seeded registry list for the current Phase 5 backtest slice
+- currently supports optional `market_scope` filtering
+- currently returns reusable named bundle snapshots that can be referenced by `assumption_bundle_code` / `assumption_bundle_version`
 
 ### GET `/api/v1/backtests/runs`
 Purpose:
@@ -806,7 +819,7 @@ Purpose:
 
 Current implementation status:
 - implemented
-- currently returns canonical run metadata, assumptions, execution/protection/risk policy snapshots, run-level risk overrides, assumption-bundle metadata, runtime metadata, and top-level KPI summary
+- currently returns canonical run metadata, execution/protection/risk policy snapshots, selected assumption-bundle identity, resolved bundle snapshot, explicit assumption overrides, effective assumptions snapshot, runtime metadata, and top-level KPI summary
 
 ### GET `/api/v1/backtests/runs/{run_id}/orders`
 Purpose:

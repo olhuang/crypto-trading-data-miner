@@ -107,6 +107,7 @@ Major implementation areas now present include:
 - Phase 5 first-wave shared risk guardrails with session-level risk policy and blocked-intent runtime summary under `src/backtest/`
 - Phase 5 run-level risk overrides, effective risk-policy snapshot persistence, and assumption-bundle metadata linkage under `src/models/backtest.py`, `src/backtest/`, and `src/storage/repositories/backtest.py`
 - Phase 5 code-seeded named risk-policy registry foundation plus `/api/v1/backtests/risk-policies` and Backtests UI selection support under `src/backtest/`, `src/api/app.py`, and `frontend/monitoring/`
+- Phase 5 code-seeded named assumption-bundle registry foundation plus `/api/v1/backtests/assumption-bundles`, bundle-aware run snapshot persistence, and Backtests UI selection support under `src/backtest/`, `src/api/app.py`, and `frontend/monitoring/`
 - Phase 5 aggregate portfolio/equity projection plus DB-backed run/order/fill/performance persistence under `src/backtest/` and `src/storage/repositories/backtest.py`
 - Phase 5 run-level diagnostics summary projection plus `/api/v1/backtests/runs/{run_id}/diagnostics` under `src/backtest/diagnostics.py` and `src/api/app.py`
 - Phase 5 derived `year` / `quarter` / `month` period breakdown plus baseline artifact catalog endpoints under `src/backtest/periods.py`, `src/backtest/artifacts.py`, and `src/api/app.py`

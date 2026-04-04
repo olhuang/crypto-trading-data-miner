@@ -96,7 +96,12 @@
                 <input name="start_time" placeholder="start_time" value="2026-03-20T00:00:00Z" />
                 <input name="end_time" placeholder="end_time" value="2026-04-03T00:00:00Z" />
                 <input name="initial_cash" placeholder="initial_cash" value="100000" />
-                <input name="assumption_bundle_code" placeholder="assumption_bundle_code (optional)" />
+                <input
+                  name="assumption_bundle_code"
+                  list="backtest-assumption-bundle-options"
+                  placeholder="assumption_bundle_code (optional)"
+                />
+                <datalist id="backtest-assumption-bundle-options"></datalist>
                 <input name="assumption_bundle_version" placeholder="assumption_bundle_version (optional)" />
                 <input name="short_window" placeholder="short_window" value="5" />
                 <input name="long_window" placeholder="long_window" value="20" />
@@ -117,6 +122,10 @@
                 <input name="allow_reduce_only_when_blocked" placeholder="risk_override allow_reduce_only_when_blocked true/false" value="true" />
                 <button type="submit">Launch Run</button>
               </form>
+              <div class="panel-subsection">
+                <h4>Available Assumption Bundles</h4>
+                <div id="backtest-assumption-bundles-table" class="table-shell"></div>
+              </div>
               <div class="panel-subsection">
                 <h4>Available Risk Policies</h4>
                 <div id="backtest-risk-policies-table" class="table-shell"></div>

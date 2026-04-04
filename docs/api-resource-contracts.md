@@ -301,7 +301,10 @@ Used by:
   "market_data_version": "md.bars_1m",
   "fee_model_version": "ref_fee_schedule_v1",
   "slippage_model_version": "fixed_bps_v1",
+  "fill_model_version": "deterministic_bars_v1",
   "latency_model_version": "bars_next_open_v1",
+  "feature_input_version": "bars_only_v1",
+  "benchmark_set_code": "btc_perp_baseline_v1",
   "assumption_bundle_code": "baseline_perp_research",
   "assumption_bundle_version": "v1",
   "bar_interval": "1m",
@@ -338,6 +341,37 @@ Used by:
     "max_position_qty": "1",
     "max_gross_exposure_multiple": "1.5",
     "allow_reduce_only_when_blocked": true
+  },
+  "assumption_bundle_json": {
+    "assumption_bundle_code": "baseline_perp_research",
+    "assumption_bundle_version": "v1",
+    "market_data_version": "md.bars_1m",
+    "fee_model_version": "ref_fee_schedule_v1",
+    "slippage_model_version": "fixed_bps_v1",
+    "fill_model_version": "deterministic_bars_v1",
+    "latency_model_version": "bars_next_open_v1",
+    "feature_input_version": "bars_only_v1",
+    "benchmark_set_code": "btc_perp_baseline_v1",
+    "risk_policy": {
+      "policy_code": "perp_medium_v1"
+    }
+  },
+  "assumption_overrides_json": {
+    "slippage_model_version": "fixed_bps_v2"
+  },
+  "effective_assumptions_json": {
+    "assumption_bundle_code": "baseline_perp_research",
+    "assumption_bundle_version": "v1",
+    "market_data_version": "md.bars_1m",
+    "fee_model_version": "ref_fee_schedule_v1",
+    "slippage_model_version": "fixed_bps_v2",
+    "fill_model_version": "deterministic_bars_v1",
+    "latency_model_version": "bars_next_open_v1",
+    "feature_input_version": "bars_only_v1",
+    "benchmark_set_code": "btc_perp_baseline_v1",
+    "risk_policy": {
+      "policy_code": "perp_medium_v1"
+    }
   },
   "run_metadata_json": {},
   "runtime_metadata_json": {
@@ -389,6 +423,7 @@ Used by:
 
 - `POST /api/v1/backtests/runs` is currently synchronous over the current bars-based backtest engine
 - list/detail responses are intended to support the internal research UI without requiring raw SQL inspection
+- current run detail preserves both selected assumption-bundle identity and the final effective assumption snapshot for later compare/analyze work
 - the current resource focuses on run metadata, assumptions, policy snapshots, overrides, assumption-bundle metadata, runtime metadata, and top-level KPI summary; orders/fills/timeseries remain separate surfaces
 
 ---
@@ -428,6 +463,50 @@ Used by:
 - the current implementation is a code-seeded registry foundation for reusable Phase 5 backtest guardrail profiles
 - `session.risk_policy.policy_code` may reference one of these named policies and still be overridden by explicit session fields or run-level `risk_overrides`
 - DB-normalized risk-policy objects and optional policy versioning remain future work
+
+---
+
+## 4.5 Backtest Assumption Bundle Registry Resource
+
+Used by:
+- `GET /api/v1/backtests/assumption-bundles`
+
+### Response Shape
+
+```json
+{
+  "assumption_bundles": [
+    {
+      "assumption_bundle_code": "baseline_perp_research",
+      "assumption_bundle_version": "v1",
+      "display_name": "Baseline Perp Research",
+      "description": "Starter perpetual-futures research bundle using the default bars-based execution assumptions.",
+      "market_scope": "perp",
+      "assumptions": {
+        "assumption_bundle_code": "baseline_perp_research",
+        "assumption_bundle_version": "v1",
+        "market_data_version": "md.bars_1m",
+        "fee_model_version": "ref_fee_schedule_v1",
+        "slippage_model_version": "fixed_bps_v1",
+        "fill_model_version": "deterministic_bars_v1",
+        "latency_model_version": "bars_next_open_v1",
+        "feature_input_version": "bars_only_v1",
+        "benchmark_set_code": "btc_perp_baseline_v1",
+        "risk_policy": {
+          "policy_code": "perp_medium_v1"
+        }
+      }
+    }
+  ]
+}
+```
+
+### Notes
+
+- the current implementation is a code-seeded registry foundation for reusable Phase 5 research templates
+- `assumption_bundle_code` / optional `assumption_bundle_version` may reference one of these named bundles in the current backtest launch flow
+- explicit run-level assumption fields may still override selected bundle defaults when producing the effective assumption snapshot
+- DB-normalized bundle objects and richer bundle CRUD/workbench flows remain future work
 
 ---
 

@@ -468,6 +468,7 @@ Provide the first end-to-end research workflow using historical data.
 - now also has first-wave shared backtest risk guardrails, including session-level risk policy, blocked-intent diagnostics summary, and minimal UI launch controls for the first configurable risk knobs
 - now also has Phase 5B baseline support for run-level risk overrides, effective risk-policy snapshot persistence, assumption-bundle metadata linkage, and compare/analyze-compatible risk assumption diffs
 - now also has a first Phase 5C foundation for named risk-policy selection through a code-seeded registry, dedicated API list surface, and Backtests UI launch support
+- now also has a first Phase 5D foundation for named assumption-bundle selection through a code-seeded registry, dedicated API list surface, bundle-aware run snapshot persistence, and Backtests UI launch support
 - now also has a minimal internal UI slice for launching backtests, browsing recent runs, inspecting diagnostics/artifacts/month breakdown, inspecting signals/orders/fills/timeseries, and invoking compare-set analysis without raw SQL or inline Python
 
 ---

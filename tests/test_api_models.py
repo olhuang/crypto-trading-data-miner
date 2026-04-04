@@ -65,6 +65,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
         cls.backtest_runs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "POST")
         cls.backtest_risk_policies_endpoint = _resolve_route(cls.app, "/api/v1/backtests/risk-policies", "GET")
+        cls.backtest_assumption_bundles_endpoint = _resolve_route(cls.app, "/api/v1/backtests/assumption-bundles", "GET")
         cls.backtest_runs_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "GET")
         cls.backtest_run_detail_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}", "GET")
         cls.backtest_run_orders_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/orders", "GET")
@@ -402,6 +403,21 @@ class ModelsApiTests(unittest.TestCase):
         self.assertIn("perp_medium_v1", policy_codes)
         self.assertIn("spot_conservative_v1", policy_codes)
 
+    def test_backtest_assumption_bundles_endpoint_lists_named_registry_entries(self) -> None:
+        response = self.__class__.backtest_assumption_bundles_endpoint(
+            authorization="Bearer developer:u_123:Alice",
+        )
+
+        self.assertTrue(response.success)
+        self.assertGreaterEqual(len(response.data.assumption_bundles), 3)
+        bundle_keys = {
+            (resource.assumption_bundle_code, resource.assumption_bundle_version)
+            for resource in response.data.assumption_bundles
+        }
+        self.assertIn(("baseline_perp_research", "v1"), bundle_keys)
+        self.assertIn(("baseline_spot_research", "v1"), bundle_keys)
+        self.assertIn(("stress_costs", "v1"), bundle_keys)
+
     def test_backtest_runs_endpoint_supports_create_list_and_detail(self) -> None:
         original_runner = app_module.BacktestRunnerSkeleton
         original_repository = app_module.BacktestRunRepository
@@ -427,6 +443,31 @@ class ModelsApiTests(unittest.TestCase):
                     "initial_cash": "100000",
                     "assumption_bundle_code": "baseline_perp_research",
                     "assumption_bundle_version": "v1",
+                    "assumption_bundle": {
+                        "assumption_bundle_code": "baseline_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "market_data_version": "md.bars_1m",
+                        "fee_model_version": "ref_fee_schedule_v1",
+                        "slippage_model_version": "fixed_bps_v1",
+                        "fill_model_version": "deterministic_bars_v1",
+                        "latency_model_version": "bars_next_open_v1",
+                        "feature_input_version": "bars_only_v1",
+                        "benchmark_set_code": "btc_perp_baseline_v1",
+                        "risk_policy": {"policy_code": "perp_medium_v1"},
+                    },
+                    "assumption_overrides": {},
+                    "effective_assumptions": {
+                        "assumption_bundle_code": "baseline_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "market_data_version": "md.bars_1m",
+                        "fee_model_version": "ref_fee_schedule_v1",
+                        "slippage_model_version": "fixed_bps_v1",
+                        "fill_model_version": "deterministic_bars_v1",
+                        "latency_model_version": "bars_next_open_v1",
+                        "feature_input_version": "bars_only_v1",
+                        "benchmark_set_code": "btc_perp_baseline_v1",
+                        "risk_policy": {"policy_code": "perp_medium_v1"},
+                    },
                     "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
                     "run_metadata": {"source": "ui"},
                     "runtime_metadata": {"risk_summary": {"blocked_intent_count": 1}},
@@ -533,9 +574,14 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(detail_response.data.session_code, "bt_ui_demo")
         self.assertEqual(detail_response.data.assumption_bundle_code, "baseline_perp_research")
         self.assertEqual(detail_response.data.assumption_bundle_version, "v1")
+        self.assertEqual(detail_response.data.fill_model_version, "deterministic_bars_v1")
+        self.assertEqual(detail_response.data.feature_input_version, "bars_only_v1")
+        self.assertEqual(detail_response.data.benchmark_set_code, "btc_perp_baseline_v1")
         self.assertEqual(detail_response.data.session_risk_policy["policy_code"], "perp_medium_v1")
         self.assertEqual(detail_response.data.risk_overrides_json["max_order_notional"], "5000")
         self.assertEqual(detail_response.data.risk_policy["policy_code"], "perp_medium_v1")
+        self.assertEqual(detail_response.data.assumption_bundle_json["assumption_bundle_code"], "baseline_perp_research")
+        self.assertEqual(detail_response.data.effective_assumptions_json["benchmark_set_code"], "btc_perp_baseline_v1")
         self.assertEqual(detail_response.data.run_metadata_json["source"], "ui")
         self.assertEqual(detail_response.data.runtime_metadata_json["risk_summary"]["blocked_intent_count"], 1)
 
@@ -572,6 +618,47 @@ class ModelsApiTests(unittest.TestCase):
                             "start_time": "2026-03-01T00:00:00Z",
                             "end_time": "2026-03-31T00:00:00Z",
                             "initial_cash": "100000",
+                        }
+                    ),
+                    "Bearer developer:u_123:Alice",
+                )
+        finally:
+            app_module.BacktestRunnerSkeleton = original_runner
+
+        self.assertEqual(exc.exception.status_code, 422)
+        self.assertEqual(exc.exception.detail["code"], "VALIDATION_ERROR")
+
+    def test_backtest_run_create_rejects_unknown_named_assumption_bundle(self) -> None:
+        original_runner = app_module.BacktestRunnerSkeleton
+
+        class StubRunner:
+            def __init__(self, run_config):
+                self.run_config = run_config
+
+            def load_run_and_persist(self, connection, *, persist_signals=True):
+                self.run_config.build_effective_assumption_snapshot()
+                return SimpleNamespace(run_id=999, loop_result=SimpleNamespace())
+
+        app_module.BacktestRunnerSkeleton = StubRunner
+        try:
+            with self.assertRaises(HTTPException) as exc:
+                self.__class__.backtest_runs_create_endpoint(
+                    BacktestRunStartRequest.model_validate(
+                        {
+                            "run_name": "btc_unknown_assumption_bundle",
+                            "session": {
+                                "session_code": "bt_unknown_assumption_bundle",
+                                "environment": "backtest",
+                                "account_code": "paper_main",
+                                "strategy_code": "btc_momentum",
+                                "strategy_version": "v1.0.0",
+                                "exchange_code": "binance",
+                                "universe": ["BTCUSDT_PERP"],
+                            },
+                            "start_time": "2026-03-01T00:00:00Z",
+                            "end_time": "2026-03-31T00:00:00Z",
+                            "initial_cash": "100000",
+                            "assumption_bundle_code": "typo_bundle",
                         }
                     ),
                     "Bearer developer:u_123:Alice",
