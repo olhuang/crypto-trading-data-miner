@@ -240,10 +240,14 @@ function getBacktestTraceFilters(formValues = null) {
 }
 
 function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
-  const records = debugTraces.records || [];
+  const records = debugTraces.traces || debugTraces.records || [];
   const contextParts = [`run_id=${runId}`];
-  if (debugTraces.trace_count !== undefined && debugTraces.trace_count !== null) {
-    contextParts.push(`trace_count=${debugTraces.trace_count}`);
+  const traceCount =
+    debugTraces.trace_count !== undefined && debugTraces.trace_count !== null
+      ? debugTraces.trace_count
+      : records.length;
+  if (traceCount !== undefined && traceCount !== null) {
+    contextParts.push(`trace_count=${traceCount}`);
   }
   if (appliedFilters?.limit) {
     contextParts.push(`limit=${appliedFilters.limit}`);
@@ -288,7 +292,7 @@ function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
   } else {
     renderBacktestDebugTraceDetail({
       run_id: runId,
-      trace_count: debugTraces.trace_count || 0,
+      trace_count: traceCount || 0,
       message: "No persisted debug traces matched the current filter for this run.",
     });
   }
