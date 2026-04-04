@@ -23,6 +23,7 @@
 - defined a dedicated keep/evolve/replace frontend strategy so the current `/monitoring` console can remain useful while future product-grade frontend work moves onto the planned route-based foundation
 - implemented the first Backtests usability cleanup slice with visible launch labels, grouped sections, preset helpers, better boolean controls, workspace headers, and a summary-first selected-run panel
 - added a Backtests launch-status indicator with staged progress, disabled form state during submission, and automatic selection of the created run on success
+- collapsed the Backtests assumption-bundle and risk-policy reference tables behind details panels so they stay available without permanently occupying the launch workspace
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`

@@ -302,14 +302,20 @@
                 </div>
                 <p id="backtest-launch-status-detail" class="card-detail">No launch currently in progress.</p>
               </div>
-              <div class="panel-subsection">
-                <h4>Available Assumption Bundles</h4>
-                <div id="backtest-assumption-bundles-table" class="table-shell"></div>
-              </div>
-              <div class="panel-subsection">
-                <h4>Available Risk Policies</h4>
-                <div id="backtest-risk-policies-table" class="table-shell"></div>
-              </div>
+              <details class="details-panel">
+                <summary>Available Assumption Bundles</summary>
+                <div class="details-panel-body">
+                  <p class="card-detail">Expand to inspect named research bundles before choosing a default for this run.</p>
+                  <div id="backtest-assumption-bundles-table" class="table-shell"></div>
+                </div>
+              </details>
+              <details class="details-panel">
+                <summary>Available Risk Policies</summary>
+                <div class="details-panel-body">
+                  <p class="card-detail">Expand to inspect reusable guardrail profiles and their current limits.</p>
+                  <div id="backtest-risk-policies-table" class="table-shell"></div>
+                </div>
+              </details>
               <div id="backtest-launch-result" class="json-shell compact-shell">Submit a run to see the response.</div>
             </section>
             <section class="panel" id="backtests-compare-workspace">

@@ -29,6 +29,7 @@
 - `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
 - the current `/monitoring` Backtests launch flow now uses visible labels, grouped sections, preset helpers, checkbox/select controls, and a summary-first selected-run panel instead of relying as heavily on placeholder-only inputs and raw JSON first
 - the current `/monitoring` Backtests launch flow now also shows an honest launch-status indicator with disabled form state, staged progress, and automatic run selection after a successful launch
+- the current `/monitoring` Backtests launch flow now keeps `Available Assumption Bundles` and `Available Risk Policies` in collapsed details panels by default to reduce visual clutter
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
