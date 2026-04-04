@@ -292,6 +292,16 @@
                   <button type="submit">Launch Run</button>
                 </div>
               </form>
+              <div id="backtest-launch-status" class="launch-status" aria-live="polite">
+                <div class="launch-status-header">
+                  <strong id="backtest-launch-status-title">Ready to Launch</strong>
+                  <span id="backtest-launch-status-phase" class="status-pill">idle</span>
+                </div>
+                <div class="progress-track" aria-hidden="true">
+                  <div id="backtest-launch-progress" class="progress-bar"></div>
+                </div>
+                <p id="backtest-launch-status-detail" class="card-detail">No launch currently in progress.</p>
+              </div>
               <div class="panel-subsection">
                 <h4>Available Assumption Bundles</h4>
                 <div id="backtest-assumption-bundles-table" class="table-shell"></div>

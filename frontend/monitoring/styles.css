@@ -415,6 +415,79 @@ select {
   padding: 1rem;
 }
 
+.launch-status {
+  margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fbfaf6;
+}
+
+.launch-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.progress-track {
+  margin-top: 0.75rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(30, 91, 79, 0.12);
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #4e8e80);
+  transition: width 220ms ease;
+}
+
+.launch-status.is-running .progress-bar {
+  width: 55%;
+  animation: launch-progress-pulse 1.4s ease-in-out infinite;
+}
+
+.launch-status.is-complete .progress-bar {
+  width: 100%;
+  animation: none;
+}
+
+.launch-status.is-error .progress-bar {
+  width: 100%;
+  background: linear-gradient(90deg, #c25a4f, var(--danger));
+  animation: none;
+}
+
+.sectioned-form.is-busy {
+  opacity: 0.72;
+}
+
+.sectioned-form.is-busy input,
+.sectioned-form.is-busy select,
+.sectioned-form.is-busy textarea,
+.sectioned-form.is-busy button {
+  pointer-events: none;
+}
+
+@keyframes launch-progress-pulse {
+  0% {
+    width: 28%;
+    transform: translateX(0%);
+  }
+  50% {
+    width: 62%;
+    transform: translateX(28%);
+  }
+  100% {
+    width: 28%;
+    transform: translateX(180%);
+  }
+}
+
 .compact-shell {
   min-height: 8rem;
 }

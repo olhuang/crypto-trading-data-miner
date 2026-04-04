@@ -25,6 +25,7 @@
 ## Recently Done
 - added targeted debug-trace filters for blocked-only, risk-code, signal-only, order-only, and fill-only investigation in the API and internal `/monitoring` viewer
 - landed the first front-end usability cleanup slice for Backtests: visible launch labels, grouped sections, preset helpers, better boolean controls, workspace headers, and a summary-first selected-run panel
+- added a launch-status indicator for Backtests so run submission now shows staged progress, disables the form while running, and auto-focuses the created run on success
 - added a dedicated front-end usability improvement plan for cleaning up the current `/monitoring` Backtests experience in phased slices
 - added a dedicated keep/evolve/replace frontend strategy so `/monitoring` can be improved without being treated as the final frontend architecture
 - connected diagnostics outputs back to concrete trace rows and evidence windows through typed trace anchors plus anchor-driven trace focus in `/monitoring`

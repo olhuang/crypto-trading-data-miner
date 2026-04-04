@@ -330,7 +330,7 @@ Acceptance:
 
 Current implementation note:
 - this slice has now landed in the current `/monitoring` Backtests page
-- the launch form now uses visible labels, grouped sections, checkbox/select controls, an advanced/debug subsection, and preset buttons for common starting configurations
+- the launch form now uses visible labels, grouped sections, checkbox/select controls, an advanced/debug subsection, preset buttons for common starting configurations, and a simple launch progress/status indicator
 
 ## UI Phase B: Backtest Workspace Restructure
 

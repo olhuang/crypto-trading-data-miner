@@ -273,6 +273,40 @@ function bindBacktestPresetButtons() {
   });
 }
 
+function setBacktestLaunchFormBusy(isBusy) {
+  const form = document.getElementById("backtest-launch-form");
+  if (!form) {
+    return;
+  }
+  form.classList.toggle("is-busy", isBusy);
+  form.querySelectorAll("input, select, textarea, button").forEach((element) => {
+    element.disabled = isBusy;
+  });
+  document.querySelectorAll("[data-backtest-preset]").forEach((button) => {
+    button.disabled = isBusy;
+  });
+}
+
+function setBacktestLaunchStatus({ phase, title, detail, progress, stateClass }) {
+  const container = document.getElementById("backtest-launch-status");
+  const titleNode = document.getElementById("backtest-launch-status-title");
+  const phaseNode = document.getElementById("backtest-launch-status-phase");
+  const detailNode = document.getElementById("backtest-launch-status-detail");
+  const progressNode = document.getElementById("backtest-launch-progress");
+  if (!container || !titleNode || !phaseNode || !detailNode || !progressNode) {
+    return;
+  }
+
+  container.classList.remove("is-running", "is-complete", "is-error");
+  if (stateClass) {
+    container.classList.add(stateClass);
+  }
+  titleNode.textContent = title;
+  phaseNode.textContent = phase;
+  detailNode.textContent = detail;
+  progressNode.style.width = `${Math.max(0, Math.min(100, progress || 0))}%`;
+}
+
 function renderBacktestDiagnostics(diagnostics) {
   renderJson("backtest-run-diagnostics", diagnostics);
 
@@ -1054,9 +1088,68 @@ async function launchBacktest(formValues) {
   if (Object.keys(riskOverrides).length > 0) {
     payload.risk_overrides = riskOverrides;
   }
-  const created = await sendEnvelope("/api/v1/backtests/runs", "POST", payload);
-  renderJson("backtest-launch-result", created);
-  await loadBacktests();
+
+  setBacktestLaunchFormBusy(true);
+  setBacktestLaunchStatus({
+    phase: "submitting",
+    title: "Submitting Run Configuration",
+    detail: "Sending the current launch form to the backtest API.",
+    progress: 14,
+    stateClass: "is-running",
+  });
+
+  try {
+    setBacktestLaunchStatus({
+      phase: "running",
+      title: "Backtest Running",
+      detail: "Waiting for the current synchronous backtest request to complete.",
+      progress: 55,
+      stateClass: "is-running",
+    });
+    const created = await sendEnvelope("/api/v1/backtests/runs", "POST", payload);
+    renderJson("backtest-launch-result", created);
+
+    setBacktestLaunchStatus({
+      phase: "refreshing",
+      title: "Refreshing Run List",
+      detail: "Updating the current Backtests workspace with the newly created run.",
+      progress: 80,
+      stateClass: "is-running",
+    });
+    await loadBacktests();
+
+    if (created.run_id) {
+      setBacktestLaunchStatus({
+        phase: "loading",
+        title: "Loading Selected Run",
+        detail: `Fetching details for run ${created.run_id}.`,
+        progress: 92,
+        stateClass: "is-running",
+      });
+      await loadSelectedBacktestRun(created.run_id);
+    }
+
+    setBacktestLaunchStatus({
+      phase: "complete",
+      title: "Backtest Completed",
+      detail: created.run_id
+        ? `Run ${created.run_id} finished and is now selected below.`
+        : "The backtest request completed successfully.",
+      progress: 100,
+      stateClass: "is-complete",
+    });
+  } catch (error) {
+    setBacktestLaunchStatus({
+      phase: "error",
+      title: "Launch Failed",
+      detail: error.message || "The run could not be created.",
+      progress: 100,
+      stateClass: "is-error",
+    });
+    throw error;
+  } finally {
+    setBacktestLaunchFormBusy(false);
+  }
 }
 
 async function compareBacktestRuns(formValues) {

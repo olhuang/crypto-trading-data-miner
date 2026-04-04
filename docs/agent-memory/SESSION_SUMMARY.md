@@ -22,6 +22,7 @@
 - reviewed the current `/monitoring` Backtests UX and added a dedicated usability-improvement plan focused on reducing density, separating workflows, and cleaning up the launch form first
 - defined a dedicated keep/evolve/replace frontend strategy so the current `/monitoring` console can remain useful while future product-grade frontend work moves onto the planned route-based foundation
 - implemented the first Backtests usability cleanup slice with visible launch labels, grouped sections, preset helpers, better boolean controls, workspace headers, and a summary-first selected-run panel
+- added a Backtests launch-status indicator with staged progress, disabled form state during submission, and automatic selection of the created run on success
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
