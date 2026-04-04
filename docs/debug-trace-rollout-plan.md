@@ -57,11 +57,10 @@ Without this layer:
 - [x] Level 2 diagnostics-to-trace anchors across diagnostics API output and the internal trace viewer
 
 ### Not Yet Implemented
-- [ ] targeted trace filters by risk code and signal/fill presence
 - [ ] replay investigation trace linkage
 
 ### Current Recommended Resume Point
-- Continue with `Level 2` targeted trace filters on top of the completed Level 2 backend/UI diagnostics-anchor foundation.
+- Continue with `Level 3` replay investigation trace linkage on top of the completed Level 2 filterable trace viewer and diagnostics-anchor foundation.
 
 ---
 
@@ -134,7 +133,7 @@ Expand debug traces from compact per-step facts into richer diagnostic evidence 
 
 ### Tasks
 - [x] enrich trace schema with linked entity refs and state deltas
-- [ ] support filtering by risk code and signal/fill presence
+- [x] support filtering by risk code and signal/fill presence
 - [x] add diagnostics-to-trace anchors
 - [x] surface richer drill-down in UI
 
@@ -179,7 +178,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 3. [x] `Level 2 richer trace linkage`
 4. [x] `Level 2 richer UI drill-down`
 5. [x] `Level 2 diagnostics-to-trace anchors`
-6. `Level 2 targeted trace filters`
+6. [x] `Level 2 targeted trace filters`
 7. `Level 3 replay/investigation trace integration`
 
 Do not skip directly to Level 3.
@@ -191,15 +190,15 @@ Do not skip directly to Level 3.
 If resuming from here, implement only this slice:
 
 ### Slice
-`Level 2 targeted trace filters`
+`Level 3 replay/investigation trace linkage`
 
 ### Exact Work
-- support filtering debug traces by risk code and signal/fill presence
-- keep those filters aligned with the new diagnostics anchor drill-down path
-- avoid turning the Level 2 trace viewer into a replay timeline while adding those focused controls
+- reuse the existing debug-trace evidence model for replay investigations
+- attach replay-oriented note/linkage objects to concrete trace anchors or time windows
+- keep the next slice grounded in the current compact trace substrate instead of redesigning the trace schema again
 
 ### Leave For Immediately After
-- replay investigation trace linkage
+- richer replay timeline polish and follow-up annotation surfaces
 
 ### Explicitly Defer
 - replay note integration
@@ -239,7 +238,7 @@ If resuming from here, implement only this slice:
 
 When returning to this work:
 - read this document first
-- confirm the next slice is targeted trace filters, not another backend-schema redesign
+- confirm the next slice is replay investigation trace linkage, not another backend-schema redesign
 - inspect `runner.py` and current run-detail APIs before editing schema
 - keep Level 1 compact; do not over-design replay fields yet
 - update `docs/agent-memory/HANDOFF.md` when stopping
@@ -248,10 +247,10 @@ When returning to this work:
 
 ## Summary
 
-The repository now has `Level 1` backend/UI debug traces plus the first Level 2 linkage, richer drill-down, and diagnostics-anchor slices in place.
+The repository now has `Level 1` backend/UI debug traces plus the first Level 2 linkage, richer drill-down, diagnostics-anchor slices, and targeted trace filters in place.
 
 The correct next move is:
-- add targeted trace filters so anchors and manual diagnosis can narrow into the same evidence windows more efficiently
-- then connect trace rows to replay-note work later
+- connect trace rows to replay-note work and investigation linkage
+- then grow that into fuller replay timeline and annotation surfaces later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.

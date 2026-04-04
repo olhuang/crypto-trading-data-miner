@@ -881,7 +881,7 @@ Purpose:
 Current implementation status:
 - implemented as the Level 1 backend foundation
 - now also includes Level 2 linkage/delta fields such as `sim_order_ids`, `sim_fill_ids`, blocked codes, position qty delta, cash/equity delta, and exposure values
-- currently supports `limit`, `unified_symbol`, `bar_time_from`, and `bar_time_to`
+- currently supports `limit`, `unified_symbol`, `bar_time_from`, `bar_time_to`, `blocked_only`, `risk_code`, `signals_only`, `fills_only`, and `orders_only`
 - the current internal `/monitoring` Backtests run detail now uses this endpoint for a compact trace table plus selected-trace JSON inspection
 
 ### GET `/api/v1/backtests/runs/{run_id}/artifacts`

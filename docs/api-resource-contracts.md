@@ -591,6 +591,7 @@ Used by:
 ### Notes
 
 - current implementation returns the most recent records when `limit` is supplied, while preserving ascending time order inside the response
+- current implementation also supports targeted trace filters via query params such as `blocked_only`, `risk_code`, `signals_only`, `fills_only`, and `orders_only`
 
 ---
 

@@ -32,6 +32,7 @@ from models.common import LiquidityFlag, OrderSide, OrderType, RiskDecision, Sig
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
 from storage.db import get_engine
+from storage.repositories.backtest import BacktestRunRepository
 from storage.repositories.market_data import BarRepository
 from strategy import (
     MovingAverageCrossStrategy,
@@ -1417,6 +1418,22 @@ class Phase5FoundationTests(unittest.TestCase):
                 {"run_id": persisted.run_id},
             ).mappings().all()
             artifact_bundle = BacktestArtifactCatalogProjector().build(connection, run_id=persisted.run_id)
+            repository = BacktestRunRepository()
+            signal_only_rows = repository.list_debug_trace_records(
+                connection,
+                run_id=persisted.run_id,
+                signals_only=True,
+            )
+            order_only_rows = repository.list_debug_trace_records(
+                connection,
+                run_id=persisted.run_id,
+                orders_only=True,
+            )
+            fill_only_rows = repository.list_debug_trace_records(
+                connection,
+                run_id=persisted.run_id,
+                fills_only=True,
+            )
 
             self.assertEqual(len(persisted.loop_result.debug_traces), 3)
             self.assertEqual(len(debug_trace_rows), 3)
@@ -1449,6 +1466,9 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertLess(Decimal(debug_trace_rows[1]["equity_delta"]), Decimal("0"))
             self.assertEqual(Decimal(debug_trace_rows[1]["gross_exposure"]), Decimal("105"))
             self.assertEqual(Decimal(debug_trace_rows[1]["net_exposure"]), Decimal("105"))
+            self.assertEqual([row["step_index"] for row in signal_only_rows], [1])
+            self.assertEqual([row["step_index"] for row in order_only_rows], [1])
+            self.assertEqual([row["step_index"] for row in fill_only_rows], [2])
             assert artifact_bundle is not None
             debug_trace_artifact = next(
                 artifact for artifact in artifact_bundle.artifacts if artifact.artifact_type == "debug_traces"
@@ -1503,6 +1523,7 @@ class Phase5FoundationTests(unittest.TestCase):
 
             persisted = runner.load_run_and_persist(connection, persist_debug_traces=True)
             diagnostics = BacktestDiagnosticsProjector().build_summary(connection, persisted.run_id)
+            repository = BacktestRunRepository()
 
             self.assertIsNotNone(diagnostics)
             assert diagnostics is not None
@@ -1517,6 +1538,18 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertEqual(overall_anchor.unified_symbol, "BTCUSDT_PERP")
             self.assertIsNotNone(overall_anchor.bar_time_from)
             self.assertIsNotNone(overall_anchor.bar_time_to)
+            blocked_rows = repository.list_debug_trace_records(
+                connection,
+                run_id=persisted.run_id,
+                blocked_only=True,
+            )
+            risk_code_rows = repository.list_debug_trace_records(
+                connection,
+                run_id=persisted.run_id,
+                risk_code="max_gross_exposure_breach",
+            )
+            self.assertEqual([row["step_index"] for row in blocked_rows], [1])
+            self.assertEqual([row["step_index"] for row in risk_code_rows], [1])
         finally:
             transaction.rollback()
             connection.close()

@@ -6,7 +6,7 @@
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
-- advance step-level debug traces from the completed Level 2 linkage/UI/anchor slice into targeted trace filters and later replay investigation linkage
+- advance step-level debug traces from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 
 ## Blocked
@@ -14,11 +14,12 @@
 
 ## Next
 - integrate memory workflow with future strategy workbench annotation / review surfaces
-- add targeted trace filters for risk code and signal/fill presence
+- connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- added targeted debug-trace filters for blocked-only, risk-code, signal-only, order-only, and fill-only investigation in the API and internal `/monitoring` viewer
 - connected diagnostics outputs back to concrete trace rows and evidence windows through typed trace anchors plus anchor-driven trace focus in `/monitoring`
 - completed the richer Level 2 trace viewer drill-down in `/monitoring` with structured summary, linkage, state-delta, decision, risk, and raw-trace sections
 - enriched persisted debug traces with linked simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas for Level 2 backend linkage

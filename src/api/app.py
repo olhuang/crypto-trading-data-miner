@@ -1827,6 +1827,11 @@ def create_app() -> FastAPI:
         unified_symbol: str | None = None,
         bar_time_from: datetime | None = None,
         bar_time_to: datetime | None = None,
+        blocked_only: bool = False,
+        risk_code: str | None = None,
+        signals_only: bool = False,
+        fills_only: bool = False,
+        orders_only: bool = False,
         authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     ) -> SuccessEnvelope[BacktestDebugTraceRecordsResource]:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
@@ -1845,6 +1850,11 @@ def create_app() -> FastAPI:
                 unified_symbol=unified_symbol,
                 bar_time_from=bar_time_from,
                 bar_time_to=bar_time_to,
+                blocked_only=blocked_only,
+                risk_code=risk_code,
+                signals_only=signals_only,
+                fills_only=fills_only,
+                orders_only=orders_only,
             )
         return SuccessEnvelope[BacktestDebugTraceRecordsResource](
             data=BacktestDebugTraceRecordsResource(

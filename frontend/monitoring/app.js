@@ -157,11 +157,21 @@ async function focusBacktestTraceAnchor(anchor) {
   }
   state.selectedBacktestDebugTraceId = anchor.debug_trace_id;
   const currentFilters = getBacktestTraceFilters();
+  const anchorRiskCode =
+    anchor.matched_block_code ||
+    (anchor.source_kind === "block_summary" ? anchor.source_code : undefined);
+  const blockedOnly =
+    Boolean(anchorRiskCode) || anchor.source_code === "risk_blocks_present";
   await loadBacktestDebugTraces({
     limit: currentFilters.limit,
     unified_symbol: anchor.unified_symbol || currentFilters.unified_symbol,
     bar_time_from: anchor.bar_time_from,
     bar_time_to: anchor.bar_time_to,
+    blocked_only: blockedOnly,
+    risk_code: anchorRiskCode,
+    signals_only: false,
+    fills_only: false,
+    orders_only: false,
   });
 }
 
@@ -270,6 +280,14 @@ function normalizeLineList(value) {
     .filter(Boolean);
 }
 
+function parseBooleanish(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["1", "true", "yes", "on"].includes(normalized);
+}
+
 function getBacktestTraceFilters(formValues = null) {
   const form = document.getElementById("backtest-trace-filter-form");
   const values =
@@ -278,12 +296,22 @@ function getBacktestTraceFilters(formValues = null) {
   const filters = {
     limit: Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 100,
     unified_symbol: String(values.unified_symbol || "").trim() || undefined,
+    risk_code: String(values.risk_code || "").trim() || undefined,
     bar_time_from: String(values.bar_time_from || "").trim() || undefined,
     bar_time_to: String(values.bar_time_to || "").trim() || undefined,
+    blocked_only: parseBooleanish(values.blocked_only),
+    signals_only: parseBooleanish(values.signals_only),
+    fills_only: parseBooleanish(values.fills_only),
+    orders_only: parseBooleanish(values.orders_only),
   };
   if (form) {
     form.elements.limit.value = String(filters.limit);
     form.elements.unified_symbol.value = filters.unified_symbol || "";
+    form.elements.risk_code.value = filters.risk_code || "";
+    form.elements.blocked_only.checked = Boolean(filters.blocked_only);
+    form.elements.signals_only.checked = Boolean(filters.signals_only);
+    form.elements.fills_only.checked = Boolean(filters.fills_only);
+    form.elements.orders_only.checked = Boolean(filters.orders_only);
   }
   return filters;
 }
@@ -303,6 +331,21 @@ function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
   }
   if (appliedFilters?.unified_symbol) {
     contextParts.push(`symbol=${appliedFilters.unified_symbol}`);
+  }
+  if (appliedFilters?.risk_code) {
+    contextParts.push(`risk_code=${appliedFilters.risk_code}`);
+  }
+  if (appliedFilters?.blocked_only) {
+    contextParts.push("blocked_only=true");
+  }
+  if (appliedFilters?.signals_only) {
+    contextParts.push("signals_only=true");
+  }
+  if (appliedFilters?.orders_only) {
+    contextParts.push("orders_only=true");
+  }
+  if (appliedFilters?.fills_only) {
+    contextParts.push("fills_only=true");
   }
   if (appliedFilters?.bar_time_from || appliedFilters?.bar_time_to) {
     contextParts.push(

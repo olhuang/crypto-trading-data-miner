@@ -3,7 +3,7 @@
 ## Current Focus
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
-- continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor slice into targeted trace filters and later replay investigation linkage
+- continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -21,11 +21,12 @@
 - Level 2 backend trace linkage now adds linked simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas to persisted trace rows and the trace API
 - the internal trace viewer now exposes Level 2 trace evidence through structured summary/linkage/state/decision/risk/raw sections instead of only raw JSON
 - diagnostics summaries now also project typed trace anchors, and the internal UI can use those anchors to focus the trace viewer on matching evidence windows
+- the debug-trace API and internal viewer now support targeted investigation filters for blocked-only traces, specific risk codes, signal presence, order presence, and fill presence
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
-- targeted trace filters and replay/debug trace linkage are still missing
+- replay/debug trace linkage is still missing
 - richer saved-compare workflow remains future work
 - replay investigation notes and unified annotation service remain future work
 
@@ -60,4 +61,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only the `Level 2` targeted trace filters slice before moving on to replay-note linkage
+- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only the replay-investigation trace-linkage slice before moving on to richer replay/annotation polish

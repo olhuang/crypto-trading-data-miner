@@ -154,3 +154,18 @@ Implement diagnostics-to-trace anchors as typed diagnostics-summary output plus 
 - `GET /api/v1/backtests/runs/{run_id}/diagnostics` now carries typed `trace_anchors`
 - the internal Backtests view can jump from diagnostics anchors into matching trace windows and selected trace rows
 - the next trace slice should focus on targeted filters or replay linkage rather than another diagnostics viewer redesign
+
+## 2026-04-04
+
+### Decision
+Implement Level 2 targeted trace filters directly on the existing debug-trace API and internal viewer, and make diagnostics-anchor navigation reset conflicting signal/order/fill toggles when focusing blocked-evidence anchors.
+
+### Reason
+- the current trace viewer already works as the investigation surface, so the fastest useful improvement is to let users narrow the same endpoint by blocked status, risk code, signal presence, order presence, and fill presence
+- blocked/guard-related diagnostics anchors need deterministic navigation, so preserving unrelated `fills_only` or `orders_only` toggles would often hide the very anchor row the user clicked
+- this keeps the Level 2 viewer queryable without widening it into a replay-specific UI too early
+
+### Impact
+- `GET /api/v1/backtests/runs/{run_id}/debug-traces` now supports targeted filters for blocked traces, specific risk codes, signals, orders, and fills
+- the internal Backtests trace viewer now exposes the same filter set and shows the active filters in context
+- diagnostics-anchor clicks now align the filter state with blocked-evidence investigation instead of inheriting potentially conflicting trace toggles

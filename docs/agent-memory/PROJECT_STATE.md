@@ -4,7 +4,7 @@
 - Phase 1-4 core scope is implemented and validated.
 - Phase 5 has a working bars-based backtest foundation.
 - The repo already supports strategy session config, named risk policies, named assumption bundles, diagnostics summary, period breakdown, persisted compare sets, and compare-review note API baseline.
-- `/monitoring` now includes a minimal internal Backtests research slice with compare-review notes, Level 1 debug-trace inspection, Level 2 linkage-aware trace payloads, structured trace drill-down, and diagnostics-to-trace anchor navigation.
+- `/monitoring` now includes a minimal internal Backtests research slice with compare-review notes, Level 1 debug-trace inspection, Level 2 linkage-aware trace payloads, structured trace drill-down, diagnostics-to-trace anchor navigation, and targeted trace filters.
 
 ## Current Strong Areas
 - design/spec coverage
@@ -15,10 +15,10 @@
 
 ## Current Gaps
 - no replay engine yet
-- no targeted trace filters or replay investigation trace linkage yet
+- no replay investigation trace linkage yet
 - compare-review notes now have a minimal internal UI surface, but replay/debug-trace-linked investigation workflow is still future work
 - cooldown semantics are still tied to a losing-close proxy instead of explicit protection events
-- a dedicated `docs/debug-trace-rollout-plan.md` now exists to track where debug-trace work should resume, and Level 1 backend/UI foundation is now in place
+- a dedicated `docs/debug-trace-rollout-plan.md` now exists to track where debug-trace work should resume, and the next debug-trace slice is replay investigation linkage rather than more Level 2 filter work
 
 ## Most Important Source-of-Truth Docs
 - `README.md`

@@ -835,12 +835,14 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] Stage A: implement run-level diagnostics summary baseline
 - [x] Stage B backend foundation: implement compact persisted step-level debug traces plus read API
 - [x] Stage B UI surface: expose debug traces in the internal research console
+- [x] Stage B extension: add targeted trace filters for blocked/risk/signal/order/fill investigation
 - [ ] Stage C: implement full backtest diagnostics and period-level analysis
 - [ ] Stage D: implement replay diagnostics, replay timelines, and replay UI inspection support
 - [x] create a dedicated debug-trace rollout tracking document with current status, staged scope, and resume guidance
 
 ### Acceptance Checks
 - [x] diagnostics/reporting/replay work is broken into explicit implementation stages
+- [x] the internal debug-trace viewer can narrow into blocked, risk-specific, signal, order, or fill evidence without manual table scanning
 - [x] later replay/UI work can build on earlier report/trace surfaces without redesign
 
 ---

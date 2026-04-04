@@ -18,6 +18,7 @@
 - enriched persisted debug traces with Level 2 linkage/delta fields, including simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas
 - upgraded the internal trace viewer so selected traces now render as structured summary/linkage/state/decision/risk sections instead of only raw JSON
 - extended diagnostics so they now project typed trace anchors, and wired the internal UI to jump from diagnostics anchors into matching trace windows
+- added Level 2 targeted trace filters across the debug-trace API and internal viewer for blocked-only, risk-code, signal-only, order-only, and fill-only investigation
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -46,6 +47,7 @@
 - `src/api/app.py`
 - `frontend/monitoring/index.html`
 - `frontend/monitoring/app.js`
+- `frontend/monitoring/styles.css`
 - `tests/test_phase5_foundation.py`
 - `tests/test_api_models.py`
 - `docs/strategy-workbench-spec.md`
@@ -65,7 +67,7 @@
 
 ## Risks
 - replay investigation notes and unified annotation service remain future slices
-- targeted trace filters and replay-linked investigation flow are still future slices
+- replay-linked investigation flow is still the next major trace slice
 
 ## Next
-- move from the completed Level 2 trace-linkage/UI/anchor slice into targeted trace filters, then use the same trace substrate for replay investigation notes
+- move from the completed Level 2 trace-linkage/UI/anchor/filter slices into replay investigation linkage, then use that same trace substrate for replay investigation notes and future workbench annotations

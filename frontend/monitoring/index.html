@@ -288,6 +288,23 @@
                 <form id="backtest-trace-filter-form" class="filters">
                   <input name="limit" placeholder="limit" value="100" />
                   <input name="unified_symbol" placeholder="unified_symbol (optional)" />
+                  <input name="risk_code" placeholder="risk_code (optional)" />
+                  <label class="filter-toggle">
+                    <input type="checkbox" name="blocked_only" />
+                    blocked only
+                  </label>
+                  <label class="filter-toggle">
+                    <input type="checkbox" name="signals_only" />
+                    signals only
+                  </label>
+                  <label class="filter-toggle">
+                    <input type="checkbox" name="orders_only" />
+                    orders only
+                  </label>
+                  <label class="filter-toggle">
+                    <input type="checkbox" name="fills_only" />
+                    fills only
+                  </label>
                   <button type="submit">Load Traces</button>
                 </form>
                 <p id="backtest-debug-trace-context" class="card-detail">Select a run to inspect persisted debug traces.</p>

@@ -718,6 +718,7 @@ class ModelsApiTests(unittest.TestCase):
 
     def test_backtest_run_detail_endpoints_return_orders_fills_timeseries_and_signals(self) -> None:
         original_repository = app_module.BacktestRunRepository
+        captured_debug_trace_filters: dict[str, object] = {}
 
         class StubRepository:
             def get_run(self, connection, run_id: int):
@@ -805,7 +806,26 @@ class ModelsApiTests(unittest.TestCase):
                 unified_symbol: str | None = None,
                 bar_time_from: datetime | None = None,
                 bar_time_to: datetime | None = None,
+                blocked_only: bool = False,
+                risk_code: str | None = None,
+                signals_only: bool = False,
+                fills_only: bool = False,
+                orders_only: bool = False,
             ):
+                captured_debug_trace_filters.update(
+                    {
+                        "run_id": run_id,
+                        "limit": limit,
+                        "unified_symbol": unified_symbol,
+                        "bar_time_from": bar_time_from,
+                        "bar_time_to": bar_time_to,
+                        "blocked_only": blocked_only,
+                        "risk_code": risk_code,
+                        "signals_only": signals_only,
+                        "fills_only": fills_only,
+                        "orders_only": orders_only,
+                    }
+                )
                 return [
                     {
                         "debug_trace_id": 31,
@@ -845,12 +865,17 @@ class ModelsApiTests(unittest.TestCase):
             timeseries_response = self.__class__.backtest_run_timeseries_endpoint(601, 120, "Bearer developer:u_123:Alice")
             signals_response = self.__class__.backtest_run_signals_endpoint(601, 50, "Bearer developer:u_123:Alice")
             debug_traces_response = self.__class__.backtest_run_debug_traces_endpoint(
-                601,
-                200,
-                None,
-                None,
-                None,
-                "Bearer developer:u_123:Alice",
+                run_id=601,
+                limit=150,
+                unified_symbol="BTCUSDT_PERP",
+                bar_time_from=datetime.fromisoformat("2026-03-05T00:00:00+00:00"),
+                bar_time_to=datetime.fromisoformat("2026-03-05T01:00:00+00:00"),
+                blocked_only=True,
+                risk_code="cooldown_active",
+                signals_only=True,
+                fills_only=False,
+                orders_only=True,
+                authorization="Bearer developer:u_123:Alice",
             )
         finally:
             app_module.BacktestRunRepository = original_repository
@@ -878,6 +903,14 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(debug_traces_response.data.traces[0].sim_fill_ids, [])
         self.assertEqual(debug_traces_response.data.traces[0].position_qty_delta, "0")
         self.assertEqual(debug_traces_response.data.traces[0].gross_exposure, "0")
+        self.assertEqual(captured_debug_trace_filters["run_id"], 601)
+        self.assertEqual(captured_debug_trace_filters["limit"], 150)
+        self.assertEqual(captured_debug_trace_filters["unified_symbol"], "BTCUSDT_PERP")
+        self.assertEqual(captured_debug_trace_filters["risk_code"], "cooldown_active")
+        self.assertTrue(captured_debug_trace_filters["blocked_only"])
+        self.assertTrue(captured_debug_trace_filters["signals_only"])
+        self.assertFalse(captured_debug_trace_filters["fills_only"])
+        self.assertTrue(captured_debug_trace_filters["orders_only"])
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

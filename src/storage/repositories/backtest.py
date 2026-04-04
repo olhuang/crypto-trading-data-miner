@@ -771,6 +771,11 @@ class BacktestRunRepository:
         unified_symbol: str | None = None,
         bar_time_from: object | None = None,
         bar_time_to: object | None = None,
+        blocked_only: bool = False,
+        risk_code: str | None = None,
+        signals_only: bool = False,
+        fills_only: bool = False,
+        orders_only: bool = False,
     ) -> list[dict[str, object]]:
         filters = ["trace.run_id = :run_id"]
         params: dict[str, object] = {"run_id": run_id}
@@ -783,6 +788,17 @@ class BacktestRunRepository:
         if bar_time_to is not None:
             filters.append("trace.bar_time <= :bar_time_to")
             params["bar_time_to"] = bar_time_to
+        if blocked_only:
+            filters.append("trace.blocked_intent_count > 0")
+        if risk_code is not None:
+            filters.append("trace.blocked_codes_json ? :risk_code")
+            params["risk_code"] = risk_code
+        if signals_only:
+            filters.append("trace.signal_count > 0")
+        if fills_only:
+            filters.append("trace.fill_count > 0")
+        if orders_only:
+            filters.append("trace.created_order_count > 0")
 
         where_clause = " and ".join(filters)
         base_select = f"""

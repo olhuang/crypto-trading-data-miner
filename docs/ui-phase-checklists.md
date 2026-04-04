@@ -583,7 +583,7 @@ Required sections:
 - [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
 - [x] the current internal Backtests view now also exposes compare-review notes for persisted compare sets, including system-seeded facts and human/agent review entry
 - [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
-- [ ] charts, targeted trace filters, and replay scenario pages remain future UI work
+- [ ] charts and replay scenario pages remain future UI work
 
 ## Handoff Criteria to Phase 6 UI
 - [ ] user can operate a research workflow fully from UI
