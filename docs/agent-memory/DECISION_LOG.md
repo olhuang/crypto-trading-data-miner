@@ -40,3 +40,17 @@ Ship reusable start/stop/operator templates with the repo-local memory workflow 
 - `docs/agent-memory/SESSION_START_PROMPT.md` is the default session-start packet
 - `docs/agent-memory/SESSION_STOP_CHECKLIST.md` is the default stop packet
 - `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md` is the baseline CLI/editor launch reference
+
+## 2026-04-04
+
+### Decision
+Ship repo-owned VS Code tasks and PowerShell helper scripts for the memory start/stop workflow instead of leaving execution entirely up to local ad hoc setup.
+
+### Reason
+- this makes the workflow immediately usable on this project
+- it reduces the chance that operators skip the process because setup is inconvenient
+- it preserves a simple local baseline without forcing a specific external AI CLI path
+
+### Impact
+- `.vscode/tasks.json` now exposes `Memory: Start Session` and `Memory: Stop Session`
+- `scripts/start_memory_session.ps1` and `scripts/stop_memory_session.ps1` are the baseline local workflow helpers

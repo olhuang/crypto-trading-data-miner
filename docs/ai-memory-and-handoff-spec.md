@@ -488,6 +488,7 @@ It needs:
 This workflow is intentionally designed to fit:
 - design-first development
 - Phase 5 research/backtest expansion
+- repo-local start/stop tooling before any future UI-backed annotation system
 - future paper/live/reconciliation handoff needs
 
 ---

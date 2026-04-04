@@ -8,6 +8,7 @@
 - translated them into a project-specific spec and repo-local memory file set
 - wired the workflow into the main repo entry docs and Phase 5 planning/checklist surfaces
 - added reusable operator templates for session start, session stop, and minimal CLI/VS Code execution
+- added repo-owned VS Code tasks and local PowerShell helper scripts so the workflow is directly runnable
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -19,6 +20,9 @@
 - `docs/agent-memory/SESSION_START_PROMPT.md`
 - `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
 - `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
+- `.vscode/tasks.json`
+- `scripts/start_memory_session.ps1`
+- `scripts/stop_memory_session.ps1`
 - `README.md`
 - `docs/implementation-plan.md`
 - `docs/phases-2-to-9-checklists.md`
@@ -29,7 +33,7 @@
 - keep memory layered instead of mixing stable state, task state, and session state together
 
 ## Risks
-- this is still process/documentation-first and not yet enforced by runtime/UI
+- this is now runnable locally, but still not yet enforced by runtime/UI
 
 ## Next
 - wire this workflow into future strategy workbench annotations, replay investigation, and compare/review flows

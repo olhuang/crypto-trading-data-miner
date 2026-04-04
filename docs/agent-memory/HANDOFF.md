@@ -9,6 +9,7 @@
 - `docs/repo-self-review-tracker.md` is the current durable location for repo-wide findings/follow-ups
 - a repo-local process spec and canonical memory files now exist under `docs/ai-memory-and-handoff-spec.md` and `docs/agent-memory/`
 - reusable operator templates now exist for session start, session stop, and CLI/VS Code launch patterns
+- repo-owned VS Code tasks and helper scripts now exist for `Memory: Start Session` and `Memory: Stop Session`
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -22,6 +23,9 @@
 - `docs/agent-memory/SESSION_START_PROMPT.md`
 - `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
 - `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
+- `.vscode/tasks.json`
+- `scripts/start_memory_session.ps1`
+- `scripts/stop_memory_session.ps1`
 - `docs/strategy-workbench-spec.md`
 - `docs/strategy-risk-assumption-management-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`

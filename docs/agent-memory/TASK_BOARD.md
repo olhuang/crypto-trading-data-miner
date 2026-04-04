@@ -17,6 +17,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- added repo-owned VS Code tasks and local PowerShell helpers for memory-session start/stop
 - added reusable session-start, session-stop, and CLI/VS Code workflow templates under `docs/agent-memory/`
 - formalized the repo-local AI memory and cross-session handoff workflow
 - added `docs/agent-memory/` memory artifacts for stable state, task state, decisions, handoff, and session summary

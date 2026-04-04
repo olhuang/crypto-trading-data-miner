@@ -54,6 +54,7 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/backtest-risk-guardrails-spec.md` now freezes the intended shared pre-trade guardrail model for Phase 5 backtests and later paper/live reuse
 - `docs/ai-memory-and-handoff-spec.md` now freezes the intended repo-local memory, summary, and cross-session handoff workflow for long-running AI-assisted implementation work
 - reusable session-start, session-stop, and CLI/editor memory-workflow templates now exist under `docs/agent-memory/`
+- repo-provided VS Code tasks and PowerShell helper scripts now exist for applying the memory workflow consistently
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
 - Phase 5 bars loading, bar-by-bar strategy evaluation, canonical signal normalization, and optional signal persistence now exist under `src/backtest/` and `src/storage/repositories/strategy.py`
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton

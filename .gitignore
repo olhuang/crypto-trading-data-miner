@@ -9,7 +9,8 @@ venv/
 .env
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/tasks.json
 .idea/
 
 # OS

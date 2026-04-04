@@ -620,12 +620,14 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] define source-of-truth precedence so repo-visible memory complements specs/checklists without replacing them
 - [x] define how the memory workflow should later connect to workbench annotations, replay investigation, and review surfaces
 - [x] provide reusable session-start, session-stop, and operator automation templates so the workflow can be applied consistently from CLI/editor tooling
+- [x] provide repo-owned VS Code tasks and local helper scripts for the baseline start/stop workflow
 
 ### Acceptance Checks
 - [x] repository has an explicit source of truth for resumable AI-assisted long-running work
 - [x] future sessions can resume from repo-visible handoff files instead of relying on transcript continuity alone
 - [x] the memory workflow remains compatible with future strategy workbench and replay-diagnostics facilities
 - [x] operators have a minimal start/stop/template toolkit instead of only a prose process description
+- [x] the repo includes a ready-to-run local entrypoint for the start/stop workflow instead of requiring each contributor to invent one
 
 ---
 

@@ -32,42 +32,29 @@ Before stopping, follow docs/agent-memory/SESSION_STOP_CHECKLIST.md.
 
 ---
 
-## 2. Minimal VS Code Task Template
+## 2. Repo-Provided VS Code Tasks
 
-If you want a one-command launcher, create a local `.vscode/tasks.json` using a
-task like this and adapt it to your own Codex/CLI setup:
+This repository now ships a minimal `.vscode/tasks.json` with:
+- `Memory: Start Session`
+- `Memory: Stop Session`
 
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Run Repo Memory Workflow",
-      "type": "shell",
-      "command": "codex",
-      "args": [
-        "Read docs/agent-memory/SESSION_START_PROMPT.md and follow it strictly. After restating the current state, work on exactly one subtask from docs/agent-memory/TASK_BOARD.md. Before stopping, follow docs/agent-memory/SESSION_STOP_CHECKLIST.md."
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": []
-    }
-  ]
-}
-```
+These tasks call:
+- `scripts/start_memory_session.ps1`
+- `scripts/stop_memory_session.ps1`
 
-This template is intentionally not auto-installed into the repo because:
-- different machines may not have the same CLI path
-- different contributors may use different local launch commands
-- this repository should not force editor-specific behavior by default
+The default task flow is editor-agnostic enough to work without forcing any
+specific AI CLI path. The tasks print the exact memory files and start/stop
+instructions into the terminal so the next agent step can follow them.
+
+If you want a more automated local launcher, you can still adapt the tasks to
+your own CLI setup later.
 
 ---
 
 ## 3. Suggested Session Rhythm
 
 ### Start
-- run the session-start prompt
+- run `Memory: Start Session` from VS Code, or run `scripts/start_memory_session.ps1`
 - select one subtask
 - inspect only the most relevant files/specs first
 
@@ -77,7 +64,7 @@ This template is intentionally not auto-installed into the repo because:
 - move task state in `TASK_BOARD.md` when the focus changes
 
 ### Stop
-- run the stop checklist
+- run `Memory: Stop Session` from VS Code, or run `scripts/stop_memory_session.ps1`
 - make the next action in `HANDOFF.md` concrete enough that another agent can
   continue without rereading the whole transcript
 
