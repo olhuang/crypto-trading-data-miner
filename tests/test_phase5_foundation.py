@@ -24,7 +24,7 @@ from backtest.performance import PerformancePoint
 from backtest.runner import BacktestRunnerSkeleton
 from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
-from models.backtest import BacktestRunConfig, RiskPolicyConfig, StrategySessionConfig
+from models.backtest import BacktestRunConfig, RiskPolicyConfig, RiskPolicyOverrideConfig, StrategySessionConfig
 from models.common import LiquidityFlag, OrderSide, OrderType, RiskDecision, SignalType
 from models.market import BarEvent
 from models.strategy import Signal, TargetPosition
@@ -186,6 +186,50 @@ class Phase5FoundationTests(unittest.TestCase):
 
         self.assertEqual(policy.policy_code, "spot_conservative_v1")
         self.assertEqual(policy.max_position_qty, Decimal("1"))
+
+    def test_risk_policy_override_config_and_effective_policy_merge(self) -> None:
+        with self.assertRaises(ValidationError):
+            RiskPolicyOverrideConfig.model_validate({"max_order_notional": "0"})
+
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_risk_override_merge",
+                "session": {
+                    "session_code": "bt_btc_risk_override_merge",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "perp_medium_v1",
+                        "max_position_qty": "1",
+                        "max_order_notional": "10000",
+                        "metadata": {"source": "session_default"},
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+                "assumption_bundle_code": "baseline_perp_research",
+                "assumption_bundle_version": "v1",
+                "risk_overrides": {
+                    "policy_code": "perp_medium_override_v1",
+                    "max_order_notional": "5000",
+                    "allow_reduce_only_when_blocked": False,
+                    "metadata": {"source": "run_override"},
+                },
+            }
+        )
+
+        effective = run_config.build_effective_risk_policy()
+
+        self.assertEqual(effective.policy_code, "perp_medium_override_v1")
+        self.assertEqual(effective.max_position_qty, Decimal("1"))
+        self.assertEqual(effective.max_order_notional, Decimal("5000"))
+        self.assertFalse(effective.allow_reduce_only_when_blocked)
+        self.assertEqual(effective.metadata_json["source"], "run_override")
 
     def test_default_registry_loads_seeded_example_strategy(self) -> None:
         registry = build_default_registry()
@@ -835,6 +879,16 @@ class Phase5FoundationTests(unittest.TestCase):
                 ),
                 {"run_id": persisted.run_id},
             ).mappings().one()
+            run_row = connection.execute(
+                text(
+                    """
+                    select params_json
+                    from backtest.runs
+                    where run_id = :run_id
+                    """
+                ),
+                {"run_id": persisted.run_id},
+            ).mappings().one()
             signal_link_count = connection.execute(
                 text(
                     """
@@ -858,6 +912,10 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertIsNotNone(summary_row["total_return"])
             self.assertEqual(Decimal(summary_row["fee_cost"]), persisted.loop_result.performance_summary.fee_cost)
             self.assertEqual(Decimal(summary_row["slippage_cost"]), persisted.loop_result.performance_summary.slippage_cost)
+            params_json = run_row["params_json"] or {}
+            self.assertEqual(params_json["risk_policy"]["policy_code"], "default")
+            self.assertEqual(params_json["session_risk_policy"]["policy_code"], "default")
+            self.assertEqual(params_json["risk_overrides"], {})
             self.assertIsNotNone(diagnostics)
             assert diagnostics is not None
             self.assertEqual(diagnostics.diagnostic_status, "ok")
@@ -986,6 +1044,9 @@ class Phase5FoundationTests(unittest.TestCase):
                 "start_time": run_start.isoformat(),
                 "end_time": (run_start + timedelta(minutes=3)).isoformat(),
                 "initial_cash": "10000",
+                "assumption_bundle_code": "stress_costs",
+                "assumption_bundle_version": "v1",
+                "risk_overrides": {"max_order_notional": "150"},
                 "strategy_params": {"target_qty": "2"},
             }
         )
@@ -1027,6 +1088,9 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertEqual([run.run_id for run in compare_set.compared_runs], [persisted_one.run_id, persisted_two.run_id])
             diff_fields = {diff.field_name for diff in compare_set.assumption_diffs}
             self.assertIn("strategy_params", diff_fields)
+            self.assertIn("assumption_bundle_code", diff_fields)
+            self.assertIn("risk_overrides", diff_fields)
+            self.assertIn("effective_risk_policy", diff_fields)
             self.assertEqual(len(compare_set.benchmark_deltas), 1)
             self.assertEqual(compare_set.benchmark_deltas[0].run_id, persisted_two.run_id)
             self.assertIsNotNone(compare_set.benchmark_deltas[0].total_return_delta)

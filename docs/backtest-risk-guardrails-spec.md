@@ -251,6 +251,13 @@ Add:
 - assumption-bundle linkage for risk policy
 - explicit run metadata and compare/analyze support for risk assumptions
 
+Current implementation status:
+- implemented for run-level risk overrides on the current bars-based backtest path
+- implemented for effective risk-policy snapshot persistence in run detail
+- implemented for assumption-bundle metadata linkage at the run level
+- compare/analyze now preserves room to diff session default risk policy, run-level overrides, and effective risk policy separately
+- named risk-policy and named assumption-bundle registries remain future work
+
 ### Phase 5C / 6A: Richer Session Guardrails
 
 Add:
@@ -298,6 +305,9 @@ Locked first-wave rule:
 
 Backtest run creation and inspection should expose:
 - risk policy snapshot in run detail
+- session default risk-policy snapshot where different from effective policy
+- run-level risk overrides where present
+- assumption-bundle identity where present
 - runtime risk summary in run detail / diagnostics
 - later compare/analyze should include risk-policy assumption diffs
 

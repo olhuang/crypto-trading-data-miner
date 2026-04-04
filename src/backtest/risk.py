@@ -38,7 +38,7 @@ class BacktestRiskGuardrailEngine:
         slippage_model: SlippageModel,
     ) -> None:
         self.run_config = run_config
-        self.policy = run_config.session.risk_policy
+        self.policy = run_config.build_effective_risk_policy()
         self.fee_model = fee_model
         self.slippage_model = slippage_model
 

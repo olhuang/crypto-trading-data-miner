@@ -26,19 +26,24 @@ class BacktestRunRepository:
             run_config.session.strategy_version,
         )
         account_id = resolve_account_id(connection, run_config.session.account_code)
+        effective_risk_policy = run_config.build_effective_risk_policy()
         params_json = {
             "session_code": run_config.session.session_code,
             "environment": run_config.session.environment,
             "netting_mode": run_config.session.netting_mode,
             "bar_interval": run_config.bar_interval,
             "initial_cash": str(run_config.initial_cash),
+            "assumption_bundle_code": run_config.assumption_bundle_code,
+            "assumption_bundle_version": run_config.assumption_bundle_version,
             "strategy_params": run_config.strategy_params_json,
             "run_metadata": run_config.metadata_json,
             "runtime_metadata": runtime_metadata or {},
             "session_metadata": run_config.session.metadata_json,
             "execution_policy": run_config.session.execution_policy.model_dump(mode="json", by_alias=True),
             "protection_policy": run_config.session.protection_policy.model_dump(mode="json", by_alias=True),
-            "risk_policy": run_config.session.risk_policy.model_dump(mode="json", by_alias=True),
+            "session_risk_policy": run_config.session.risk_policy.model_dump(mode="json", by_alias=True),
+            "risk_overrides": run_config.risk_overrides.as_patch_dict(),
+            "risk_policy": effective_risk_policy.model_dump(mode="json", by_alias=True),
         }
         return int(
             connection.execute(

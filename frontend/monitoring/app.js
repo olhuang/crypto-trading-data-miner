@@ -289,6 +289,7 @@ async function loadBacktests(filters = {}) {
 
 async function launchBacktest(formValues) {
   const riskPolicy = {};
+  const riskOverrides = {};
   const riskPolicyCode = String(formValues.risk_policy_code || "").trim();
   if (riskPolicyCode) {
     riskPolicy.policy_code = riskPolicyCode;
@@ -302,13 +303,13 @@ async function launchBacktest(formValues) {
   ].forEach((fieldName) => {
     const value = String(formValues[fieldName] || "").trim();
     if (value !== "") {
-      riskPolicy[fieldName] = value;
+      riskOverrides[fieldName] = value;
     }
   });
   ["enforce_spot_cash_check", "allow_reduce_only_when_blocked"].forEach((fieldName) => {
     const rawValue = String(formValues[fieldName] || "").trim();
     if (rawValue !== "") {
-      riskPolicy[fieldName] = parseBooleanInput(rawValue);
+      riskOverrides[fieldName] = parseBooleanInput(rawValue);
     }
   });
 
@@ -326,6 +327,8 @@ async function launchBacktest(formValues) {
     start_time: formValues.start_time,
     end_time: formValues.end_time,
     initial_cash: formValues.initial_cash || "100000",
+    assumption_bundle_code: formValues.assumption_bundle_code || null,
+    assumption_bundle_version: formValues.assumption_bundle_version || null,
     strategy_params: {
       short_window: Number(formValues.short_window || 5),
       long_window: Number(formValues.long_window || 20),
@@ -336,6 +339,9 @@ async function launchBacktest(formValues) {
   };
   if (Object.keys(riskPolicy).length > 0) {
     payload.session.risk_policy = riskPolicy;
+  }
+  if (Object.keys(riskOverrides).length > 0) {
+    payload.risk_overrides = riskOverrides;
   }
   const created = await sendEnvelope("/api/v1/backtests/runs", "POST", payload);
   renderJson("backtest-launch-result", created);

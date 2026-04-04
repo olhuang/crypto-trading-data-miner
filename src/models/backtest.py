@@ -118,6 +118,43 @@ class RiskPolicyConfig(BaseContractModel):
         return self
 
 
+class RiskPolicyOverrideConfig(BaseContractModel):
+    policy_code: str | None = None
+    enforce_spot_cash_check: bool | None = None
+    block_new_entries_below_equity: Decimal | None = None
+    max_position_qty: Decimal | None = None
+    max_order_qty: Decimal | None = None
+    max_order_notional: Decimal | None = None
+    max_gross_exposure_multiple: Decimal | None = None
+    allow_reduce_only_when_blocked: bool | None = None
+    metadata_json: dict[str, Any] = Field(
+        default_factory=dict,
+        validation_alias="metadata",
+        serialization_alias="metadata_json",
+    )
+
+    @model_validator(mode="after")
+    def validate_override_thresholds(self) -> "RiskPolicyOverrideConfig":
+        if self.block_new_entries_below_equity is not None and self.block_new_entries_below_equity < 0:
+            raise ValueError("block_new_entries_below_equity must be non-negative when provided")
+        threshold_fields = (
+            ("max_position_qty", self.max_position_qty),
+            ("max_order_qty", self.max_order_qty),
+            ("max_order_notional", self.max_order_notional),
+            ("max_gross_exposure_multiple", self.max_gross_exposure_multiple),
+        )
+        for field_name, value in threshold_fields:
+            if value is not None and value <= 0:
+                raise ValueError(f"{field_name} must be positive when provided")
+        return self
+
+    def as_patch_dict(self) -> dict[str, Any]:
+        payload = self.model_dump(mode="json", by_alias=True, exclude_none=True)
+        if not payload.get("metadata_json"):
+            payload.pop("metadata_json", None)
+        return payload
+
+
 class StrategySessionConfig(BaseContractModel):
     session_code: str
     environment: Environment
@@ -155,6 +192,9 @@ class BacktestRunConfig(BaseContractModel):
     fee_model_version: str = "ref_fee_schedule_v1"
     slippage_model_version: str = "fixed_bps_v1"
     latency_model_version: str = "bars_next_open_v1"
+    assumption_bundle_code: str | None = None
+    assumption_bundle_version: str | None = None
+    risk_overrides: RiskPolicyOverrideConfig = Field(default_factory=RiskPolicyOverrideConfig)
     strategy_params_json: dict[str, Any] = Field(
         default_factory=dict,
         validation_alias="strategy_params",
@@ -176,4 +216,19 @@ class BacktestRunConfig(BaseContractModel):
             raise ValueError("initial_cash must be positive")
         if not self.bar_interval:
             raise ValueError("bar_interval must not be empty")
+        if self.assumption_bundle_code is not None and not self.assumption_bundle_code.strip():
+            raise ValueError("assumption_bundle_code must not be empty when provided")
+        if self.assumption_bundle_version is not None and not self.assumption_bundle_version.strip():
+            raise ValueError("assumption_bundle_version must not be empty when provided")
         return self
+
+    def build_effective_risk_policy(self) -> RiskPolicyConfig:
+        merged = self.session.risk_policy.model_dump(mode="json", by_alias=True)
+        patch = self.risk_overrides.as_patch_dict()
+        if patch.get("metadata_json"):
+            merged_metadata = dict(merged.get("metadata_json") or {})
+            merged_metadata.update(patch["metadata_json"])
+            merged["metadata_json"] = merged_metadata
+            patch = {key: value for key, value in patch.items() if key != "metadata_json"}
+        merged.update(patch)
+        return RiskPolicyConfig.model_validate(merged)

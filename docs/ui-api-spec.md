@@ -747,6 +747,12 @@ Request:
       "allow_reduce_only_when_blocked": true
     }
   },
+  "assumption_bundle_code": "baseline_perp_research",
+  "assumption_bundle_version": "v1",
+  "risk_overrides": {
+    "max_order_notional": "5000",
+    "allow_reduce_only_when_blocked": false
+  },
   "start_time": "2026-01-01T00:00:00Z",
   "end_time": "2026-02-01T00:00:00Z",
   "initial_cash": "100000",
@@ -762,14 +768,16 @@ Request:
 Request semantics:
 - `strategy_code` identifies the strategy variant to run
 - `strategy_version` identifies the immutable released version of that variant
-- `session.risk_policy` captures first-wave backtest guardrail assumptions for the run
+- `session.risk_policy` captures the session-default backtest guardrail assumptions for the run
+- `risk_overrides` captures explicit run-level risk changes over the session default
+- `assumption_bundle_code` / `assumption_bundle_version` preserve the current named research-template linkage even before a full registry exists
 - future family-level filtering/reporting should use separate metadata fields
 
 Current implementation status:
 - implemented as a synchronous launch surface over the current bars-based backtest engine
 - currently persists the run, simulated orders/fills, summary, and timeseries before responding
 - current request body follows the canonical `BacktestRunConfig` shape plus `persist_signals`
-- the current launch surface also accepts a first-wave session-level `risk_policy` block for shared backtest guardrails
+- the current launch surface also accepts a session-level `risk_policy`, top-level `risk_overrides`, and optional assumption-bundle metadata for shared backtest guardrails and research lineage
 
 Response fields:
 - run detail resource with metadata, assumptions, and top-level KPI summary
@@ -789,7 +797,7 @@ Purpose:
 
 Current implementation status:
 - implemented
-- currently returns canonical run metadata, assumptions, execution/protection/risk policy snapshots, runtime metadata, and top-level KPI summary
+- currently returns canonical run metadata, assumptions, execution/protection/risk policy snapshots, run-level risk overrides, assumption-bundle metadata, runtime metadata, and top-level KPI summary
 
 ### GET `/api/v1/backtests/runs/{run_id}/orders`
 Purpose:

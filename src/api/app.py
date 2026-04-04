@@ -396,6 +396,8 @@ class BacktestRunDetailResource(BaseModel):
     fee_model_version: str | None = None
     slippage_model_version: str | None = None
     latency_model_version: str | None = None
+    assumption_bundle_code: str | None = None
+    assumption_bundle_version: str | None = None
     bar_interval: str | None = None
     initial_cash: str | None = None
     netting_mode: str | None = None
@@ -409,6 +411,8 @@ class BacktestRunDetailResource(BaseModel):
     strategy_params_json: dict[str, Any]
     execution_policy: dict[str, Any]
     protection_policy: dict[str, Any]
+    session_risk_policy: dict[str, Any]
+    risk_overrides_json: dict[str, Any]
     risk_policy: dict[str, Any]
     run_metadata_json: dict[str, Any]
     runtime_metadata_json: dict[str, Any]
@@ -622,6 +626,8 @@ def _build_backtest_run_resource(
         fee_model_version=run_row.get("fee_model_version"),
         slippage_model_version=run_row.get("slippage_model_version"),
         latency_model_version=run_row.get("latency_model_version"),
+        assumption_bundle_code=params_json.get("assumption_bundle_code"),
+        assumption_bundle_version=params_json.get("assumption_bundle_version"),
         bar_interval=params_json.get("bar_interval"),
         initial_cash=_stringify_decimal(params_json.get("initial_cash")),
         netting_mode=params_json.get("netting_mode"),
@@ -635,6 +641,8 @@ def _build_backtest_run_resource(
         strategy_params_json=dict(params_json.get("strategy_params") or {}),
         execution_policy=dict(params_json.get("execution_policy") or {}),
         protection_policy=dict(params_json.get("protection_policy") or {}),
+        session_risk_policy=dict(params_json.get("session_risk_policy") or params_json.get("risk_policy") or {}),
+        risk_overrides_json=dict(params_json.get("risk_overrides") or {}),
         risk_policy=dict(params_json.get("risk_policy") or {}),
         run_metadata_json=dict(params_json.get("run_metadata") or {}),
         runtime_metadata_json=dict(params_json.get("runtime_metadata") or {}),

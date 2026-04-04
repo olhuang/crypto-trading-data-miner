@@ -57,6 +57,7 @@ The repository already has a strong design foundation and is now design-complete
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
 - automated tests now also cover the current Phase 5 bar-stream loop and target-position-to-signal normalization path
 - the current Phase 5 runner now also includes a first shared backtest-risk-guardrail layer with session-level risk policy, blocked-intent diagnostics summary, and minimal UI launch controls
+- the current Phase 5 run/session model now also supports run-level risk overrides, effective risk-policy snapshot persistence, and assumption-bundle metadata linkage without requiring a future schema redesign
 
 ### Not Yet Implemented
 - backtest engine
@@ -464,6 +465,7 @@ Provide the first end-to-end research workflow using historical data.
 ### Recommended Status
 - started with an architecture-aligned session/strategy/lifecycle skeleton, the first bar-stream signal-generation loop, a deterministic bars-based fill model with fee/slippage support, DB-backed run/order/fill/performance persistence, create/list/detail run APIs, a diagnostics-summary surface, baseline period/artifact outputs, and an ad hoc compare/analyze API foundation for research-side run comparison
 - now also has first-wave shared backtest risk guardrails, including session-level risk policy, blocked-intent diagnostics summary, and minimal UI launch controls for the first configurable risk knobs
+- now also has Phase 5B baseline support for run-level risk overrides, effective risk-policy snapshot persistence, assumption-bundle metadata linkage, and compare/analyze-compatible risk assumption diffs
 - now also has a minimal internal UI slice for launching backtests, browsing recent runs, inspecting diagnostics/artifacts/month breakdown, inspecting signals/orders/fills/timeseries, and invoking compare-set analysis without raw SQL or inline Python
 
 ---

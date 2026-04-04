@@ -668,6 +668,22 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ---
 
+## Task 5.3B: Implement run-level risk overrides and effective snapshot baseline
+### Tasks
+- [x] add run-level risk overrides to the Phase 5 backtest run model
+- [x] merge session default risk policy with run-level overrides into one effective risk snapshot
+- [x] persist session risk policy, run-level overrides, and effective risk policy separately in run metadata/detail
+- [x] preserve assumption-bundle metadata linkage at the run level without requiring a registry yet
+- [x] extend compare/analyze assumptions so risk-policy defaults, overrides, and effective snapshots can diverge visibly
+- [x] expose the current assumption-bundle and risk-override baseline through the internal Backtests launch/request path
+
+### Acceptance Checks
+- [x] one run can override session default risk knobs without redefining the strategy variant/version
+- [x] persisted run detail can explain the difference between session default risk policy, run-level overrides, and effective risk policy
+- [x] compare/analyze output remains compatible with later named risk-policy and assumption-bundle registries
+
+---
+
 ## Task 5.4: Implement portfolio/account state in backtest
 ### Tasks
 - [x] maintain cash state
@@ -827,6 +843,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
 - [x] the Phase 5 skeleton now includes a first shared pre-trade risk-guardrail engine with session risk policy and blocked-intent runtime summary
+- [x] the Phase 5 skeleton now includes run-level risk overrides, effective risk-policy snapshot persistence, and assumption-bundle metadata linkage
 - [x] the Phase 5 skeleton now includes aggregate portfolio state, reproducible equity/exposure projection, and a DB-backed run writer for `backtest.*`
 - [x] the Phase 5 skeleton now includes a run-level diagnostics summary projector and the first `/api/v1/backtests/runs/{run_id}/diagnostics` API surface
 - [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs

@@ -302,6 +302,8 @@ Used by:
   "fee_model_version": "ref_fee_schedule_v1",
   "slippage_model_version": "fixed_bps_v1",
   "latency_model_version": "bars_next_open_v1",
+  "assumption_bundle_code": "baseline_perp_research",
+  "assumption_bundle_version": "v1",
   "bar_interval": "1m",
   "initial_cash": "100000",
   "netting_mode": "isolated_strategy_session",
@@ -322,6 +324,13 @@ Used by:
   },
   "protection_policy": {
     "policy_code": "default"
+  },
+  "session_risk_policy": {
+    "policy_code": "perp_medium_v1",
+    "max_position_qty": "1"
+  },
+  "risk_overrides_json": {
+    "max_order_notional": "5000"
   },
   "risk_policy": {
     "policy_code": "perp_medium_v1",
@@ -380,7 +389,7 @@ Used by:
 
 - `POST /api/v1/backtests/runs` is currently synchronous over the current bars-based backtest engine
 - list/detail responses are intended to support the internal research UI without requiring raw SQL inspection
-- the current resource focuses on run metadata, assumptions, policy snapshots, runtime metadata, and top-level KPI summary; orders/fills/timeseries remain separate surfaces
+- the current resource focuses on run metadata, assumptions, policy snapshots, overrides, assumption-bundle metadata, runtime metadata, and top-level KPI summary; orders/fills/timeseries remain separate surfaces
 
 ---
 

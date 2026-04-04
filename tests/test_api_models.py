@@ -412,12 +412,16 @@ class ModelsApiTests(unittest.TestCase):
                     "netting_mode": "isolated_strategy_session",
                     "bar_interval": "1m",
                     "initial_cash": "100000",
+                    "assumption_bundle_code": "baseline_perp_research",
+                    "assumption_bundle_version": "v1",
                     "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
                     "run_metadata": {"source": "ui"},
                     "runtime_metadata": {"risk_summary": {"blocked_intent_count": 1}},
                     "session_metadata": {"slice": "research"},
                     "execution_policy": {"policy_code": "default"},
                     "protection_policy": {"policy_code": "default"},
+                    "session_risk_policy": {"policy_code": "perp_medium_v1", "max_position_qty": "1"},
+                    "risk_overrides": {"max_order_notional": "5000"},
                     "risk_policy": {"policy_code": "perp_medium_v1", "max_position_qty": "1"},
                 },
             "status": "finished",
@@ -481,6 +485,11 @@ class ModelsApiTests(unittest.TestCase):
                         "start_time": "2026-03-01T00:00:00Z",
                         "end_time": "2026-03-31T00:00:00Z",
                         "initial_cash": "100000",
+                        "assumption_bundle_code": "baseline_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "risk_overrides": {
+                            "max_order_notional": "5000",
+                        },
                         "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
                     }
                 ),
@@ -509,6 +518,10 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(detail_response.success)
         self.assertEqual(detail_response.data.run_id, 601)
         self.assertEqual(detail_response.data.session_code, "bt_ui_demo")
+        self.assertEqual(detail_response.data.assumption_bundle_code, "baseline_perp_research")
+        self.assertEqual(detail_response.data.assumption_bundle_version, "v1")
+        self.assertEqual(detail_response.data.session_risk_policy["policy_code"], "perp_medium_v1")
+        self.assertEqual(detail_response.data.risk_overrides_json["max_order_notional"], "5000")
         self.assertEqual(detail_response.data.risk_policy["policy_code"], "perp_medium_v1")
         self.assertEqual(detail_response.data.run_metadata_json["source"], "ui")
         self.assertEqual(detail_response.data.runtime_metadata_json["risk_summary"]["blocked_intent_count"], 1)
