@@ -322,10 +322,15 @@ Scope:
 - grouped sections
 - checkbox/select treatment for booleans
 - advanced/debug subsection
+- preset helpers for common launch paths
 
 Acceptance:
 - the user can identify `persist_debug_traces`, `allow_short`, and risk fields without guessing from values
 - common run launch requires less scanning
+
+Current implementation note:
+- this slice has now landed in the current `/monitoring` Backtests page
+- the launch form now uses visible labels, grouped sections, checkbox/select controls, an advanced/debug subsection, and preset buttons for common starting configurations
 
 ## UI Phase B: Backtest Workspace Restructure
 
@@ -374,18 +379,17 @@ Acceptance:
 The safest next UI slice is:
 
 ### Slice
-`UI Phase A: Launch Form Cleanup`
+`UI Phase B: Backtest Workspace Restructure`
 
 ### Why
-- lowest risk
-- most obvious usability pain
-- fixes the specific confusion already observed in current use, such as not knowing which field is `persist_debug_traces`
-- improves daily usability without requiring larger workspace restructuring first
+- the first launch-form cleanup slice has already landed
+- the next usability gain now comes from clearer separation between launch, compare, runs, and trace investigation
+- early section headers and run-summary work have started, but the full workspace split still needs a cleaner second pass
 
 ### Explicitly Defer
 - full tabbed run workspace
 - chart-heavy redesign
-- compare workspace split
+- full compare workspace split
 - replay investigation UI
 
 ---
@@ -413,6 +417,6 @@ The right direction is:
 - turn selected run and selected compare set into clearer workspaces
 
 The immediate next move should be:
-- clean up the launch form first
-- then restructure the Backtests workspace
+- continue the Backtests workspace restructure
 - then polish compare and investigation flows on top of that clearer layout
+- then move toward run-detail tabs and charts after the hierarchy is clearer

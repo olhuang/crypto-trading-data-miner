@@ -585,7 +585,7 @@ Required sections:
 - [x] the current internal Backtests view can use diagnostics trace anchors to jump into matching debug-trace evidence windows
 - [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
 - [x] the current internal Backtests view now also exposes compare-review notes for persisted compare sets, including system-seeded facts and human/agent review entry
-- [ ] the current internal Backtests launch form still needs the first usability cleanup slice from `docs/frontend-ui-usability-improvement-plan.md`
+- [x] the current internal Backtests launch form now uses visible labels, grouped sections, checkbox/select controls, an advanced/debug subsection, and preset helpers instead of relying on placeholder-only inputs
 - [ ] broader product-grade frontend work should follow `docs/frontend-keep-evolve-replace-strategy.md` instead of forcing all future UI into the current `/monitoring` console
 - [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
 - [ ] charts and replay scenario pages remain future UI work

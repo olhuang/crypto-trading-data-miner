@@ -80,53 +80,217 @@
         </section>
 
         <section id="view-backtests" class="view">
+          <div class="workspace-strip">
+            <div>
+              <p class="eyebrow">Backtests Workspace</p>
+              <h3 class="workspace-title">Launch runs, compare outcomes, inspect details, and investigate traces.</h3>
+            </div>
+            <div class="workspace-links">
+              <a class="workspace-link" href="#backtests-launch-workspace">Launch</a>
+              <a class="workspace-link" href="#backtests-compare-workspace">Compare</a>
+              <a class="workspace-link" href="#backtests-runs-workspace">Runs</a>
+              <a class="workspace-link" href="#backtests-investigate-workspace">Investigate</a>
+            </div>
+          </div>
           <div class="grid split-grid">
-            <section class="panel">
+            <section class="panel" id="backtests-launch-workspace">
               <div class="panel-header">
                 <h3>Launch Backtest</h3>
-                <p>Run the current bars-based backtest flow without leaving the console.</p>
+                <p>Run the current bars-based backtest flow without losing track of what each field means.</p>
               </div>
-              <form id="backtest-launch-form" class="filters stacked-form">
-                <input name="run_name" placeholder="run_name" value="btc_ui_demo" />
-                <input name="strategy_code" placeholder="strategy_code" value="btc_momentum" />
-                <input name="strategy_version" placeholder="strategy_version" value="v1.0.0" />
-                <input name="account_code" placeholder="account_code" value="paper_main" />
-                <input name="exchange_code" placeholder="exchange_code" value="binance" />
-                <input name="trading_timezone" placeholder="trading_timezone" value="UTC" />
-                <input name="unified_symbol" placeholder="unified_symbol" value="BTCUSDT_PERP" />
-                <input name="start_time" placeholder="start_time" value="2026-03-20T00:00:00Z" />
-                <input name="end_time" placeholder="end_time" value="2026-04-03T00:00:00Z" />
-                <input name="initial_cash" placeholder="initial_cash" value="100000" />
-                <input
-                  name="assumption_bundle_code"
-                  list="backtest-assumption-bundle-options"
-                  placeholder="assumption_bundle_code (optional)"
-                />
+              <div class="preset-row">
+                <button type="button" class="secondary-button preset-button" data-backtest-preset="baseline_perp">Baseline Perp</button>
+                <button type="button" class="secondary-button preset-button" data-backtest-preset="baseline_spot">Baseline Spot</button>
+                <button type="button" class="secondary-button preset-button" data-backtest-preset="aggressive_perp">Aggressive Perp</button>
+              </div>
+              <form id="backtest-launch-form" class="filters stacked-form sectioned-form">
+                <section class="form-section">
+                  <div class="form-section-header">
+                    <h4>Session</h4>
+                    <p>Core identity, strategy, and account fields.</p>
+                  </div>
+                  <div class="form-grid">
+                    <label class="field">
+                      <span class="field-label">Run Name</span>
+                      <input name="run_name" value="btc_ui_demo" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Trading Timezone</span>
+                      <input name="trading_timezone" value="UTC" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Strategy Code</span>
+                      <input name="strategy_code" value="btc_momentum" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Strategy Version</span>
+                      <input name="strategy_version" value="v1.0.0" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Account Code</span>
+                      <input name="account_code" value="paper_main" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Exchange Code</span>
+                      <input name="exchange_code" value="binance" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="form-section">
+                  <div class="form-section-header">
+                    <h4>Market Window</h4>
+                    <p>Symbol, time window, and starting capital.</p>
+                  </div>
+                  <div class="form-grid">
+                    <label class="field">
+                      <span class="field-label">Unified Symbol</span>
+                      <input name="unified_symbol" value="BTCUSDT_PERP" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Initial Cash</span>
+                      <input name="initial_cash" value="100000" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Start Time</span>
+                      <input name="start_time" value="2026-03-20T00:00:00Z" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">End Time</span>
+                      <input name="end_time" value="2026-04-03T00:00:00Z" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="form-section">
+                  <div class="form-section-header">
+                    <h4>Research Assumptions</h4>
+                    <p>Optional reusable bundle identity for fee/slippage/fill/input defaults.</p>
+                  </div>
+                  <div class="form-grid">
+                    <label class="field">
+                      <span class="field-label">Assumption Bundle Code</span>
+                      <input name="assumption_bundle_code" list="backtest-assumption-bundle-options" />
+                      <span class="field-help">Optional. Start from a named bundle and still keep values editable.</span>
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Assumption Bundle Version</span>
+                      <input name="assumption_bundle_version" />
+                    </label>
+                  </div>
+                </section>
                 <datalist id="backtest-assumption-bundle-options"></datalist>
-                <input name="assumption_bundle_version" placeholder="assumption_bundle_version (optional)" />
-                <input name="short_window" placeholder="short_window" value="5" />
-                <input name="long_window" placeholder="long_window" value="20" />
-                <input name="target_qty" placeholder="target_qty" value="1" />
-                <input name="allow_short" placeholder="allow_short true/false" value="false" />
-                <input name="persist_debug_traces" placeholder="persist_debug_traces true/false" value="false" />
-                <input
-                  name="risk_policy_code"
-                  list="backtest-risk-policy-options"
-                  placeholder="session risk_policy_code (optional)"
-                />
+
+                <section class="form-section">
+                  <div class="form-section-header">
+                    <h4>Strategy Parameters</h4>
+                    <p>Common knobs for the current example strategy.</p>
+                  </div>
+                  <div class="form-grid">
+                    <label class="field">
+                      <span class="field-label">Short Window</span>
+                      <input name="short_window" value="5" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Long Window</span>
+                      <input name="long_window" value="20" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Target Quantity</span>
+                      <input name="target_qty" value="1" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Allow Short</span>
+                      <select name="allow_short">
+                        <option value="false" selected>No</option>
+                        <option value="true">Yes</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="form-section">
+                  <div class="form-section-header">
+                    <h4>Risk Policy</h4>
+                    <p>Choose a named profile first, then override only the fields you want to test.</p>
+                  </div>
+                  <div class="form-grid">
+                    <label class="field field-span-2">
+                      <span class="field-label">Session Risk Policy Code</span>
+                      <input name="risk_policy_code" list="backtest-risk-policy-options" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Block New Entries Below Equity</span>
+                      <input name="block_new_entries_below_equity" value="0" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Max Position Qty</span>
+                      <input name="max_position_qty" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Max Order Qty</span>
+                      <input name="max_order_qty" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Max Order Notional</span>
+                      <input name="max_order_notional" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Max Gross Exposure Multiple</span>
+                      <input name="max_gross_exposure_multiple" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Max Drawdown Pct</span>
+                      <input name="max_drawdown_pct" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Max Daily Loss Pct</span>
+                      <input name="max_daily_loss_pct" />
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Max Leverage</span>
+                      <input name="max_leverage" />
+                    </label>
+                    <label class="field field-span-2">
+                      <span class="field-label">Cooldown Bars After Stop</span>
+                      <input name="cooldown_bars_after_stop" />
+                    </label>
+                  </div>
+                </section>
                 <datalist id="backtest-risk-policy-options"></datalist>
-                <input name="block_new_entries_below_equity" placeholder="risk_override block_new_entries_below_equity" value="0" />
-                <input name="max_position_qty" placeholder="max_position_qty (optional)" />
-                <input name="max_order_qty" placeholder="max_order_qty (optional)" />
-                <input name="max_order_notional" placeholder="max_order_notional (optional)" />
-                <input name="max_gross_exposure_multiple" placeholder="max_gross_exposure_multiple (optional)" />
-                <input name="max_drawdown_pct" placeholder="max_drawdown_pct (optional)" />
-                <input name="max_daily_loss_pct" placeholder="max_daily_loss_pct (optional)" />
-                <input name="max_leverage" placeholder="max_leverage (optional)" />
-                <input name="cooldown_bars_after_stop" placeholder="cooldown_bars_after_stop (optional)" />
-                <input name="enforce_spot_cash_check" placeholder="risk_override enforce_spot_cash_check true/false" value="true" />
-                <input name="allow_reduce_only_when_blocked" placeholder="risk_override allow_reduce_only_when_blocked true/false" value="true" />
-                <button type="submit">Launch Run</button>
+
+                <details class="details-panel">
+                  <summary>Advanced / Debug Options</summary>
+                  <div class="details-panel-body">
+                    <div class="form-grid">
+                      <label class="checkbox-field field-span-2">
+                        <input type="checkbox" name="persist_debug_traces" />
+                        <span class="checkbox-copy">
+                          <strong>Persist Debug Traces</strong>
+                          <span>Store compact step-level traces for later investigation.</span>
+                        </span>
+                      </label>
+                      <label class="checkbox-field">
+                        <input type="checkbox" name="enforce_spot_cash_check" checked />
+                        <span class="checkbox-copy">
+                          <strong>Enforce Spot Cash Check</strong>
+                          <span>Keep spot cash checks active for realistic spot sizing.</span>
+                        </span>
+                      </label>
+                      <label class="checkbox-field">
+                        <input type="checkbox" name="allow_reduce_only_when_blocked" checked />
+                        <span class="checkbox-copy">
+                          <strong>Allow Reduce-Only When Blocked</strong>
+                          <span>Still allow exposure reduction when new entries are blocked.</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="form-actions">
+                  <button type="submit">Launch Run</button>
+                </div>
               </form>
               <div class="panel-subsection">
                 <h4>Available Assumption Bundles</h4>
@@ -138,16 +302,27 @@
               </div>
               <div id="backtest-launch-result" class="json-shell compact-shell">Submit a run to see the response.</div>
             </section>
-            <section class="panel">
+            <section class="panel" id="backtests-compare-workspace">
               <div class="panel-header">
                 <h3>Compare Runs</h3>
                 <p>Build a persisted compare-set, inspect its deltas, and leave durable review notes.</p>
               </div>
-              <form id="backtest-compare-form" class="filters stacked-form">
-                <input name="run_ids" placeholder="run_ids comma separated" />
-                <input name="benchmark_run_id" placeholder="benchmark_run_id" />
-                <input name="compare_name" placeholder="compare_name" value="ui_compare_set" />
-                <button type="submit">Compare Runs</button>
+              <form id="backtest-compare-form" class="filters labeled-form">
+                <label class="field field-span-2">
+                  <span class="field-label">Run IDs</span>
+                  <input name="run_ids" placeholder="91,92" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Benchmark Run ID</span>
+                  <input name="benchmark_run_id" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Compare Name</span>
+                  <input name="compare_name" value="ui_compare_set" />
+                </label>
+                <div class="form-actions field-span-2">
+                  <button type="submit">Compare Runs</button>
+                </div>
               </form>
               <p id="backtest-compare-context" class="card-detail">Create a compare set to inspect review notes.</p>
               <div id="backtest-compare-result" class="json-shell compact-shell">Comparison output will appear here.</div>
@@ -170,6 +345,11 @@
             </section>
           </div>
 
+          <div class="workspace-section-header compact-header">
+            <p class="eyebrow">Compare Notes</p>
+            <h3>Keep review conclusions attached to the compare object instead of losing them in chat.</h3>
+          </div>
+
           <div class="grid split-grid">
             <section class="panel">
               <div class="panel-header">
@@ -184,24 +364,56 @@
                 <h3>Write Review Note</h3>
                 <p>Create or update human/agent review notes. System-seeded notes remain read-only.</p>
               </div>
-              <form id="backtest-compare-note-form" class="filters stacked-form">
+              <form id="backtest-compare-note-form" class="filters labeled-form">
                 <input type="hidden" name="annotation_id" />
-                <input name="title" placeholder="title" />
-                <input name="annotation_type" placeholder="annotation_type" value="review" />
-                <input name="status" placeholder="status" value="in_review" />
-                <input name="note_source" placeholder="note_source" value="human" />
-                <input name="verification_state" placeholder="verification_state" value="verified" />
-                <textarea name="summary" rows="4" placeholder="summary"></textarea>
-                <textarea name="verified_findings" rows="5" placeholder="verified findings (one per line)"></textarea>
-                <textarea name="open_questions" rows="5" placeholder="open questions (one per line)"></textarea>
-                <textarea name="next_action" rows="4" placeholder="next_action"></textarea>
-                <div class="form-actions">
+                <label class="field field-span-2">
+                  <span class="field-label">Title</span>
+                  <input name="title" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Annotation Type</span>
+                  <input name="annotation_type" value="review" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Status</span>
+                  <input name="status" value="in_review" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Note Source</span>
+                  <input name="note_source" value="human" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Verification State</span>
+                  <input name="verification_state" value="verified" />
+                </label>
+                <label class="field field-span-2">
+                  <span class="field-label">Summary</span>
+                  <textarea name="summary" rows="4"></textarea>
+                </label>
+                <label class="field field-span-2">
+                  <span class="field-label">Verified Findings</span>
+                  <textarea name="verified_findings" rows="5" placeholder="one finding per line"></textarea>
+                </label>
+                <label class="field field-span-2">
+                  <span class="field-label">Open Questions</span>
+                  <textarea name="open_questions" rows="5" placeholder="one question per line"></textarea>
+                </label>
+                <label class="field field-span-2">
+                  <span class="field-label">Next Action</span>
+                  <textarea name="next_action" rows="4"></textarea>
+                </label>
+                <div class="form-actions field-span-2">
                   <button type="submit">Save Review Note</button>
                   <button type="button" id="backtest-compare-note-reset" class="secondary-button">Reset Form</button>
                 </div>
               </form>
               <div id="backtest-compare-note-result" class="json-shell compact-shell">Saved review notes will appear here.</div>
             </section>
+          </div>
+
+          <div class="workspace-section-header compact-header" id="backtests-runs-workspace">
+            <p class="eyebrow">Runs</p>
+            <h3>Browse persisted runs, then inspect one run from a summary-first workspace.</h3>
           </div>
 
           <div class="panel">
@@ -223,17 +435,35 @@
               <section class="panel">
                 <div class="panel-header">
                   <h3>Selected Run Detail</h3>
-                  <p>Metadata, assumptions, diagnostics, and artifact bundle.</p>
+                  <p>Start from a quick summary, then drill into metadata, diagnostics, and artifacts only when needed.</p>
                 </div>
                 <div class="traceability-stack">
-                  <div id="backtest-run-detail" class="json-shell">Select a backtest run row.</div>
-                  <div id="backtest-run-diagnostics" class="json-shell">Diagnostics summary will appear here.</div>
+                  <div id="backtest-run-summary" class="summary-cards">
+                    <div class="summary-empty">Select a backtest run row to inspect a summary.</div>
+                  </div>
+                  <details class="details-panel">
+                    <summary>Raw Run Metadata</summary>
+                    <div class="details-panel-body">
+                      <div id="backtest-run-detail" class="json-shell">Select a backtest run row.</div>
+                    </div>
+                  </details>
+                  <details class="details-panel" open>
+                    <summary>Diagnostics Summary</summary>
+                    <div class="details-panel-body">
+                      <div id="backtest-run-diagnostics" class="json-shell">Diagnostics summary will appear here.</div>
+                    </div>
+                  </details>
                   <div class="panel-subsection">
                     <h4>Trace Anchors</h4>
                     <p id="backtest-diagnostic-anchor-context" class="card-detail">Diagnostic-to-trace anchors will appear here.</p>
                     <div id="backtest-diagnostic-anchors-table" class="table-shell"></div>
                   </div>
-                  <div id="backtest-run-artifacts" class="json-shell">Artifact bundle will appear here.</div>
+                  <details class="details-panel">
+                    <summary>Artifact Bundle</summary>
+                    <div class="details-panel-body">
+                      <div id="backtest-run-artifacts" class="json-shell">Artifact bundle will appear here.</div>
+                    </div>
+                  </details>
                 </div>
               </section>
             <section class="panel">
@@ -278,6 +508,11 @@
               <div id="backtest-timeseries-table" class="table-shell"></div>
             </section>
           </div>
+
+            <div class="workspace-section-header compact-header" id="backtests-investigate-workspace">
+              <p class="eyebrow">Investigate</p>
+              <h3>Use diagnostics, filters, and traces together instead of hunting through a flat page.</h3>
+            </div>
 
             <div class="grid split-grid">
               <section class="panel">

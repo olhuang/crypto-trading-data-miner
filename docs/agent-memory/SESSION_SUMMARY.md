@@ -21,6 +21,7 @@
 - added Level 2 targeted trace filters across the debug-trace API and internal viewer for blocked-only, risk-code, signal-only, order-only, and fill-only investigation
 - reviewed the current `/monitoring` Backtests UX and added a dedicated usability-improvement plan focused on reducing density, separating workflows, and cleaning up the launch form first
 - defined a dedicated keep/evolve/replace frontend strategy so the current `/monitoring` console can remain useful while future product-grade frontend work moves onto the planned route-based foundation
+- implemented the first Backtests usability cleanup slice with visible launch labels, grouped sections, preset helpers, better boolean controls, workspace headers, and a summary-first selected-run panel
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -73,7 +74,8 @@
 - replay investigation notes and unified annotation service remain future slices
 - replay-linked investigation flow is still the next major trace slice
 - the current Backtests page is still too dense for repeated daily research use until the planned UI cleanup slices start landing
+- the current Backtests page is improved, but the next remaining UI need is a cleaner phase-B workspace split between launch, compare, runs, and investigation
 - the repository still needs discipline to avoid turning the current static `/monitoring` console into the accidental long-term frontend architecture
 
 ## Next
-- align future frontend work to `docs/frontend-keep-evolve-replace-strategy.md`, then start `UI Phase A: Launch Form Cleanup` from `docs/frontend-ui-usability-improvement-plan.md`, then return to larger Backtests workspace restructuring and later replay-linked investigation flow
+- align future frontend work to `docs/frontend-keep-evolve-replace-strategy.md`, continue from `UI Phase B: Backtest Workspace Restructure` in `docs/frontend-ui-usability-improvement-plan.md`, then return to later replay-linked investigation flow

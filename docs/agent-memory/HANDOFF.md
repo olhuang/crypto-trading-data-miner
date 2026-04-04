@@ -4,7 +4,7 @@
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
 - continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
-- start cleaning up the current `/monitoring` Backtests UX so the Phase 5 research flow becomes easier to operate
+- continue cleaning up the current `/monitoring` Backtests UX now that the first launch-form cleanup slice has landed
 - keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
 
 ## Verified Findings
@@ -27,11 +27,12 @@
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 - `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
 - `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
+- the current `/monitoring` Backtests launch flow now uses visible labels, grouped sections, preset helpers, checkbox/select controls, and a summary-first selected-run panel instead of relying as heavily on placeholder-only inputs and raw JSON first
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
 - replay/debug trace linkage is still missing
-- the current Backtests page is still too dense and mixes launch, compare, run inspection, and trace investigation into one flat scroll
+- the current Backtests page is less confusing than before, but it still mixes launch, compare, run inspection, and trace investigation into one larger page instead of a fully separated workspace
 - richer saved-compare workflow remains future work
 - replay investigation notes and unified annotation service remain future work
 
@@ -68,4 +69,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing the UI line, first align with `docs/frontend-keep-evolve-replace-strategy.md`, then start from `docs/frontend-ui-usability-improvement-plan.md` and implement only `UI Phase A: Launch Form Cleanup` before attempting larger Backtests workspace restructuring
+- when continuing the UI line, first align with `docs/frontend-keep-evolve-replace-strategy.md`, then continue from `docs/frontend-ui-usability-improvement-plan.md` at `UI Phase B: Backtest Workspace Restructure`

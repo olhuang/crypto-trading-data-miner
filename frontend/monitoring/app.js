@@ -9,6 +9,57 @@ const state = {
   selectedCompareNoteId: null,
 };
 
+const BACKTEST_LAUNCH_PRESETS = {
+  baseline_perp: {
+    label: "Baseline Perp",
+    values: {
+      unified_symbol: "BTCUSDT_PERP",
+      assumption_bundle_code: "baseline_perp_research",
+      assumption_bundle_version: "v1",
+      risk_policy_code: "perp_medium_v1",
+      short_window: "5",
+      long_window: "20",
+      target_qty: "0.05",
+      allow_short: "false",
+      persist_debug_traces: false,
+      enforce_spot_cash_check: true,
+      allow_reduce_only_when_blocked: true,
+    },
+  },
+  baseline_spot: {
+    label: "Baseline Spot",
+    values: {
+      unified_symbol: "BTCUSDT_SPOT",
+      assumption_bundle_code: "baseline_spot_research",
+      assumption_bundle_version: "v1",
+      risk_policy_code: "spot_conservative_v1",
+      short_window: "5",
+      long_window: "20",
+      target_qty: "0.05",
+      allow_short: "false",
+      persist_debug_traces: false,
+      enforce_spot_cash_check: true,
+      allow_reduce_only_when_blocked: true,
+    },
+  },
+  aggressive_perp: {
+    label: "Aggressive Perp",
+    values: {
+      unified_symbol: "BTCUSDT_PERP",
+      assumption_bundle_code: "aggressive_perp_execution",
+      assumption_bundle_version: "v1",
+      risk_policy_code: "perp_aggressive_v1",
+      short_window: "3",
+      long_window: "12",
+      target_qty: "0.08",
+      allow_short: "true",
+      persist_debug_traces: true,
+      enforce_spot_cash_check: true,
+      allow_reduce_only_when_blocked: true,
+    },
+  },
+};
+
 function statusClass(value) {
   if (!value) {
     return "";
@@ -116,6 +167,110 @@ function renderJson(targetId, payload) {
     return;
   }
   container.textContent = JSON.stringify(payload, null, 2);
+}
+
+function renderBacktestRunSummary(detail) {
+  const container = document.getElementById("backtest-run-summary");
+  if (!container) {
+    return;
+  }
+  if (!detail || !detail.run_id) {
+    container.innerHTML = '<div class="summary-empty">Select a backtest run row to inspect a summary.</div>';
+    return;
+  }
+
+  const universe = Array.isArray(detail.universe) ? detail.universe.join(", ") : "";
+  const summaryItems = [
+    {
+      label: "Run",
+      value: `#${formatValue(detail.run_id)}`,
+      detail: `${formatValue(detail.run_name)} | ${formatValue(detail.status)}`,
+    },
+    {
+      label: "Strategy",
+      value: `${formatValue(detail.strategy_code)} @ ${formatValue(detail.strategy_version)}`,
+      detail: universe || formatValue(detail.account_code),
+    },
+    {
+      label: "Window",
+      value: `${formatValue(detail.start_time)} -> ${formatValue(detail.end_time)}`,
+      detail: `TZ ${formatValue(detail.trading_timezone)}`,
+    },
+    {
+      label: "Return",
+      value: formatValue(detail.total_return),
+      detail: `Annualized ${formatValue(detail.annualized_return)}`,
+    },
+    {
+      label: "Max Drawdown",
+      value: formatValue(detail.max_drawdown),
+      detail: `Turnover ${formatValue(detail.turnover)}`,
+    },
+    {
+      label: "Costs",
+      value: `Fee ${formatValue(detail.fee_cost)}`,
+      detail: `Slip ${formatValue(detail.slippage_cost)}`,
+    },
+  ];
+
+  container.innerHTML = "";
+  summaryItems.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "summary-card";
+
+    const label = document.createElement("p");
+    label.className = "summary-label";
+    label.textContent = item.label;
+
+    const value = document.createElement("h4");
+    value.textContent = item.value;
+
+    const detailText = document.createElement("p");
+    detailText.className = "summary-detail";
+    detailText.textContent = item.detail;
+
+    card.appendChild(label);
+    card.appendChild(value);
+    card.appendChild(detailText);
+    container.appendChild(card);
+  });
+}
+
+function setFormControlValue(control, value) {
+  if (!control) {
+    return;
+  }
+  if (control.type === "checkbox") {
+    control.checked = Boolean(value);
+    return;
+  }
+  control.value = value === null || value === undefined ? "" : String(value);
+}
+
+function applyBacktestPreset(presetKey) {
+  const preset = BACKTEST_LAUNCH_PRESETS[presetKey];
+  const form = document.getElementById("backtest-launch-form");
+  if (!preset || !form) {
+    return;
+  }
+
+  Object.entries(preset.values).forEach(([fieldName, value]) => {
+    const control = form.elements.namedItem(fieldName);
+    setFormControlValue(control, value);
+  });
+
+  renderJson("backtest-launch-result", {
+    preset_applied: preset.label,
+    note: "Preset values are loaded into the form and remain editable before launch.",
+  });
+}
+
+function bindBacktestPresetButtons() {
+  document.querySelectorAll("[data-backtest-preset]").forEach((button) => {
+    button.addEventListener("click", () => {
+      applyBacktestPreset(button.dataset.backtestPreset);
+    });
+  });
 }
 
 function renderBacktestDiagnostics(diagnostics) {
@@ -630,7 +785,7 @@ async function loadJobs(filters = {}) {
 }
 
 function parseBooleanInput(value) {
-  return String(value || "").trim().toLowerCase() === "true";
+  return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
 }
 
 async function loadBacktests(filters = {}) {
@@ -670,9 +825,10 @@ async function loadSelectedBacktestRun(runId) {
         fetchEnvelope(`/api/v1/backtests/runs/${runId}/timeseries`, { limit: 120 }),
         fetchEnvelope(`/api/v1/backtests/runs/${runId}/debug-traces`, traceFilters),
       ]);
-    renderJson("backtest-run-detail", detail);
+  renderBacktestRunSummary(detail);
+  renderJson("backtest-run-detail", detail);
   renderBacktestDiagnostics(diagnostics);
-    renderJson("backtest-run-artifacts", artifacts);
+  renderJson("backtest-run-artifacts", artifacts);
   renderTable(
     "backtest-period-breakdown",
     [
@@ -1076,6 +1232,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-compare-form", compareBacktestRuns);
   bindForm("backtest-compare-note-form", saveCompareReviewNote);
   bindForm("backtest-trace-filter-form", loadBacktestDebugTraces);
+  bindBacktestPresetButtons();
   document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {
     resetCompareNoteForm();
   });

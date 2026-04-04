@@ -27,7 +27,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -94,6 +95,68 @@ textarea {
 
 .content {
   padding: 2rem;
+}
+
+.workspace-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  background: rgba(255, 253, 248, 0.88);
+  box-shadow: var(--shadow);
+}
+
+.workspace-title {
+  margin: 0.15rem 0 0;
+  font-size: 1.15rem;
+}
+
+.workspace-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.workspace-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.workspace-link:hover {
+  background: var(--accent-soft);
+}
+
+.workspace-section {
+  scroll-margin-top: 1rem;
+}
+
+.workspace-section-header {
+  margin: 1.5rem 0 1rem;
+}
+
+.workspace-section-header.compact-header {
+  margin-top: 1.25rem;
+}
+
+.workspace-section-header h3 {
+  margin: 0;
+}
+
+.workspace-section-header p:last-child {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
 }
 
 .topbar {
@@ -195,7 +258,72 @@ textarea {
   align-items: start;
 }
 
+.sectioned-form {
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.labeled-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.form-section {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: #fbfaf4;
+}
+
+.form-section-header {
+  margin-bottom: 0.85rem;
+}
+
+.form-section-header h4 {
+  margin: 0;
+}
+
+.form-section-header p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field-span-2 {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.field-help {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 .filters input {
+  min-width: 10rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.filters select {
   min-width: 10rem;
   padding: 0.75rem 0.9rem;
   border-radius: 0.9rem;
@@ -227,6 +355,64 @@ textarea {
   border: 1px solid var(--border);
   background: #fff;
   resize: vertical;
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.preset-button {
+  background: var(--surface);
+}
+
+.checkbox-field {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  background: #fff;
+}
+
+.checkbox-field input {
+  min-width: auto;
+  margin: 0.2rem 0 0;
+  padding: 0;
+}
+
+.checkbox-copy {
+  display: grid;
+  gap: 0.15rem;
+  color: var(--muted);
+}
+
+.checkbox-copy strong {
+  color: var(--text);
+}
+
+.details-panel {
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fbfaf6;
+}
+
+.details-panel summary {
+  cursor: pointer;
+  padding: 0.9rem 1rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.details-panel[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.details-panel-body {
+  padding: 1rem;
 }
 
 .compact-shell {
@@ -302,6 +488,44 @@ tbody tr:hover {
   gap: 1rem;
 }
 
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-card {
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fbfaf6;
+}
+
+.summary-card h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.summary-label {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.summary-detail {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.summary-empty {
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  background: #fbfaf6;
+  color: var(--muted);
+}
+
 .view {
   display: none;
 }
@@ -345,7 +569,14 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
-  .stacked-form {
+  .stacked-form,
+  .labeled-form,
+  .form-grid,
+  .summary-cards {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-strip {
+    padding: 1rem;
   }
 }
