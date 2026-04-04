@@ -26,6 +26,7 @@
 - collapsed the Backtests assumption-bundle and risk-policy reference tables behind details panels so they stay available without permanently occupying the launch workspace
 - reworked the selected Backtests run detail so users now see labeled sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before the raw API payload
 - moved the execution-detail tables so `Signals / Orders / Fills / Timeseries` now appear after the `Investigate` workspace instead of before it
+- added a reusable copy icon to the persistent JSON panels in `/monitoring`, so users can copy diagnostics, raw payloads, compare-note detail, and trace detail without manual text selection
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`

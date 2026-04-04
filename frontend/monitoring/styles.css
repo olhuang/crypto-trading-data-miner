@@ -547,6 +547,7 @@ tbody tr:hover {
 .json-shell {
   min-height: 12rem;
   padding: 1rem;
+  padding-right: 3.4rem;
   border: 1px dashed var(--border);
   border-radius: 1rem;
   background: #fbfaf6;
@@ -554,6 +555,42 @@ tbody tr:hover {
   white-space: pre-wrap;
   font-family: "Consolas", "Courier New", monospace;
   font-size: 0.88rem;
+}
+
+.json-shell-frame {
+  position: relative;
+}
+
+.json-copy-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--accent);
+  box-shadow: 0 2px 10px rgba(28, 46, 42, 0.08);
+}
+
+.json-copy-button:hover {
+  background: #fff;
+}
+
+.json-copy-button.is-copied {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.json-copy-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: currentColor;
 }
 
 .traceability-stack {

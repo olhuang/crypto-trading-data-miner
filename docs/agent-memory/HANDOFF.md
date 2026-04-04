@@ -32,6 +32,7 @@
 - the current `/monitoring` Backtests launch flow now keeps `Available Assumption Bundles` and `Available Risk Policies` in collapsed details panels by default to reduce visual clutter
 - the selected Backtests run detail now breaks the run payload into named sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before exposing the raw API payload
 - the Backtests page now places `Signals / Orders / Fills / Timeseries` after the `Investigate` workspace so users reach diagnostics and debug traces earlier in the inspection flow
+- every persistent `json-shell` surface in `/monitoring` now has a one-click copy icon, so raw payloads, diagnostics, trace detail, compare-note detail, and traceability payloads can be copied without manual selection
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed

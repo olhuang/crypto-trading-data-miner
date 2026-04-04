@@ -23,6 +23,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- added a one-click copy icon to the persistent JSON panels across `/monitoring`, covering run payloads, diagnostics, artifacts, compare-note detail, trace detail, and traceability payloads
 - moved the Backtests `Signals / Orders / Fills / Timeseries` sections to after the `Investigate` workspace so the page flow reaches diagnostics and traces before execution detail tables
 - cleaned up the selected Backtests run detail so the main run payload is now labeled and split into named sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before the raw API payload
 - added targeted debug-trace filters for blocked-only, risk-code, signal-only, order-only, and fill-only investigation in the API and internal `/monitoring` viewer
