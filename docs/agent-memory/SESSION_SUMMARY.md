@@ -17,6 +17,7 @@
 - exposed Level 1 debug traces in the internal `/monitoring` Backtests run detail with a compact table, selected-trace JSON detail, and minimal trace filters
 - enriched persisted debug traces with Level 2 linkage/delta fields, including simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas
 - upgraded the internal trace viewer so selected traces now render as structured summary/linkage/state/decision/risk sections instead of only raw JSON
+- extended diagnostics so they now project typed trace anchors, and wired the internal UI to jump from diagnostics anchors into matching trace windows
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -64,7 +65,7 @@
 
 ## Risks
 - replay investigation notes and unified annotation service remain future slices
-- diagnostics anchors and replay-linked investigation flow are still future slices
+- targeted trace filters and replay-linked investigation flow are still future slices
 
 ## Next
-- move from the completed Level 2 trace-linkage/UI slice into diagnostics-to-trace anchors, then use the same trace substrate for replay investigation notes
+- move from the completed Level 2 trace-linkage/UI/anchor slice into targeted trace filters, then use the same trace substrate for replay investigation notes

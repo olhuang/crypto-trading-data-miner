@@ -1459,6 +1459,68 @@ class Phase5FoundationTests(unittest.TestCase):
             transaction.rollback()
             connection.close()
 
+    def test_diagnostics_summary_projects_trace_anchors_for_blocked_codes(self) -> None:
+        run_start = datetime(2036, 1, 3, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), close)
+            for offset, close in enumerate(["100", "101"])
+        ]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_diagnostics_trace_anchor",
+                "session": {
+                    "session_code": "bt_btc_diag_anchor",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "diag_anchor_guard_v1",
+                        "max_gross_exposure_multiple": "1",
+                    },
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=2)).isoformat(),
+                "initial_cash": "100",
+            }
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="2"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="4.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+        bar_repository = BarRepository()
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for bar in bars:
+                bar_repository.upsert(connection, bar)
+
+            persisted = runner.load_run_and_persist(connection, persist_debug_traces=True)
+            diagnostics = BacktestDiagnosticsProjector().build_summary(connection, persisted.run_id)
+
+            self.assertIsNotNone(diagnostics)
+            assert diagnostics is not None
+            anchor_codes = {anchor.source_code for anchor in diagnostics.trace_anchors}
+            self.assertIn("risk_blocks_present", anchor_codes)
+            self.assertIn("max_gross_exposure_breach", anchor_codes)
+            overall_anchor = next(
+                anchor for anchor in diagnostics.trace_anchors if anchor.source_code == "risk_blocks_present"
+            )
+            self.assertEqual(overall_anchor.anchor_type, "step")
+            self.assertEqual(overall_anchor.step_index, 1)
+            self.assertEqual(overall_anchor.unified_symbol, "BTCUSDT_PERP")
+            self.assertIsNotNone(overall_anchor.bar_time_from)
+            self.assertIsNotNone(overall_anchor.bar_time_to)
+        finally:
+            transaction.rollback()
+            connection.close()
+
     def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
         points = [
             PerformancePoint(

@@ -245,6 +245,22 @@ class DiagnosticFlagResource(BaseModel):
     related_count: int | None = None
 
 
+class DiagnosticTraceAnchorResource(BaseModel):
+    source_kind: str
+    source_code: str
+    title: str
+    message: str
+    anchor_type: str
+    debug_trace_id: int
+    step_index: int
+    bar_time: str
+    unified_symbol: str
+    related_count: int | None = None
+    matched_block_code: str | None = None
+    bar_time_from: str | None = None
+    bar_time_to: str | None = None
+
+
 class BacktestRunIntegrityResource(BaseModel):
     run_status: str
     start_time: str
@@ -300,6 +316,7 @@ class BacktestDiagnosticsSummaryResource(BaseModel):
     risk_summary: BacktestRiskGuardrailSummaryResource
     pnl_summary: BacktestPnlSummaryResource
     diagnostic_flags: list[DiagnosticFlagResource]
+    trace_anchors: list[DiagnosticTraceAnchorResource]
 
 
 class BacktestPeriodBreakdownEntryResource(BaseModel):
@@ -1903,6 +1920,24 @@ def create_app() -> FastAPI:
                         related_count=flag.related_count,
                     )
                     for flag in summary.diagnostic_flags
+                ],
+                trace_anchors=[
+                    DiagnosticTraceAnchorResource(
+                        source_kind=anchor.source_kind,
+                        source_code=anchor.source_code,
+                        title=anchor.title,
+                        message=anchor.message,
+                        anchor_type=anchor.anchor_type,
+                        debug_trace_id=anchor.debug_trace_id,
+                        step_index=anchor.step_index,
+                        bar_time=anchor.bar_time.isoformat(),
+                        unified_symbol=anchor.unified_symbol,
+                        related_count=anchor.related_count,
+                        matched_block_code=anchor.matched_block_code,
+                        bar_time_from=anchor.bar_time_from.isoformat() if anchor.bar_time_from else None,
+                        bar_time_to=anchor.bar_time_to.isoformat() if anchor.bar_time_to else None,
+                    )
+                    for anchor in summary.trace_anchors
                 ],
             ),
             meta=_meta(actor),

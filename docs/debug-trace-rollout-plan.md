@@ -54,13 +54,14 @@ Without this layer:
 - [x] Level 1 internal debug-trace table/detail in `/monitoring`
 - [x] Level 2 richer trace linkage for order/fill refs plus basic position/cash/equity/exposure deltas
 - [x] Level 2 richer UI drill-down for structured summary, linkage, and state-delta inspection in `/monitoring`
+- [x] Level 2 diagnostics-to-trace anchors across diagnostics API output and the internal trace viewer
 
 ### Not Yet Implemented
-- [ ] trace-to-diagnostics anchors
+- [ ] targeted trace filters by risk code and signal/fill presence
 - [ ] replay investigation trace linkage
 
 ### Current Recommended Resume Point
-- Continue with `Level 2` diagnostics-to-trace anchors on top of the completed Level 2 backend/UI trace viewer foundation.
+- Continue with `Level 2` targeted trace filters on top of the completed Level 2 backend/UI diagnostics-anchor foundation.
 
 ---
 
@@ -134,12 +135,12 @@ Expand debug traces from compact per-step facts into richer diagnostic evidence 
 ### Tasks
 - [x] enrich trace schema with linked entity refs and state deltas
 - [ ] support filtering by risk code and signal/fill presence
-- [ ] add diagnostics-to-trace anchors
+- [x] add diagnostics-to-trace anchors
 - [x] surface richer drill-down in UI
 
 ### Acceptance Checks
 - [ ] a drawdown or cost spike can be traced back to concrete step ranges
-- [ ] blocked-intent diagnostics can be tied to matching trace rows
+- [x] blocked-intent diagnostics can be tied to matching trace rows
 - [ ] compare analysis can cite richer trace evidence instead of only aggregate deltas
 
 ---
@@ -177,8 +178,9 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 2. [x] `Level 1 internal UI table/detail`
 3. [x] `Level 2 richer trace linkage`
 4. [x] `Level 2 richer UI drill-down`
-5. `Level 2 diagnostics-to-trace anchors`
-6. `Level 3 replay/investigation trace integration`
+5. [x] `Level 2 diagnostics-to-trace anchors`
+6. `Level 2 targeted trace filters`
+7. `Level 3 replay/investigation trace integration`
 
 Do not skip directly to Level 3.
 
@@ -189,12 +191,12 @@ Do not skip directly to Level 3.
 If resuming from here, implement only this slice:
 
 ### Slice
-`Level 2 diagnostics-to-trace anchors`
+`Level 2 targeted trace filters`
 
 ### Exact Work
-- connect diagnostics flags and blocked-intent summaries to concrete trace rows or trace ranges
-- expose those anchors in API/UI without widening the Level 2 trace model into replay-specific payloads
-- keep the current structured trace viewer as the drill-down target for those anchors
+- support filtering debug traces by risk code and signal/fill presence
+- keep those filters aligned with the new diagnostics anchor drill-down path
+- avoid turning the Level 2 trace viewer into a replay timeline while adding those focused controls
 
 ### Leave For Immediately After
 - replay investigation trace linkage
@@ -237,7 +239,7 @@ If resuming from here, implement only this slice:
 
 When returning to this work:
 - read this document first
-- confirm the next slice is diagnostics-to-trace anchors, not another UI/backend redesign
+- confirm the next slice is targeted trace filters, not another backend-schema redesign
 - inspect `runner.py` and current run-detail APIs before editing schema
 - keep Level 1 compact; do not over-design replay fields yet
 - update `docs/agent-memory/HANDOFF.md` when stopping
@@ -246,10 +248,10 @@ When returning to this work:
 
 ## Summary
 
-The repository now has `Level 1` backend/UI debug traces and the first Level 2 backend linkage foundation in place.
+The repository now has `Level 1` backend/UI debug traces plus the first Level 2 linkage, richer drill-down, and diagnostics-anchor slices in place.
 
 The correct next move is:
-- connect diagnostics outputs to concrete trace rows/ranges
+- add targeted trace filters so anchors and manual diagnosis can narrow into the same evidence windows more efficiently
 - then connect trace rows to replay-note work later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.

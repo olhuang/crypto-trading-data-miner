@@ -220,17 +220,22 @@
           </div>
 
           <div class="grid split-grid">
-            <section class="panel">
-              <div class="panel-header">
-                <h3>Selected Run Detail</h3>
-                <p>Metadata, assumptions, diagnostics, and artifact bundle.</p>
-              </div>
-              <div class="traceability-stack">
-                <div id="backtest-run-detail" class="json-shell">Select a backtest run row.</div>
-                <div id="backtest-run-diagnostics" class="json-shell">Diagnostics summary will appear here.</div>
-                <div id="backtest-run-artifacts" class="json-shell">Artifact bundle will appear here.</div>
-              </div>
-            </section>
+              <section class="panel">
+                <div class="panel-header">
+                  <h3>Selected Run Detail</h3>
+                  <p>Metadata, assumptions, diagnostics, and artifact bundle.</p>
+                </div>
+                <div class="traceability-stack">
+                  <div id="backtest-run-detail" class="json-shell">Select a backtest run row.</div>
+                  <div id="backtest-run-diagnostics" class="json-shell">Diagnostics summary will appear here.</div>
+                  <div class="panel-subsection">
+                    <h4>Trace Anchors</h4>
+                    <p id="backtest-diagnostic-anchor-context" class="card-detail">Diagnostic-to-trace anchors will appear here.</p>
+                    <div id="backtest-diagnostic-anchors-table" class="table-shell"></div>
+                  </div>
+                  <div id="backtest-run-artifacts" class="json-shell">Artifact bundle will appear here.</div>
+                </div>
+              </section>
             <section class="panel">
               <div class="panel-header">
                 <h3>Month Breakdown</h3>

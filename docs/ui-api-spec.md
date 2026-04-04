@@ -872,6 +872,7 @@ Purpose:
 Current implementation status:
 - implemented as the Stage A run-level diagnostics summary baseline
 - currently returns run integrity, strategy activity, execution summary, typed risk-guardrail summary, PnL summary, and deterministic warning flags
+- now also returns `trace_anchors` so diagnostics can focus the internal trace viewer on concrete blocked/guard-related evidence
 
 ### GET `/api/v1/backtests/runs/{run_id}/debug-traces`
 Purpose:
@@ -987,6 +988,7 @@ Purpose:
 - [ ] UI can show run list and run detail
 - [ ] UI can inspect simulated orders/fills/timeseries
 - [ ] UI can inspect backtest diagnostics/debug traces
+- [x] the current internal UI can use diagnostics trace anchors to focus the debug-trace viewer on matching evidence windows
 - [x] UI now has a first internal compare-review note surface linked to persisted compare-set results
 - [ ] UI has a planned replay run surface and corresponding replay result APIs
 - [ ] UI has a planned replay-investigation note surface linked to replay runs/scenarios

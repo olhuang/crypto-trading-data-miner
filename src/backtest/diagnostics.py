@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -14,6 +14,23 @@ class DiagnosticFlag:
     severity: str
     message: str
     related_count: int | None = None
+
+
+@dataclass(slots=True)
+class DiagnosticTraceAnchor:
+    source_kind: str
+    source_code: str
+    title: str
+    message: str
+    anchor_type: str
+    debug_trace_id: int
+    step_index: int
+    bar_time: datetime
+    unified_symbol: str
+    related_count: int | None = None
+    matched_block_code: str | None = None
+    bar_time_from: datetime | None = None
+    bar_time_to: datetime | None = None
 
 
 @dataclass(slots=True)
@@ -77,6 +94,7 @@ class BacktestDiagnosticsSummary:
     risk_summary: RiskGuardrailSummary
     pnl_summary: PnlSummary
     diagnostic_flags: list[DiagnosticFlag]
+    trace_anchors: list[DiagnosticTraceAnchor]
 
 
 class BacktestDiagnosticsProjector:
@@ -239,6 +257,12 @@ class BacktestDiagnosticsProjector:
                 slippage_cost=self._stringify_numeric(pnl_row, "slippage_cost"),
             ),
             diagnostic_flags=flags,
+            trace_anchors=self._build_trace_anchors(
+                connection,
+                run_id=run_id,
+                blocked_intent_count=blocked_intent_count,
+                block_counts_by_code=block_counts_by_code,
+            ),
         )
 
     @staticmethod
@@ -382,3 +406,164 @@ class BacktestDiagnosticsProjector:
                 )
             )
         return flags
+
+    @classmethod
+    def _build_trace_anchors(
+        cls,
+        connection: Connection,
+        *,
+        run_id: int,
+        blocked_intent_count: int,
+        block_counts_by_code: dict[str, Any],
+    ) -> list[DiagnosticTraceAnchor]:
+        anchors: list[DiagnosticTraceAnchor] = []
+        seen: set[tuple[str, str, int]] = set()
+
+        if blocked_intent_count > 0:
+            row = cls._latest_blocked_trace(connection, run_id=run_id)
+            if row is not None:
+                cls._append_trace_anchor(
+                    anchors,
+                    seen,
+                    cls._trace_anchor_from_row(
+                        row,
+                        source_kind="diagnostic_flag",
+                        source_code="risk_blocks_present",
+                        title="Latest blocked intent trace",
+                        message="Latest trace row where a backtest risk guardrail blocked an execution intent.",
+                        related_count=blocked_intent_count,
+                    ),
+                )
+
+        for block_code, count in sorted(block_counts_by_code.items()):
+            normalized_count = int(count or 0)
+            if normalized_count <= 0:
+                continue
+            row = cls._latest_blocked_trace(connection, run_id=run_id, blocked_code=str(block_code))
+            if row is None:
+                continue
+            source_kind, source_code, title, message = cls._trace_anchor_meta_for_block_code(str(block_code))
+            cls._append_trace_anchor(
+                anchors,
+                seen,
+                cls._trace_anchor_from_row(
+                    row,
+                    source_kind=source_kind,
+                    source_code=source_code,
+                    title=title,
+                    message=message,
+                    related_count=normalized_count,
+                    matched_block_code=str(block_code),
+                ),
+            )
+
+        return anchors
+
+    @staticmethod
+    def _append_trace_anchor(
+        anchors: list[DiagnosticTraceAnchor],
+        seen: set[tuple[str, str, int]],
+        anchor: DiagnosticTraceAnchor,
+    ) -> None:
+        key = (anchor.source_kind, anchor.source_code, anchor.debug_trace_id)
+        if key in seen:
+            return
+        seen.add(key)
+        anchors.append(anchor)
+
+    @staticmethod
+    def _trace_anchor_meta_for_block_code(block_code: str) -> tuple[str, str, str, str]:
+        mapping = {
+            "max_drawdown_pct_breach": (
+                "diagnostic_flag",
+                "drawdown_guard_triggered",
+                "Latest drawdown-guard block",
+                "Latest trace row blocked by the drawdown guard.",
+            ),
+            "max_daily_loss_pct_breach": (
+                "diagnostic_flag",
+                "daily_loss_guard_triggered",
+                "Latest daily-loss-guard block",
+                "Latest trace row blocked by the daily-loss guard.",
+            ),
+            "max_leverage_breach": (
+                "diagnostic_flag",
+                "leverage_guard_triggered",
+                "Latest leverage-guard block",
+                "Latest trace row blocked by the leverage guard.",
+            ),
+            "cooldown_active": (
+                "diagnostic_flag",
+                "cooldown_guard_triggered",
+                "Latest cooldown block",
+                "Latest trace row blocked because cooldown was active.",
+            ),
+        }
+        if block_code in mapping:
+            return mapping[block_code]
+        return (
+            "block_summary",
+            block_code,
+            f"Latest block for {block_code}",
+            f"Latest trace row matching blocked code {block_code}.",
+        )
+
+    @classmethod
+    def _trace_anchor_from_row(
+        cls,
+        row: dict[str, Any],
+        *,
+        source_kind: str,
+        source_code: str,
+        title: str,
+        message: str,
+        related_count: int | None,
+        matched_block_code: str | None = None,
+    ) -> DiagnosticTraceAnchor:
+        bar_time = row["bar_time"]
+        return DiagnosticTraceAnchor(
+            source_kind=source_kind,
+            source_code=source_code,
+            title=title,
+            message=message,
+            anchor_type="step",
+            debug_trace_id=int(row["debug_trace_id"]),
+            step_index=int(row["step_index"]),
+            bar_time=bar_time,
+            unified_symbol=str(row["unified_symbol"]),
+            related_count=related_count,
+            matched_block_code=matched_block_code,
+            bar_time_from=bar_time - timedelta(minutes=2),
+            bar_time_to=bar_time + timedelta(minutes=2),
+        )
+
+    @staticmethod
+    def _latest_blocked_trace(
+        connection: Connection,
+        *,
+        run_id: int,
+        blocked_code: str | None = None,
+    ) -> dict[str, Any] | None:
+        filters = ["trace.run_id = :run_id", "trace.blocked_intent_count > 0"]
+        params: dict[str, Any] = {"run_id": run_id}
+        if blocked_code is not None:
+            filters.append("trace.blocked_codes_json ? :blocked_code")
+            params["blocked_code"] = blocked_code
+        where_clause = " and ".join(filters)
+        return connection.execute(
+            text(
+                f"""
+                select
+                    trace.debug_trace_id,
+                    trace.step_index,
+                    trace.bar_time,
+                    instrument.unified_symbol
+                from backtest.debug_traces trace
+                join ref.instruments instrument on instrument.instrument_id = trace.instrument_id
+                where {where_clause}
+                order by trace.step_index desc
+                limit 1
+                """
+            ),
+            params,
+        ).mappings().first()

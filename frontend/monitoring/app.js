@@ -118,6 +118,53 @@ function renderJson(targetId, payload) {
   container.textContent = JSON.stringify(payload, null, 2);
 }
 
+function renderBacktestDiagnostics(diagnostics) {
+  renderJson("backtest-run-diagnostics", diagnostics);
+
+  const anchors = diagnostics.trace_anchors || [];
+  const contextParts = [`anchors=${anchors.length}`];
+  if (diagnostics.diagnostic_status) {
+    contextParts.push(`status=${diagnostics.diagnostic_status}`);
+  }
+  setText(
+    "backtest-diagnostic-anchor-context",
+    anchors.length
+      ? `${contextParts.join(" | ")} | click an anchor to focus the trace viewer`
+      : `${contextParts.join(" | ")} | no trace anchors projected for this run`
+  );
+
+  renderTable(
+    "backtest-diagnostic-anchors-table",
+    [
+      { key: "source_kind", label: "Source Kind" },
+      { key: "source_code", label: "Source Code" },
+      { key: "matched_block_code", label: "Block Code" },
+      { key: "step_index", label: "Step" },
+      { key: "bar_time", label: "Bar Time" },
+      { key: "unified_symbol", label: "Symbol" },
+      { key: "related_count", label: "Count" },
+    ],
+    anchors,
+    (anchor) => {
+      void focusBacktestTraceAnchor(anchor);
+    }
+  );
+}
+
+async function focusBacktestTraceAnchor(anchor) {
+  if (!anchor || !anchor.debug_trace_id) {
+    return;
+  }
+  state.selectedBacktestDebugTraceId = anchor.debug_trace_id;
+  const currentFilters = getBacktestTraceFilters();
+  await loadBacktestDebugTraces({
+    limit: currentFilters.limit,
+    unified_symbol: anchor.unified_symbol || currentFilters.unified_symbol,
+    bar_time_from: anchor.bar_time_from,
+    bar_time_to: anchor.bar_time_to,
+  });
+}
+
 function renderBacktestDebugTraceDetail(trace) {
   if (!trace) {
     renderJson("backtest-debug-trace-summary", {
@@ -231,6 +278,8 @@ function getBacktestTraceFilters(formValues = null) {
   const filters = {
     limit: Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 100,
     unified_symbol: String(values.unified_symbol || "").trim() || undefined,
+    bar_time_from: String(values.bar_time_from || "").trim() || undefined,
+    bar_time_to: String(values.bar_time_to || "").trim() || undefined,
   };
   if (form) {
     form.elements.limit.value = String(filters.limit);
@@ -254,6 +303,11 @@ function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
   }
   if (appliedFilters?.unified_symbol) {
     contextParts.push(`symbol=${appliedFilters.unified_symbol}`);
+  }
+  if (appliedFilters?.bar_time_from || appliedFilters?.bar_time_to) {
+    contextParts.push(
+      `window=${appliedFilters.bar_time_from || "..." } -> ${appliedFilters.bar_time_to || "..."}`
+    );
   }
   setText("backtest-debug-trace-context", contextParts.join(" | "));
 
@@ -570,12 +624,12 @@ async function loadSelectedBacktestRun(runId) {
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/signals`, { limit: 50 }),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/orders`, { limit: 50 }),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/fills`, { limit: 50 }),
-      fetchEnvelope(`/api/v1/backtests/runs/${runId}/timeseries`, { limit: 120 }),
-      fetchEnvelope(`/api/v1/backtests/runs/${runId}/debug-traces`, traceFilters),
-    ]);
-  renderJson("backtest-run-detail", detail);
-  renderJson("backtest-run-diagnostics", diagnostics);
-  renderJson("backtest-run-artifacts", artifacts);
+        fetchEnvelope(`/api/v1/backtests/runs/${runId}/timeseries`, { limit: 120 }),
+        fetchEnvelope(`/api/v1/backtests/runs/${runId}/debug-traces`, traceFilters),
+      ]);
+    renderJson("backtest-run-detail", detail);
+  renderBacktestDiagnostics(diagnostics);
+    renderJson("backtest-run-artifacts", artifacts);
   renderTable(
     "backtest-period-breakdown",
     [

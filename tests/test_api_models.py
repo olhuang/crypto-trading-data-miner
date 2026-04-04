@@ -382,22 +382,39 @@ class ModelsApiTests(unittest.TestCase):
                             "cooldown_bars_remaining": 0,
                         },
                     ),
-                    pnl_summary=SimpleNamespace(
-                        total_return="0.1234",
-                        max_drawdown="0.0456",
-                        turnover="1.2345",
-                        fee_cost="12.34",
-                        slippage_cost="5.67",
-                    ),
-                    diagnostic_flags=[
-                        SimpleNamespace(
-                            code="expired_orders_present",
-                            severity="warning",
-                            message="one or more simulated orders expired without filling",
-                            related_count=2,
-                        )
-                    ],
-                )
+                      pnl_summary=SimpleNamespace(
+                          total_return="0.1234",
+                          max_drawdown="0.0456",
+                          turnover="1.2345",
+                          fee_cost="12.34",
+                          slippage_cost="5.67",
+                      ),
+                      diagnostic_flags=[
+                          SimpleNamespace(
+                              code="expired_orders_present",
+                              severity="warning",
+                              message="one or more simulated orders expired without filling",
+                              related_count=2,
+                          )
+                      ],
+                      trace_anchors=[
+                          SimpleNamespace(
+                              source_kind="diagnostic_flag",
+                              source_code="risk_blocks_present",
+                              title="Latest blocked intent trace",
+                              message="Latest trace row where a backtest risk guardrail blocked an execution intent.",
+                              anchor_type="step",
+                              debug_trace_id=8801,
+                              step_index=321,
+                              bar_time=datetime.fromisoformat("2026-04-01T10:00:00+00:00"),
+                              unified_symbol="BTCUSDT_PERP",
+                              related_count=3,
+                              matched_block_code="max_drawdown_pct_breach",
+                              bar_time_from=datetime.fromisoformat("2026-04-01T09:58:00+00:00"),
+                              bar_time_to=datetime.fromisoformat("2026-04-01T10:02:00+00:00"),
+                          )
+                      ],
+                  )
 
         app_module.BacktestDiagnosticsProjector = StubProjector
         try:
@@ -414,6 +431,9 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.risk_summary.state_snapshot["policy_code"], "perp_medium_v1")
         self.assertEqual(response.data.risk_summary.state_snapshot["trading_timezone"], "Asia/Taipei")
         self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
+        self.assertEqual(response.data.trace_anchors[0].source_code, "risk_blocks_present")
+        self.assertEqual(response.data.trace_anchors[0].debug_trace_id, 8801)
+        self.assertEqual(response.data.trace_anchors[0].matched_block_code, "max_drawdown_pct_breach")
 
     def test_backtest_risk_policies_endpoint_lists_named_registry_entries(self) -> None:
         response = self.__class__.backtest_risk_policies_endpoint(

@@ -728,17 +728,35 @@ Used by:
     {
       "code": "risk_blocks_present",
       "severity": "warning",
-      "message": "one or more execution intents were blocked by backtest risk guardrails",
-      "related_count": 3
-    }
-  ]
-}
-```
+        "message": "one or more execution intents were blocked by backtest risk guardrails",
+        "related_count": 3
+      }
+    ],
+    "trace_anchors": [
+      {
+        "source_kind": "diagnostic_flag",
+        "source_code": "risk_blocks_present",
+        "title": "Latest blocked intent trace",
+        "message": "Latest trace row where a backtest risk guardrail blocked an execution intent.",
+        "anchor_type": "step",
+        "debug_trace_id": 8801,
+        "step_index": 321,
+        "bar_time": "2026-04-01T10:00:00Z",
+        "unified_symbol": "BTCUSDT_PERP",
+        "related_count": 3,
+        "matched_block_code": "max_drawdown_pct_breach",
+        "bar_time_from": "2026-04-01T09:58:00Z",
+        "bar_time_to": "2026-04-01T10:02:00Z"
+      }
+    ]
+  }
+  ```
 
 ### Notes
 
 - this is the Stage A diagnostics surface from `docs/backtest-and-replay-diagnostics-spec.md`
 - the Stage A diagnostics surface now also includes typed risk-guardrail breakdown and state snapshot fields from the shared backtest guardrail layer
+- the current diagnostics surface now also includes `trace_anchors` so blocked-intent summaries and guard-trigger flags can jump back to concrete step evidence
 - the response is a summary/projection, not a full step trace
 - later debug-trace endpoints should drill down from the flags and aggregates returned here
 

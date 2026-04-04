@@ -139,3 +139,18 @@ Implement the next trace UI slice as a structured drill-down with summary, linka
 ### Impact
 - `/monitoring` now exposes Level 2 trace evidence in a more readable per-step drill-down
 - the next trace slice should connect diagnostics outputs to these structured sections rather than redesigning the viewer again
+
+## 2026-04-04
+
+### Decision
+Implement diagnostics-to-trace anchors as typed diagnostics-summary output plus an anchor-driven trace focus flow in the internal UI, rather than inventing a separate diagnostics timeline surface first.
+
+### Reason
+- the repository already has a compact trace viewer, so the fastest useful bridge is to let diagnostics point into that viewer
+- blocked-intent and guard-trigger evidence is already persisted in debug traces, so anchors can reuse existing evidence without a new trace schema
+- this keeps Level 2 additive and avoids dragging replay-specific UI concepts into the current monitoring console too early
+
+### Impact
+- `GET /api/v1/backtests/runs/{run_id}/diagnostics` now carries typed `trace_anchors`
+- the internal Backtests view can jump from diagnostics anchors into matching trace windows and selected trace rows
+- the next trace slice should focus on targeted filters or replay linkage rather than another diagnostics viewer redesign
