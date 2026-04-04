@@ -919,7 +919,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] seed compare review drafts from compare-set identity and compared run ids
 - [x] enrich seeded review drafts with KPI, benchmark, assumption-diff, and diagnostics-diff facts
 - [x] expose compare-review note list/create/update API surfaces
-- [ ] expose compare-review notes in the internal research UI
+- [x] expose compare-review notes in the internal research UI
 
 ### Acceptance Checks
 - [x] compare work can leave durable review state without relying on repo-level markdown or chat transcripts alone

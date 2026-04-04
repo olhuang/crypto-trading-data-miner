@@ -11,6 +11,7 @@
 - added repo-owned VS Code tasks and local PowerShell helper scripts so the workflow is directly runnable
 - added a dedicated object-level notes/annotations planning spec and wired it into Phase 5 planning/docs
 - added the first compare-review note foundation with persisted compare-set identity, seeded system review drafts, and compare note APIs
+- exposed compare-review notes in the internal `/monitoring` Backtests UI, including compare tables, system-note inspection, and human/agent note write flow
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -46,9 +47,7 @@
 - keep memory layered instead of mixing stable state, task state, and session state together
 
 ## Risks
-- compare-review memory is backend/API-backed now, but the internal research UI still does not expose it
 - replay investigation notes and unified annotation service remain future slices
 
 ## Next
-- expose compare-review notes in the internal research UI
 - add step-level debug trace foundation and then use the same annotation direction for replay investigation notes

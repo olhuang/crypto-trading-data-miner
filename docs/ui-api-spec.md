@@ -981,7 +981,7 @@ Purpose:
 - [ ] UI can show run list and run detail
 - [ ] UI can inspect simulated orders/fills/timeseries
 - [ ] UI can inspect backtest diagnostics/debug traces
-- [ ] UI has a planned compare-review note surface linked to compare-set results
+- [x] UI now has a first internal compare-review note surface linked to persisted compare-set results
 - [ ] UI has a planned replay run surface and corresponding replay result APIs
 - [ ] UI has a planned replay-investigation note surface linked to replay runs/scenarios
 

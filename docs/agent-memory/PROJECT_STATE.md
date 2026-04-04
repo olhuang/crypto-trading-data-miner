@@ -16,7 +16,7 @@
 ## Current Gaps
 - no replay engine yet
 - no step-level debug trace foundation yet
-- compare-review notes are backend/API-backed, but the research UI does not yet expose them
+- compare-review notes now have a minimal internal UI surface, but replay/debug-trace-linked investigation workflow is still future work
 - cooldown semantics are still tied to a losing-close proxy instead of explicit protection events
 
 ## Most Important Source-of-Truth Docs

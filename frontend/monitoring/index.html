@@ -140,7 +140,7 @@
             <section class="panel">
               <div class="panel-header">
                 <h3>Compare Runs</h3>
-                <p>Build an ad hoc compare-set from persisted runs.</p>
+                <p>Build a persisted compare-set, inspect its deltas, and leave durable review notes.</p>
               </div>
               <form id="backtest-compare-form" class="filters stacked-form">
                 <input name="run_ids" placeholder="run_ids comma separated" />
@@ -148,7 +148,58 @@
                 <input name="compare_name" placeholder="compare_name" value="ui_compare_set" />
                 <button type="submit">Compare Runs</button>
               </form>
+              <p id="backtest-compare-context" class="card-detail">Create a compare set to inspect review notes.</p>
               <div id="backtest-compare-result" class="json-shell compact-shell">Comparison output will appear here.</div>
+              <div class="panel-subsection">
+                <h4>Compared Runs</h4>
+                <div id="backtest-compare-runs-table" class="table-shell"></div>
+              </div>
+              <div class="panel-subsection">
+                <h4>Assumption Diffs</h4>
+                <div id="backtest-compare-diffs-table" class="table-shell"></div>
+              </div>
+              <div class="panel-subsection">
+                <h4>Benchmark Deltas</h4>
+                <div id="backtest-compare-benchmark-table" class="table-shell"></div>
+              </div>
+              <div class="panel-subsection">
+                <h4>Comparison Flags</h4>
+                <div id="backtest-compare-flags-table" class="table-shell"></div>
+              </div>
+            </section>
+          </div>
+
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Compare Review Notes</h3>
+                <p>System-seeded facts and human/agent review conclusions for the selected compare set.</p>
+              </div>
+              <div id="backtest-compare-notes-table" class="table-shell"></div>
+              <div id="backtest-compare-note-detail" class="json-shell compact-shell">Select a compare note row to inspect detail.</div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Write Review Note</h3>
+                <p>Create or update human/agent review notes. System-seeded notes remain read-only.</p>
+              </div>
+              <form id="backtest-compare-note-form" class="filters stacked-form">
+                <input type="hidden" name="annotation_id" />
+                <input name="title" placeholder="title" />
+                <input name="annotation_type" placeholder="annotation_type" value="review" />
+                <input name="status" placeholder="status" value="in_review" />
+                <input name="note_source" placeholder="note_source" value="human" />
+                <input name="verification_state" placeholder="verification_state" value="verified" />
+                <textarea name="summary" rows="4" placeholder="summary"></textarea>
+                <textarea name="verified_findings" rows="5" placeholder="verified findings (one per line)"></textarea>
+                <textarea name="open_questions" rows="5" placeholder="open questions (one per line)"></textarea>
+                <textarea name="next_action" rows="4" placeholder="next_action"></textarea>
+                <div class="form-actions">
+                  <button type="submit">Save Review Note</button>
+                  <button type="button" id="backtest-compare-note-reset" class="secondary-button">Reset Form</button>
+                </div>
+              </form>
+              <div id="backtest-compare-note-result" class="json-shell compact-shell">Saved review notes will appear here.</div>
             </section>
           </div>
 

@@ -579,6 +579,7 @@ Required sections:
 - [x] the current internal Backtests view can inspect run detail, diagnostics summary, artifact bundle, and month breakdown
 - [x] the current internal Backtests view can inspect recent persisted signals, simulated orders, simulated fills, and recent timeseries points for a selected run
 - [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
+- [x] the current internal Backtests view now also exposes compare-review notes for persisted compare sets, including system-seeded facts and human/agent review entry
 - [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
 - [ ] charts, step-level debug traces, and replay scenario pages remain future UI work
 

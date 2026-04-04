@@ -4,6 +4,8 @@ const state = {
   selectedJobId: null,
   selectedRawEventId: null,
   selectedBacktestRunId: null,
+  selectedCompareSetId: null,
+  selectedCompareNoteId: null,
 };
 
 function statusClass(value) {
@@ -113,6 +115,175 @@ function renderJson(targetId, payload) {
     return;
   }
   container.textContent = JSON.stringify(payload, null, 2);
+}
+
+function normalizeLineList(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function resetCompareNoteForm() {
+  const form = document.getElementById("backtest-compare-note-form");
+  if (!form) {
+    return;
+  }
+  form.reset();
+  form.elements.annotation_id.value = "";
+  form.elements.annotation_type.value = "review";
+  form.elements.status.value = "in_review";
+  form.elements.note_source.value = "human";
+  form.elements.verification_state.value = "verified";
+  form.elements.title.value = "";
+  form.elements.summary.value = "";
+  form.elements.verified_findings.value = "";
+  form.elements.open_questions.value = "";
+  form.elements.next_action.value = "";
+}
+
+function populateCompareNoteForm(note) {
+  const form = document.getElementById("backtest-compare-note-form");
+  if (!form || !note) {
+    return;
+  }
+  form.elements.annotation_id.value = note.annotation_id || "";
+  form.elements.annotation_type.value = note.annotation_type || "review";
+  form.elements.status.value = note.status || "in_review";
+  form.elements.note_source.value = note.note_source || "human";
+  form.elements.verification_state.value = note.verification_state || "verified";
+  form.elements.title.value = note.title || "";
+  form.elements.summary.value = note.summary || "";
+  form.elements.verified_findings.value = (note.verified_findings || []).join("\n");
+  form.elements.open_questions.value = (note.open_questions || []).join("\n");
+  form.elements.next_action.value = note.next_action || "";
+}
+
+function renderCompareResult(compareSet) {
+  const runs = compareSet.compared_runs || [];
+  const assumptionDiffs = (compareSet.assumption_diffs || []).map((diff) => ({
+    field_name: diff.field_name,
+    distinct_value_count: diff.distinct_value_count,
+    values_by_run: (diff.values_by_run || [])
+      .map((value) => `${value.run_id}: ${formatValue(value.value)}`)
+      .join(" | "),
+  }));
+  const benchmarkDeltas = compareSet.benchmark_deltas || [];
+  const comparisonFlags = compareSet.comparison_flags || [];
+  const contextParts = [];
+  if (compareSet.compare_set_id) {
+    contextParts.push(`compare_set_id=${compareSet.compare_set_id}`);
+  }
+  if (compareSet.compare_name) {
+    contextParts.push(`name=${compareSet.compare_name}`);
+  }
+  if (Array.isArray(compareSet.available_period_types) && compareSet.available_period_types.length) {
+    contextParts.push(`periods=${compareSet.available_period_types.join(", ")}`);
+  }
+  setText(
+    "backtest-compare-context",
+    contextParts.length ? contextParts.join(" | ") : "Create a compare set to inspect review notes."
+  );
+  renderJson("backtest-compare-result", compareSet);
+  renderTable(
+    "backtest-compare-runs-table",
+    [
+      { key: "run_id", label: "Run" },
+      { key: "run_name", label: "Run Name" },
+      { key: "strategy_code", label: "Strategy" },
+      { key: "strategy_version", label: "Version" },
+      { key: "diagnostic_status", label: "Diag", type: "status" },
+      { key: "total_return", label: "Return" },
+      { key: "max_drawdown", label: "Max DD" },
+      { key: "turnover", label: "Turnover" },
+      { key: "fee_cost", label: "Fees" },
+      { key: "slippage_cost", label: "Slip" },
+    ],
+    runs
+  );
+  renderTable(
+    "backtest-compare-diffs-table",
+    [
+      { key: "field_name", label: "Field" },
+      { key: "distinct_value_count", label: "Distinct" },
+      { key: "values_by_run", label: "Values by Run" },
+    ],
+    assumptionDiffs
+  );
+  renderTable(
+    "backtest-compare-benchmark-table",
+    [
+      { key: "run_id", label: "Run" },
+      { key: "benchmark_run_id", label: "Benchmark" },
+      { key: "total_return_delta", label: "Return Delta" },
+      { key: "annualized_return_delta", label: "Annualized Delta" },
+      { key: "max_drawdown_delta", label: "Max DD Delta" },
+      { key: "turnover_delta", label: "Turnover Delta" },
+      { key: "win_rate_delta", label: "Win Rate Delta" },
+    ],
+    benchmarkDeltas
+  );
+  renderTable(
+    "backtest-compare-flags-table",
+    [
+      { key: "code", label: "Code" },
+      { key: "severity", label: "Severity", type: "status" },
+      { key: "message", label: "Message" },
+    ],
+    comparisonFlags
+  );
+}
+
+async function loadCompareNotes(compareSetId, preferredAnnotationId = null) {
+  const notesEnvelope = await fetchEnvelope(`/api/v1/backtests/compare-sets/${compareSetId}/notes`);
+  const notes = notesEnvelope.notes || [];
+  const preferredNote =
+    notes.find((note) => note.annotation_id === preferredAnnotationId) ||
+    notes.find((note) => note.annotation_id === state.selectedCompareNoteId) ||
+    notes.find((note) => note.note_source !== "system") ||
+    notes[0] ||
+    null;
+  if (preferredNote) {
+    state.selectedCompareNoteId = preferredNote.annotation_id;
+  }
+  renderTable(
+    "backtest-compare-notes-table",
+    [
+      { key: "annotation_id", label: "Note" },
+      { key: "annotation_type", label: "Type" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "note_source", label: "Source", type: "status" },
+      { key: "verification_state", label: "Verify", type: "status" },
+      { key: "title", label: "Title" },
+      { key: "updated_at", label: "Updated" },
+    ],
+    notes,
+    (record) => {
+      state.selectedCompareNoteId = record.annotation_id;
+      renderJson("backtest-compare-note-detail", record);
+      if (record.note_source === "system") {
+        resetCompareNoteForm();
+      } else {
+        populateCompareNoteForm(record);
+      }
+    }
+  );
+  if (preferredNote) {
+    renderJson("backtest-compare-note-detail", preferredNote);
+    if (preferredNote.note_source === "system") {
+      resetCompareNoteForm();
+    } else {
+      populateCompareNoteForm(preferredNote);
+    }
+  } else {
+    state.selectedCompareNoteId = null;
+    renderJson("backtest-compare-note-detail", {
+      compare_set_id: notesEnvelope.compare_set_id,
+      compare_name: notesEnvelope.compare_name,
+      notes: [],
+    });
+    resetCompareNoteForm();
+  }
 }
 
 async function loadOverview() {
@@ -453,7 +624,45 @@ async function compareBacktestRuns(formValues) {
     compare_name: formValues.compare_name || null,
   };
   const result = await sendEnvelope("/api/v1/backtests/compare-sets", "POST", payload);
-  renderJson("backtest-compare-result", result);
+  state.selectedCompareSetId = result.compare_set_id || null;
+  state.selectedCompareNoteId = null;
+  renderCompareResult(result);
+  renderJson("backtest-compare-note-result", result);
+  resetCompareNoteForm();
+  if (state.selectedCompareSetId) {
+    await loadCompareNotes(state.selectedCompareSetId);
+  }
+}
+
+async function saveCompareReviewNote(formValues) {
+  if (!state.selectedCompareSetId) {
+    throw new Error("Create or select a compare set before saving review notes.");
+  }
+  const annotationId = Number(formValues.annotation_id);
+  const payload = {
+    annotation_type: String(formValues.annotation_type || "review").trim() || "review",
+    status: String(formValues.status || "in_review").trim() || "in_review",
+    title: String(formValues.title || "").trim(),
+    summary: String(formValues.summary || "").trim() || null,
+    note_source: String(formValues.note_source || "human").trim() || "human",
+    verification_state: String(formValues.verification_state || "verified").trim() || "verified",
+    verified_findings: normalizeLineList(formValues.verified_findings),
+    open_questions: normalizeLineList(formValues.open_questions),
+    next_action: String(formValues.next_action || "").trim() || null,
+  };
+  if (!payload.title) {
+    throw new Error("title is required");
+  }
+  if (Number.isInteger(annotationId) && annotationId > 0) {
+    payload.annotation_id = annotationId;
+  }
+  const saved = await sendEnvelope(
+    `/api/v1/backtests/compare-sets/${state.selectedCompareSetId}/notes`,
+    "POST",
+    payload
+  );
+  renderJson("backtest-compare-note-result", saved);
+  await loadCompareNotes(state.selectedCompareSetId, saved.annotation_id);
 }
 
 async function loadQuality(filters = {}) {
@@ -574,6 +783,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("raw-filter-form", loadTraceability);
   bindForm("backtest-launch-form", launchBacktest);
   bindForm("backtest-compare-form", compareBacktestRuns);
+  bindForm("backtest-compare-note-form", saveCompareReviewNote);
+  document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {
+    resetCompareNoteForm();
+  });
 
   try {
     await loadOverview();

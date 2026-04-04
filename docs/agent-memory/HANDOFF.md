@@ -2,7 +2,7 @@
 
 ## Current Focus
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
-- extend object-level notes from planning into runtime-backed compare/review memory
+- extend object-level notes from compare-review into step traces, replay investigation notes, and future workbench annotation surfaces
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -14,11 +14,11 @@
 - object-linked compare/review notes and replay investigation notes now have a dedicated planning spec
 - compare sets now persist durable identity in runtime code and seed a system review draft on creation
 - compare-review notes now have first object-linked API surfaces at `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes`
+- compare-review notes are now exposed in the internal `/monitoring` Backtests research slice, including system-note inspection and human/agent note entry
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
 - replay/debug trace and richer saved-compare workflow are still future work
-- compare-review notes are backend-only so far; the internal research UI does not yet expose them
 - replay investigation notes and unified annotation service remain future work
 
 ## Files To Inspect Next
@@ -39,6 +39,9 @@
 - `src/backtest/compare_review.py`
 - `src/storage/repositories/research.py`
 - `db/init/008_compare_sets_and_annotations.sql`
+- `frontend/monitoring/index.html`
+- `frontend/monitoring/app.js`
+- `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing this line, expose compare-review notes in the internal research UI first, then build step-level debug traces and replay investigation notes on top of the same annotation direction
+- when continuing this line, build step-level debug traces next, then extend the same annotation direction into replay investigation notes
