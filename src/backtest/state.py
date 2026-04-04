@@ -35,6 +35,13 @@ class PortfolioMark:
 
 
 @dataclass(slots=True)
+class FillApplicationOutcome:
+    realized_delta: Decimal = Decimal("0")
+    close_event: bool = False
+    winning_close: bool = False
+
+
+@dataclass(slots=True)
 class PortfolioState:
     cash: Decimal
     position_states: dict[str, PositionState] = field(default_factory=dict)
@@ -56,7 +63,7 @@ class PortfolioState:
             if position.qty != 0
         }
 
-    def apply_fill(self, fill: SimulatedFill) -> None:
+    def apply_fill(self, fill: SimulatedFill) -> FillApplicationOutcome:
         signed_qty = fill.qty if fill.side == OrderSide.BUY else -fill.qty
         position = self.position_states.setdefault(fill.unified_symbol, PositionState())
         current_qty = position.qty
@@ -76,7 +83,7 @@ class PortfolioState:
         if current_qty == 0:
             position.qty = signed_qty
             position.average_entry_price = fill.fill_price
-            return
+            return FillApplicationOutcome()
 
         if current_qty > 0 and signed_qty > 0:
             total_qty = current_qty + signed_qty
@@ -85,7 +92,7 @@ class PortfolioState:
                 (current_entry * current_qty) + (fill.fill_price * signed_qty)
             ) / total_qty
             position.qty = total_qty
-            return
+            return FillApplicationOutcome()
 
         if current_qty < 0 and signed_qty < 0:
             total_abs_qty = abs(current_qty) + abs(signed_qty)
@@ -94,7 +101,7 @@ class PortfolioState:
                 (current_entry * abs(current_qty)) + (fill.fill_price * abs(signed_qty))
             ) / total_abs_qty
             position.qty = current_qty + signed_qty
-            return
+            return FillApplicationOutcome()
 
         closing_qty = min(abs(current_qty), abs(signed_qty))
         assert current_entry is not None
@@ -105,19 +112,29 @@ class PortfolioState:
 
         self.realized_pnl += realized_delta
         self.close_event_count += 1
+        winning_close = realized_delta > 0
         if realized_delta > 0:
             self.winning_close_count += 1
 
         new_qty = current_qty + signed_qty
         if new_qty == 0:
             self.position_states.pop(fill.unified_symbol, None)
-            return
+            return FillApplicationOutcome(
+                realized_delta=realized_delta,
+                close_event=True,
+                winning_close=winning_close,
+            )
 
         position.qty = new_qty
         if (current_qty > 0 and new_qty > 0) or (current_qty < 0 and new_qty < 0):
             position.average_entry_price = current_entry
         else:
             position.average_entry_price = fill.fill_price
+        return FillApplicationOutcome(
+            realized_delta=realized_delta,
+            close_event=True,
+            winning_close=winning_close,
+        )
 
     def mark_to_market(self, mark_prices: Mapping[str, Decimal]) -> PortfolioMark:
         gross_exposure = Decimal("0")

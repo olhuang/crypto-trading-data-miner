@@ -121,6 +121,40 @@ class HistoryBoundAssertionStrategy(StrategyBase):
 DecimalLike = Decimal | str | int | float
 
 
+class ScheduledTargetStrategy(StrategyBase):
+    strategy_code = "test_strategy"
+    strategy_version = "v1.0.0"
+
+    def __init__(self, scheduled_targets: list[DecimalLike | None]) -> None:
+        self._scheduled_targets = [
+            None if value is None else Decimal(str(value))
+            for value in scheduled_targets
+        ]
+        self._index = 0
+
+    def evaluate(self, evaluation: StrategyEvaluationInput) -> TargetPosition | None:
+        if self._index >= len(self._scheduled_targets):
+            return None
+        target = self._scheduled_targets[self._index]
+        self._index += 1
+        if target is None:
+            return None
+        return TargetPosition.model_validate(
+            {
+                "strategy_code": evaluation.session.strategy_code,
+                "strategy_version": evaluation.session.strategy_version,
+                "target_time": evaluation.bar.bar_time,
+                "positions": [
+                    {
+                        "exchange_code": evaluation.bar.exchange_code,
+                        "unified_symbol": evaluation.bar.unified_symbol,
+                        "target_qty": str(target),
+                    }
+                ],
+            }
+        )
+
+
 class Phase5FoundationTests(unittest.TestCase):
     def test_strategy_session_requires_non_empty_universe_and_dedupes_values(self) -> None:
         with self.assertRaises(ValidationError):
@@ -177,17 +211,34 @@ class Phase5FoundationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             RiskPolicyConfig.model_validate({"max_position_qty": "0"})
 
+        with self.assertRaises(ValidationError):
+            RiskPolicyConfig.model_validate({"max_drawdown_pct": "1.1"})
+
+        with self.assertRaises(ValidationError):
+            RiskPolicyConfig.model_validate({"max_daily_loss_pct": "0"})
+
+        with self.assertRaises(ValidationError):
+            RiskPolicyConfig.model_validate({"cooldown_bars_after_stop": 0})
+
         policy = RiskPolicyConfig.model_validate(
             {
                 "policy_code": "spot_conservative_v1",
                 "block_new_entries_below_equity": "0",
                 "max_position_qty": "1",
                 "max_order_notional": "10000",
+                "max_drawdown_pct": "0.20",
+                "max_daily_loss_pct": "0.05",
+                "max_leverage": "1.5",
+                "cooldown_bars_after_stop": 10,
             }
         )
 
         self.assertEqual(policy.policy_code, "spot_conservative_v1")
         self.assertEqual(policy.max_position_qty, Decimal("1"))
+        self.assertEqual(policy.max_drawdown_pct, Decimal("0.20"))
+        self.assertEqual(policy.max_daily_loss_pct, Decimal("0.05"))
+        self.assertEqual(policy.max_leverage, Decimal("1.5"))
+        self.assertEqual(policy.cooldown_bars_after_stop, 10)
 
     def test_risk_policy_override_config_and_effective_policy_merge(self) -> None:
         with self.assertRaises(ValidationError):
@@ -270,6 +321,10 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(resolved.max_order_qty, Decimal("1"))
         self.assertEqual(resolved.max_order_notional, Decimal("75000"))
         self.assertEqual(resolved.max_gross_exposure_multiple, Decimal("1.5"))
+        self.assertEqual(resolved.max_drawdown_pct, Decimal("0.25"))
+        self.assertEqual(resolved.max_daily_loss_pct, Decimal("0.05"))
+        self.assertEqual(resolved.max_leverage, Decimal("1.5"))
+        self.assertEqual(resolved.cooldown_bars_after_stop, 10)
 
     def test_named_risk_policy_override_code_can_switch_effective_base_policy(self) -> None:
         run_config = BacktestRunConfig.model_validate(
@@ -304,6 +359,10 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(effective.max_order_qty, Decimal("2"))
         self.assertEqual(effective.max_order_notional, Decimal("125000"))
         self.assertEqual(effective.max_gross_exposure_multiple, Decimal("3.0"))
+        self.assertEqual(effective.max_drawdown_pct, Decimal("0.35"))
+        self.assertEqual(effective.max_daily_loss_pct, Decimal("0.08"))
+        self.assertEqual(effective.max_leverage, Decimal("3.0"))
+        self.assertEqual(effective.cooldown_bars_after_stop, 5)
 
     def test_named_assumption_bundle_registry_resolves_effective_snapshot(self) -> None:
         registry = build_default_assumption_bundle_registry()
@@ -725,6 +784,177 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(len(result.orders), 0)
         self.assertEqual(result.risk_outcomes[0].code, "max_gross_exposure_breach")
 
+    def test_runner_blocks_new_entries_when_max_drawdown_pct_is_breached(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_drawdown_guard",
+                "session": {
+                    "session_code": "bt_btc_drawdown_guard",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "drawdown_guard_v1",
+                        "max_drawdown_pct": "0.20",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "100",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", 0, "100"), build_bar("BTCUSDT_PERP", 1, "50")]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=ScheduledTargetStrategy([None, "2"]),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="0"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="0"),
+            ),
+        )
+
+        result = runner.run_bars(
+            bars,
+            initial_positions={"BTCUSDT_PERP": Decimal("1")},
+            initial_cash=Decimal("100"),
+        )
+
+        self.assertEqual(len(result.orders), 0)
+        self.assertEqual(result.risk_outcomes[-1].decision, RiskDecision.BLOCK)
+        self.assertEqual(result.risk_outcomes[-1].code, "max_drawdown_pct_breach")
+
+    def test_runner_blocks_new_entries_when_max_daily_loss_pct_is_breached(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_daily_loss_guard",
+                "session": {
+                    "session_code": "bt_btc_daily_loss_guard",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "daily_loss_guard_v1",
+                        "max_daily_loss_pct": "0.20",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "100",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", 0, "100"), build_bar("BTCUSDT_PERP", 1, "50")]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=ScheduledTargetStrategy([None, "2"]),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="0"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="0"),
+            ),
+        )
+
+        result = runner.run_bars(
+            bars,
+            initial_positions={"BTCUSDT_PERP": Decimal("1")},
+            initial_cash=Decimal("100"),
+        )
+
+        self.assertEqual(len(result.orders), 0)
+        self.assertEqual(result.risk_outcomes[-1].decision, RiskDecision.BLOCK)
+        self.assertEqual(result.risk_outcomes[-1].code, "max_daily_loss_pct_breach")
+
+    def test_runner_blocks_entries_exceeding_max_leverage(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_leverage_guard",
+                "session": {
+                    "session_code": "bt_btc_leverage_guard",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "leverage_guard_v1",
+                        "max_leverage": "1.5",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "100",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", 0, "100"), build_bar("BTCUSDT_PERP", 1, "101")]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="2"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="0"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="0"),
+            ),
+        )
+
+        result = runner.run_bars(bars, initial_cash=Decimal("100"))
+
+        self.assertEqual(len(result.orders), 0)
+        self.assertEqual(result.risk_outcomes[-1].decision, RiskDecision.BLOCK)
+        self.assertEqual(result.risk_outcomes[-1].code, "max_leverage_breach")
+
+    def test_runner_activates_cooldown_after_losing_close_and_blocks_reentry(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_cooldown_guard",
+                "session": {
+                    "session_code": "bt_btc_cooldown_guard",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "cooldown_guard_v1",
+                        "cooldown_bars_after_stop": 2,
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "100",
+            }
+        )
+        bars = [
+            build_bar("BTCUSDT_PERP", 0, "100"),
+            build_bar("BTCUSDT_PERP", 1, "90"),
+            build_bar("BTCUSDT_PERP", 2, "80"),
+        ]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=ScheduledTargetStrategy([None, "0", "1"]),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="0"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="0"),
+            ),
+        )
+
+        result = runner.run_bars(
+            bars,
+            initial_positions={"BTCUSDT_PERP": Decimal("1")},
+            initial_cash=Decimal("100"),
+        )
+
+        self.assertEqual(len(result.orders), 1)
+        self.assertEqual(result.fills[0].fill_price, Decimal("80"))
+        self.assertEqual(result.risk_outcomes[-1].decision, RiskDecision.BLOCK)
+        self.assertEqual(result.risk_outcomes[-1].code, "cooldown_active")
+        runtime_state = runner.risk_guardrails.build_runtime_state_snapshot()
+        self.assertEqual(runtime_state["activation_counts_by_code"]["cooldown_activated_after_loss_close"], 1)
+
     def test_runner_caps_recent_bar_history_when_strategy_declares_requirement(self) -> None:
         run_config = BacktestRunConfig.model_validate(
             {
@@ -1033,6 +1263,7 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertEqual(params_json["risk_policy"]["policy_code"], "default")
             self.assertEqual(params_json["session_risk_policy"]["policy_code"], "default")
             self.assertEqual(params_json["risk_overrides"], {})
+            self.assertIn("state_snapshot", params_json["runtime_metadata"]["risk_summary"])
             self.assertIsNotNone(diagnostics)
             assert diagnostics is not None
             self.assertEqual(diagnostics.diagnostic_status, "ok")

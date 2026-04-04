@@ -339,6 +339,10 @@ async function loadBacktestRiskPolicies() {
     max_position_qty: entry.risk_policy.max_position_qty,
     max_order_notional: entry.risk_policy.max_order_notional,
     max_gross_exposure_multiple: entry.risk_policy.max_gross_exposure_multiple,
+    max_drawdown_pct: entry.risk_policy.max_drawdown_pct,
+    max_daily_loss_pct: entry.risk_policy.max_daily_loss_pct,
+    max_leverage: entry.risk_policy.max_leverage,
+    cooldown_bars_after_stop: entry.risk_policy.cooldown_bars_after_stop,
     description: entry.description,
   }));
 
@@ -350,6 +354,10 @@ async function loadBacktestRiskPolicies() {
       { key: "max_position_qty", label: "Max Pos Qty" },
       { key: "max_order_notional", label: "Max Order Notional" },
       { key: "max_gross_exposure_multiple", label: "Max Gross x" },
+      { key: "max_drawdown_pct", label: "Max DD %" },
+      { key: "max_daily_loss_pct", label: "Max Daily Loss %" },
+      { key: "max_leverage", label: "Max Lev" },
+      { key: "cooldown_bars_after_stop", label: "Cooldown Bars" },
       { key: "description", label: "Description" },
     ],
     records
@@ -380,6 +388,10 @@ async function launchBacktest(formValues) {
     "max_order_qty",
     "max_order_notional",
     "max_gross_exposure_multiple",
+    "max_drawdown_pct",
+    "max_daily_loss_pct",
+    "max_leverage",
+    "cooldown_bars_after_stop",
   ].forEach((fieldName) => {
     const value = String(formValues[fieldName] || "").trim();
     if (value !== "") {

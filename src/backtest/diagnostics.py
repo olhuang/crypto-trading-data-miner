@@ -151,6 +151,8 @@ class BacktestDiagnosticsProjector:
         params_json = run_row["params_json"] or {}
         runtime_metadata = params_json.get("runtime_metadata") or {}
         risk_summary = runtime_metadata.get("risk_summary") or {}
+        block_counts_by_code = dict(risk_summary.get("block_counts_by_code") or {})
+        state_snapshot = dict(risk_summary.get("state_snapshot") or {})
         expected_timepoints = self._expected_timepoints(
             start_time=run_row["start_time"],
             end_time=run_row["end_time"],
@@ -168,6 +170,8 @@ class BacktestDiagnosticsProjector:
             unlinked_order_count=int(execution_row["unlinked_order_count"]),
             signal_count=int(signal_row["signal_count"]),
             blocked_intent_count=blocked_intent_count,
+            block_counts_by_code=block_counts_by_code,
+            risk_state_snapshot=state_snapshot,
         )
         warning_count = sum(1 for flag in flags if flag.severity == "warning")
         error_count = sum(1 for flag in flags if flag.severity == "error")
@@ -246,6 +250,8 @@ class BacktestDiagnosticsProjector:
         unlinked_order_count: int,
         signal_count: int,
         blocked_intent_count: int,
+        block_counts_by_code: dict[str, Any],
+        risk_state_snapshot: dict[str, Any],
     ) -> list[DiagnosticFlag]:
         flags: list[DiagnosticFlag] = []
         if missing_timepoints > 0:
@@ -300,6 +306,56 @@ class BacktestDiagnosticsProjector:
                     severity="warning",
                     message="one or more execution intents were blocked by backtest risk guardrails",
                     related_count=blocked_intent_count,
+                )
+            )
+        if int(block_counts_by_code.get("max_drawdown_pct_breach") or 0) > 0:
+            flags.append(
+                DiagnosticFlag(
+                    code="drawdown_guard_triggered",
+                    severity="warning",
+                    message="drawdown guard blocked one or more new entries during the run",
+                    related_count=int(block_counts_by_code.get("max_drawdown_pct_breach") or 0),
+                )
+            )
+        if int(block_counts_by_code.get("max_daily_loss_pct_breach") or 0) > 0:
+            flags.append(
+                DiagnosticFlag(
+                    code="daily_loss_guard_triggered",
+                    severity="warning",
+                    message="daily-loss guard blocked one or more new entries during the run",
+                    related_count=int(block_counts_by_code.get("max_daily_loss_pct_breach") or 0),
+                )
+            )
+        if int(block_counts_by_code.get("max_leverage_breach") or 0) > 0:
+            flags.append(
+                DiagnosticFlag(
+                    code="leverage_guard_triggered",
+                    severity="warning",
+                    message="leverage guard blocked one or more new entries during the run",
+                    related_count=int(block_counts_by_code.get("max_leverage_breach") or 0),
+                )
+            )
+        if int(block_counts_by_code.get("cooldown_active") or 0) > 0:
+            flags.append(
+                DiagnosticFlag(
+                    code="cooldown_guard_triggered",
+                    severity="warning",
+                    message="cooldown blocked one or more new entries after a recent loss-close event",
+                    related_count=int(block_counts_by_code.get("cooldown_active") or 0),
+                )
+            )
+        if int((risk_state_snapshot.get("activation_counts_by_code") or {}).get("cooldown_activated_after_loss_close") or 0) > 0:
+            flags.append(
+                DiagnosticFlag(
+                    code="cooldown_activated",
+                    severity="warning",
+                    message="cooldown was activated at least once after a realized losing close event",
+                    related_count=int(
+                        (risk_state_snapshot.get("activation_counts_by_code") or {}).get(
+                            "cooldown_activated_after_loss_close"
+                        )
+                        or 0
+                    ),
                 )
             )
         return flags

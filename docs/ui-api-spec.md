@@ -748,6 +748,10 @@ Request:
       "block_new_entries_below_equity": "0",
       "max_position_qty": "1",
       "max_gross_exposure_multiple": "1.5",
+      "max_drawdown_pct": "0.25",
+      "max_daily_loss_pct": "0.05",
+      "max_leverage": "1.5",
+      "cooldown_bars_after_stop": 10,
       "allow_reduce_only_when_blocked": true
     }
   },
@@ -755,6 +759,7 @@ Request:
   "assumption_bundle_version": "v1",
   "risk_overrides": {
     "max_order_notional": "5000",
+    "max_drawdown_pct": "0.20",
     "allow_reduce_only_when_blocked": false
   },
   "start_time": "2026-01-01T00:00:00Z",
@@ -775,6 +780,7 @@ Request semantics:
 - `session.risk_policy` captures the session-default backtest guardrail assumptions for the run
 - `risk_overrides` captures explicit run-level risk changes over the session default
 - `assumption_bundle_code` / `assumption_bundle_version` select an optional named research-template bundle for the run
+- the current launch surface also supports richer stateful guardrails such as drawdown, daily-loss, leverage, and cooldown overrides
 - future family-level filtering/reporting should use separate metadata fields
 
 Current implementation status:

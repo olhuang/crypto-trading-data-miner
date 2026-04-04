@@ -116,6 +116,10 @@ def build_default_risk_policy_registry() -> RiskPolicyRegistry:
                 max_order_qty=Decimal("0.25"),
                 max_order_notional=Decimal("25000"),
                 max_gross_exposure_multiple=Decimal("1.0"),
+                max_drawdown_pct=Decimal("0.20"),
+                max_daily_loss_pct=Decimal("0.03"),
+                max_leverage=Decimal("1.0"),
+                cooldown_bars_after_stop=15,
             ),
         )
     )
@@ -131,6 +135,10 @@ def build_default_risk_policy_registry() -> RiskPolicyRegistry:
                 max_order_qty=Decimal("1"),
                 max_order_notional=Decimal("100000"),
                 max_gross_exposure_multiple=Decimal("1.5"),
+                max_drawdown_pct=Decimal("0.25"),
+                max_daily_loss_pct=Decimal("0.05"),
+                max_leverage=Decimal("1.5"),
+                cooldown_bars_after_stop=10,
             ),
         )
     )
@@ -146,6 +154,10 @@ def build_default_risk_policy_registry() -> RiskPolicyRegistry:
                 max_order_qty=Decimal("2"),
                 max_order_notional=Decimal("250000"),
                 max_gross_exposure_multiple=Decimal("3.0"),
+                max_drawdown_pct=Decimal("0.35"),
+                max_daily_loss_pct=Decimal("0.08"),
+                max_leverage=Decimal("3.0"),
+                cooldown_bars_after_stop=5,
             ),
         )
     )

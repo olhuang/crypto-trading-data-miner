@@ -717,6 +717,32 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ---
 
+## Task 5.3E: Implement richer stateful backtest guardrails
+### Tasks
+- [x] extend `RiskPolicyConfig` and `RiskPolicyOverrideConfig` with:
+  - `max_drawdown_pct`
+  - `max_daily_loss_pct`
+  - `max_leverage`
+  - `cooldown_bars_after_stop`
+- [x] add shared risk-session state for:
+  - peak equity
+  - daily-start equity
+  - cooldown tracking
+- [x] enforce drawdown-based no-new-entry guardrails using current run peak equity
+- [x] enforce daily-loss-based no-new-entry guardrails using current trading-day starting equity
+- [x] enforce leverage-based blocking using resulting gross exposure relative to current equity
+- [x] implement first-wave cooldown behavior using a documented shared proxy trigger before full protection lifecycle exists
+- [x] persist richer runtime risk summary and state snapshot in run metadata/detail
+- [x] extend diagnostics flags and internal Backtests launch form to expose the richer guardrail fields
+
+### Acceptance Checks
+- [x] runs can block new exposure when drawdown or daily loss limits are breached without changing strategy code
+- [x] leverage breaches are visible and deterministic in persisted risk outcomes
+- [x] cooldown behavior is inspectable through runtime metadata and diagnostics rather than hidden inside the runner
+- [x] API/UI users can configure and inspect the richer guardrail fields without raw SQL or code edits
+
+---
+
 ## Task 5.4: Implement portfolio/account state in backtest
 ### Tasks
 - [x] maintain cash state
@@ -887,6 +913,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the current internal Backtests launch form now exposes first-wave risk-policy fields for the shared backtest guardrails
 - [x] the current internal Backtests launch form now also exposes and loads named risk policies from the current registry foundation
 - [x] the current internal Backtests launch form now also exposes and loads named assumption bundles from the current registry foundation
+- [x] the current shared backtest guardrail engine now includes a first stateful richer-guardrail wave for drawdown, daily-loss, leverage, and cooldown controls
 - [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
 - [x] the current Phase 5 planning baseline now explicitly preserves room for named risk policies, assumption bundles, and run-level effective snapshot precedence
 - [x] the current Phase 5 run metadata now persists selected assumption-bundle identity, resolved bundle snapshot, explicit assumption overrides, and effective assumption snapshot for later compare/analyze and review work

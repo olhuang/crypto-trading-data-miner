@@ -330,16 +330,25 @@ Used by:
   },
   "session_risk_policy": {
     "policy_code": "perp_medium_v1",
-    "max_position_qty": "1"
+    "max_position_qty": "1",
+    "max_drawdown_pct": "0.25",
+    "max_daily_loss_pct": "0.05",
+    "max_leverage": "1.5",
+    "cooldown_bars_after_stop": 10
   },
   "risk_overrides_json": {
-    "max_order_notional": "5000"
+    "max_order_notional": "5000",
+    "max_drawdown_pct": "0.20"
   },
   "risk_policy": {
     "policy_code": "perp_medium_v1",
     "block_new_entries_below_equity": "0",
     "max_position_qty": "1",
     "max_gross_exposure_multiple": "1.5",
+    "max_drawdown_pct": "0.20",
+    "max_daily_loss_pct": "0.05",
+    "max_leverage": "1.5",
+    "cooldown_bars_after_stop": 10,
     "allow_reduce_only_when_blocked": true
   },
   "assumption_bundle_json": {
@@ -381,6 +390,16 @@ Used by:
       "blocked_intent_count": 2,
       "block_counts_by_code": {
         "max_gross_exposure_breach": 2
+      },
+      "state_snapshot": {
+        "policy_code": "perp_medium_v1",
+        "peak_equity": "105000",
+        "daily_start_equity": "101250",
+        "active_day_utc": "2026-03-15",
+        "cooldown_bars_remaining": 0,
+        "current_drawdown_pct": "0.0310",
+        "current_daily_loss_pct": "0",
+        "activation_counts_by_code": {}
       }
     }
   },

@@ -271,6 +271,49 @@ Add:
 - `cooldown_bars_after_stop`
 - session pause / no-new-entry mode
 
+Recommended first implementation order:
+1. `max_drawdown_pct`
+2. `max_leverage`
+3. `max_daily_loss_pct`
+4. `cooldown_bars_after_stop`
+
+Recommended first implementation semantics:
+- `max_drawdown_pct`
+  - measure current drawdown from the session peak equity observed so far
+  - when current drawdown is at or above the configured threshold, block new exposure
+  - reduce-only exits may still proceed when policy allows
+- `max_daily_loss_pct`
+  - measure loss relative to the session day's starting equity
+  - in the current Phase 5 implementation, the trading day should default to UTC day boundaries
+  - when the threshold is breached, block new exposure for the rest of that trading day
+- `max_leverage`
+  - measure leverage as `resulting_gross_exposure / current_equity`
+  - when current equity is non-positive, any further risk-increasing exposure should be treated as a leverage breach
+  - this is especially important for perpetual runs, but the shared implementation can remain generic
+- `cooldown_bars_after_stop`
+  - in the long-term model, cooldown should attach to explicit stop/protection triggers
+  - in the current Phase 5 implementation, where full protection lifecycle is not complete yet, the shared proxy may be a realized losing close event
+  - once activated, cooldown should block new entries for the configured number of bar evaluations while still allowing reduce-only exits
+
+Diagnostics/reporting expectations for this wave:
+- persist block counts for:
+  - `max_drawdown_pct_breach`
+  - `max_daily_loss_pct_breach`
+  - `max_leverage_breach`
+  - `cooldown_active`
+- persist activation or state summary for:
+  - current peak equity
+  - current daily-start equity
+  - current cooldown state
+- surface these in run detail, diagnostics summary, and compare/analyze outputs
+
+Current implementation status:
+- implemented on the current bars-based backtest path
+- current drawdown and daily-loss checks block new exposure while still allowing reduce-only bypass behavior where configured
+- current leverage check uses resulting gross exposure relative to current equity
+- current cooldown uses realized losing close events as the first shared stop-like proxy until the fuller protection lifecycle exists
+- current runtime metadata now persists state snapshot fields for peak equity, daily-start equity, cooldown state, and activation counts
+
 ### Phase 6B / 7A: Shared Risk Reuse for Paper and Live
 
 Reuse the same shared guardrail semantics for:

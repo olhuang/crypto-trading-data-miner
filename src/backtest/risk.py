@@ -12,7 +12,7 @@ from sqlalchemy.engine import Connection
 
 from .fills import FeeModel, SimulatedOrder, SlippageModel
 from .lifecycle import ExecutionIntent
-from .state import PortfolioMark, PortfolioState
+from .state import FillApplicationOutcome, PortfolioMark, PortfolioState
 
 
 @dataclass(slots=True)
@@ -29,6 +29,16 @@ class RiskGuardrailOutcome:
     details_json: dict[str, object] = field(default_factory=dict)
 
 
+@dataclass(slots=True)
+class RiskGuardrailSessionState:
+    peak_equity: Decimal | None = None
+    last_equity: Decimal | None = None
+    active_day_utc: str | None = None
+    daily_start_equity: Decimal | None = None
+    cooldown_bars_remaining: int = 0
+    activation_counts_by_code: dict[str, int] = field(default_factory=dict)
+
+
 class BacktestRiskGuardrailEngine:
     def __init__(
         self,
@@ -41,6 +51,7 @@ class BacktestRiskGuardrailEngine:
         self.policy = run_config.build_effective_risk_policy()
         self.fee_model = fee_model
         self.slippage_model = slippage_model
+        self.session_state = RiskGuardrailSessionState()
 
     def filter_execution_intents(
         self,
@@ -54,6 +65,7 @@ class BacktestRiskGuardrailEngine:
         marks = dict(latest_mark_prices)
         marks[current_bar.unified_symbol] = current_bar.close
         portfolio_mark = portfolio.mark_to_market(marks)
+        self._refresh_session_state(current_bar=current_bar, current_equity=portfolio_mark.equity)
 
         allowed_intents: list[ExecutionIntent] = []
         outcomes: list[RiskGuardrailOutcome] = []
@@ -70,6 +82,45 @@ class BacktestRiskGuardrailEngine:
             if outcome.decision == RiskDecision.ALLOW:
                 allowed_intents.append(intent)
         return allowed_intents, outcomes
+
+    def observe_fill_application(
+        self,
+        *,
+        fill_outcome: FillApplicationOutcome,
+    ) -> None:
+        cooldown_bars = self.policy.cooldown_bars_after_stop
+        if cooldown_bars is None:
+            return
+        if not fill_outcome.close_event or fill_outcome.realized_delta >= 0:
+            return
+        self.session_state.cooldown_bars_remaining = max(
+            self.session_state.cooldown_bars_remaining,
+            cooldown_bars,
+        )
+        self._record_activation("cooldown_activated_after_loss_close")
+
+    def complete_bar(self) -> None:
+        if self.session_state.cooldown_bars_remaining > 0:
+            self.session_state.cooldown_bars_remaining -= 1
+
+    def build_runtime_state_snapshot(self) -> dict[str, object]:
+        snapshot: dict[str, object] = {
+            "policy_code": self.policy.policy_code,
+            "active_day_utc": self.session_state.active_day_utc,
+            "cooldown_bars_remaining": self.session_state.cooldown_bars_remaining,
+            "activation_counts_by_code": dict(self.session_state.activation_counts_by_code),
+        }
+        if self.session_state.peak_equity is not None:
+            snapshot["peak_equity"] = str(self.session_state.peak_equity)
+        if self.session_state.daily_start_equity is not None:
+            snapshot["daily_start_equity"] = str(self.session_state.daily_start_equity)
+        current_drawdown_pct = self._current_drawdown_pct()
+        if current_drawdown_pct is not None:
+            snapshot["current_drawdown_pct"] = str(current_drawdown_pct)
+        current_daily_loss_pct = self._current_daily_loss_pct()
+        if current_daily_loss_pct is not None:
+            snapshot["current_daily_loss_pct"] = str(current_daily_loss_pct)
+        return snapshot
 
     def evaluate_intent(
         self,
@@ -132,6 +183,17 @@ class BacktestRiskGuardrailEngine:
         estimated_notional: Decimal,
         connection: Connection | None,
     ) -> RiskGuardrailOutcome | None:
+        if self._would_expand_exposure(intent) and self.session_state.cooldown_bars_remaining > 0:
+            return self._block_outcome(
+                intent,
+                code="cooldown_active",
+                message="new exposure is blocked because cooldown is active after a recent loss-close event",
+                estimated_notional=estimated_notional,
+                details_json={
+                    "cooldown_bars_remaining": self.session_state.cooldown_bars_remaining,
+                },
+            )
+
         if self._would_expand_exposure(intent):
             equity_floor = self.policy.block_new_entries_below_equity
             if equity_floor is not None and portfolio_mark.equity <= equity_floor:
@@ -143,6 +205,53 @@ class BacktestRiskGuardrailEngine:
                     details_json={
                         "equity": str(portfolio_mark.equity),
                         "equity_floor": str(equity_floor),
+                    },
+                )
+            max_drawdown_pct = self.policy.max_drawdown_pct
+            current_drawdown_pct = self._current_drawdown_pct()
+            if (
+                max_drawdown_pct is not None
+                and current_drawdown_pct is not None
+                and current_drawdown_pct >= max_drawdown_pct
+            ):
+                return self._block_outcome(
+                    intent,
+                    code="max_drawdown_pct_breach",
+                    message="new exposure is blocked because current drawdown is at or above the configured maximum",
+                    estimated_notional=estimated_notional,
+                    details_json={
+                        "current_drawdown_pct": str(current_drawdown_pct),
+                        "max_drawdown_pct": str(max_drawdown_pct),
+                        "peak_equity": (
+                            str(self.session_state.peak_equity)
+                            if self.session_state.peak_equity is not None
+                            else None
+                        ),
+                        "equity": str(portfolio_mark.equity),
+                    },
+                )
+            max_daily_loss_pct = self.policy.max_daily_loss_pct
+            current_daily_loss_pct = self._current_daily_loss_pct()
+            if (
+                max_daily_loss_pct is not None
+                and current_daily_loss_pct is not None
+                and current_daily_loss_pct >= max_daily_loss_pct
+            ):
+                return self._block_outcome(
+                    intent,
+                    code="max_daily_loss_pct_breach",
+                    message="new exposure is blocked because the configured daily loss limit has been breached",
+                    estimated_notional=estimated_notional,
+                    details_json={
+                        "current_daily_loss_pct": str(current_daily_loss_pct),
+                        "max_daily_loss_pct": str(max_daily_loss_pct),
+                        "daily_start_equity": (
+                            str(self.session_state.daily_start_equity)
+                            if self.session_state.daily_start_equity is not None
+                            else None
+                        ),
+                        "active_day_utc": self.session_state.active_day_utc,
+                        "equity": str(portfolio_mark.equity),
                     },
                 )
 
@@ -225,7 +334,81 @@ class BacktestRiskGuardrailEngine:
                     },
                 )
 
+        max_leverage = self.policy.max_leverage
+        if max_leverage is not None and self._would_expand_exposure(intent):
+            resulting_gross = self._estimate_resulting_gross_exposure(
+                intent,
+                portfolio=portfolio,
+                mark_prices=mark_prices,
+            )
+            equity = portfolio_mark.equity
+            if equity <= 0 and resulting_gross > 0:
+                return self._block_outcome(
+                    intent,
+                    code="max_leverage_breach",
+                    message="resulting leverage exceeds configured max_leverage because current equity is non-positive",
+                    estimated_notional=estimated_notional,
+                    details_json={
+                        "resulting_gross_exposure": str(resulting_gross),
+                        "equity": str(equity),
+                        "max_leverage": str(max_leverage),
+                    },
+                )
+            if equity > 0 and resulting_gross > 0:
+                resulting_leverage = resulting_gross / equity
+                if resulting_leverage > max_leverage:
+                    return self._block_outcome(
+                        intent,
+                        code="max_leverage_breach",
+                        message="resulting leverage exceeds configured max_leverage",
+                        estimated_notional=estimated_notional,
+                        details_json={
+                            "resulting_gross_exposure": str(resulting_gross),
+                            "equity": str(equity),
+                            "resulting_leverage": str(resulting_leverage),
+                            "max_leverage": str(max_leverage),
+                        },
+                    )
+
         return None
+
+    def _refresh_session_state(self, *, current_bar: BarEvent, current_equity: Decimal) -> None:
+        active_day_utc = current_bar.bar_time.date().isoformat()
+        if self.session_state.active_day_utc != active_day_utc:
+            self.session_state.active_day_utc = active_day_utc
+            self.session_state.daily_start_equity = current_equity
+
+        if self.session_state.peak_equity is None:
+            self.session_state.peak_equity = current_equity
+        else:
+            self.session_state.peak_equity = max(self.session_state.peak_equity, current_equity)
+
+        self.session_state.last_equity = current_equity
+
+    def _current_drawdown_pct(self) -> Decimal | None:
+        peak_equity = self.session_state.peak_equity
+        current_equity = self.session_state.last_equity
+        if peak_equity is None or current_equity is None:
+            return None
+        if peak_equity <= 0:
+            return None
+        return (peak_equity - current_equity) / peak_equity
+
+    def _current_daily_loss_pct(self) -> Decimal | None:
+        daily_start_equity = self.session_state.daily_start_equity
+        current_equity = self.session_state.last_equity
+        if daily_start_equity is None or current_equity is None:
+            return None
+        if daily_start_equity <= 0:
+            return None
+        loss = daily_start_equity - current_equity
+        if loss <= 0:
+            return Decimal("0")
+        return loss / daily_start_equity
+
+    def _record_activation(self, code: str) -> None:
+        counts = self.session_state.activation_counts_by_code
+        counts[code] = counts.get(code, 0) + 1
 
     def _estimate_resulting_gross_exposure(
         self,

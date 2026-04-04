@@ -158,7 +158,8 @@ class BacktestRunnerSkeleton:
                         connection=connection,
                     )
                     if order_update.fill is not None:
-                        portfolio.apply_fill(order_update.fill)
+                        fill_outcome = portfolio.apply_fill(order_update.fill)
+                        self.risk_guardrails.observe_fill_application(fill_outcome=fill_outcome)
                         step_fills.append(order_update.fill)
                         all_fills.append(order_update.fill)
                     else:
@@ -218,6 +219,7 @@ class BacktestRunnerSkeleton:
                 running_peak_equity=running_peak_equity,
             )
             performance_points.append(performance_point)
+            self.risk_guardrails.complete_bar()
 
         open_orders: list[SimulatedOrder] = []
         for remaining_orders in pending_orders_by_symbol.values():
@@ -278,7 +280,7 @@ class BacktestRunnerSkeleton:
         run_id = self.run_repository.insert_run(
             connection,
             self.run_config,
-            runtime_metadata=self._build_runtime_metadata(loop_result),
+            runtime_metadata=self._build_runtime_metadata(loop_result, self.risk_guardrails),
         )
         order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
         self.run_repository.insert_fills(
@@ -300,11 +302,17 @@ class BacktestRunnerSkeleton:
         return PersistedBacktestRunResult(run_id=run_id, loop_result=loop_result)
 
     @staticmethod
-    def _build_runtime_metadata(loop_result: BacktestRunLoopResult) -> dict[str, object]:
+    def _build_runtime_metadata(
+        loop_result: BacktestRunLoopResult,
+        risk_guardrails: BacktestRiskGuardrailEngine,
+    ) -> dict[str, object]:
         blocked_outcomes = [outcome for outcome in loop_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK]
         block_counts_by_code: dict[str, int] = {}
+        outcome_counts_by_code: dict[str, int] = {}
         for outcome in blocked_outcomes:
             block_counts_by_code[outcome.code] = block_counts_by_code.get(outcome.code, 0) + 1
+        for outcome in loop_result.risk_outcomes:
+            outcome_counts_by_code[outcome.code] = outcome_counts_by_code.get(outcome.code, 0) + 1
 
         return {
             "risk_summary": {
@@ -314,6 +322,8 @@ class BacktestRunnerSkeleton:
                 ),
                 "blocked_intent_count": len(blocked_outcomes),
                 "block_counts_by_code": block_counts_by_code,
+                "outcome_counts_by_code": outcome_counts_by_code,
+                "state_snapshot": risk_guardrails.build_runtime_state_snapshot(),
             }
         }
 

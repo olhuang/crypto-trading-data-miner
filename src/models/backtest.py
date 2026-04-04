@@ -95,6 +95,10 @@ class RiskPolicyConfig(BaseContractModel):
     max_order_qty: Decimal | None = None
     max_order_notional: Decimal | None = None
     max_gross_exposure_multiple: Decimal | None = None
+    max_drawdown_pct: Decimal | None = None
+    max_daily_loss_pct: Decimal | None = None
+    max_leverage: Decimal | None = None
+    cooldown_bars_after_stop: int | None = None
     allow_reduce_only_when_blocked: bool = True
     metadata_json: dict[str, Any] = Field(
         default_factory=dict,
@@ -111,10 +115,20 @@ class RiskPolicyConfig(BaseContractModel):
             ("max_order_qty", self.max_order_qty),
             ("max_order_notional", self.max_order_notional),
             ("max_gross_exposure_multiple", self.max_gross_exposure_multiple),
+            ("max_leverage", self.max_leverage),
         )
         for field_name, value in threshold_fields:
             if value is not None and value <= 0:
                 raise ValueError(f"{field_name} must be positive when provided")
+        percentage_fields = (
+            ("max_drawdown_pct", self.max_drawdown_pct),
+            ("max_daily_loss_pct", self.max_daily_loss_pct),
+        )
+        for field_name, value in percentage_fields:
+            if value is not None and not (Decimal("0") < value <= Decimal("1")):
+                raise ValueError(f"{field_name} must be within (0, 1] when provided")
+        if self.cooldown_bars_after_stop is not None and self.cooldown_bars_after_stop <= 0:
+            raise ValueError("cooldown_bars_after_stop must be positive when provided")
         return self
 
     def as_patch_dict(self, *, explicit_only: bool = False) -> dict[str, Any]:
@@ -137,6 +151,10 @@ class RiskPolicyOverrideConfig(BaseContractModel):
     max_order_qty: Decimal | None = None
     max_order_notional: Decimal | None = None
     max_gross_exposure_multiple: Decimal | None = None
+    max_drawdown_pct: Decimal | None = None
+    max_daily_loss_pct: Decimal | None = None
+    max_leverage: Decimal | None = None
+    cooldown_bars_after_stop: int | None = None
     allow_reduce_only_when_blocked: bool | None = None
     metadata_json: dict[str, Any] = Field(
         default_factory=dict,
@@ -153,10 +171,20 @@ class RiskPolicyOverrideConfig(BaseContractModel):
             ("max_order_qty", self.max_order_qty),
             ("max_order_notional", self.max_order_notional),
             ("max_gross_exposure_multiple", self.max_gross_exposure_multiple),
+            ("max_leverage", self.max_leverage),
         )
         for field_name, value in threshold_fields:
             if value is not None and value <= 0:
                 raise ValueError(f"{field_name} must be positive when provided")
+        percentage_fields = (
+            ("max_drawdown_pct", self.max_drawdown_pct),
+            ("max_daily_loss_pct", self.max_daily_loss_pct),
+        )
+        for field_name, value in percentage_fields:
+            if value is not None and not (Decimal("0") < value <= Decimal("1")):
+                raise ValueError(f"{field_name} must be within (0, 1] when provided")
+        if self.cooldown_bars_after_stop is not None and self.cooldown_bars_after_stop <= 0:
+            raise ValueError("cooldown_bars_after_stop must be positive when provided")
         return self
 
     def as_patch_dict(self) -> dict[str, Any]:
