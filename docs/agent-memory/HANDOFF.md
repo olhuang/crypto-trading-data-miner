@@ -39,6 +39,7 @@
 - that script writes rolling progress to `tmp/binance_btc_history_backfill_status.json` and prints per-chunk status to the console while it runs
 - the script now also supports `--resume-from-status`, and it treats `open_interest` as a separately available dataset so early windows are skipped instead of failing the full run
 - the script now also supports `--incremental`, using DB coverage instead of task-count resume so future monthly catch-up runs can fetch only the missing tail
+- local DB coverage for Binance BTC is currently contaminated by a few future-dated test fixtures, so the script now uses `safe_available_to` and `future_row_count` to avoid treating those anomalies as real checkpoints
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed

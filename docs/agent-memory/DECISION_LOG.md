@@ -243,3 +243,18 @@ Add an explicit incremental catch-up mode to the BTC history backfill tool, and 
 - `--incremental` now derives a separate start checkpoint for each dataset from DB coverage
 - future monthly catch-up runs can use `--incremental` instead of relying on an old bootstrap status file
 - `--resume-from-status` remains useful for continuing the current interrupted bootstrap
+
+## 2026-04-05
+
+### Decision
+Protect incremental Binance catch-up from future-dated local test contamination by deriving checkpoints from a safe upper-bounded coverage window instead of the raw maximum timestamp.
+
+### Reason
+- the local database currently contains a few future-dated BTC test fixtures from quality/remediation tests
+- raw `max(timestamp)` values therefore point to `2030/2031`, which would incorrectly suppress real 2026 catch-up tasks
+- the backfill tool needs to remain useful even before those future test rows are cleaned out of the local database
+
+### Impact
+- coverage summaries now expose both raw `available_to` and bounded `safe_available_to`
+- incremental catch-up now uses `safe_available_to` as the checkpoint source
+- future-row anomalies are now visible instead of silently poisoning incremental planning

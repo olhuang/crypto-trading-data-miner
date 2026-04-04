@@ -260,7 +260,15 @@ def write_status(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def coverage_row(connection, *, exchange_code: str, unified_symbol: str, table_name: str, time_column: str) -> dict[str, Any]:
+def coverage_row(
+    connection,
+    *,
+    exchange_code: str,
+    unified_symbol: str,
+    table_name: str,
+    time_column: str,
+    safe_upper_bound: datetime | None = None,
+) -> dict[str, Any]:
     instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
     row = connection.execute(
         text(
@@ -275,7 +283,35 @@ def coverage_row(connection, *, exchange_code: str, unified_symbol: str, table_n
         ),
         {"instrument_id": instrument_id},
     ).mappings().one()
-    return {
+    safe_latest_to = None
+    future_row_count = 0
+    if safe_upper_bound is not None:
+        safe_latest_to = connection.execute(
+            text(
+                f"""
+                select max({time_column}) as safe_latest_to
+                from {table_name}
+                where instrument_id = :instrument_id
+                  and {time_column} <= :safe_upper_bound
+                """
+            ),
+            {"instrument_id": instrument_id, "safe_upper_bound": safe_upper_bound},
+        ).scalar_one_or_none()
+        future_row_count = int(
+            connection.execute(
+                text(
+                    f"""
+                    select count(*) as future_row_count
+                    from {table_name}
+                    where instrument_id = :instrument_id
+                      and {time_column} > :safe_upper_bound
+                    """
+                ),
+                {"instrument_id": instrument_id, "safe_upper_bound": safe_upper_bound},
+            ).scalar_one()
+        )
+
+    payload = {
         "table_name": table_name,
         "time_column": time_column,
         "instrument_id": instrument_id,
@@ -283,6 +319,11 @@ def coverage_row(connection, *, exchange_code: str, unified_symbol: str, table_n
         "available_from": isoformat_or_none(row["available_from"]),
         "available_to": isoformat_or_none(row["available_to"]),
     }
+    if safe_upper_bound is not None:
+        payload["safe_upper_bound"] = safe_upper_bound.isoformat()
+        payload["safe_available_to"] = isoformat_or_none(safe_latest_to)
+        payload["future_row_count"] = future_row_count
+    return payload
 
 
 def parse_iso_datetime_or_none(value: str | None) -> datetime | None:
@@ -295,7 +336,7 @@ def parse_iso_datetime_or_none(value: str | None) -> datetime | None:
 
 
 def next_start_from_coverage(spec: DatasetSpec, *, default_start: datetime, coverage: dict[str, Any]) -> datetime:
-    available_to = parse_iso_datetime_or_none(coverage.get("available_to"))
+    available_to = parse_iso_datetime_or_none(coverage.get("safe_available_to") or coverage.get("available_to"))
     if available_to is None:
         next_start = default_start
     else:
@@ -319,6 +360,7 @@ def build_incremental_tasks(start_time: datetime, end_time: datetime) -> tuple[l
                 unified_symbol=spec.unified_symbol,
                 table_name=spec.table_name,
                 time_column=spec.time_column,
+                safe_upper_bound=end_time,
             )
             dataset_start = next_start_from_coverage(spec, default_start=start_time, coverage=coverage)
             if dataset_start > end_time:
@@ -342,7 +384,7 @@ def build_incremental_tasks(start_time: datetime, end_time: datetime) -> tuple[l
     return dataset_specs, tasks
 
 
-def collect_coverage_summary() -> dict[str, Any]:
+def collect_coverage_summary(*, safe_upper_bound: datetime | None = None) -> dict[str, Any]:
     with connection_scope() as connection:
         return {
             "BTCUSDT_SPOT": {
@@ -352,6 +394,7 @@ def collect_coverage_summary() -> dict[str, Any]:
                     unified_symbol="BTCUSDT_SPOT",
                     table_name="md.bars_1m",
                     time_column="bar_time",
+                    safe_upper_bound=safe_upper_bound,
                 ),
             },
             "BTCUSDT_PERP": {
@@ -361,6 +404,7 @@ def collect_coverage_summary() -> dict[str, Any]:
                     unified_symbol="BTCUSDT_PERP",
                     table_name="md.bars_1m",
                     time_column="bar_time",
+                    safe_upper_bound=safe_upper_bound,
                 ),
                 "funding_rates": coverage_row(
                     connection,
@@ -368,6 +412,7 @@ def collect_coverage_summary() -> dict[str, Any]:
                     unified_symbol="BTCUSDT_PERP",
                     table_name="md.funding_rates",
                     time_column="funding_time",
+                    safe_upper_bound=safe_upper_bound,
                 ),
                 "open_interest": coverage_row(
                     connection,
@@ -375,6 +420,7 @@ def collect_coverage_summary() -> dict[str, Any]:
                     unified_symbol="BTCUSDT_PERP",
                     table_name="md.open_interest",
                     time_column="ts",
+                    safe_upper_bound=safe_upper_bound,
                 ),
                 "mark_prices": coverage_row(
                     connection,
@@ -382,6 +428,7 @@ def collect_coverage_summary() -> dict[str, Any]:
                     unified_symbol="BTCUSDT_PERP",
                     table_name="md.mark_prices",
                     time_column="ts",
+                    safe_upper_bound=safe_upper_bound,
                 ),
                 "index_prices": coverage_row(
                     connection,
@@ -389,6 +436,7 @@ def collect_coverage_summary() -> dict[str, Any]:
                     unified_symbol="BTCUSDT_PERP",
                     table_name="md.index_prices",
                     time_column="ts",
+                    safe_upper_bound=safe_upper_bound,
                 ),
             },
         }
@@ -430,6 +478,20 @@ def progress_pct(completed: int, total: int) -> float:
     if total <= 0:
         return 100.0
     return round(completed * 100.0 / total, 2)
+
+
+def iter_future_row_anomalies(coverage_summary: dict[str, Any]) -> list[str]:
+    anomalies: list[str] = []
+    for symbol, datasets in coverage_summary.items():
+        for dataset_name, payload in datasets.items():
+            future_row_count = int(payload.get("future_row_count", 0) or 0)
+            if future_row_count <= 0:
+                continue
+            anomalies.append(
+                f"{symbol}.{dataset_name}: future_row_count={future_row_count}, "
+                f"raw_available_to={payload.get('available_to')}, safe_available_to={payload.get('safe_available_to')}"
+            )
+    return anomalies
 
 
 def format_chunk_window(task: ChunkTask) -> str:
@@ -776,7 +838,7 @@ def main() -> int:
             update_dataset_status(status_payload, task, result)
             write_status(status_path, status_payload)
 
-        status_payload["coverage_summary"] = collect_coverage_summary()
+        status_payload["coverage_summary"] = collect_coverage_summary(safe_upper_bound=end_time)
         status_payload["state"] = "finished"
         status_payload["current_task"] = None
         status_payload["updated_at"] = utc_now().isoformat()
@@ -785,6 +847,12 @@ def main() -> int:
         print("")
         print("Final coverage summary:")
         print(json.dumps(status_payload["coverage_summary"], indent=2, ensure_ascii=False))
+        anomalies = list(iter_future_row_anomalies(status_payload["coverage_summary"]))
+        if anomalies:
+            print("")
+            print("Future-row anomalies detected:")
+            for line in anomalies:
+                print(f"- {line}")
         print("")
         print(f"Finished. Status file written to {status_path}")
         return 0
