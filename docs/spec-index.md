@@ -82,11 +82,12 @@ Read in this order:
 10. `docs/position-management-spec.md`
 11. `docs/strategy-input-and-feature-pipeline-spec.md`
 12. `docs/strategy-taxonomy-and-versioning-spec.md`
-13. `docs/strategy-research-and-evaluation-spec.md`
-14. `docs/backtest-and-replay-diagnostics-spec.md`
-15. `docs/strategy-workbench-spec.md`
-16. `docs/pnl-and-accounting-spec.md`
-17. `docs/testing-strategy-spec.md`
+13. `docs/strategy-risk-assumption-management-spec.md`
+14. `docs/strategy-research-and-evaluation-spec.md`
+15. `docs/backtest-and-replay-diagnostics-spec.md`
+16. `docs/strategy-workbench-spec.md`
+17. `docs/pnl-and-accounting-spec.md`
+18. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -178,6 +179,7 @@ Read in this order:
 ## 4.5 Internal Payload and Domain Contracts
 - `docs/api-contracts.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
@@ -186,6 +188,7 @@ Read in this order:
 ### Source of Truth
 - canonical internal payload contracts: `docs/api-contracts.md`
 - strategy family/variant/version identity and naming: `docs/strategy-taxonomy-and-versioning-spec.md`
+- strategy/risk/assumption separation and effective snapshot precedence: `docs/strategy-risk-assumption-management-spec.md`
 - strategy-input and future feature/alignment architecture: `docs/strategy-input-and-feature-pipeline-spec.md`
 - strategy development, research, testing, and comparison workflow: `docs/strategy-research-and-evaluation-spec.md`
 - backtest/replay report and trace diagnostics planning: `docs/backtest-and-replay-diagnostics-spec.md`
@@ -211,6 +214,7 @@ Read in this order:
 - `docs/execution-and-risk-engine-spec.md`
 - `docs/backtest-risk-guardrails-spec.md`
 - `docs/position-management-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/security-and-secrets-spec.md`
 
@@ -218,6 +222,7 @@ Read in this order:
 - execution and risk semantics: `docs/execution-and-risk-engine-spec.md`
 - backtest-session pre-trade guardrails and phased risk rollout: `docs/backtest-risk-guardrails-spec.md`
 - position-management, strategy/account book separation, protection, and phased rollout: `docs/position-management-spec.md`
+- strategy/risk/assumption management and effective snapshot governance: `docs/strategy-risk-assumption-management-spec.md`
 - accounting/PnL semantics: `docs/pnl-and-accounting-spec.md`
 - live control security model: `docs/security-and-secrets-spec.md`
 
@@ -313,6 +318,7 @@ Primary docs:
 - `docs/position-management-spec.md`
 - `docs/backtest-risk-guardrails-spec.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
@@ -326,6 +332,7 @@ Primary docs:
 - `docs/execution-and-risk-engine-spec.md`
 - `docs/backtest-risk-guardrails-spec.md`
 - `docs/position-management-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/observability-spec.md`
 
@@ -335,6 +342,7 @@ Primary docs:
 - `docs/execution-and-risk-engine-spec.md`
 - `docs/backtest-risk-guardrails-spec.md`
 - `docs/position-management-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/security-and-secrets-spec.md`
 - `docs/observability-spec.md`
 - `docs/pnl-and-accounting-spec.md`

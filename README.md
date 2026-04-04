@@ -69,6 +69,7 @@ Major design areas already covered include:
 - shared backtest risk-guardrail planning
 - extensible position-management and protection architecture
 - strategy taxonomy and family/variant/version planning
+- strategy/risk/assumption management planning
 - backtest/replay reporting and diagnostics planning
 - staged backtest/replay diagnostics rollout and future period-level (`year` / `quarter` / `month`) analysis planning
 - strategy-lab/workbench planning for parameter sets, assumption bundles, artifacts, compare/analyze, replay scenarios, and review workflow
@@ -216,6 +217,7 @@ Use it to understand:
 - `docs/backtest-risk-guardrails-spec.md`
 - `docs/position-management-spec.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`

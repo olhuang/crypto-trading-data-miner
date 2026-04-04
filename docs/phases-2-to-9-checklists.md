@@ -23,6 +23,7 @@ This file is intended to be used together with:
 - `docs/strategy-taxonomy-and-versioning-spec.md` for stable family/variant/version strategy identity
 - `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
 - `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
+- `docs/strategy-risk-assumption-management-spec.md` for strategy/risk/assumption separation, effective run snapshots, and future registry governance
 - `docs/backtest-and-replay-diagnostics-spec.md` for report outputs, debug traces, replay diagnostics, and research-facing UI expectations
 - `docs/backtest-risk-guardrails-spec.md` for shared backtest guardrails, staged risk-policy rollout, and paper/live reuse expectations
 - `docs/strategy-workbench-spec.md` for the broader strategy-lab, replay-workbench, artifact, compare/analyze, and review facilities
@@ -539,6 +540,12 @@ Phase 5 should also follow `docs/strategy-taxonomy-and-versioning-spec.md` as th
 - stable meaning of current `strategy_code` and `strategy_version`
 - future comparison and promotion grouping semantics
 
+Phase 5 should also follow `docs/strategy-risk-assumption-management-spec.md` as the planning backbone for:
+- strategy / risk / assumption separation of concerns
+- effective snapshot precedence for sessions and runs
+- named risk-policy and assumption-bundle registry direction
+- future compare/analyze and paper/live reuse
+
 Phase 5 should also follow `docs/backtest-and-replay-diagnostics-spec.md` as the planning backbone for:
 - backtest report outputs vs debug trace outputs
 - run diagnostics visibility
@@ -585,6 +592,10 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] define strategy loading or registration pattern
 - [ ] define how new strategy implementations move from local development to research evaluation
 
+### Acceptance Checks
+- [x] strategy interface is clear and reusable
+- [x] at least one example strategy can be instantiated from code
+
 ---
 
 ## Task 5.1B: Plan strategy-lab and research-workbench facilities
@@ -598,9 +609,19 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] repository has an explicit strategy-lab/workbench plan beyond raw strategy registry rows
 - [ ] future strategy development can progress without relying on ad hoc notebook-only workflow
 
+---
+
+## Task 5.1C: Plan strategy, risk, and assumption governance
+### Tasks
+- [x] define how strategy identity, risk policy, assumption bundle, and parameter set differ
+- [x] define how session defaults, assumption bundles, and run-level overrides merge into one effective snapshot
+- [x] define how future registries should support named risk policies and named assumption bundles
+- [x] define how compare/analyze should surface strategy, risk, and assumption differences separately
+- [x] define how paper/live should reuse the same governance model instead of inventing a separate vocabulary
+
 ### Acceptance Checks
-- [x] strategy interface is clear and reusable
-- [x] at least one example strategy can be instantiated from code
+- [x] repository has an explicit source of truth for strategy/risk/assumption management
+- [x] the Phase 5 run/session model has a documented direction for future registry and override expansion without redesign
 
 ---
 
@@ -798,6 +819,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated strategy-input/feature-pipeline planning spec now exists for future non-bar strategy inputs
 - [x] a dedicated strategy-research/evaluation planning spec now exists for future multi-window and multi-strategy research workflows
 - [x] a dedicated strategy taxonomy/versioning planning spec now exists for family, variant, and version identity
+- [x] a dedicated strategy/risk/assumption management planning spec now exists for effective snapshot governance and future registries
 - [x] a dedicated backtest/replay diagnostics planning spec now exists for report outputs, debug traces, and replay inspection
 - [x] a dedicated backtest risk-guardrails planning spec now exists for shared pre-trade guardrails and later paper/live reuse
 - [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
@@ -814,6 +836,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown plus signals/orders/fills/timeseries detail
 - [x] the current internal Backtests launch form now exposes first-wave risk-policy fields for the shared backtest guardrails
 - [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
+- [x] the current Phase 5 planning baseline now explicitly preserves room for named risk policies, assumption bundles, and run-level effective snapshot precedence
 - [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or saved compare-set workflow
 
 ---
@@ -837,6 +860,7 @@ Provide the first end-to-end research workflow using historical bar data.
 ## Architecture Alignment Note
 Phase 6 should reuse the same lifecycle, ownership model, and protection concepts already planned in `docs/position-management-spec.md`.
 Phase 6 should also reuse the shared risk-policy and guardrail semantics planned in `docs/backtest-risk-guardrails-spec.md` rather than inventing a paper-only pre-trade gate.
+Phase 6 should also reuse the strategy/risk/assumption governance model planned in `docs/strategy-risk-assumption-management-spec.md` rather than inventing a separate paper-session configuration vocabulary.
 Phase 6 should also preserve the family/variant/version identity model planned in `docs/strategy-taxonomy-and-versioning-spec.md` so paper sessions, fills, and reports do not invent a separate strategy naming scheme.
 
 ## Goal

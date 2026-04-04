@@ -22,6 +22,7 @@ facilities that make those engines practical for daily use.
 This spec complements:
 - `docs/implementation-plan.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`

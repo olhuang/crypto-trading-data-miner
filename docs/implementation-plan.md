@@ -49,6 +49,7 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/strategy-taxonomy-and-versioning-spec.md` now freezes the intended family/variant/version identity model for strategy registration, research comparison, and future promotion
 - `docs/strategy-input-and-feature-pipeline-spec.md` now freezes the intended long-lived plan for multi-dataset strategy inputs, feature alignment, and no-look-ahead handling
 - `docs/strategy-research-and-evaluation-spec.md` now freezes the intended long-lived plan for strategy development, research, testing, and comparative evaluation
+- `docs/strategy-risk-assumption-management-spec.md` now freezes the intended management model for strategy identity, risk policy identity, assumption bundles, and effective run snapshots
 - `docs/backtest-and-replay-diagnostics-spec.md` now freezes the intended plan for run reporting, debug traces, replay diagnostics, and UI inspection needs
 - `docs/backtest-risk-guardrails-spec.md` now freezes the intended shared pre-trade guardrail model for Phase 5 backtests and later paper/live reuse
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
@@ -382,6 +383,12 @@ Also treat `docs/backtest-risk-guardrails-spec.md` as the planning backbone for:
 - phased reuse of guardrail semantics in paper/live
 - blocked-intent diagnostics and research inspection
 
+Also treat `docs/strategy-risk-assumption-management-spec.md` as the planning backbone for:
+- strategy/risk/assumption separation of concerns
+- risk-policy and assumption-bundle governance
+- effective snapshot precedence for sessions and runs
+- future registry, compare/analyze, and paper/live reuse
+
 Also treat `docs/strategy-workbench-spec.md` as the planning backbone for:
 - strategy lab facilities
 - assumption bundles and parameter-set workflow
@@ -398,6 +405,7 @@ Provide the first end-to-end research workflow using historical data.
 - bars-based backtest engine
 - fee and slippage model support
 - shared backtest risk guardrails
+- strategy/risk/assumption snapshot governance
 - performance output
 - diagnostics/reporting visibility
 - research workbench facilities around development, comparison, replay, and review
@@ -408,6 +416,7 @@ Provide the first end-to-end research workflow using historical data.
 - simple strategy runner
 - bars-based fill model
 - shared backtest risk-guardrail engine
+- run/session metadata model that can later host named risk policies and assumption bundles without redesign
 - backtest results writer
 - run diagnostics and trace-friendly inspection path
 - staged diagnostics/reporting rollout from summary baseline to replay inspection
@@ -421,6 +430,7 @@ Provide the first end-to-end research workflow using historical data.
 - implement fee model using `ref.fee_schedules`
 - implement slippage model abstraction
 - implement shared backtest risk guardrails using session risk policy
+- preserve room for future named risk policies, assumption bundles, and run-level overrides in the Phase 5 run/session model
 - write run metadata and results into `backtest.*`
 - stage diagnostics implementation as:
   - summary baseline
@@ -441,6 +451,7 @@ Provide the first end-to-end research workflow using historical data.
 - backtest results persist to `backtest.runs`, `backtest.simulated_orders`, `backtest.simulated_fills`, `backtest.performance_summary`, and `backtest.performance_timeseries`
 - run metadata captures versions and assumptions for reproducibility
 - run metadata and diagnostics expose risk-policy assumptions and blocked-intent summary for later research comparison
+- Phase 5 metadata and compare/analyze outputs remain compatible with future named risk-policy and assumption-bundle registries
 - the first Phase 5 slice stays compatible with the phased position/protection/reporting architecture in `docs/position-management-spec.md`
 - the phased diagnostics/reporting plan is explicit enough that later replay/UI work does not require redesign
 - the research tool plan is explicit enough that later compare/analyze and replay-scenario work does not require redesign
@@ -462,6 +473,7 @@ Provide the first end-to-end research workflow using historical data.
 ### Architecture Prerequisite
 Phase 6 should reuse and extend the same lifecycle described in `docs/position-management-spec.md` rather than introducing a paper-only position or protection model.
 Phase 6 should also reuse the shared guardrail semantics staged in `docs/backtest-risk-guardrails-spec.md` rather than inventing a paper-only pre-trade risk gate.
+Phase 6 should also reuse the strategy/risk/assumption governance model staged in `docs/strategy-risk-assumption-management-spec.md` rather than inventing a separate paper-session configuration vocabulary.
 Phase 6 should also preserve the stable family/variant/version identity described in `docs/strategy-taxonomy-and-versioning-spec.md` so paper sessions and reports remain attributable by variant/version.
 
 ### Goal

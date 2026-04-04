@@ -24,6 +24,7 @@ This spec complements:
 - `docs/strategy-workbench-spec.md`
 - `docs/position-management-spec.md`
 - `docs/strategy-taxonomy-and-versioning-spec.md`
+- `docs/strategy-risk-assumption-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/testing-strategy-spec.md`
 - `docs/ui-spec.md`
