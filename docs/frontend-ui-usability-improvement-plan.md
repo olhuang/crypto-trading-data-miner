@@ -14,9 +14,13 @@ It is intentionally focused on usability and information architecture, not backe
 This plan complements:
 - `docs/ui-spec.md`
 - `docs/ui-phase-checklists.md`
+- `docs/frontend-keep-evolve-replace-strategy.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/object-level-notes-and-annotations-spec.md`
 - `docs/debug-trace-rollout-plan.md`
+
+This document is specifically the `evolve` lane of the frontend strategy.
+It should not be read as a plan to turn the current `/monitoring` console into the final long-term frontend architecture.
 
 ---
 

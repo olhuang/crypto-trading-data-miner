@@ -17,6 +17,7 @@ This file is intended to be used together with:
 - `docs/implementation-plan.md`
 - `docs/ui-spec.md`
 - `docs/ui-api-spec.md`
+- `docs/frontend-keep-evolve-replace-strategy.md`
 - `docs/phase-1-checklist.md`
 - `docs/phases-2-to-9-checklists.md`
 
@@ -568,6 +569,7 @@ Required sections:
 - [ ] replay result UI/API plan is explicit enough for the next research slice
 - [ ] compare-review and replay-investigation notes have a planned home in the Phase 5 research UI
 - [x] a dedicated front-end usability improvement plan now exists for cleaning up the current `/monitoring` Backtests experience before larger workbench expansion
+- [x] a dedicated keep/evolve/replace frontend strategy now exists so the current `/monitoring` console is improved without being mistaken for the final product frontend
 
 ## Current Implementation Snapshot
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view
@@ -584,6 +586,7 @@ Required sections:
 - [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
 - [x] the current internal Backtests view now also exposes compare-review notes for persisted compare sets, including system-seeded facts and human/agent review entry
 - [ ] the current internal Backtests launch form still needs the first usability cleanup slice from `docs/frontend-ui-usability-improvement-plan.md`
+- [ ] broader product-grade frontend work should follow `docs/frontend-keep-evolve-replace-strategy.md` instead of forcing all future UI into the current `/monitoring` console
 - [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
 - [ ] charts and replay scenario pages remain future UI work
 

@@ -9,6 +9,7 @@
 - advance step-level debug traces from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 - plan the next `/monitoring` usability cleanup so the current research UI becomes easier to operate before larger workbench expansion
+- keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 
 ## Blocked
 - none currently recorded
@@ -16,6 +17,7 @@
 ## Next
 - integrate memory workflow with future strategy workbench annotation / review surfaces
 - start `UI Phase A` from `docs/frontend-ui-usability-improvement-plan.md` and clean up the Backtests launch form first
+- keep future product-grade frontend work aligned to `docs/frontend-keep-evolve-replace-strategy.md` instead of expanding `/monitoring` without boundaries
 - connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
@@ -23,6 +25,7 @@
 ## Recently Done
 - added targeted debug-trace filters for blocked-only, risk-code, signal-only, order-only, and fill-only investigation in the API and internal `/monitoring` viewer
 - added a dedicated front-end usability improvement plan for cleaning up the current `/monitoring` Backtests experience in phased slices
+- added a dedicated keep/evolve/replace frontend strategy so `/monitoring` can be improved without being treated as the final frontend architecture
 - connected diagnostics outputs back to concrete trace rows and evidence windows through typed trace anchors plus anchor-driven trace focus in `/monitoring`
 - completed the richer Level 2 trace viewer drill-down in `/monitoring` with structured summary, linkage, state-delta, decision, risk, and raw-trace sections
 - enriched persisted debug traces with linked simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas for Level 2 backend linkage

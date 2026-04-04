@@ -184,3 +184,18 @@ Plan the next front-end work as a phased usability cleanup of the current `/moni
 - `docs/frontend-ui-usability-improvement-plan.md` now tracks the front-end cleanup path
 - the next recommended UI slice is `UI Phase A: Launch Form Cleanup`
 - broader workspace restructuring should wait until that smaller slice has landed cleanly
+
+## 2026-04-04
+
+### Decision
+Adopt a three-part frontend strategy: keep the current `/monitoring` console as the internal ops/research surface, evolve its near-term usability, and replace the long-term product frontend through the planned route-based foundation instead of stretching the static console into that role.
+
+### Reason
+- the current console already delivers real internal value and should not be discarded prematurely
+- the current static implementation is still too lightweight to serve as the final strategy workbench, replay investigation workspace, and trading console architecture
+- separating keep, evolve, and replace reduces the risk of both premature rewrite churn and accidental long-term architectural drift
+
+### Impact
+- `docs/frontend-keep-evolve-replace-strategy.md` is now the source of truth for the frontend transition path
+- `/monitoring` usability work should continue through the evolve path, starting with `UI Phase A: Launch Form Cleanup`
+- future product-grade frontend work should land on the planned route-based foundation instead of accumulating inside `frontend/monitoring/app.js`

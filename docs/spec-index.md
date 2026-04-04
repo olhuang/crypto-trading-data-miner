@@ -89,9 +89,10 @@ Read in this order:
 17. `docs/ai-memory-and-handoff-spec.md`
 18. `docs/object-level-notes-and-annotations-spec.md`
 19. `docs/debug-trace-rollout-plan.md`
-20. `docs/frontend-ui-usability-improvement-plan.md`
-21. `docs/pnl-and-accounting-spec.md`
-22. `docs/testing-strategy-spec.md`
+20. `docs/frontend-keep-evolve-replace-strategy.md`
+21. `docs/frontend-ui-usability-improvement-plan.md`
+22. `docs/pnl-and-accounting-spec.md`
+23. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -114,7 +115,8 @@ Read in this order:
 4. `docs/ui-information-architecture.md`
 5. `docs/frontend-architecture-spec.md`
 6. `docs/frontend-foundation-spec.md`
-7. `docs/frontend-ui-usability-improvement-plan.md`
+7. `docs/frontend-keep-evolve-replace-strategy.md`
+8. `docs/frontend-ui-usability-improvement-plan.md`
 
 ## 3.5 For Operators / Trading Runtime Contributors
 
@@ -192,6 +194,7 @@ Read in this order:
 - `docs/ai-memory-and-handoff-spec.md`
 - `docs/object-level-notes-and-annotations-spec.md`
 - `docs/debug-trace-rollout-plan.md`
+- `docs/frontend-keep-evolve-replace-strategy.md`
 - `docs/frontend-ui-usability-improvement-plan.md`
 - `docs/agent-memory/SESSION_START_PROMPT.md`
 - `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
@@ -208,6 +211,7 @@ Read in this order:
 - AI working-memory, summary, and cross-session handoff workflow: `docs/ai-memory-and-handoff-spec.md`
 - object-linked compare/review notes, replay investigation notes, and future workbench annotations: `docs/object-level-notes-and-annotations-spec.md`
 - step-level debug trace phased rollout tracking: `docs/debug-trace-rollout-plan.md`
+- keep/evolve/replace role split between the current `/monitoring` console and the future primary frontend: `docs/frontend-keep-evolve-replace-strategy.md`
 - front-end usability cleanup and phased `/monitoring` workbench restructuring: `docs/frontend-ui-usability-improvement-plan.md`
 - reusable session start/stop and CLI/VS Code memory-workflow templates: `docs/agent-memory/*`
 
@@ -264,6 +268,7 @@ Read in this order:
 - `docs/ui-information-architecture.md`
 - `docs/frontend-architecture-spec.md`
 - `docs/frontend-foundation-spec.md`
+- `docs/frontend-keep-evolve-replace-strategy.md`
 - `docs/frontend-ui-usability-improvement-plan.md`
 
 ### Source of Truth
@@ -273,6 +278,7 @@ Read in this order:
 - page/route/IA structure: `docs/ui-information-architecture.md`
 - long-term frontend architecture: `docs/frontend-architecture-spec.md`
 - first frontend slice: `docs/frontend-foundation-spec.md`
+- keep/evolve/replace transition strategy for current `/monitoring` versus future frontend foundation: `docs/frontend-keep-evolve-replace-strategy.md`
 - current `/monitoring` usability cleanup and phased research-workbench restructuring: `docs/frontend-ui-usability-improvement-plan.md`
 
 ---

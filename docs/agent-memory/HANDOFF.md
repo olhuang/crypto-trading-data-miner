@@ -5,6 +5,7 @@
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
 - continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
 - start cleaning up the current `/monitoring` Backtests UX so the Phase 5 research flow becomes easier to operate
+- keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -25,6 +26,7 @@
 - the debug-trace API and internal viewer now support targeted investigation filters for blocked-only traces, specific risk codes, signal presence, order presence, and fill presence
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 - `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
+- `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -49,6 +51,7 @@
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/debug-trace-rollout-plan.md`
 - `docs/frontend-ui-usability-improvement-plan.md`
+- `docs/frontend-keep-evolve-replace-strategy.md`
 - `db/init/009_backtest_debug_traces.sql`
 - `db/init/010_backtest_debug_trace_level2.sql`
 - `src/backtest/traces.py`
@@ -65,4 +68,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing the UI line, start from `docs/frontend-ui-usability-improvement-plan.md` and implement only `UI Phase A: Launch Form Cleanup` before attempting larger Backtests workspace restructuring
+- when continuing the UI line, first align with `docs/frontend-keep-evolve-replace-strategy.md`, then start from `docs/frontend-ui-usability-improvement-plan.md` and implement only `UI Phase A: Launch Form Cleanup` before attempting larger Backtests workspace restructuring

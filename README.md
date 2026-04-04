@@ -43,6 +43,7 @@ This repository is no longer just an early scaffold. It now contains a fairly co
 - UI information architecture
 - frontend architecture spec
 - first frontend foundation slice spec
+- keep/evolve/replace frontend transition strategy
 - current `/monitoring` usability improvement plan
 
 ---
@@ -119,6 +120,7 @@ Major implementation areas now present include:
 - Phase 5 run-level diagnostics summary projection plus `/api/v1/backtests/runs/{run_id}/diagnostics` under `src/backtest/diagnostics.py` and `src/api/app.py`
 - Phase 5 derived `year` / `quarter` / `month` period breakdown plus baseline artifact catalog endpoints under `src/backtest/periods.py`, `src/backtest/artifacts.py`, and `src/api/app.py`
 - a dedicated UI cleanup plan for the current Backtests experience now lives in `docs/frontend-ui-usability-improvement-plan.md`
+- a dedicated keep/evolve/replace strategy now separates the current internal `/monitoring` console from the future primary frontend foundation in `docs/frontend-keep-evolve-replace-strategy.md`
 - Phase 5 compare/analyze foundation now includes persisted compare-set identity plus `POST /api/v1/backtests/compare-sets` under `src/backtest/compare.py`, `src/backtest/compare_review.py`, and `src/api/app.py`
 - Phase 5 compare-review note foundation now includes seeded system review drafts and `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes` under `src/backtest/compare_review.py`, `src/storage/repositories/research.py`, and `src/api/app.py`
 - the current internal Backtests research slice now surfaces compare-set tables plus compare-review notes, including seeded system facts and editable human/agent review notes
@@ -319,6 +321,7 @@ Main frontend docs:
 - `docs/ui-information-architecture.md`
 - `docs/frontend-architecture-spec.md`
 - `docs/frontend-foundation-spec.md`
+- `docs/frontend-keep-evolve-replace-strategy.md`
 
 The recommended first frontend slice is:
 - route registry
@@ -327,6 +330,11 @@ The recommended first frontend slice is:
 - query layer conventions
 - shared page primitives
 - `system`, `bootstrap`, and `reference-data` feature modules
+
+The current transition rule is:
+- keep `/monitoring` as the internal console
+- evolve its usability for near-term research work
+- replace the long-term product frontend through the planned route-based foundation
 
 ---
 
