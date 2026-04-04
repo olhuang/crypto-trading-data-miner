@@ -228,3 +228,18 @@ Treat Binance `openInterestHist` as a separately available dataset inside the BT
 - the script now fetches funding, open interest, and mark/index history as separate subcomponents for each monthly futures window
 - early windows before the current open-interest availability floor are skipped instead of failing the entire task
 - reruns can continue with `--resume-from-status`
+
+## 2026-04-05
+
+### Decision
+Add an explicit incremental catch-up mode to the BTC history backfill tool, and treat it as the normal future-monthly update path while keeping `--resume-from-status` as a fallback for interrupted bootstrap runs.
+
+### Reason
+- task-count resume is good for recovering a failed long bootstrap, but it is not the right source of truth for future monthly catch-up
+- the database already contains durable per-dataset coverage, so incremental fetches should derive their start point from stored data rather than from an old status-file task count
+- spot bars, perp bars, funding, open interest, mark prices, and index prices can all move at different cadences and should not share one synthetic resume cursor
+
+### Impact
+- `--incremental` now derives a separate start checkpoint for each dataset from DB coverage
+- future monthly catch-up runs can use `--incremental` instead of relying on an old bootstrap status file
+- `--resume-from-status` remains useful for continuing the current interrupted bootstrap

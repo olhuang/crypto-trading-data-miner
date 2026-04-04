@@ -174,11 +174,14 @@ Recent local collection validation:
 - for a full local BTC bootstrap from `2020-01-01` to YTD, use `scripts/binance_btc_history_backfill.py`
 - that script writes rolling progress to `tmp/binance_btc_history_backfill_status.json`
 - it also supports `--resume-from-status` so a failed long run can continue from the last completed chunk task
+- it also supports `--incremental`, which uses DB coverage as the source of truth and only catches each dataset up from its own latest stored timestamp
 - `open_interest` history is treated separately from funding/mark/index and only fetched from the endpoint's currently available lookback window onward
 - example:
   - `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py`
 - resume example:
   - `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py --resume-from-status`
+- incremental catch-up example:
+  - `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py --incremental`
 - progress check:
   - `Get-Content .\tmp\binance_btc_history_backfill_status.json`
 

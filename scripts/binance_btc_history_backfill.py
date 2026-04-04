@@ -36,6 +36,8 @@ class DatasetSpec:
     unified_symbol: str
     task_kind: str
     chunk_months: int = 1
+    table_name: str | None = None
+    time_column: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,6 +82,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Resume from the existing status file by skipping already completed chunk tasks.",
     )
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Use DB coverage as the source of truth and only catch up each dataset from its latest stored timestamp onward.",
+    )
     return parser.parse_args()
 
 
@@ -121,6 +128,8 @@ def build_dataset_specs() -> list[DatasetSpec]:
             symbol="BTCUSDT",
             unified_symbol="BTCUSDT_SPOT",
             task_kind="bars",
+            table_name="md.bars_1m",
+            time_column="bar_time",
         ),
         DatasetSpec(
             dataset_key="btc_perp_bars_1m",
@@ -128,6 +137,8 @@ def build_dataset_specs() -> list[DatasetSpec]:
             symbol="BTCUSDT",
             unified_symbol="BTCUSDT_PERP",
             task_kind="bars",
+            table_name="md.bars_1m",
+            time_column="bar_time",
         ),
         DatasetSpec(
             dataset_key="btc_perp_snapshot_history",
@@ -135,6 +146,65 @@ def build_dataset_specs() -> list[DatasetSpec]:
             symbol="BTCUSDT",
             unified_symbol="BTCUSDT_PERP",
             task_kind="perp_snapshots",
+        ),
+    ]
+
+
+def build_incremental_dataset_specs() -> list[DatasetSpec]:
+    return [
+        DatasetSpec(
+            dataset_key="btc_spot_bars_1m",
+            label="BTCUSDT_SPOT bars_1m",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_SPOT",
+            task_kind="bars",
+            table_name="md.bars_1m",
+            time_column="bar_time",
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_bars_1m",
+            label="BTCUSDT_PERP bars_1m",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="bars",
+            table_name="md.bars_1m",
+            time_column="bar_time",
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_funding_rates",
+            label="BTCUSDT_PERP funding_rates",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="funding_rates",
+            table_name="md.funding_rates",
+            time_column="funding_time",
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_open_interest",
+            label="BTCUSDT_PERP open_interest",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="open_interest",
+            table_name="md.open_interest",
+            time_column="ts",
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_mark_prices",
+            label="BTCUSDT_PERP mark_prices",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="mark_prices",
+            table_name="md.mark_prices",
+            time_column="ts",
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_index_prices",
+            label="BTCUSDT_PERP index_prices",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="index_prices",
+            table_name="md.index_prices",
+            time_column="ts",
         ),
     ]
 
@@ -164,23 +234,24 @@ def isoformat_or_none(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def make_dataset_status(tasks: list[ChunkTask]) -> dict[str, dict[str, Any]]:
+def make_dataset_status(dataset_specs: list[DatasetSpec], tasks: list[ChunkTask]) -> dict[str, dict[str, Any]]:
     grouped: dict[str, dict[str, Any]] = {}
+    chunk_totals: dict[str, int] = {}
     for task in tasks:
-        grouped.setdefault(
-            task.dataset_key,
-            {
-                "dataset_key": task.dataset_key,
-                "label": task.label,
-                "unified_symbol": task.unified_symbol,
-                "chunk_total": task.chunk_total,
-                "chunks_completed": 0,
-                "rows_written": 0,
-                "first_nonzero_window_start": None,
-                "last_nonzero_window_end": None,
-                "last_result": None,
-            },
-        )
+        chunk_totals[task.dataset_key] = chunk_totals.get(task.dataset_key, 0) + 1
+
+    for spec in dataset_specs:
+        grouped[spec.dataset_key] = {
+            "dataset_key": spec.dataset_key,
+            "label": spec.label,
+            "unified_symbol": spec.unified_symbol,
+            "chunk_total": chunk_totals.get(spec.dataset_key, 0),
+            "chunks_completed": 0,
+            "rows_written": 0,
+            "first_nonzero_window_start": None,
+            "last_nonzero_window_end": None,
+            "last_result": None,
+        }
     return grouped
 
 
@@ -212,6 +283,63 @@ def coverage_row(connection, *, exchange_code: str, unified_symbol: str, table_n
         "available_from": isoformat_or_none(row["available_from"]),
         "available_to": isoformat_or_none(row["available_to"]),
     }
+
+
+def parse_iso_datetime_or_none(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def next_start_from_coverage(spec: DatasetSpec, *, default_start: datetime, coverage: dict[str, Any]) -> datetime:
+    available_to = parse_iso_datetime_or_none(coverage.get("available_to"))
+    if available_to is None:
+        next_start = default_start
+    else:
+        next_start = available_to + timedelta(milliseconds=1)
+
+    if spec.task_kind == "open_interest":
+        next_start = max(next_start, open_interest_available_from())
+    return next_start
+
+
+def build_incremental_tasks(start_time: datetime, end_time: datetime) -> tuple[list[DatasetSpec], list[ChunkTask]]:
+    dataset_specs = build_incremental_dataset_specs()
+    tasks: list[ChunkTask] = []
+    with connection_scope() as connection:
+        for spec in dataset_specs:
+            assert spec.table_name is not None
+            assert spec.time_column is not None
+            coverage = coverage_row(
+                connection,
+                exchange_code="binance",
+                unified_symbol=spec.unified_symbol,
+                table_name=spec.table_name,
+                time_column=spec.time_column,
+            )
+            dataset_start = next_start_from_coverage(spec, default_start=start_time, coverage=coverage)
+            if dataset_start > end_time:
+                continue
+
+            windows = build_month_windows(dataset_start, end_time, chunk_months=spec.chunk_months)
+            for index, (window_start, window_end) in enumerate(windows, start=1):
+                tasks.append(
+                    ChunkTask(
+                        dataset_key=spec.dataset_key,
+                        label=spec.label,
+                        symbol=spec.symbol,
+                        unified_symbol=spec.unified_symbol,
+                        task_kind=spec.task_kind,
+                        chunk_index=index,
+                        chunk_total=len(windows),
+                        start_time=window_start,
+                        end_time=window_end,
+                    )
+                )
+    return dataset_specs, tasks
 
 
 def collect_coverage_summary() -> dict[str, Any]:
@@ -266,9 +394,18 @@ def collect_coverage_summary() -> dict[str, Any]:
         }
 
 
-def initial_status_payload(*, start_time: datetime, end_time: datetime, status_path: Path, tasks: list[ChunkTask]) -> dict[str, Any]:
+def initial_status_payload(
+    *,
+    start_time: datetime,
+    end_time: datetime,
+    status_path: Path,
+    dataset_specs: list[DatasetSpec],
+    tasks: list[ChunkTask],
+    mode: str,
+) -> dict[str, Any]:
     return {
         "state": "running",
+        "mode": mode,
         "started_at": utc_now().isoformat(),
         "updated_at": utc_now().isoformat(),
         "requested_window": {
@@ -281,7 +418,7 @@ def initial_status_payload(*, start_time: datetime, end_time: datetime, status_p
             "tasks_completed": 0,
             "progress_pct": 0.0,
         },
-        "datasets": make_dataset_status(tasks),
+        "datasets": make_dataset_status(dataset_specs, tasks),
         "current_task": None,
         "last_result": None,
         "coverage_summary": None,
@@ -448,6 +585,102 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "window_end": task.end_time.isoformat(),
         }
 
+    if task.task_kind == "funding_rates":
+        result = run_market_snapshot_refresh(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            exchange_code="binance",
+            funding_start_time=task.start_time,
+            funding_end_time=task.end_time,
+            include_funding=True,
+            include_open_interest=False,
+            include_mark_price=False,
+            include_index_price=False,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result.status,
+            "rows_written": result.records_written,
+            "history_rows_written": result.history_rows_written,
+            "ingestion_job_id": result.ingestion_job_id,
+            "window_start": task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+        }
+
+    if task.task_kind == "open_interest":
+        result = run_market_snapshot_refresh(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            exchange_code="binance",
+            history_start_time=task.start_time,
+            history_end_time=task.end_time,
+            include_funding=False,
+            include_open_interest=True,
+            include_mark_price=False,
+            include_index_price=False,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result.status,
+            "rows_written": result.records_written,
+            "history_rows_written": result.history_rows_written,
+            "ingestion_job_id": result.ingestion_job_id,
+            "window_start": task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+        }
+
+    if task.task_kind == "mark_prices":
+        result = run_market_snapshot_refresh(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            exchange_code="binance",
+            history_start_time=task.start_time,
+            history_end_time=task.end_time,
+            include_funding=False,
+            include_open_interest=False,
+            include_mark_price=True,
+            include_index_price=False,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result.status,
+            "rows_written": result.records_written,
+            "history_rows_written": result.history_rows_written,
+            "ingestion_job_id": result.ingestion_job_id,
+            "window_start": task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+        }
+
+    if task.task_kind == "index_prices":
+        result = run_market_snapshot_refresh(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            exchange_code="binance",
+            history_start_time=task.start_time,
+            history_end_time=task.end_time,
+            include_funding=False,
+            include_open_interest=False,
+            include_mark_price=False,
+            include_index_price=True,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result.status,
+            "rows_written": result.records_written,
+            "history_rows_written": result.history_rows_written,
+            "ingestion_job_id": result.ingestion_job_id,
+            "window_start": task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+        }
+
     return run_perp_snapshot_window(task, requested_by=requested_by)
 
 
@@ -472,10 +705,13 @@ def main() -> int:
     end_time = parse_utc_date(args.end_date) if args.end_date else utc_now()
     if end_time < start_time:
         raise ValueError("end_date must be greater than or equal to start_date")
+    if args.incremental and args.resume_from_status:
+        raise ValueError("--incremental and --resume-from-status cannot be used together")
 
     status_path = Path(args.status_file)
-    tasks = build_chunk_tasks(start_time, end_time)
     if args.resume_from_status:
+        dataset_specs = build_dataset_specs()
+        tasks = build_chunk_tasks(start_time, end_time)
         if not status_path.exists():
             raise FileNotFoundError(f"status file not found for resume: {status_path}")
         status_payload = json.loads(status_path.read_text(encoding="utf-8"))
@@ -484,12 +720,28 @@ def main() -> int:
         status_payload["error"] = None
         status_payload["resumed_at"] = utc_now().isoformat()
         status_payload["updated_at"] = utc_now().isoformat()
+        mode = str(status_payload.get("mode") or "bootstrap")
     else:
-        status_payload = initial_status_payload(start_time=start_time, end_time=end_time, status_path=status_path, tasks=tasks)
+        if args.incremental:
+            dataset_specs, tasks = build_incremental_tasks(start_time, end_time)
+            mode = "incremental"
+        else:
+            dataset_specs = build_dataset_specs()
+            tasks = build_chunk_tasks(start_time, end_time)
+            mode = "bootstrap"
+        status_payload = initial_status_payload(
+            start_time=start_time,
+            end_time=end_time,
+            status_path=status_path,
+            dataset_specs=dataset_specs,
+            tasks=tasks,
+            mode=mode,
+        )
         completed_tasks = 0
     write_status(status_path, status_payload)
 
     print(f"Status file: {status_path}")
+    print(f"Mode: {status_payload.get('mode', mode)}")
     print(f"Requested window: {start_time.isoformat()} -> {end_time.isoformat()}")
     print(f"Total chunk tasks: {len(tasks)}")
     if completed_tasks:
