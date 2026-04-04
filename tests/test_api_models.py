@@ -794,13 +794,21 @@ class ModelsApiTests(unittest.TestCase):
                         "bar_time": datetime.fromisoformat("2026-03-05T00:05:00+00:00"),
                         "close_price": Decimal("102.5"),
                         "current_position_qty": Decimal("0"),
+                        "position_qty_delta": Decimal("0"),
                         "signal_count": 1,
                         "intent_count": 1,
                         "blocked_intent_count": 0,
+                        "blocked_codes_json": [],
                         "created_order_count": 1,
+                        "sim_order_ids_json": [11],
                         "fill_count": 0,
+                        "sim_fill_ids_json": [],
                         "cash": Decimal("100000"),
+                        "cash_delta": Decimal("0"),
                         "equity": Decimal("100000"),
+                        "equity_delta": Decimal("0"),
+                        "gross_exposure": Decimal("0"),
+                        "net_exposure": Decimal("0"),
                         "drawdown": Decimal("0"),
                         "decision_json": {
                             "decision_type": "target_position",
@@ -846,6 +854,10 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(debug_traces_response.data.traces[0].debug_trace_id, 31)
         self.assertEqual(debug_traces_response.data.traces[0].decision_json["decision_type"], "target_position")
         self.assertEqual(debug_traces_response.data.traces[0].risk_outcomes_json[0]["code"], "allowed")
+        self.assertEqual(debug_traces_response.data.traces[0].sim_order_ids, [11])
+        self.assertEqual(debug_traces_response.data.traces[0].sim_fill_ids, [])
+        self.assertEqual(debug_traces_response.data.traces[0].position_qty_delta, "0")
+        self.assertEqual(debug_traces_response.data.traces[0].gross_exposure, "0")
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

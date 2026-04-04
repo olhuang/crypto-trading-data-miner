@@ -175,8 +175,8 @@ class BacktestRunRepository:
         run_id: int,
         fills: Sequence[SimulatedFill],
         order_id_map: dict[str, int],
-    ) -> list[int]:
-        persisted_ids: list[int] = []
+    ) -> dict[str, int]:
+        persisted_ids: dict[str, int] = {}
         instrument_cache: dict[tuple[str, str], int] = {}
         for fill in fills:
             cache_key = (fill.exchange_code, fill.unified_symbol)
@@ -223,7 +223,7 @@ class BacktestRunRepository:
                     },
                 ).scalar_one()
             )
-            persisted_ids.append(sim_fill_id)
+            persisted_ids[fill.fill_id] = sim_fill_id
         return persisted_ids
 
     def upsert_summary(self, connection: Connection, *, run_id: int, summary: PerformanceSummary) -> None:
@@ -330,8 +330,12 @@ class BacktestRunRepository:
         *,
         run_id: int,
         debug_traces: Sequence[BacktestDebugTraceRecord],
+        order_id_map: dict[str, int] | None = None,
+        fill_id_map: dict[str, int] | None = None,
     ) -> list[int]:
         persisted_ids: list[int] = []
+        order_id_map = order_id_map or {}
+        fill_id_map = fill_id_map or {}
         instrument_cache: dict[tuple[str, str], int] = {}
         for trace in debug_traces:
             cache_key = (trace.exchange_code, trace.unified_symbol)
@@ -351,13 +355,21 @@ class BacktestRunRepository:
                             bar_time,
                             close_price,
                             current_position_qty,
+                            position_qty_delta,
                             signal_count,
                             intent_count,
                             blocked_intent_count,
+                            blocked_codes_json,
                             created_order_count,
+                            sim_order_ids_json,
                             fill_count,
+                            sim_fill_ids_json,
                             cash,
+                            cash_delta,
                             equity,
+                            equity_delta,
+                            gross_exposure,
+                            net_exposure,
                             drawdown,
                             decision_json,
                             risk_outcomes_json
@@ -368,13 +380,21 @@ class BacktestRunRepository:
                             :bar_time,
                             :close_price,
                             :current_position_qty,
+                            :position_qty_delta,
                             :signal_count,
                             :intent_count,
                             :blocked_intent_count,
+                            cast(:blocked_codes_json as jsonb),
                             :created_order_count,
+                            cast(:sim_order_ids_json as jsonb),
                             :fill_count,
+                            cast(:sim_fill_ids_json as jsonb),
                             :cash,
+                            :cash_delta,
                             :equity,
+                            :equity_delta,
+                            :gross_exposure,
+                            :net_exposure,
                             :drawdown,
                             cast(:decision_json as jsonb),
                             cast(:risk_outcomes_json as jsonb)
@@ -389,13 +409,25 @@ class BacktestRunRepository:
                         "bar_time": trace.bar_time,
                         "close_price": trace.close_price,
                         "current_position_qty": trace.current_position_qty,
+                        "position_qty_delta": trace.position_qty_delta,
                         "signal_count": trace.signal_count,
                         "intent_count": trace.intent_count,
                         "blocked_intent_count": trace.blocked_intent_count,
+                        "blocked_codes_json": json.dumps(trace.blocked_codes, default=str),
                         "created_order_count": trace.created_order_count,
+                        "sim_order_ids_json": json.dumps(
+                            [order_id_map[order_id] for order_id in trace.created_order_ids if order_id in order_id_map]
+                        ),
                         "fill_count": trace.fill_count,
+                        "sim_fill_ids_json": json.dumps(
+                            [fill_id_map[fill_id] for fill_id in trace.fill_ids if fill_id in fill_id_map]
+                        ),
                         "cash": trace.cash,
+                        "cash_delta": trace.cash_delta,
                         "equity": trace.equity,
+                        "equity_delta": trace.equity_delta,
+                        "gross_exposure": trace.gross_exposure,
+                        "net_exposure": trace.net_exposure,
                         "drawdown": trace.drawdown,
                         "decision_json": json.dumps(trace.decision_json, default=str),
                         "risk_outcomes_json": json.dumps(trace.risk_outcomes_json, default=str),
@@ -761,13 +793,21 @@ class BacktestRunRepository:
                 trace.bar_time,
                 trace.close_price,
                 trace.current_position_qty,
+                trace.position_qty_delta,
                 trace.signal_count,
                 trace.intent_count,
                 trace.blocked_intent_count,
+                trace.blocked_codes_json,
                 trace.created_order_count,
+                trace.sim_order_ids_json,
                 trace.fill_count,
+                trace.sim_fill_ids_json,
                 trace.cash,
+                trace.cash_delta,
                 trace.equity,
+                trace.equity_delta,
+                trace.gross_exposure,
+                trace.net_exposure,
                 trace.drawdown,
                 trace.decision_json,
                 trace.risk_outcomes_json

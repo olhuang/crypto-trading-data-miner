@@ -1393,10 +1393,20 @@ class Phase5FoundationTests(unittest.TestCase):
                         signal_count,
                         intent_count,
                         blocked_intent_count,
+                        blocked_codes_json,
                         created_order_count,
+                        sim_order_ids_json,
                         fill_count,
+                        sim_fill_ids_json,
                         close_price,
                         current_position_qty,
+                        position_qty_delta,
+                        cash,
+                        cash_delta,
+                        equity,
+                        equity_delta,
+                        gross_exposure,
+                        net_exposure,
                         decision_json,
                         risk_outcomes_json
                     from backtest.debug_traces
@@ -1418,12 +1428,27 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertEqual(debug_trace_rows[0]["fill_count"], 0)
             self.assertEqual(Decimal(debug_trace_rows[0]["close_price"]), Decimal("100"))
             self.assertEqual(Decimal(debug_trace_rows[0]["current_position_qty"]), Decimal("0"))
+            self.assertEqual(Decimal(debug_trace_rows[0]["position_qty_delta"]), Decimal("0"))
+            self.assertEqual(Decimal(debug_trace_rows[0]["cash_delta"]), Decimal("0"))
+            self.assertEqual(Decimal(debug_trace_rows[0]["equity_delta"]), Decimal("0"))
+            self.assertEqual(Decimal(debug_trace_rows[0]["gross_exposure"]), Decimal("0"))
+            self.assertEqual(Decimal(debug_trace_rows[0]["net_exposure"]), Decimal("0"))
+            self.assertEqual(debug_trace_rows[0]["blocked_codes_json"], [])
+            self.assertEqual(len(debug_trace_rows[0]["sim_order_ids_json"]), 1)
+            self.assertEqual(debug_trace_rows[0]["sim_fill_ids_json"], [])
             self.assertEqual(debug_trace_rows[0]["decision_json"]["decision_type"], "target_position")
             self.assertEqual(
                 debug_trace_rows[0]["decision_json"]["execution_intents"][0]["delta_qty"],
                 "1",
             )
             self.assertEqual(debug_trace_rows[0]["risk_outcomes_json"][0]["code"], "allowed")
+            self.assertEqual(Decimal(debug_trace_rows[1]["current_position_qty"]), Decimal("1"))
+            self.assertEqual(Decimal(debug_trace_rows[1]["position_qty_delta"]), Decimal("1"))
+            self.assertEqual(len(debug_trace_rows[1]["sim_fill_ids_json"]), 1)
+            self.assertLess(Decimal(debug_trace_rows[1]["cash_delta"]), Decimal("0"))
+            self.assertLess(Decimal(debug_trace_rows[1]["equity_delta"]), Decimal("0"))
+            self.assertEqual(Decimal(debug_trace_rows[1]["gross_exposure"]), Decimal("105"))
+            self.assertEqual(Decimal(debug_trace_rows[1]["net_exposure"]), Decimal("105"))
             assert artifact_bundle is not None
             debug_trace_artifact = next(
                 artifact for artifact in artifact_bundle.artifacts if artifact.artifact_type == "debug_traces"

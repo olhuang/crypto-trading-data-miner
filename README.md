@@ -120,6 +120,7 @@ Major implementation areas now present include:
 - Phase 5 compare-review note foundation now includes seeded system review drafts and `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes` under `src/backtest/compare_review.py`, `src/storage/repositories/research.py`, and `src/api/app.py`
 - the current internal Backtests research slice now surfaces compare-set tables plus compare-review notes, including seeded system facts and editable human/agent review notes
 - the current internal Backtests research slice now also surfaces persisted step-level debug traces for a selected run through a compact table and JSON detail view
+- persisted debug traces now also carry first Level 2 linkage/delta fields such as linked simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas
 - Phase 5 backtest run launch/list/detail API surfaces under `src/api/app.py` and `src/storage/repositories/backtest.py`
 - Phase 5 run detail endpoints for simulated orders, fills, signals, and recent timeseries under `src/api/app.py` and `src/storage/repositories/backtest.py`
 - bounded recent-bar history plus no-step-cache persisted-run defaults in the current Phase 5 runner to keep longer windows more practical

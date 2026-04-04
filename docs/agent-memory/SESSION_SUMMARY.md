@@ -15,6 +15,7 @@
 - created `docs/debug-trace-rollout-plan.md` so the next debug-trace slice has a dedicated tracking and resume document
 - implemented Level 1 backend debug traces with persisted compact rows, artifact inventory, and `GET /api/v1/backtests/runs/{run_id}/debug-traces`
 - exposed Level 1 debug traces in the internal `/monitoring` Backtests run detail with a compact table, selected-trace JSON detail, and minimal trace filters
+- enriched persisted debug traces with Level 2 linkage/delta fields, including simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -36,6 +37,7 @@
 - `src/backtest/runner.py`
 - `src/backtest/artifacts.py`
 - `src/storage/repositories/backtest.py`
+- `db/init/010_backtest_debug_trace_level2.sql`
 - `db/init/008_compare_sets_and_annotations.sql`
 - `src/backtest/compare_review.py`
 - `src/storage/repositories/research.py`
@@ -61,7 +63,7 @@
 
 ## Risks
 - replay investigation notes and unified annotation service remain future slices
-- richer trace linkage, diagnostics anchors, and replay-linked investigation flow are still future slices
+- richer trace UI drill-down, diagnostics anchors, and replay-linked investigation flow are still future slices
 
 ## Next
-- move from the completed Level 1 debug-trace UI slice into Level 2 richer trace linkage, then use the same trace substrate for replay investigation notes
+- move from the completed Level 2 trace-linkage backend slice into richer trace UI drill-down, then use the same trace substrate for replay investigation notes

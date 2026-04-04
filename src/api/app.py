@@ -592,13 +592,21 @@ class BacktestDebugTraceRecordResource(BaseModel):
     unified_symbol: str
     close_price: str | None = None
     current_position_qty: str | None = None
+    position_qty_delta: str | None = None
     signal_count: int
     intent_count: int
     blocked_intent_count: int
+    blocked_codes: list[str]
     created_order_count: int
+    sim_order_ids: list[int]
     fill_count: int
+    sim_fill_ids: list[int]
     cash: str | None = None
+    cash_delta: str | None = None
     equity: str | None = None
+    equity_delta: str | None = None
+    gross_exposure: str | None = None
+    net_exposure: str | None = None
     drawdown: str | None = None
     decision_json: dict[str, Any]
     risk_outcomes_json: list[dict[str, Any]]
@@ -979,13 +987,21 @@ def _build_backtest_debug_trace_resource(record: dict[str, Any]) -> BacktestDebu
         unified_symbol=str(record["unified_symbol"]),
         close_price=_stringify_decimal(record.get("close_price")),
         current_position_qty=_stringify_decimal(record.get("current_position_qty")),
+        position_qty_delta=_stringify_decimal(record.get("position_qty_delta")),
         signal_count=int(record["signal_count"]),
         intent_count=int(record["intent_count"]),
         blocked_intent_count=int(record["blocked_intent_count"]),
+        blocked_codes=[str(value) for value in (record.get("blocked_codes_json") or [])],
         created_order_count=int(record["created_order_count"]),
+        sim_order_ids=[int(value) for value in (record.get("sim_order_ids_json") or [])],
         fill_count=int(record["fill_count"]),
+        sim_fill_ids=[int(value) for value in (record.get("sim_fill_ids_json") or [])],
         cash=_stringify_decimal(record.get("cash")),
+        cash_delta=_stringify_decimal(record.get("cash_delta")),
         equity=_stringify_decimal(record.get("equity")),
+        equity_delta=_stringify_decimal(record.get("equity_delta")),
+        gross_exposure=_stringify_decimal(record.get("gross_exposure")),
+        net_exposure=_stringify_decimal(record.get("net_exposure")),
         drawdown=_stringify_decimal(record.get("drawdown")),
         decision_json=dict(record.get("decision_json") or {}),
         risk_outcomes_json=list(record.get("risk_outcomes_json") or []),

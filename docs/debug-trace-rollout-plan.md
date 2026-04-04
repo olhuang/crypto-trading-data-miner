@@ -52,13 +52,14 @@ Without this layer:
 - [x] compare-review note UI in `/monitoring`
 - [x] Level 1 backend foundation for persisted compact debug traces
 - [x] Level 1 internal debug-trace table/detail in `/monitoring`
+- [x] Level 2 richer trace linkage for order/fill refs plus basic position/cash/equity/exposure deltas
 
 ### Not Yet Implemented
 - [ ] trace-to-diagnostics anchors
 - [ ] replay investigation trace linkage
 
 ### Current Recommended Resume Point
-- Continue with `Level 2` richer trace linkage on top of the completed Level 1 backend/UI foundation.
+- Continue with `Level 2` richer UI drill-down on top of the completed Level 2 backend linkage foundation.
 
 ---
 
@@ -130,7 +131,7 @@ Expand debug traces from compact per-step facts into richer diagnostic evidence 
 - more detailed state snapshots where justified
 
 ### Tasks
-- [ ] enrich trace schema with linked entity refs and state deltas
+- [x] enrich trace schema with linked entity refs and state deltas
 - [ ] support filtering by risk code and signal/fill presence
 - [ ] add diagnostics-to-trace anchors
 - [ ] surface richer drill-down in UI
@@ -173,7 +174,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 
 1. [x] `Level 1 backend foundation`
 2. [x] `Level 1 internal UI table/detail`
-3. `Level 2 richer trace linkage`
+3. [x] `Level 2 richer trace linkage`
 4. `Level 2 richer UI drill-down`
 5. `Level 3 replay/investigation trace integration`
 
@@ -186,19 +187,18 @@ Do not skip directly to Level 3.
 If resuming from here, implement only this slice:
 
 ### Slice
-`Level 2 richer trace linkage`
+`Level 2 richer UI drill-down`
 
 ### Exact Work
-- enrich Level 1 trace rows with linked order/fill refs and clearer state-delta fields where justified
-- keep the Level 1 UI stable while the richer backend shape is introduced
-- prepare the trace substrate for later diagnostics anchors and replay-note linkage
+- surface the new order/fill linkage and delta fields more clearly in the internal trace viewer
+- add focused drill-down affordances without turning the Level 2 UI into a replay timeline
+- keep the trace UI aligned with later diagnostics anchors and replay-note linkage
 
 ### Leave For Immediately After
-- Level 2 richer UI drill-down
+- diagnostics-to-trace anchors
 
 ### Explicitly Defer
 - replay note integration
-- diagnostics anchor linking
 - rich state-delta model
 
 ---
@@ -235,7 +235,7 @@ If resuming from here, implement only this slice:
 
 When returning to this work:
 - read this document first
-- confirm the next slice is the Level 1 UI surface, not another backend redesign
+- confirm the next slice is Level 2 UI drill-down, not another backend redesign
 - inspect `runner.py` and current run-detail APIs before editing schema
 - keep Level 1 compact; do not over-design replay fields yet
 - update `docs/agent-memory/HANDOFF.md` when stopping
@@ -244,10 +244,10 @@ When returning to this work:
 
 ## Summary
 
-The repository now has `Level 1` backend and internal UI debug traces in place.
+The repository now has `Level 1` backend/UI debug traces and the first Level 2 backend linkage foundation in place.
 
 The correct next move is:
-- enrich trace linkage and state evidence in Level 2
+- surface richer trace linkage/delta evidence more clearly in the internal UI
 - then connect trace rows to richer diagnostics and replay-note work later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.

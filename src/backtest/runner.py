@@ -21,7 +21,7 @@ from .lifecycle import BacktestLifecycle, BacktestStepPlan
 from .performance import PerformancePoint, PerformanceSummary, build_performance_point, summarize_performance
 from .risk import BacktestRiskGuardrailEngine, RiskGuardrailOutcome
 from .signals import build_signals_from_target_position
-from .state import PortfolioState, PositionState
+from .state import PortfolioMark, PortfolioState, PositionState
 from .traces import BacktestDebugTraceRecord
 
 
@@ -144,6 +144,11 @@ class BacktestRunnerSkeleton:
         latest_close_by_symbol: dict[str, Decimal] = {}
         running_peak_equity = portfolio.cash
         trace_running_peak_equity = portfolio.cash
+        previous_trace_cash = portfolio.cash
+        previous_trace_equity = portfolio.cash
+        previous_position_qty_by_symbol: dict[str, Decimal] = {
+            symbol: qty for symbol, qty in portfolio.positions.items()
+        }
 
         history_cap = self.strategy.required_bar_history
         sorted_bars = sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
@@ -217,6 +222,11 @@ class BacktestRunnerSkeleton:
                     trace_drawdown = Decimal("0")
                     if trace_running_peak_equity > 0:
                         trace_drawdown = (trace_running_peak_equity - trace_mark.equity) / trace_running_peak_equity
+                    current_position_qty = portfolio.position_qty(bar.unified_symbol)
+                    previous_position_qty = previous_position_qty_by_symbol.get(
+                        bar.unified_symbol,
+                        Decimal("0"),
+                    )
                     debug_traces.append(
                         self._build_debug_trace_record(
                             step_index=len(debug_traces) + 1,
@@ -224,11 +234,20 @@ class BacktestRunnerSkeleton:
                             step_result=step_result,
                             created_orders=created_orders,
                             step_fills=step_fills,
-                            portfolio=portfolio,
-                            equity=trace_mark.equity,
+                            trace_mark=trace_mark,
+                            current_position_qty=current_position_qty,
+                            previous_position_qty=previous_position_qty,
+                            previous_cash=previous_trace_cash,
+                            previous_equity=previous_trace_equity,
                             drawdown=trace_drawdown,
                         )
                     )
+                    previous_trace_cash = trace_mark.cash
+                    previous_trace_equity = trace_mark.equity
+                    if current_position_qty == 0:
+                        previous_position_qty_by_symbol.pop(bar.unified_symbol, None)
+                    else:
+                        previous_position_qty_by_symbol[bar.unified_symbol] = current_position_qty
                 if capture_steps:
                     step_result.created_orders.extend(created_orders)
                     step_result.fills.extend(step_fills)
@@ -314,7 +333,7 @@ class BacktestRunnerSkeleton:
             ),
         )
         order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
-        self.run_repository.insert_fills(
+        fill_id_map = self.run_repository.insert_fills(
             connection,
             run_id=run_id,
             fills=loop_result.fills,
@@ -335,6 +354,8 @@ class BacktestRunnerSkeleton:
                 connection,
                 run_id=run_id,
                 debug_traces=loop_result.debug_traces,
+                order_id_map=order_id_map,
+                fill_id_map=fill_id_map,
             )
         return PersistedBacktestRunResult(run_id=run_id, loop_result=loop_result)
 
@@ -393,27 +414,41 @@ class BacktestRunnerSkeleton:
         step_result: BacktestStepResult,
         created_orders: Sequence[SimulatedOrder],
         step_fills: Sequence[SimulatedFill],
-        portfolio: PortfolioState,
-        equity: Decimal,
+        trace_mark: PortfolioMark,
+        current_position_qty: Decimal,
+        previous_position_qty: Decimal,
+        previous_cash: Decimal,
+        previous_equity: Decimal,
         drawdown: Decimal,
     ) -> BacktestDebugTraceRecord:
         blocked_count = sum(
             1 for outcome in step_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK
         )
+        blocked_codes = [
+            outcome.code for outcome in step_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK
+        ]
         return BacktestDebugTraceRecord(
             step_index=step_index,
             bar_time=bar.bar_time,
             exchange_code=bar.exchange_code,
             unified_symbol=bar.unified_symbol,
             close_price=bar.close,
-            current_position_qty=portfolio.position_qty(bar.unified_symbol),
+            current_position_qty=current_position_qty,
+            position_qty_delta=current_position_qty - previous_position_qty,
             signal_count=len(step_result.signals),
             intent_count=len(step_result.plan.execution_intents),
             blocked_intent_count=blocked_count,
+            blocked_codes=blocked_codes,
             created_order_count=len(created_orders),
+            created_order_ids=[order.order_id for order in created_orders],
             fill_count=len(step_fills),
-            cash=portfolio.cash,
-            equity=equity,
+            fill_ids=[fill.fill_id for fill in step_fills],
+            cash=trace_mark.cash,
+            cash_delta=trace_mark.cash - previous_cash,
+            equity=trace_mark.equity,
+            equity_delta=trace_mark.equity - previous_equity,
+            gross_exposure=trace_mark.gross_exposure,
+            net_exposure=trace_mark.net_exposure,
             drawdown=drawdown,
             decision_json=BacktestRunnerSkeleton._serialize_step_decision(step_result),
             risk_outcomes_json=[

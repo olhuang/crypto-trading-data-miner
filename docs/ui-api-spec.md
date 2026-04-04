@@ -879,7 +879,7 @@ Purpose:
 
 Current implementation status:
 - implemented as the Level 1 backend foundation
-- currently returns compact per-step trace rows with decision JSON, risk outcomes JSON, counts, and portfolio/equity fields
+- now also includes Level 2 linkage/delta fields such as `sim_order_ids`, `sim_fill_ids`, blocked codes, position qty delta, cash/equity delta, and exposure values
 - currently supports `limit`, `unified_symbol`, `bar_time_from`, and `bar_time_to`
 - the current internal `/monitoring` Backtests run detail now uses this endpoint for a compact trace table plus selected-trace JSON inspection
 

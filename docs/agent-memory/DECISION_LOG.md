@@ -111,3 +111,17 @@ Expose Level 1 debug traces in the internal Backtests UI as a compact table plus
 ### Impact
 - `/monitoring` Backtests run detail now surfaces persisted debug traces with minimal filters
 - the next debug-trace slice should focus on richer linkage and diagnostics anchors, not on replacing the current compact UI with a heavy timeline view
+
+## 2026-04-04
+
+### Decision
+Implement Level 2 debug-trace linkage by enriching persisted trace rows with linked simulated order/fill ids and compact state-delta fields instead of introducing a second trace table or replay-specific schema.
+
+### Reason
+- the existing Level 1 trace table is already the durable substrate for run-level evidence
+- linked order/fill ids and small deltas provide immediate diagnostic value without widening the model into a replay engine payload
+- keeping Level 2 in the same table preserves compatibility with the current API and internal trace viewer while future diagnostics anchors are still pending
+
+### Impact
+- `/api/v1/backtests/runs/{run_id}/debug-traces` now carries linkage/delta evidence that can be reused by later diagnostics anchors and replay-note flows
+- the next trace slice should focus on richer UI drill-down and diagnostics anchors rather than another backend-schema redesign
