@@ -15,6 +15,7 @@
 - compare sets now persist durable identity in runtime code and seed a system review draft on creation
 - compare-review notes now have first object-linked API surfaces at `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes`
 - compare-review notes are now exposed in the internal `/monitoring` Backtests research slice, including system-note inspection and human/agent note entry
+- `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -35,6 +36,7 @@
 - `docs/strategy-workbench-spec.md`
 - `docs/strategy-risk-assumption-management-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
+- `docs/debug-trace-rollout-plan.md`
 - `docs/repo-self-review-tracker.md`
 - `src/backtest/compare_review.py`
 - `src/storage/repositories/research.py`
@@ -44,4 +46,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing this line, build step-level debug traces next, then extend the same annotation direction into replay investigation notes
+- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only `Level 1 backend foundation` before moving on to replay-note linkage

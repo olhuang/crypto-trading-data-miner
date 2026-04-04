@@ -18,6 +18,7 @@
 - no step-level debug trace foundation yet
 - compare-review notes now have a minimal internal UI surface, but replay/debug-trace-linked investigation workflow is still future work
 - cooldown semantics are still tied to a losing-close proxy instead of explicit protection events
+- a dedicated `docs/debug-trace-rollout-plan.md` now exists to track where debug-trace work should resume
 
 ## Most Important Source-of-Truth Docs
 - `README.md`

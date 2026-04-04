@@ -51,6 +51,7 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/strategy-research-and-evaluation-spec.md` now freezes the intended long-lived plan for strategy development, research, testing, and comparative evaluation
 - `docs/strategy-risk-assumption-management-spec.md` now freezes the intended management model for strategy identity, risk policy identity, assumption bundles, and effective run snapshots
 - `docs/backtest-and-replay-diagnostics-spec.md` now freezes the intended plan for run reporting, debug traces, replay diagnostics, and UI inspection needs
+- `docs/debug-trace-rollout-plan.md` now tracks the concrete staged rollout for Level 1 / Level 2 / Level 3 debug-trace work and the next recommended resume slice
 - `docs/backtest-risk-guardrails-spec.md` now freezes the intended shared pre-trade guardrail model for Phase 5 backtests and later paper/live reuse
 - `docs/ai-memory-and-handoff-spec.md` now freezes the intended repo-local memory, summary, and cross-session handoff workflow for long-running AI-assisted implementation work
 - reusable session-start, session-stop, and CLI/editor memory-workflow templates now exist under `docs/agent-memory/`
@@ -381,6 +382,7 @@ Also treat `docs/backtest-and-replay-diagnostics-spec.md` as the planning backbo
 - backtest report outputs
 - debug trace outputs
 - replay diagnostics and future replay UI/API surfaces
+- `docs/debug-trace-rollout-plan.md` should be treated as the implementation tracking companion for the debug-trace portion of this work
 
 Also treat `docs/backtest-risk-guardrails-spec.md` as the planning backbone for:
 - shared pre-trade guardrails in backtest

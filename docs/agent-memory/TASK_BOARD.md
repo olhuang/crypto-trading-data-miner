@@ -7,6 +7,7 @@
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
 - add step-level debug trace foundation for replay/backtest diagnosis
+- keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 
 ## Blocked
 - none currently recorded
@@ -17,6 +18,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- created `docs/debug-trace-rollout-plan.md` to track debug-trace maturity levels, next slice, and resume guidance
 - exposed compare-review notes in the internal research UI with seeded system-fact inspection plus human/agent note write flow
 - implemented the first compare-review note foundation with persisted compare sets, seeded system review drafts, and compare note APIs
 - added a dedicated object-level notes/annotations planning spec for compare-review and replay investigation workflows

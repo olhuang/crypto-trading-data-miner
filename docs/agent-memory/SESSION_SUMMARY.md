@@ -12,6 +12,7 @@
 - added a dedicated object-level notes/annotations planning spec and wired it into Phase 5 planning/docs
 - added the first compare-review note foundation with persisted compare-set identity, seeded system review drafts, and compare note APIs
 - exposed compare-review notes in the internal `/monitoring` Backtests UI, including compare tables, system-note inspection, and human/agent note write flow
+- created `docs/debug-trace-rollout-plan.md` so the next debug-trace slice has a dedicated tracking and resume document
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`

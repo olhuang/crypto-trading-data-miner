@@ -25,6 +25,7 @@ This file is intended to be used together with:
 - `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
 - `docs/strategy-risk-assumption-management-spec.md` for strategy/risk/assumption separation, effective run snapshots, and future registry governance
 - `docs/backtest-and-replay-diagnostics-spec.md` for report outputs, debug traces, replay diagnostics, and research-facing UI expectations
+- `docs/debug-trace-rollout-plan.md` for the concrete staged rollout and current resume point for step-level debug traces
 - `docs/backtest-risk-guardrails-spec.md` for shared backtest guardrails, staged risk-policy rollout, and paper/live reuse expectations
 - `docs/strategy-workbench-spec.md` for the broader strategy-lab, replay-workbench, artifact, compare/analyze, and review facilities
 - `docs/ai-memory-and-handoff-spec.md` for repo-local stable/task/session memory layers and cross-session handoff workflow
@@ -835,6 +836,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [ ] Stage B: implement step-level debug trace foundation
 - [ ] Stage C: implement full backtest diagnostics and period-level analysis
 - [ ] Stage D: implement replay diagnostics, replay timelines, and replay UI inspection support
+- [x] create a dedicated debug-trace rollout tracking document with current status, staged scope, and resume guidance
 
 ### Acceptance Checks
 - [x] diagnostics/reporting/replay work is broken into explicit implementation stages

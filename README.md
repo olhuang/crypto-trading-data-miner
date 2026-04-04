@@ -75,6 +75,7 @@ Major design areas already covered include:
 - strategy-lab/workbench planning for parameter sets, assumption bundles, artifacts, compare/analyze, replay scenarios, and review workflow
 - repo-local AI memory, session-summary, and cross-session handoff workflow planning for long-running agent-assisted work
 - object-level compare/review notes, replay investigation notes, and future workbench annotation planning
+- debug-trace staged rollout tracking and resume guidance
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture
@@ -220,6 +221,7 @@ Use it to understand:
 - `docs/spec-index.md`
 - `docs/ai-memory-and-handoff-spec.md`
 - `docs/object-level-notes-and-annotations-spec.md`
+- `docs/debug-trace-rollout-plan.md`
 
 ### Data and contracts
 - `docs/data-catalog.md`
