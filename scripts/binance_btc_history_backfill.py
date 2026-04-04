@@ -25,6 +25,7 @@ from storage.lookups import resolve_instrument_id
 
 UTC = timezone.utc
 DEFAULT_STATUS_FILE = REPO_ROOT / "tmp" / "binance_btc_history_backfill_status.json"
+OPEN_INTEREST_LOOKBACK_DAYS = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +74,11 @@ def parse_args() -> argparse.Namespace:
         "--requested-by",
         default="binance_btc_history_backfill_script",
         help="requested_by value stored on ingestion jobs created by this script.",
+    )
+    parser.add_argument(
+        "--resume-from-status",
+        action="store_true",
+        help="Resume from the existing status file by skipping already completed chunk tasks.",
     )
     return parser.parse_args()
 
@@ -293,6 +299,134 @@ def format_chunk_window(task: ChunkTask) -> str:
     return f"{task.start_time.isoformat()} -> {task.end_time.isoformat()}"
 
 
+def open_interest_available_from() -> datetime:
+    return utc_now() - timedelta(days=OPEN_INTEREST_LOOKBACK_DAYS)
+
+
+def run_perp_snapshot_window(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
+    component_results: list[dict[str, Any]] = []
+    total_rows_written = 0
+    total_history_rows_written = 0
+    job_ids: list[int] = []
+
+    funding_result = run_market_snapshot_refresh(
+        symbol=task.symbol,
+        unified_symbol=task.unified_symbol,
+        requested_by=requested_by,
+        exchange_code="binance",
+        funding_start_time=task.start_time,
+        funding_end_time=task.end_time,
+        include_funding=True,
+        include_open_interest=False,
+        include_mark_price=False,
+        include_index_price=False,
+    )
+    component_results.append(
+        {
+            "component": "funding_rates",
+            "status": funding_result.status,
+            "rows_written": funding_result.records_written,
+            "history_rows_written": funding_result.history_rows_written,
+            "ingestion_job_id": funding_result.ingestion_job_id,
+            "window_start": task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+        }
+    )
+    total_rows_written += funding_result.records_written
+    total_history_rows_written += funding_result.history_rows_written
+    job_ids.append(funding_result.ingestion_job_id)
+
+    open_interest_floor = open_interest_available_from()
+    if task.end_time < open_interest_floor:
+        component_results.append(
+            {
+                "component": "open_interest",
+                "status": "skipped_unavailable",
+                "rows_written": 0,
+                "history_rows_written": 0,
+                "ingestion_job_id": None,
+                "window_start": task.start_time.isoformat(),
+                "window_end": task.end_time.isoformat(),
+                "availability_note": (
+                    f"Binance open interest history endpoint is treated as available only from "
+                    f"{open_interest_floor.isoformat()} onward"
+                ),
+            }
+        )
+    else:
+        effective_start = max(task.start_time, open_interest_floor)
+        open_interest_result = run_market_snapshot_refresh(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            exchange_code="binance",
+            history_start_time=effective_start,
+            history_end_time=task.end_time,
+            include_funding=False,
+            include_open_interest=True,
+            include_mark_price=False,
+            include_index_price=False,
+        )
+        component_results.append(
+            {
+                "component": "open_interest",
+                "status": open_interest_result.status,
+                "rows_written": open_interest_result.records_written,
+                "history_rows_written": open_interest_result.history_rows_written,
+                "ingestion_job_id": open_interest_result.ingestion_job_id,
+                "window_start": effective_start.isoformat(),
+                "window_end": task.end_time.isoformat(),
+                "availability_note": (
+                    "window start adjusted to current open-interest availability floor"
+                    if effective_start != task.start_time
+                    else None
+                ),
+            }
+        )
+        total_rows_written += open_interest_result.records_written
+        total_history_rows_written += open_interest_result.history_rows_written
+        job_ids.append(open_interest_result.ingestion_job_id)
+
+    mark_index_result = run_market_snapshot_refresh(
+        symbol=task.symbol,
+        unified_symbol=task.unified_symbol,
+        requested_by=requested_by,
+        exchange_code="binance",
+        history_start_time=task.start_time,
+        history_end_time=task.end_time,
+        include_funding=False,
+        include_open_interest=False,
+        include_mark_price=True,
+        include_index_price=True,
+    )
+    component_results.append(
+        {
+            "component": "mark_index_prices",
+            "status": mark_index_result.status,
+            "rows_written": mark_index_result.records_written,
+            "history_rows_written": mark_index_result.history_rows_written,
+            "ingestion_job_id": mark_index_result.ingestion_job_id,
+            "window_start": task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+        }
+    )
+    total_rows_written += mark_index_result.records_written
+    total_history_rows_written += mark_index_result.history_rows_written
+    job_ids.append(mark_index_result.ingestion_job_id)
+
+    return {
+        "dataset_key": task.dataset_key,
+        "label": task.label,
+        "status": "succeeded",
+        "rows_written": total_rows_written,
+        "history_rows_written": total_history_rows_written,
+        "ingestion_job_ids": job_ids,
+        "window_start": task.start_time.isoformat(),
+        "window_end": task.end_time.isoformat(),
+        "component_results": component_results,
+    }
+
+
 def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
     if task.task_kind == "bars":
         result = run_bar_backfill(
@@ -314,32 +448,7 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "window_end": task.end_time.isoformat(),
         }
 
-    result = run_market_snapshot_refresh(
-        symbol=task.symbol,
-        unified_symbol=task.unified_symbol,
-        requested_by=requested_by,
-        exchange_code="binance",
-        funding_start_time=task.start_time,
-        funding_end_time=task.end_time,
-        history_start_time=task.start_time,
-        history_end_time=task.end_time,
-        open_interest_period="5m",
-        price_interval="1m",
-        include_funding=True,
-        include_open_interest=True,
-        include_mark_price=True,
-        include_index_price=True,
-    )
-    return {
-        "dataset_key": task.dataset_key,
-        "label": task.label,
-        "status": result.status,
-        "rows_written": result.records_written,
-        "history_rows_written": result.history_rows_written,
-        "ingestion_job_id": result.ingestion_job_id,
-        "window_start": task.start_time.isoformat(),
-        "window_end": task.end_time.isoformat(),
-    }
+    return run_perp_snapshot_window(task, requested_by=requested_by)
 
 
 def update_dataset_status(status_payload: dict[str, Any], task: ChunkTask, result: dict[str, Any]) -> None:
@@ -366,15 +475,28 @@ def main() -> int:
 
     status_path = Path(args.status_file)
     tasks = build_chunk_tasks(start_time, end_time)
-    status_payload = initial_status_payload(start_time=start_time, end_time=end_time, status_path=status_path, tasks=tasks)
+    if args.resume_from_status:
+        if not status_path.exists():
+            raise FileNotFoundError(f"status file not found for resume: {status_path}")
+        status_payload = json.loads(status_path.read_text(encoding="utf-8"))
+        completed_tasks = int(status_payload.get("overall", {}).get("tasks_completed", 0))
+        status_payload["state"] = "running"
+        status_payload["error"] = None
+        status_payload["resumed_at"] = utc_now().isoformat()
+        status_payload["updated_at"] = utc_now().isoformat()
+    else:
+        status_payload = initial_status_payload(start_time=start_time, end_time=end_time, status_path=status_path, tasks=tasks)
+        completed_tasks = 0
     write_status(status_path, status_payload)
 
     print(f"Status file: {status_path}")
     print(f"Requested window: {start_time.isoformat()} -> {end_time.isoformat()}")
     print(f"Total chunk tasks: {len(tasks)}")
+    if completed_tasks:
+        print(f"Resuming after completed tasks: {completed_tasks}")
 
     try:
-        for task_number, task in enumerate(tasks, start=1):
+        for task_number, task in enumerate(tasks[completed_tasks:], start=completed_tasks + 1):
             status_payload["current_task"] = {
                 "task_number": task_number,
                 "task_total": len(tasks),

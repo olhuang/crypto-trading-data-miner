@@ -37,6 +37,7 @@
 - the current harness cannot directly execute the requested Binance historical pull because outbound network access remains blocked in-sandbox
 - a repo-local script now exists at `scripts/binance_btc_history_backfill.py` to backfill `BTCUSDT_SPOT` and `BTCUSDT_PERP` from `2020-01-01` to YTD outside the harness
 - that script writes rolling progress to `tmp/binance_btc_history_backfill_status.json` and prints per-chunk status to the console while it runs
+- the script now also supports `--resume-from-status`, and it treats `open_interest` as a separately available dataset so early windows are skipped instead of failing the full run
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -82,4 +83,4 @@
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- run `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py` on the local machine, watch progress through `tmp/binance_btc_history_backfill_status.json`, verify the final coverage summary, then return to the UI line at `UI Phase B: Backtest Workspace Restructure`
+- run `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py --resume-from-status` on the local machine, watch progress through `tmp/binance_btc_history_backfill_status.json`, verify the final coverage summary, then return to the UI line at `UI Phase B: Backtest Workspace Restructure`

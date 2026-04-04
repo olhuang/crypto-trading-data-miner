@@ -213,3 +213,18 @@ Handle the requested Binance BTC long-history pull through a repo-local backfill
 ### Impact
 - `scripts/binance_btc_history_backfill.py` is now the canonical local bootstrap entrypoint for `BTCUSDT_SPOT` and `BTCUSDT_PERP`
 - `tmp/binance_btc_history_backfill_status.json` is the durable progress artifact while the script is running
+
+## 2026-04-05
+
+### Decision
+Treat Binance `openInterestHist` as a separately available dataset inside the BTC history backfill tool, and make the script resumable from its status file.
+
+### Reason
+- the first live local run failed because `openInterestHist` rejects early historical `startTime` values with HTTP 400
+- funding, mark-price, and index-price history remain useful even when open-interest history is unavailable for older windows
+- a long chunked backfill needs resume support so an operator does not have to restart from the beginning after a single endpoint-specific failure
+
+### Impact
+- the script now fetches funding, open interest, and mark/index history as separate subcomponents for each monthly futures window
+- early windows before the current open-interest availability floor are skipped instead of failing the entire task
+- reruns can continue with `--resume-from-status`

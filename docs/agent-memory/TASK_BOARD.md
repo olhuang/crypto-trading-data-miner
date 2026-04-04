@@ -24,6 +24,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- updated the local BTC history backfill tool so futures `open_interest` is handled as a separately available dataset and failed long runs can resume from `tmp/binance_btc_history_backfill_status.json`
 - added `scripts/binance_btc_history_backfill.py` for chunked local backfill of `BTCUSDT_SPOT` and `BTCUSDT_PERP` from `2020-01-01` to YTD, plus rolling status output in `tmp/binance_btc_history_backfill_status.json`
 - added a one-click copy icon to the persistent JSON panels across `/monitoring`, covering run payloads, diagnostics, artifacts, compare-note detail, trace detail, and traceability payloads
 - moved the Backtests `Signals / Orders / Fills / Timeseries` sections to after the `Investigate` workspace so the page flow reaches diagnostics and traces before execution detail tables

@@ -29,6 +29,7 @@
 - added a reusable copy icon to the persistent JSON panels in `/monitoring`, so users can copy diagnostics, raw payloads, compare-note detail, and trace detail without manual text selection
 - added `scripts/binance_btc_history_backfill.py` so `BTCUSDT_SPOT` and `BTCUSDT_PERP` can be backfilled locally from `2020-01-01` to YTD even though outbound Binance access is blocked inside the current harness
 - added a rolling status-file path at `tmp/binance_btc_history_backfill_status.json` so progress can be inspected while the local backfill is running
+- updated the BTC backfill script to treat `openInterestHist` as a separate availability-limited dataset and added `--resume-from-status` so a failed long run can continue instead of restarting
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -87,6 +88,7 @@
 - the raw selected-run payload is now better labeled, but the broader Backtests page still needs stronger workspace separation in the next UI phase
 - the repository still needs discipline to avoid turning the current static `/monitoring` console into the accidental long-term frontend architecture
 - the actual historical Binance pull still has to be executed locally outside the harness because network access remains blocked in this environment
+- the open-interest history endpoint appears to be availability-limited and may only cover a recent lookback window, so older futures windows will intentionally show no open-interest history
 
 ## Next
 - run `scripts/binance_btc_history_backfill.py` locally, verify the final coverage summary for `BTCUSDT_SPOT` / `BTCUSDT_PERP`, then continue from `UI Phase B: Backtest Workspace Restructure` in `docs/frontend-ui-usability-improvement-plan.md`
