@@ -284,7 +284,7 @@ Recommended first implementation semantics:
   - reduce-only exits may still proceed when policy allows
 - `max_daily_loss_pct`
   - measure loss relative to the session day's starting equity
-  - in the current Phase 5 implementation, the trading day should default to UTC day boundaries
+  - in the current Phase 5 implementation, the trading day should follow `session.trading_timezone` with `UTC` as the default
   - when the threshold is breached, block new exposure for the rest of that trading day
 - `max_leverage`
   - measure leverage as `resulting_gross_exposure / current_equity`
@@ -310,6 +310,7 @@ Diagnostics/reporting expectations for this wave:
 Current implementation status:
 - implemented on the current bars-based backtest path
 - current drawdown and daily-loss checks block new exposure while still allowing reduce-only bypass behavior where configured
+- current daily-loss checks now reset on session-local trading-day boundaries rather than fixed UTC-only dates
 - current leverage check uses resulting gross exposure relative to current equity
 - current cooldown uses realized losing close events as the first shared stop-like proxy until the fuller protection lifecycle exists
 - current runtime metadata now persists state snapshot fields for peak equity, daily-start equity, cooldown state, and activation counts

@@ -180,6 +180,7 @@ StrategySession
   -> execution policy
   -> protection policy
   -> default risk policy
+  -> trading timezone
   -> optional default assumption bundle
 
 Backtest/Paper/Live Run
@@ -239,6 +240,7 @@ These registries should support:
 - execution policy
 - protection policy
 - risk policy
+- trading timezone / trading-day semantics
 - optional assumption bundle
 
 ### 6.3 Run Layer

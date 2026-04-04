@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, model_validator
 
@@ -256,6 +257,7 @@ class StrategySessionConfig(BaseContractModel):
     strategy_version: str
     exchange_code: str
     universe: list[str]
+    trading_timezone: str = "UTC"
     netting_mode: PositionNettingMode = PositionNettingMode.ISOLATED_STRATEGY_SESSION
     execution_policy: ExecutionPolicyConfig = Field(default_factory=ExecutionPolicyConfig)
     protection_policy: ProtectionPolicyConfig = Field(default_factory=ProtectionPolicyConfig)
@@ -270,6 +272,12 @@ class StrategySessionConfig(BaseContractModel):
     def validate_session_config(self) -> "StrategySessionConfig":
         if not self.universe:
             raise ValueError("strategy sessions must include at least one instrument in universe")
+        if not self.trading_timezone.strip():
+            raise ValueError("trading_timezone must not be empty")
+        try:
+            ZoneInfo(self.trading_timezone)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError(f"unknown trading_timezone: {self.trading_timezone}") from exc
         self.universe = list(dict.fromkeys(self.universe))
         return self
 

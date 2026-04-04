@@ -170,6 +170,20 @@ class Phase5FoundationTests(unittest.TestCase):
                 }
             )
 
+        with self.assertRaises(ValidationError):
+            StrategySessionConfig.model_validate(
+                {
+                    "session_code": "bt_bad_tz",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "trading_timezone": "Mars/Phobos",
+                    "universe": ["BTCUSDT_PERP"],
+                }
+            )
+
         session = StrategySessionConfig.model_validate(
             {
                 "session_code": "bt_btc",
@@ -178,11 +192,13 @@ class Phase5FoundationTests(unittest.TestCase):
                 "strategy_code": "btc_momentum",
                 "strategy_version": "v1.0.0",
                 "exchange_code": "binance",
+                "trading_timezone": "Asia/Taipei",
                 "universe": ["BTCUSDT_PERP", "BTCUSDT_PERP", "ETHUSDT_PERP"],
             }
         )
 
         self.assertEqual(session.universe, ["BTCUSDT_PERP", "ETHUSDT_PERP"])
+        self.assertEqual(session.trading_timezone, "Asia/Taipei")
 
     def test_backtest_run_config_requires_backtest_environment(self) -> None:
         with self.assertRaises(ValidationError):
@@ -867,6 +883,55 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(len(result.orders), 0)
         self.assertEqual(result.risk_outcomes[-1].decision, RiskDecision.BLOCK)
         self.assertEqual(result.risk_outcomes[-1].code, "max_daily_loss_pct_breach")
+
+    def test_runner_uses_session_trading_timezone_for_daily_loss_boundaries(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_daily_loss_timezone_guard",
+                "session": {
+                    "session_code": "bt_btc_daily_loss_timezone_guard",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "trading_timezone": "Asia/Taipei",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "daily_loss_guard_tz_v1",
+                        "max_daily_loss_pct": "0.20",
+                    },
+                },
+                "start_time": "2026-04-01T15:59:00Z",
+                "end_time": "2026-04-01T16:01:00Z",
+                "initial_cash": "100",
+            }
+        )
+        bars = [
+            build_bar_at("BTCUSDT_PERP", datetime(2026, 4, 1, 15, 59, tzinfo=timezone.utc), "100"),
+            build_bar_at("BTCUSDT_PERP", datetime(2026, 4, 1, 16, 0, tzinfo=timezone.utc), "50"),
+        ]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=ScheduledTargetStrategy([None, "2"]),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="0"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="0"),
+            ),
+        )
+
+        result = runner.run_bars(
+            bars,
+            initial_positions={"BTCUSDT_PERP": Decimal("1")},
+            initial_cash=Decimal("100"),
+        )
+
+        self.assertEqual(len(result.orders), 1)
+        self.assertEqual(result.risk_outcomes[-1].decision, RiskDecision.ALLOW)
+        self.assertEqual(
+            runner.risk_guardrails.build_runtime_state_snapshot()["active_trading_day"],
+            "2026-04-02",
+        )
 
     def test_runner_blocks_entries_exceeding_max_leverage(self) -> None:
         run_config = BacktestRunConfig.model_validate(

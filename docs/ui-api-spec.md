@@ -742,6 +742,7 @@ Request:
     "strategy_code": "btc_momentum",
     "strategy_version": "v1.0.0",
     "exchange_code": "binance",
+    "trading_timezone": "Asia/Taipei",
     "universe": ["BTCUSDT_PERP"],
     "risk_policy": {
       "policy_code": "perp_medium_v1",
@@ -778,6 +779,7 @@ Request semantics:
 - `strategy_code` identifies the strategy variant to run
 - `strategy_version` identifies the immutable released version of that variant
 - `session.risk_policy` captures the session-default backtest guardrail assumptions for the run
+- `session.trading_timezone` defines the strategy session trading-day boundary used by daily-loss guardrails; `UTC` remains the default
 - `risk_overrides` captures explicit run-level risk changes over the session default
 - `assumption_bundle_code` / `assumption_bundle_version` select an optional named research-template bundle for the run
 - the current launch surface also supports richer stateful guardrails such as drawdown, daily-loss, leverage, and cooldown overrides

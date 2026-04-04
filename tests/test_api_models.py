@@ -371,9 +371,10 @@ class ModelsApiTests(unittest.TestCase):
                         },
                         state_snapshot={
                             "policy_code": "perp_medium_v1",
+                            "trading_timezone": "Asia/Taipei",
                             "peak_equity": "101000",
                             "daily_start_equity": "99500",
-                            "active_day_utc": "2026-04-01",
+                            "active_trading_day": "2026-04-01",
                             "cooldown_bars_remaining": 0,
                         },
                     ),
@@ -407,6 +408,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.execution_summary.blocked_intent_count, 3)
         self.assertEqual(response.data.risk_summary.block_counts_by_code["max_drawdown_pct_breach"], 2)
         self.assertEqual(response.data.risk_summary.state_snapshot["policy_code"], "perp_medium_v1")
+        self.assertEqual(response.data.risk_summary.state_snapshot["trading_timezone"], "Asia/Taipei")
         self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
 
     def test_backtest_risk_policies_endpoint_lists_named_registry_entries(self) -> None:
@@ -453,49 +455,50 @@ class ModelsApiTests(unittest.TestCase):
             "fee_model_version": "ref_fee_schedule_v1",
             "slippage_model_version": "fixed_bps_v1",
             "latency_model_version": "bars_next_open_v1",
-                "params_json": {
-                    "session_code": "bt_ui_demo",
-                    "environment": "backtest",
-                    "netting_mode": "isolated_strategy_session",
-                    "bar_interval": "1m",
-                    "initial_cash": "100000",
+            "params_json": {
+                "session_code": "bt_ui_demo",
+                "environment": "backtest",
+                "trading_timezone": "Asia/Taipei",
+                "netting_mode": "isolated_strategy_session",
+                "bar_interval": "1m",
+                "initial_cash": "100000",
+                "assumption_bundle_code": "baseline_perp_research",
+                "assumption_bundle_version": "v1",
+                "assumption_bundle": {
                     "assumption_bundle_code": "baseline_perp_research",
                     "assumption_bundle_version": "v1",
-                    "assumption_bundle": {
-                        "assumption_bundle_code": "baseline_perp_research",
-                        "assumption_bundle_version": "v1",
-                        "market_data_version": "md.bars_1m",
-                        "fee_model_version": "ref_fee_schedule_v1",
-                        "slippage_model_version": "fixed_bps_v1",
-                        "fill_model_version": "deterministic_bars_v1",
-                        "latency_model_version": "bars_next_open_v1",
-                        "feature_input_version": "bars_only_v1",
-                        "benchmark_set_code": "btc_perp_baseline_v1",
-                        "risk_policy": {"policy_code": "perp_medium_v1"},
-                    },
-                    "assumption_overrides": {},
-                    "effective_assumptions": {
-                        "assumption_bundle_code": "baseline_perp_research",
-                        "assumption_bundle_version": "v1",
-                        "market_data_version": "md.bars_1m",
-                        "fee_model_version": "ref_fee_schedule_v1",
-                        "slippage_model_version": "fixed_bps_v1",
-                        "fill_model_version": "deterministic_bars_v1",
-                        "latency_model_version": "bars_next_open_v1",
-                        "feature_input_version": "bars_only_v1",
-                        "benchmark_set_code": "btc_perp_baseline_v1",
-                        "risk_policy": {"policy_code": "perp_medium_v1"},
-                    },
-                    "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
-                    "run_metadata": {"source": "ui"},
-                    "runtime_metadata": {"risk_summary": {"blocked_intent_count": 1}},
-                    "session_metadata": {"slice": "research"},
-                    "execution_policy": {"policy_code": "default"},
-                    "protection_policy": {"policy_code": "default"},
-                    "session_risk_policy": {"policy_code": "perp_medium_v1", "max_position_qty": "1"},
-                    "risk_overrides": {"max_order_notional": "5000"},
-                    "risk_policy": {"policy_code": "perp_medium_v1", "max_position_qty": "1"},
+                    "market_data_version": "md.bars_1m",
+                    "fee_model_version": "ref_fee_schedule_v1",
+                    "slippage_model_version": "fixed_bps_v1",
+                    "fill_model_version": "deterministic_bars_v1",
+                    "latency_model_version": "bars_next_open_v1",
+                    "feature_input_version": "bars_only_v1",
+                    "benchmark_set_code": "btc_perp_baseline_v1",
+                    "risk_policy": {"policy_code": "perp_medium_v1"},
                 },
+                "assumption_overrides": {},
+                "effective_assumptions": {
+                    "assumption_bundle_code": "baseline_perp_research",
+                    "assumption_bundle_version": "v1",
+                    "market_data_version": "md.bars_1m",
+                    "fee_model_version": "ref_fee_schedule_v1",
+                    "slippage_model_version": "fixed_bps_v1",
+                    "fill_model_version": "deterministic_bars_v1",
+                    "latency_model_version": "bars_next_open_v1",
+                    "feature_input_version": "bars_only_v1",
+                    "benchmark_set_code": "btc_perp_baseline_v1",
+                    "risk_policy": {"policy_code": "perp_medium_v1"},
+                },
+                "strategy_params": {"short_window": 5, "long_window": 20, "target_qty": "1"},
+                "run_metadata": {"source": "ui"},
+                "runtime_metadata": {"risk_summary": {"blocked_intent_count": 1}},
+                "session_metadata": {"slice": "research"},
+                "execution_policy": {"policy_code": "default"},
+                "protection_policy": {"policy_code": "default"},
+                "session_risk_policy": {"policy_code": "perp_medium_v1", "max_position_qty": "1"},
+                "risk_overrides": {"max_order_notional": "5000"},
+                "risk_policy": {"policy_code": "perp_medium_v1", "max_position_qty": "1"},
+            },
             "status": "finished",
             "created_at": datetime.fromisoformat("2026-04-03T09:30:00+00:00"),
             "total_return": Decimal("0.12"),
@@ -548,6 +551,7 @@ class ModelsApiTests(unittest.TestCase):
                             "strategy_code": "btc_momentum",
                             "strategy_version": "v1.0.0",
                             "exchange_code": "binance",
+                            "trading_timezone": "Asia/Taipei",
                             "universe": ["BTCUSDT_PERP"],
                             "risk_policy": {
                                 "policy_code": "perp_medium_v1",
@@ -590,6 +594,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(detail_response.success)
         self.assertEqual(detail_response.data.run_id, 601)
         self.assertEqual(detail_response.data.session_code, "bt_ui_demo")
+        self.assertEqual(detail_response.data.trading_timezone, "Asia/Taipei")
         self.assertEqual(detail_response.data.assumption_bundle_code, "baseline_perp_research")
         self.assertEqual(detail_response.data.assumption_bundle_version, "v1")
         self.assertEqual(detail_response.data.fill_model_version, "deterministic_bars_v1")

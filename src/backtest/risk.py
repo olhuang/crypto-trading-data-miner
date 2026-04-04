@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from typing import Mapping, Sequence
+from zoneinfo import ZoneInfo
 
 from models.backtest import BacktestRunConfig
 from models.common import LiquidityFlag, OrderStatus, OrderSide, OrderType, RiskDecision
@@ -33,7 +34,7 @@ class RiskGuardrailOutcome:
 class RiskGuardrailSessionState:
     peak_equity: Decimal | None = None
     last_equity: Decimal | None = None
-    active_day_utc: str | None = None
+    active_trading_day: str | None = None
     daily_start_equity: Decimal | None = None
     cooldown_bars_remaining: int = 0
     activation_counts_by_code: dict[str, int] = field(default_factory=dict)
@@ -52,6 +53,8 @@ class BacktestRiskGuardrailEngine:
         self.fee_model = fee_model
         self.slippage_model = slippage_model
         self.session_state = RiskGuardrailSessionState()
+        self.trading_timezone = run_config.session.trading_timezone
+        self._trading_tz = ZoneInfo(self.trading_timezone)
 
     def filter_execution_intents(
         self,
@@ -106,7 +109,8 @@ class BacktestRiskGuardrailEngine:
     def build_runtime_state_snapshot(self) -> dict[str, object]:
         snapshot: dict[str, object] = {
             "policy_code": self.policy.policy_code,
-            "active_day_utc": self.session_state.active_day_utc,
+            "trading_timezone": self.trading_timezone,
+            "active_trading_day": self.session_state.active_trading_day,
             "cooldown_bars_remaining": self.session_state.cooldown_bars_remaining,
             "activation_counts_by_code": dict(self.session_state.activation_counts_by_code),
         }
@@ -250,7 +254,8 @@ class BacktestRiskGuardrailEngine:
                             if self.session_state.daily_start_equity is not None
                             else None
                         ),
-                        "active_day_utc": self.session_state.active_day_utc,
+                        "trading_timezone": self.trading_timezone,
+                        "active_trading_day": self.session_state.active_trading_day,
                         "equity": str(portfolio_mark.equity),
                     },
                 )
@@ -373,9 +378,9 @@ class BacktestRiskGuardrailEngine:
         return None
 
     def _refresh_session_state(self, *, current_bar: BarEvent, current_equity: Decimal) -> None:
-        active_day_utc = current_bar.bar_time.date().isoformat()
-        if self.session_state.active_day_utc != active_day_utc:
-            self.session_state.active_day_utc = active_day_utc
+        active_trading_day = current_bar.bar_time.astimezone(self._trading_tz).date().isoformat()
+        if self.session_state.active_trading_day != active_trading_day:
+            self.session_state.active_trading_day = active_trading_day
             self.session_state.daily_start_equity = current_equity
 
         if self.session_state.peak_equity is None:

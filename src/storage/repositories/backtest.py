@@ -33,6 +33,7 @@ class BacktestRunRepository:
         params_json = {
             "session_code": run_config.session.session_code,
             "environment": run_config.session.environment,
+            "trading_timezone": run_config.session.trading_timezone,
             "netting_mode": run_config.session.netting_mode,
             "bar_interval": run_config.bar_interval,
             "initial_cash": str(run_config.initial_cash),

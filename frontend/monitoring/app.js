@@ -414,6 +414,7 @@ async function launchBacktest(formValues) {
       strategy_code: formValues.strategy_code,
       strategy_version: formValues.strategy_version,
       exchange_code: formValues.exchange_code || "binance",
+      trading_timezone: formValues.trading_timezone || "UTC",
       universe: [formValues.unified_symbol],
     },
     start_time: formValues.start_time,

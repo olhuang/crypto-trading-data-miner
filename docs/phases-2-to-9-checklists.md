@@ -730,6 +730,7 @@ Provide the first end-to-end research workflow using historical bar data.
   - cooldown tracking
 - [x] enforce drawdown-based no-new-entry guardrails using current run peak equity
 - [x] enforce daily-loss-based no-new-entry guardrails using current trading-day starting equity
+- [x] make daily-loss trading-day boundaries follow `session.trading_timezone` instead of fixed UTC-only dates
 - [x] enforce leverage-based blocking using resulting gross exposure relative to current equity
 - [x] implement first-wave cooldown behavior using a documented shared proxy trigger before full protection lifecycle exists
 - [x] persist richer runtime risk summary and state snapshot in run metadata/detail

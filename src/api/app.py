@@ -422,6 +422,7 @@ class BacktestRunDetailResource(BaseModel):
     account_code: str | None = None
     environment: str | None = None
     session_code: str | None = None
+    trading_timezone: str | None = None
     status: str
     start_time: str
     end_time: str
@@ -680,6 +681,7 @@ def _build_backtest_run_resource(
         account_code=run_row.get("account_code"),
         environment=params_json.get("environment"),
         session_code=params_json.get("session_code"),
+        trading_timezone=params_json.get("trading_timezone"),
         status=str(run_row["status"]),
         start_time=run_row["start_time"].isoformat(),
         end_time=run_row["end_time"].isoformat(),
