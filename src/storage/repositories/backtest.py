@@ -8,6 +8,7 @@ from sqlalchemy.engine import Connection
 
 from backtest.fills import SimulatedFill, SimulatedOrder
 from backtest.performance import PerformancePoint, PerformanceSummary
+from backtest.traces import BacktestDebugTraceRecord
 from models.backtest import BacktestRunConfig
 from storage.lookups import resolve_account_id, resolve_instrument_id, resolve_strategy_version_id
 
@@ -322,6 +323,87 @@ class BacktestRunRepository:
                     "drawdown": point.drawdown,
                 },
             )
+
+    def insert_debug_traces(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        debug_traces: Sequence[BacktestDebugTraceRecord],
+    ) -> list[int]:
+        persisted_ids: list[int] = []
+        instrument_cache: dict[tuple[str, str], int] = {}
+        for trace in debug_traces:
+            cache_key = (trace.exchange_code, trace.unified_symbol)
+            instrument_id = instrument_cache.get(cache_key)
+            if instrument_id is None:
+                instrument_id = resolve_instrument_id(connection, trace.exchange_code, trace.unified_symbol)
+                instrument_cache[cache_key] = instrument_id
+
+            debug_trace_id = int(
+                connection.execute(
+                    text(
+                        """
+                        insert into backtest.debug_traces (
+                            run_id,
+                            instrument_id,
+                            step_index,
+                            bar_time,
+                            close_price,
+                            current_position_qty,
+                            signal_count,
+                            intent_count,
+                            blocked_intent_count,
+                            created_order_count,
+                            fill_count,
+                            cash,
+                            equity,
+                            drawdown,
+                            decision_json,
+                            risk_outcomes_json
+                        ) values (
+                            :run_id,
+                            :instrument_id,
+                            :step_index,
+                            :bar_time,
+                            :close_price,
+                            :current_position_qty,
+                            :signal_count,
+                            :intent_count,
+                            :blocked_intent_count,
+                            :created_order_count,
+                            :fill_count,
+                            :cash,
+                            :equity,
+                            :drawdown,
+                            cast(:decision_json as jsonb),
+                            cast(:risk_outcomes_json as jsonb)
+                        )
+                        returning debug_trace_id
+                        """
+                    ),
+                    {
+                        "run_id": run_id,
+                        "instrument_id": instrument_id,
+                        "step_index": trace.step_index,
+                        "bar_time": trace.bar_time,
+                        "close_price": trace.close_price,
+                        "current_position_qty": trace.current_position_qty,
+                        "signal_count": trace.signal_count,
+                        "intent_count": trace.intent_count,
+                        "blocked_intent_count": trace.blocked_intent_count,
+                        "created_order_count": trace.created_order_count,
+                        "fill_count": trace.fill_count,
+                        "cash": trace.cash,
+                        "equity": trace.equity,
+                        "drawdown": trace.drawdown,
+                        "decision_json": json.dumps(trace.decision_json, default=str),
+                        "risk_outcomes_json": json.dumps(trace.risk_outcomes_json, default=str),
+                    },
+                ).scalar_one()
+            )
+            persisted_ids.append(debug_trace_id)
+        return persisted_ids
 
     def get_run(self, connection: Connection, run_id: int) -> dict[str, object] | None:
         row = connection.execute(
@@ -647,3 +729,76 @@ class BacktestRunRepository:
 
         rows = connection.execute(text(query), params).mappings().all()
         return [dict(row) for row in rows]
+
+    def list_debug_trace_records(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        limit: int | None = None,
+        unified_symbol: str | None = None,
+        bar_time_from: object | None = None,
+        bar_time_to: object | None = None,
+    ) -> list[dict[str, object]]:
+        filters = ["trace.run_id = :run_id"]
+        params: dict[str, object] = {"run_id": run_id}
+        if unified_symbol is not None:
+            filters.append("instrument.unified_symbol = :unified_symbol")
+            params["unified_symbol"] = unified_symbol
+        if bar_time_from is not None:
+            filters.append("trace.bar_time >= :bar_time_from")
+            params["bar_time_from"] = bar_time_from
+        if bar_time_to is not None:
+            filters.append("trace.bar_time <= :bar_time_to")
+            params["bar_time_to"] = bar_time_to
+
+        where_clause = " and ".join(filters)
+        base_select = f"""
+            select
+                trace.debug_trace_id,
+                trace.step_index,
+                instrument.unified_symbol,
+                trace.bar_time,
+                trace.close_price,
+                trace.current_position_qty,
+                trace.signal_count,
+                trace.intent_count,
+                trace.blocked_intent_count,
+                trace.created_order_count,
+                trace.fill_count,
+                trace.cash,
+                trace.equity,
+                trace.drawdown,
+                trace.decision_json,
+                trace.risk_outcomes_json
+            from backtest.debug_traces trace
+            join ref.instruments instrument on instrument.instrument_id = trace.instrument_id
+            where {where_clause}
+        """
+        if limit is None:
+            query = f"""
+                {base_select}
+                order by trace.step_index asc
+            """
+        else:
+            params["limit"] = limit
+            query = f"""
+                select *
+                from (
+                    {base_select}
+                    order by trace.step_index desc
+                    limit :limit
+                ) sliced
+                order by step_index asc
+            """
+
+        rows = connection.execute(text(query), params).mappings().all()
+        return [dict(row) for row in rows]
+
+    def count_debug_traces(self, connection: Connection, *, run_id: int) -> int:
+        return int(
+            connection.execute(
+                text("select count(*) from backtest.debug_traces where run_id = :run_id"),
+                {"run_id": run_id},
+            ).scalar_one()
+        )

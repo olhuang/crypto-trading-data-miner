@@ -13,6 +13,7 @@
 - added the first compare-review note foundation with persisted compare-set identity, seeded system review drafts, and compare note APIs
 - exposed compare-review notes in the internal `/monitoring` Backtests UI, including compare tables, system-note inspection, and human/agent note write flow
 - created `docs/debug-trace-rollout-plan.md` so the next debug-trace slice has a dedicated tracking and resume document
+- implemented Level 1 backend debug traces with persisted compact rows, artifact inventory, and `GET /api/v1/backtests/runs/{run_id}/debug-traces`
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -28,6 +29,12 @@
 - `scripts/start_memory_session.ps1`
 - `scripts/stop_memory_session.ps1`
 - `docs/object-level-notes-and-annotations-spec.md`
+- `docs/debug-trace-rollout-plan.md`
+- `db/init/009_backtest_debug_traces.sql`
+- `src/backtest/traces.py`
+- `src/backtest/runner.py`
+- `src/backtest/artifacts.py`
+- `src/storage/repositories/backtest.py`
 - `db/init/008_compare_sets_and_annotations.sql`
 - `src/backtest/compare_review.py`
 - `src/storage/repositories/research.py`
@@ -49,6 +56,7 @@
 
 ## Risks
 - replay investigation notes and unified annotation service remain future slices
+- step-level debug traces still need the internal UI table/detail slice before they become easy to inspect without API calls
 
 ## Next
-- add step-level debug trace foundation and then use the same annotation direction for replay investigation notes
+- add the internal `/monitoring` debug-trace table/detail slice, then use the same trace substrate for replay investigation notes

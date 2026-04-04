@@ -50,16 +50,15 @@ Without this layer:
 - [x] compare-set persistence
 - [x] compare-review note backend
 - [x] compare-review note UI in `/monitoring`
+- [x] Level 1 backend foundation for persisted compact debug traces
 
 ### Not Yet Implemented
-- [ ] persisted step-level debug traces
-- [ ] backtest debug-trace API
 - [ ] backtest debug-trace UI surface
 - [ ] trace-to-diagnostics anchors
 - [ ] replay investigation trace linkage
 
 ### Current Recommended Resume Point
-- Start with `Level 1 / Stage B` compact step-level debug trace foundation.
+- Continue with `Level 1` internal UI table/detail on top of the completed backend foundation.
 
 ---
 
@@ -92,23 +91,23 @@ Each trace row should be compact and queryable, not a full replay engine payload
 - `risk_outcomes_json`
 
 ### First Implementation Tasks
-- [ ] add DB schema for persisted backtest debug traces
-- [ ] add trace repository for insert/list
-- [ ] project `BacktestStepResult` into compact trace rows
-- [ ] persist traces from the runner for persisted runs
-- [ ] add `GET /api/v1/backtests/runs/{run_id}/debug-traces`
-- [ ] support `limit`
-- [ ] support `unified_symbol`
-- [ ] support `bar_time_from`
-- [ ] support `bar_time_to`
+- [x] add DB schema for persisted backtest debug traces
+- [x] add trace repository for insert/list
+- [x] project `BacktestStepResult` into compact trace rows
+- [x] persist traces from the runner for persisted runs
+- [x] add `GET /api/v1/backtests/runs/{run_id}/debug-traces`
+- [x] support `limit`
+- [x] support `unified_symbol`
+- [x] support `bar_time_from`
+- [x] support `bar_time_to`
 - [ ] add a minimal `/monitoring` debug-trace table and detail JSON view
-- [ ] add automated tests for projection, persistence, and API shape
+- [x] add automated tests for projection, persistence, and API shape
 
 ### Acceptance Checks
-- [ ] a persisted run can return trace rows from API
-- [ ] trace rows show strategy/execution/risk evidence per bar
+- [x] a persisted run can return trace rows from API
+- [x] trace rows show strategy/execution/risk evidence per bar
 - [ ] the internal UI can inspect trace rows without SQL
-- [ ] the trace payload stays compact enough for normal development use
+- [x] the trace payload stays compact enough for normal development use
 
 ### Guardrails
 - do not store full recent-bar windows in Level 1
@@ -172,7 +171,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 
 ## Recommended Implementation Order
 
-1. `Level 1 backend foundation`
+1. [x] `Level 1 backend foundation`
 2. `Level 1 internal UI table/detail`
 3. `Level 2 richer trace linkage`
 4. `Level 2 richer UI drill-down`
@@ -187,16 +186,15 @@ Do not skip directly to Level 3.
 If resuming from here, implement only this slice:
 
 ### Slice
-`Level 1 backend foundation`
+`Level 1 internal UI table/detail`
 
 ### Exact Work
-- schema
-- repository
-- runner projection
-- debug-trace read API
+- minimal trace table in `/monitoring`
+- trace detail JSON pane
+- run-detail fetch wiring for `/debug-traces`
 
 ### Leave For Immediately After
-- internal UI table/detail
+- trace-to-diagnostics anchors
 
 ### Explicitly Defer
 - replay note integration
@@ -220,6 +218,9 @@ If resuming from here, implement only this slice:
 - `src/backtest/diagnostics.py`
 - `src/storage/repositories/backtest.py`
 - `src/api/app.py`
+- `frontend/monitoring/index.html`
+- `frontend/monitoring/app.js`
+- `frontend/monitoring/styles.css`
 - `tests/test_phase5_foundation.py`
 - `tests/test_api_models.py`
 
@@ -234,7 +235,7 @@ If resuming from here, implement only this slice:
 
 When returning to this work:
 - read this document first
-- confirm Level 1 is still the intended next slice
+- confirm the next slice is the Level 1 UI surface, not another backend redesign
 - inspect `runner.py` and current run-detail APIs before editing schema
 - keep Level 1 compact; do not over-design replay fields yet
 - update `docs/agent-memory/HANDOFF.md` when stopping
@@ -243,11 +244,10 @@ When returning to this work:
 
 ## Summary
 
-The repository is ready to start `Level 1` step-level debug traces now.
+The repository now has `Level 1` backend debug traces in place.
 
 The correct next move is:
-- persist compact trace rows for backtest runs
-- expose them through API
-- then add the first internal UI surface
+- expose the trace rows in the internal `/monitoring` research slice
+- then connect trace rows to richer diagnostics and replay-note work later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.

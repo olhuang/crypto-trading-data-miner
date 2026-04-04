@@ -73,6 +73,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.backtest_run_fills_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/fills", "GET")
         cls.backtest_run_timeseries_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/timeseries", "GET")
         cls.backtest_run_signals_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/signals", "GET")
+        cls.backtest_run_debug_traces_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/debug-traces", "GET")
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
@@ -517,7 +518,7 @@ class ModelsApiTests(unittest.TestCase):
             def __init__(self, run_config):
                 self.run_config = run_config
 
-            def load_run_and_persist(self, connection, *, persist_signals=True):
+            def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
                 return SimpleNamespace(run_id=601, loop_result=SimpleNamespace())
 
         class StubRepository:
@@ -618,7 +619,7 @@ class ModelsApiTests(unittest.TestCase):
             def __init__(self, run_config):
                 self.run_config = run_config
 
-            def load_run_and_persist(self, connection, *, persist_signals=True):
+            def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
                 self.run_config.build_effective_risk_policy()
                 return SimpleNamespace(run_id=999, loop_result=SimpleNamespace())
 
@@ -661,7 +662,7 @@ class ModelsApiTests(unittest.TestCase):
             def __init__(self, run_config):
                 self.run_config = run_config
 
-            def load_run_and_persist(self, connection, *, persist_signals=True):
+            def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
                 self.run_config.build_effective_assumption_snapshot()
                 return SimpleNamespace(run_id=999, loop_result=SimpleNamespace())
 
@@ -775,12 +776,54 @@ class ModelsApiTests(unittest.TestCase):
                     }
                 ]
 
+            def list_debug_trace_records(
+                self,
+                connection,
+                *,
+                run_id: int,
+                limit: int | None = None,
+                unified_symbol: str | None = None,
+                bar_time_from: datetime | None = None,
+                bar_time_to: datetime | None = None,
+            ):
+                return [
+                    {
+                        "debug_trace_id": 31,
+                        "step_index": 1,
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "bar_time": datetime.fromisoformat("2026-03-05T00:05:00+00:00"),
+                        "close_price": Decimal("102.5"),
+                        "current_position_qty": Decimal("0"),
+                        "signal_count": 1,
+                        "intent_count": 1,
+                        "blocked_intent_count": 0,
+                        "created_order_count": 1,
+                        "fill_count": 0,
+                        "cash": Decimal("100000"),
+                        "equity": Decimal("100000"),
+                        "drawdown": Decimal("0"),
+                        "decision_json": {
+                            "decision_type": "target_position",
+                            "execution_intents": [{"delta_qty": "1"}],
+                        },
+                        "risk_outcomes_json": [{"code": "allowed", "decision": "allow"}],
+                    }
+                ]
+
         app_module.BacktestRunRepository = StubRepository
         try:
             orders_response = self.__class__.backtest_run_orders_endpoint(601, 50, "Bearer developer:u_123:Alice")
             fills_response = self.__class__.backtest_run_fills_endpoint(601, 50, "Bearer developer:u_123:Alice")
             timeseries_response = self.__class__.backtest_run_timeseries_endpoint(601, 120, "Bearer developer:u_123:Alice")
             signals_response = self.__class__.backtest_run_signals_endpoint(601, 50, "Bearer developer:u_123:Alice")
+            debug_traces_response = self.__class__.backtest_run_debug_traces_endpoint(
+                601,
+                200,
+                None,
+                None,
+                None,
+                "Bearer developer:u_123:Alice",
+            )
         finally:
             app_module.BacktestRunRepository = original_repository
 
@@ -798,6 +841,11 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(signals_response.success)
         self.assertEqual(signals_response.data.signals[0].signal_type, "entry")
         self.assertEqual(signals_response.data.signals[0].reason_code, "ma_cross_up")
+
+        self.assertTrue(debug_traces_response.success)
+        self.assertEqual(debug_traces_response.data.traces[0].debug_trace_id, 31)
+        self.assertEqual(debug_traces_response.data.traces[0].decision_json["decision_type"], "target_position")
+        self.assertEqual(debug_traces_response.data.traces[0].risk_outcomes_json[0]["code"], "allowed")
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

@@ -877,6 +877,11 @@ Current implementation status:
 Purpose:
 - return step-level debug traces for a backtest run
 
+Current implementation status:
+- implemented as the Level 1 backend foundation
+- currently returns compact per-step trace rows with decision JSON, risk outcomes JSON, counts, and portfolio/equity fields
+- currently supports `limit`, `unified_symbol`, `bar_time_from`, and `bar_time_to`
+
 ### GET `/api/v1/backtests/runs/{run_id}/artifacts`
 Purpose:
 - return artifact bundle references or exported research evidence for a run

@@ -2,7 +2,7 @@
 
 ## Current Focus
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
-- extend object-level notes from compare-review into step traces, replay investigation notes, and future workbench annotation surfaces
+- extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -15,11 +15,13 @@
 - compare sets now persist durable identity in runtime code and seed a system review draft on creation
 - compare-review notes now have first object-linked API surfaces at `GET/POST /api/v1/backtests/compare-sets/{compare_set_id}/notes`
 - compare-review notes are now exposed in the internal `/monitoring` Backtests research slice, including system-note inspection and human/agent note entry
+- Level 1 backend debug traces now exist end-to-end: schema, runner projection, persisted run support, artifact inventory, and `GET /api/v1/backtests/runs/{run_id}/debug-traces`
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
-- replay/debug trace and richer saved-compare workflow are still future work
+- the debug-trace backend exists, but the internal UI trace table/detail slice is still missing
+- replay/debug trace linkage and richer saved-compare workflow are still future work
 - replay investigation notes and unified annotation service remain future work
 
 ## Files To Inspect Next
@@ -37,6 +39,12 @@
 - `docs/strategy-risk-assumption-management-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/debug-trace-rollout-plan.md`
+- `db/init/009_backtest_debug_traces.sql`
+- `src/backtest/traces.py`
+- `src/backtest/runner.py`
+- `src/backtest/artifacts.py`
+- `src/storage/repositories/backtest.py`
+- `src/api/app.py`
 - `docs/repo-self-review-tracker.md`
 - `src/backtest/compare_review.py`
 - `src/storage/repositories/research.py`
@@ -46,4 +54,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only `Level 1 backend foundation` before moving on to replay-note linkage
+- when continuing this line, start from `docs/debug-trace-rollout-plan.md` and implement only the `Level 1` internal UI trace table/detail slice before moving on to richer trace linkage or replay-note linkage

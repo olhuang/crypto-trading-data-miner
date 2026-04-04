@@ -31,6 +31,7 @@ class BacktestArtifactCatalogProjector:
         timeseries_records = self.run_repository.list_timeseries(connection, run_id=run_id)
         fill_records = self.run_repository.list_fill_records(connection, run_id=run_id)
         signal_records = self.run_repository.list_signal_records(connection, run_id=run_id)
+        debug_trace_count = self.run_repository.count_debug_traces(connection, run_id=run_id)
 
         artifacts = [
             ArtifactReference(
@@ -56,6 +57,12 @@ class BacktestArtifactCatalogProjector:
                 status="available" if timeseries_records else "empty",
                 record_count=len(timeseries_records),
                 description="equity, cash, exposure, and drawdown timeseries",
+            ),
+            ArtifactReference(
+                artifact_type="debug_traces",
+                status="available" if debug_trace_count else "empty",
+                record_count=debug_trace_count,
+                description="compact step-level debug traces for strategy, execution, and risk inspection",
             ),
             ArtifactReference(
                 artifact_type="diagnostics_summary",

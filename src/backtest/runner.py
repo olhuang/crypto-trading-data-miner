@@ -4,7 +4,7 @@ from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
 from itertools import groupby
-from typing import Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from models.backtest import BacktestRunConfig
 from models.common import RiskDecision
@@ -22,6 +22,7 @@ from .performance import PerformancePoint, PerformanceSummary, build_performance
 from .risk import BacktestRiskGuardrailEngine, RiskGuardrailOutcome
 from .signals import build_signals_from_target_position
 from .state import PortfolioState, PositionState
+from .traces import BacktestDebugTraceRecord
 
 
 @dataclass(slots=True)
@@ -33,10 +34,10 @@ class BacktestStepResult:
     fills: list[SimulatedFill]
     risk_outcomes: list[RiskGuardrailOutcome]
 
-
 @dataclass(slots=True)
 class BacktestRunLoopResult:
     steps: list[BacktestStepResult]
+    debug_traces: list[BacktestDebugTraceRecord]
     final_positions: dict[str, Decimal]
     final_cash: Decimal
     persisted_signal_ids: list[int]
@@ -123,6 +124,7 @@ class BacktestRunnerSkeleton:
         persist_signals: bool = False,
         connection: Connection | None = None,
         capture_steps: bool = True,
+        capture_debug_traces: bool = False,
     ) -> BacktestRunLoopResult:
         portfolio = PortfolioState(
             cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
@@ -132,6 +134,7 @@ class BacktestRunnerSkeleton:
             portfolio.position_states[symbol] = PositionState(qty=Decimal(value))
         recent_bars_by_symbol: dict[str, list[BarEvent] | deque[BarEvent]] = {}
         step_results: list[BacktestStepResult] = []
+        debug_traces: list[BacktestDebugTraceRecord] = []
         persisted_signal_ids: list[int] = []
         pending_orders_by_symbol: dict[str, list[SimulatedOrder]] = {}
         all_orders: list[SimulatedOrder] = []
@@ -140,6 +143,7 @@ class BacktestRunnerSkeleton:
         performance_points: list[PerformancePoint] = []
         latest_close_by_symbol: dict[str, Decimal] = {}
         running_peak_equity = portfolio.cash
+        trace_running_peak_equity = portfolio.cash
 
         history_cap = self.strategy.required_bar_history
         sorted_bars = sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
@@ -207,6 +211,24 @@ class BacktestRunnerSkeleton:
                 all_orders.extend(created_orders)
                 pending_orders_by_symbol.setdefault(bar.unified_symbol, []).extend(created_orders)
                 latest_close_by_symbol[bar.unified_symbol] = bar.close
+                if capture_debug_traces:
+                    trace_mark = portfolio.mark_to_market(latest_close_by_symbol)
+                    trace_running_peak_equity = max(trace_running_peak_equity, trace_mark.equity)
+                    trace_drawdown = Decimal("0")
+                    if trace_running_peak_equity > 0:
+                        trace_drawdown = (trace_running_peak_equity - trace_mark.equity) / trace_running_peak_equity
+                    debug_traces.append(
+                        self._build_debug_trace_record(
+                            step_index=len(debug_traces) + 1,
+                            bar=bar,
+                            step_result=step_result,
+                            created_orders=created_orders,
+                            step_fills=step_fills,
+                            portfolio=portfolio,
+                            equity=trace_mark.equity,
+                            drawdown=trace_drawdown,
+                        )
+                    )
                 if capture_steps:
                     step_result.created_orders.extend(created_orders)
                     step_result.fills.extend(step_fills)
@@ -235,6 +257,7 @@ class BacktestRunnerSkeleton:
 
         return BacktestRunLoopResult(
             steps=step_results,
+            debug_traces=debug_traces,
             final_positions=portfolio.positions,
             final_cash=portfolio.cash,
             persisted_signal_ids=persisted_signal_ids,
@@ -253,6 +276,7 @@ class BacktestRunnerSkeleton:
         bar_loader: BacktestBarLoader | None = None,
         persist_signals: bool = False,
         capture_steps: bool = True,
+        capture_debug_traces: bool = False,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
         bars = loader.load_bars(connection, self.run_config)
@@ -261,6 +285,7 @@ class BacktestRunnerSkeleton:
             persist_signals=persist_signals,
             connection=connection,
             capture_steps=capture_steps,
+            capture_debug_traces=capture_debug_traces,
         )
 
     def load_run_and_persist(
@@ -270,17 +295,23 @@ class BacktestRunnerSkeleton:
         bar_loader: BacktestBarLoader | None = None,
         persist_signals: bool = True,
         capture_steps: bool = False,
+        persist_debug_traces: bool = False,
     ) -> PersistedBacktestRunResult:
         loop_result = self.load_and_run(
             connection,
             bar_loader=bar_loader,
             persist_signals=persist_signals,
             capture_steps=capture_steps,
+            capture_debug_traces=persist_debug_traces,
         )
         run_id = self.run_repository.insert_run(
             connection,
             self.run_config,
-            runtime_metadata=self._build_runtime_metadata(loop_result, self.risk_guardrails),
+            runtime_metadata=self._build_runtime_metadata(
+                loop_result,
+                self.risk_guardrails,
+                persist_debug_traces=persist_debug_traces,
+            ),
         )
         order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
         self.run_repository.insert_fills(
@@ -299,12 +330,20 @@ class BacktestRunnerSkeleton:
             run_id=run_id,
             performance_points=loop_result.performance_points,
         )
+        if persist_debug_traces:
+            self.run_repository.insert_debug_traces(
+                connection,
+                run_id=run_id,
+                debug_traces=loop_result.debug_traces,
+            )
         return PersistedBacktestRunResult(run_id=run_id, loop_result=loop_result)
 
     @staticmethod
     def _build_runtime_metadata(
         loop_result: BacktestRunLoopResult,
         risk_guardrails: BacktestRiskGuardrailEngine,
+        *,
+        persist_debug_traces: bool,
     ) -> dict[str, object]:
         blocked_outcomes = [outcome for outcome in loop_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK]
         block_counts_by_code: dict[str, int] = {}
@@ -324,7 +363,11 @@ class BacktestRunnerSkeleton:
                 "block_counts_by_code": block_counts_by_code,
                 "outcome_counts_by_code": outcome_counts_by_code,
                 "state_snapshot": risk_guardrails.build_runtime_state_snapshot(),
-            }
+            },
+            "debug_trace_summary": {
+                "persisted": persist_debug_traces,
+                "captured_trace_count": len(loop_result.debug_traces),
+            },
         }
 
     def _build_signals(
@@ -341,3 +384,139 @@ class BacktestRunnerSkeleton:
                 session_code=self.run_config.session.session_code,
             )
         return []
+
+    @staticmethod
+    def _build_debug_trace_record(
+        *,
+        step_index: int,
+        bar: BarEvent,
+        step_result: BacktestStepResult,
+        created_orders: Sequence[SimulatedOrder],
+        step_fills: Sequence[SimulatedFill],
+        portfolio: PortfolioState,
+        equity: Decimal,
+        drawdown: Decimal,
+    ) -> BacktestDebugTraceRecord:
+        blocked_count = sum(
+            1 for outcome in step_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK
+        )
+        return BacktestDebugTraceRecord(
+            step_index=step_index,
+            bar_time=bar.bar_time,
+            exchange_code=bar.exchange_code,
+            unified_symbol=bar.unified_symbol,
+            close_price=bar.close,
+            current_position_qty=portfolio.position_qty(bar.unified_symbol),
+            signal_count=len(step_result.signals),
+            intent_count=len(step_result.plan.execution_intents),
+            blocked_intent_count=blocked_count,
+            created_order_count=len(created_orders),
+            fill_count=len(step_fills),
+            cash=portfolio.cash,
+            equity=equity,
+            drawdown=drawdown,
+            decision_json=BacktestRunnerSkeleton._serialize_step_decision(step_result),
+            risk_outcomes_json=[
+                BacktestRunnerSkeleton._serialize_risk_outcome(outcome)
+                for outcome in step_result.risk_outcomes
+            ],
+        )
+
+    @staticmethod
+    def _serialize_step_decision(step_result: BacktestStepResult) -> dict[str, Any]:
+        decision = step_result.plan.decision
+        if decision is None:
+            return {
+                "decision_type": "none",
+                "signals": [],
+                "execution_intents": [],
+            }
+        if isinstance(decision, Signal):
+            decision_type = "signal"
+            decision_payload = {
+                "strategy_code": decision.strategy_code,
+                "strategy_version": decision.strategy_version,
+                "signal_time": decision.signal_time.isoformat(),
+                "signal_type": str(decision.signal_type),
+                "direction": decision.direction,
+                "target_qty": str(decision.target_qty) if decision.target_qty is not None else None,
+                "target_notional": (
+                    str(decision.target_notional)
+                    if decision.target_notional is not None
+                    else None
+                ),
+                "reason_code": decision.reason_code,
+            }
+        elif isinstance(decision, TargetPosition):
+            decision_type = "target_position"
+            decision_payload = {
+                "strategy_code": decision.strategy_code,
+                "strategy_version": decision.strategy_version,
+                "target_time": decision.target_time.isoformat(),
+                "positions": [
+                    {
+                        "exchange_code": item.exchange_code,
+                        "unified_symbol": item.unified_symbol,
+                        "target_qty": str(item.target_qty) if item.target_qty is not None else None,
+                        "target_notional": (
+                            str(item.target_notional)
+                            if item.target_notional is not None
+                            else None
+                        ),
+                    }
+                    for item in decision.positions
+                ],
+            }
+        else:
+            decision_type = type(decision).__name__
+            decision_payload = {"repr": str(decision)}
+
+        return {
+            "decision_type": decision_type,
+            "decision": decision_payload,
+            "signals": [
+                {
+                    "signal_type": str(signal.signal_type),
+                    "direction": signal.direction,
+                    "target_qty": str(signal.target_qty) if signal.target_qty is not None else None,
+                    "target_notional": (
+                        str(signal.target_notional)
+                        if signal.target_notional is not None
+                        else None
+                    ),
+                    "reason_code": signal.reason_code,
+                }
+                for signal in step_result.signals
+            ],
+            "execution_intents": [
+                {
+                    "unified_symbol": intent.unified_symbol,
+                    "side": str(intent.side),
+                    "order_type": str(intent.order_type),
+                    "current_qty": str(intent.current_qty),
+                    "target_qty": str(intent.target_qty),
+                    "delta_qty": str(intent.delta_qty),
+                    "reduce_only": intent.reduce_only,
+                }
+                for intent in step_result.plan.execution_intents
+            ],
+        }
+
+    @staticmethod
+    def _serialize_risk_outcome(outcome: RiskGuardrailOutcome) -> dict[str, Any]:
+        return {
+            "decision": str(outcome.decision),
+            "code": outcome.code,
+            "message": outcome.message,
+            "evaluated_at": outcome.evaluated_at.isoformat(),
+            "unified_symbol": outcome.unified_symbol,
+            "current_qty": str(outcome.current_qty),
+            "target_qty": str(outcome.target_qty),
+            "delta_qty": str(outcome.delta_qty),
+            "estimated_notional": (
+                str(outcome.estimated_notional)
+                if outcome.estimated_notional is not None
+                else None
+            ),
+            "details_json": dict(outcome.details_json),
+        }

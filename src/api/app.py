@@ -142,6 +142,7 @@ class CompareReviewNoteWriteRequest(ApiRequestModel):
 
 class BacktestRunStartRequest(BacktestRunConfig):
     persist_signals: bool = True
+    persist_debug_traces: bool = False
 
 
 TData = TypeVar("TData")
@@ -584,6 +585,30 @@ class BacktestTimeseriesResource(BaseModel):
     points: list[BacktestTimeseriesPointResource]
 
 
+class BacktestDebugTraceRecordResource(BaseModel):
+    debug_trace_id: int
+    step_index: int
+    bar_time: str
+    unified_symbol: str
+    close_price: str | None = None
+    current_position_qty: str | None = None
+    signal_count: int
+    intent_count: int
+    blocked_intent_count: int
+    created_order_count: int
+    fill_count: int
+    cash: str | None = None
+    equity: str | None = None
+    drawdown: str | None = None
+    decision_json: dict[str, Any]
+    risk_outcomes_json: list[dict[str, Any]]
+
+
+class BacktestDebugTraceRecordsResource(BaseModel):
+    run_id: int
+    traces: list[BacktestDebugTraceRecordResource]
+
+
 class ValidationResultResource(BaseModel):
     valid: bool
     model_name: str
@@ -943,6 +968,27 @@ def _build_backtest_timeseries_point_resource(record: dict[str, Any]) -> Backtes
         gross_exposure=_stringify_decimal(record.get("gross_exposure")),
         net_exposure=_stringify_decimal(record.get("net_exposure")),
         drawdown=_stringify_decimal(record.get("drawdown")),
+    )
+
+
+def _build_backtest_debug_trace_resource(record: dict[str, Any]) -> BacktestDebugTraceRecordResource:
+    return BacktestDebugTraceRecordResource(
+        debug_trace_id=int(record["debug_trace_id"]),
+        step_index=int(record["step_index"]),
+        bar_time=record["bar_time"].isoformat(),
+        unified_symbol=str(record["unified_symbol"]),
+        close_price=_stringify_decimal(record.get("close_price")),
+        current_position_qty=_stringify_decimal(record.get("current_position_qty")),
+        signal_count=int(record["signal_count"]),
+        intent_count=int(record["intent_count"]),
+        blocked_intent_count=int(record["blocked_intent_count"]),
+        created_order_count=int(record["created_order_count"]),
+        fill_count=int(record["fill_count"]),
+        cash=_stringify_decimal(record.get("cash")),
+        equity=_stringify_decimal(record.get("equity")),
+        drawdown=_stringify_decimal(record.get("drawdown")),
+        decision_json=dict(record.get("decision_json") or {}),
+        risk_outcomes_json=list(record.get("risk_outcomes_json") or []),
     )
 
 
@@ -1512,7 +1558,11 @@ def create_app() -> FastAPI:
         try:
             runner = BacktestRunnerSkeleton(request)
             with transaction_scope() as connection:
-                persisted = runner.load_run_and_persist(connection, persist_signals=request.persist_signals)
+                persisted = runner.load_run_and_persist(
+                    connection,
+                    persist_signals=request.persist_signals,
+                    persist_debug_traces=request.persist_debug_traces,
+                )
                 run_repository = BacktestRunRepository()
                 run_row = run_repository.get_run(connection, persisted.run_id)
                 summary_row = run_repository.get_performance_summary(connection, run_id=persisted.run_id)
@@ -1733,6 +1783,40 @@ def create_app() -> FastAPI:
             data=BacktestSignalRecordsResource(
                 run_id=run_id,
                 signals=[_build_backtest_signal_resource(record) for record in records],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/debug-traces")
+    def backtest_run_debug_traces(
+        run_id: int,
+        limit: int = 200,
+        unified_symbol: str | None = None,
+        bar_time_from: datetime | None = None,
+        bar_time_to: datetime | None = None,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestDebugTraceRecordsResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with connection_scope() as connection:
+            repository = BacktestRunRepository()
+            run_row = repository.get_run(connection, run_id)
+            if run_row is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "NOT_FOUND", "message": f"backtest run not found: {run_id}", "details": {}},
+                )
+            records = repository.list_debug_trace_records(
+                connection,
+                run_id=run_id,
+                limit=limit,
+                unified_symbol=unified_symbol,
+                bar_time_from=bar_time_from,
+                bar_time_to=bar_time_to,
+            )
+        return SuccessEnvelope[BacktestDebugTraceRecordsResource](
+            data=BacktestDebugTraceRecordsResource(
+                run_id=run_id,
+                traces=[_build_backtest_debug_trace_resource(record) for record in records],
             ),
             meta=_meta(actor),
         )

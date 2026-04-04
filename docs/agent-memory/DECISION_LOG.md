@@ -82,3 +82,18 @@ Implement compare-review notes as persisted compare-set identity plus a seeded s
 - `POST /api/v1/backtests/compare-sets` now returns a durable `compare_set_id`
 - compare creation now seeds a system review note in the generic annotation store
 - replay investigation notes can later reuse the same object-level annotation direction instead of inventing a separate notes path
+
+## 2026-04-04
+
+### Decision
+Implement Level 1 backtest debug traces as compact, opt-in persisted rows rather than storing full per-step state for every run by default.
+
+### Reason
+- persisted runs are already useful without full traces, so trace capture should not make every run materially heavier
+- replay/investigation requirements are still evolving, so Level 1 should focus on durable compact evidence instead of prematurely designing a replay engine payload
+- compact trace rows are enough to support the next UI/debug slice and future note linkage
+
+### Impact
+- persisted runs now support `persist_debug_traces` as an explicit opt-in
+- `backtest.debug_traces` stores compact per-step evidence plus small JSON payloads
+- the next trace slice should focus on internal UI inspection, not on widening the schema into a replay payload too early

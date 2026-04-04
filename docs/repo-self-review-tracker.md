@@ -31,7 +31,7 @@ The intent is to keep one explicit place for:
 | ID | Area | Finding | Planned Direction | Status |
 |---|---|---|---|---|
 | `SR-2026-04-04-05` | Cooldown semantics | `cooldown_bars_after_stop` currently uses a realized losing close as the first stop-like proxy. It is not yet linked to explicit protection-trigger events. | Rebind cooldown to TP/SL/protection events once the fuller protection lifecycle exists. | `open` |
-| `SR-2026-04-04-06` | Diagnostics depth | Stage A diagnostics now exposes richer risk summary, but there is still no step-trace foundation for replay/debug-quality investigation. | Implement `debug-traces` Stage B and link summary flags to trace drill-down. | `open` |
+| `SR-2026-04-04-06` | Diagnostics depth | Stage A diagnostics now exposes richer risk summary, and Level 1 backend debug traces now exist, but there is still no internal debug-trace UI surface or diagnostics-to-trace drill-down. | Finish the Level 1 internal trace table/detail slice, then link summary flags to trace drill-down in later stages. | `open` |
 | `SR-2026-04-04-07` | Compare/analyze maturity | Compare currently focuses on assumptions and KPI deltas, but not yet on richer runtime risk-state deltas or persisted compare-set workflows. | Extend compare-set persistence and runtime-risk diff views in later Phase 5 workbench stages. | `open` |
 
 ---
