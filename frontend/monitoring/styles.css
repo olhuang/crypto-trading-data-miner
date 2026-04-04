@@ -206,6 +206,16 @@ input {
   min-height: 8rem;
 }
 
+.panel-subsection {
+  margin-bottom: 1rem;
+}
+
+.panel-subsection h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
 .table-shell {
   overflow: auto;
 }

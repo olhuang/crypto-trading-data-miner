@@ -782,6 +782,15 @@ Current implementation status:
 Response fields:
 - run detail resource with metadata, assumptions, and top-level KPI summary
 
+### GET `/api/v1/backtests/risk-policies`
+Purpose:
+- list the currently available named backtest risk policies for the run builder and research inspection
+
+Current implementation status:
+- implemented as a code-seeded registry list for the current Phase 5 backtest slice
+- currently supports optional `market_scope` filtering
+- currently returns reusable named policy snapshots that can be referenced by `session.risk_policy.policy_code`
+
 ### GET `/api/v1/backtests/runs`
 Purpose:
 - list backtest runs
@@ -910,6 +919,7 @@ Purpose:
 
 ## Phase 5 Acceptance via UI/API
 - [ ] UI can launch backtest from form
+- [ ] UI can list and inspect named risk-policy choices from the run builder
 - [ ] UI can show run list and run detail
 - [ ] UI can inspect simulated orders/fills/timeseries
 - [ ] UI can inspect backtest diagnostics/debug traces

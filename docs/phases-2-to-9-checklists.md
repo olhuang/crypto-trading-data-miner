@@ -684,6 +684,21 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ---
 
+## Task 5.3C: Implement named risk-policy registry foundation
+### Tasks
+- [x] add a reusable named risk-policy registry for the current Phase 5 backtest slice
+- [x] resolve `session.risk_policy.policy_code` through the registry before effective snapshot merge
+- [x] allow run-level overrides to switch to another named risk-policy base when a known override code is selected
+- [x] expose available named risk policies through a dedicated API surface
+- [x] expose available named risk policies in the current internal Backtests UI launch flow
+
+### Acceptance Checks
+- [x] a run can select a named risk policy without copying every guardrail field into the request body
+- [x] persisted session/effective risk snapshots reflect registry resolution rather than only raw request knobs
+- [x] API and UI users can inspect the currently available named risk policies without raw code inspection
+
+---
+
 ## Task 5.4: Implement portfolio/account state in backtest
 ### Tasks
 - [x] maintain cash state
@@ -852,6 +867,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes run-detail APIs for persisted signals, simulated orders, simulated fills, and recent performance timeseries inspection
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown plus signals/orders/fills/timeseries detail
 - [x] the current internal Backtests launch form now exposes first-wave risk-policy fields for the shared backtest guardrails
+- [x] the current internal Backtests launch form now also exposes and loads named risk policies from the current registry foundation
 - [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
 - [x] the current Phase 5 planning baseline now explicitly preserves room for named risk policies, assumption bundles, and run-level effective snapshot precedence
 - [ ] the Phase 5 skeleton has not yet been extended into a step-trace foundation or saved compare-set workflow

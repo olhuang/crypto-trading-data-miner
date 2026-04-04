@@ -363,6 +363,12 @@ Implement:
 Minimum result:
 - users can choose and reuse named risk policies instead of copying raw knobs each run
 
+Current foundation status:
+- implemented as a code-seeded named risk-policy registry for the current Phase 5 backtest slice
+- current API/UI can list available named policies and use `risk_policy_code` as a reusable selection surface
+- current runs still persist immutable session/effective risk snapshots so later DB-normalized registry work does not break reproducibility
+- optional policy versioning and DB-backed registry normalization remain future work
+
 ### Phase D: Assumption Bundle Foundation
 
 Implement:

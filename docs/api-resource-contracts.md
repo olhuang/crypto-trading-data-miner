@@ -393,6 +393,44 @@ Used by:
 
 ---
 
+## 4.4 Backtest Risk Policy Registry Resource
+
+Used by:
+- `GET /api/v1/backtests/risk-policies`
+
+### Response Shape
+
+```json
+{
+  "risk_policies": [
+    {
+      "policy_code": "perp_medium_v1",
+      "display_name": "Perp Medium v1",
+      "description": "Starter perpetual-futures policy for one-contract-class directional research with moderate gross exposure.",
+      "market_scope": "perp",
+      "risk_policy": {
+        "policy_code": "perp_medium_v1",
+        "enforce_spot_cash_check": true,
+        "block_new_entries_below_equity": "0",
+        "max_position_qty": "1",
+        "max_order_qty": "1",
+        "max_order_notional": "100000",
+        "max_gross_exposure_multiple": "1.5",
+        "allow_reduce_only_when_blocked": true
+      }
+    }
+  ]
+}
+```
+
+### Notes
+
+- the current implementation is a code-seeded registry foundation for reusable Phase 5 backtest guardrail profiles
+- `session.risk_policy.policy_code` may reference one of these named policies and still be overridden by explicit session fields or run-level `risk_overrides`
+- DB-normalized risk-policy objects and optional policy versioning remain future work
+
+---
+
 ## 5. Backtest Run Timeseries Resource
 
 Used by:

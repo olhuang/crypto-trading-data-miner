@@ -510,6 +510,7 @@ Required sections:
 - [ ] strategy/version selector components
 - [ ] backtest launch form
 - [ ] first-wave backtest risk-policy inputs in the run builder
+- [ ] named risk-policy selector or registry inspection in the run builder
 - [ ] assumption-bundle metadata and run-level risk-override inputs in the run builder
 - [ ] run status badges
 - [ ] KPI summary cards
@@ -565,6 +566,7 @@ Required sections:
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view
 - [x] the current internal Backtests view can launch a persisted bars-based run from UI
 - [x] the current internal Backtests launch form now includes first-wave risk-policy inputs for shared backtest guardrails
+- [x] the current internal Backtests launch form now loads and displays the current named risk-policy registry foundation
 - [x] the current internal Backtests launch form now includes assumption-bundle metadata and run-level risk-override baseline fields
 - [x] the current internal Backtests view can list recent runs without raw SQL
 - [x] the current internal Backtests view can inspect run detail, diagnostics summary, artifact bundle, and month breakdown

@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from config import settings
 from backtest.artifacts import BacktestArtifactCatalogProjector
+from backtest.risk_registry import UnknownRiskPolicyError, build_default_risk_policy_registry
 from backtest.runner import BacktestRunnerSkeleton
 from backtest.compare import BacktestCompareNotFoundError, BacktestCompareProjector, BacktestCompareValidationError
 from backtest.diagnostics import BacktestDiagnosticsProjector
@@ -379,6 +380,18 @@ class BacktestRunListResource(BaseModel):
     runs: list[BacktestRunListItemResource]
 
 
+class BacktestRiskPolicyResource(BaseModel):
+    policy_code: str
+    display_name: str
+    description: str
+    market_scope: str
+    risk_policy: dict[str, Any]
+
+
+class BacktestRiskPolicyListResource(BaseModel):
+    risk_policies: list[BacktestRiskPolicyResource]
+
+
 class BacktestRunDetailResource(BaseModel):
     run_id: int
     run_name: str
@@ -601,6 +614,16 @@ def _normalize_mapping(row: dict[str, Any]) -> dict[str, Any]:
 
 def _stringify_decimal(value: Any) -> str | None:
     return None if value is None else str(value)
+
+
+def _build_backtest_risk_policy_resource(entry) -> BacktestRiskPolicyResource:
+    return BacktestRiskPolicyResource(
+        policy_code=entry.policy_code,
+        display_name=entry.display_name,
+        description=entry.description,
+        market_scope=entry.market_scope,
+        risk_policy=entry.risk_policy.model_dump(mode="json", by_alias=True),
+    )
 
 
 def _build_backtest_run_resource(
@@ -1302,6 +1325,15 @@ def create_app() -> FastAPI:
                 status_code=404,
                 detail={"code": "NOT_FOUND", "message": str(exc), "details": {}},
             ) from exc
+        except UnknownRiskPolicyError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "details": {"field": "risk_policy_code"},
+                },
+            ) from exc
         except ValidationError as exc:
             raise HTTPException(
                 status_code=422,
@@ -1315,6 +1347,26 @@ def create_app() -> FastAPI:
         assert run_row is not None
         return SuccessEnvelope[BacktestRunDetailResource](
             data=_build_backtest_run_resource(run_row, summary_row),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/risk-policies")
+    def list_backtest_risk_policies(
+        market_scope: str | None = None,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestRiskPolicyListResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        entries = build_default_risk_policy_registry().list_entries()
+        if market_scope is not None:
+            entries = [
+                entry
+                for entry in entries
+                if entry.market_scope == market_scope or entry.market_scope == "shared"
+            ]
+        return SuccessEnvelope[BacktestRiskPolicyListResource](
+            data=BacktestRiskPolicyListResource(
+                risk_policies=[_build_backtest_risk_policy_resource(entry) for entry in entries]
+            ),
             meta=_meta(actor),
         )
 

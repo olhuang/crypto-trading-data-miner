@@ -21,6 +21,7 @@ from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.periods import build_period_breakdown
 from backtest.performance import PerformancePoint
+from backtest.risk_registry import build_default_risk_policy_registry
 from backtest.runner import BacktestRunnerSkeleton
 from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
@@ -230,6 +231,78 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(effective.max_order_notional, Decimal("5000"))
         self.assertFalse(effective.allow_reduce_only_when_blocked)
         self.assertEqual(effective.metadata_json["source"], "run_override")
+
+    def test_named_risk_policy_registry_resolves_session_policy_code(self) -> None:
+        registry = build_default_risk_policy_registry()
+        policy_codes = [entry.policy_code for entry in registry.list_entries()]
+
+        self.assertIn("default", policy_codes)
+        self.assertIn("spot_conservative_v1", policy_codes)
+        self.assertIn("perp_medium_v1", policy_codes)
+
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_named_session_risk_policy",
+                "session": {
+                    "session_code": "bt_btc_named_session_risk_policy",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "perp_medium_v1",
+                        "max_order_notional": "75000",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+
+        resolved = run_config.resolve_session_risk_policy()
+
+        self.assertEqual(resolved.policy_code, "perp_medium_v1")
+        self.assertEqual(resolved.max_position_qty, Decimal("1"))
+        self.assertEqual(resolved.max_order_qty, Decimal("1"))
+        self.assertEqual(resolved.max_order_notional, Decimal("75000"))
+        self.assertEqual(resolved.max_gross_exposure_multiple, Decimal("1.5"))
+
+    def test_named_risk_policy_override_code_can_switch_effective_base_policy(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_named_override_policy",
+                "session": {
+                    "session_code": "bt_btc_named_override_policy",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "perp_medium_v1",
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+                "risk_overrides": {
+                    "policy_code": "perp_aggressive_v1",
+                    "max_order_notional": "125000",
+                },
+            }
+        )
+
+        effective = run_config.build_effective_risk_policy()
+
+        self.assertEqual(effective.policy_code, "perp_aggressive_v1")
+        self.assertEqual(effective.max_position_qty, Decimal("2"))
+        self.assertEqual(effective.max_order_qty, Decimal("2"))
+        self.assertEqual(effective.max_order_notional, Decimal("125000"))
+        self.assertEqual(effective.max_gross_exposure_multiple, Decimal("3.0"))
 
     def test_default_registry_loads_seeded_example_strategy(self) -> None:
         registry = build_default_registry()

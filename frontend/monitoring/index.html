@@ -102,7 +102,12 @@
                 <input name="long_window" placeholder="long_window" value="20" />
                 <input name="target_qty" placeholder="target_qty" value="1" />
                 <input name="allow_short" placeholder="allow_short true/false" value="false" />
-                <input name="risk_policy_code" placeholder="session risk_policy_code (optional)" />
+                <input
+                  name="risk_policy_code"
+                  list="backtest-risk-policy-options"
+                  placeholder="session risk_policy_code (optional)"
+                />
+                <datalist id="backtest-risk-policy-options"></datalist>
                 <input name="block_new_entries_below_equity" placeholder="risk_override block_new_entries_below_equity" value="0" />
                 <input name="max_position_qty" placeholder="max_position_qty (optional)" />
                 <input name="max_order_qty" placeholder="max_order_qty (optional)" />
@@ -112,6 +117,10 @@
                 <input name="allow_reduce_only_when_blocked" placeholder="risk_override allow_reduce_only_when_blocked true/false" value="true" />
                 <button type="submit">Launch Run</button>
               </form>
+              <div class="panel-subsection">
+                <h4>Available Risk Policies</h4>
+                <div id="backtest-risk-policies-table" class="table-shell"></div>
+              </div>
               <div id="backtest-launch-result" class="json-shell compact-shell">Submit a run to see the response.</div>
             </section>
             <section class="panel">

@@ -64,6 +64,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.jobs_list_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs", "GET")
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
         cls.backtest_runs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "POST")
+        cls.backtest_risk_policies_endpoint = _resolve_route(cls.app, "/api/v1/backtests/risk-policies", "GET")
         cls.backtest_runs_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "GET")
         cls.backtest_run_detail_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}", "GET")
         cls.backtest_run_orders_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/orders", "GET")
@@ -389,6 +390,18 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.execution_summary.blocked_intent_count, 3)
         self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
 
+    def test_backtest_risk_policies_endpoint_lists_named_registry_entries(self) -> None:
+        response = self.__class__.backtest_risk_policies_endpoint(
+            authorization="Bearer developer:u_123:Alice",
+        )
+
+        self.assertTrue(response.success)
+        self.assertGreaterEqual(len(response.data.risk_policies), 3)
+        policy_codes = [resource.policy_code for resource in response.data.risk_policies]
+        self.assertIn("default", policy_codes)
+        self.assertIn("perp_medium_v1", policy_codes)
+        self.assertIn("spot_conservative_v1", policy_codes)
+
     def test_backtest_runs_endpoint_supports_create_list_and_detail(self) -> None:
         original_runner = app_module.BacktestRunnerSkeleton
         original_repository = app_module.BacktestRunRepository
@@ -525,6 +538,49 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(detail_response.data.risk_policy["policy_code"], "perp_medium_v1")
         self.assertEqual(detail_response.data.run_metadata_json["source"], "ui")
         self.assertEqual(detail_response.data.runtime_metadata_json["risk_summary"]["blocked_intent_count"], 1)
+
+    def test_backtest_run_create_rejects_unknown_named_risk_policy(self) -> None:
+        original_runner = app_module.BacktestRunnerSkeleton
+
+        class StubRunner:
+            def __init__(self, run_config):
+                self.run_config = run_config
+
+            def load_run_and_persist(self, connection, *, persist_signals=True):
+                self.run_config.build_effective_risk_policy()
+                return SimpleNamespace(run_id=999, loop_result=SimpleNamespace())
+
+        app_module.BacktestRunnerSkeleton = StubRunner
+        try:
+            with self.assertRaises(HTTPException) as exc:
+                self.__class__.backtest_runs_create_endpoint(
+                    BacktestRunStartRequest.model_validate(
+                        {
+                            "run_name": "btc_unknown_risk_policy",
+                            "session": {
+                                "session_code": "bt_unknown_risk_policy",
+                                "environment": "backtest",
+                                "account_code": "paper_main",
+                                "strategy_code": "btc_momentum",
+                                "strategy_version": "v1.0.0",
+                                "exchange_code": "binance",
+                                "universe": ["BTCUSDT_PERP"],
+                                "risk_policy": {
+                                    "policy_code": "perp_typo_v1",
+                                },
+                            },
+                            "start_time": "2026-03-01T00:00:00Z",
+                            "end_time": "2026-03-31T00:00:00Z",
+                            "initial_cash": "100000",
+                        }
+                    ),
+                    "Bearer developer:u_123:Alice",
+                )
+        finally:
+            app_module.BacktestRunnerSkeleton = original_runner
+
+        self.assertEqual(exc.exception.status_code, 422)
+        self.assertEqual(exc.exception.detail["code"], "VALIDATION_ERROR")
 
     def test_backtest_run_detail_endpoints_return_orders_fills_timeseries_and_signals(self) -> None:
         original_repository = app_module.BacktestRunRepository

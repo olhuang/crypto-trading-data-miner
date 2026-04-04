@@ -26,6 +26,7 @@ class BacktestRunRepository:
             run_config.session.strategy_version,
         )
         account_id = resolve_account_id(connection, run_config.session.account_code)
+        resolved_session_risk_policy = run_config.resolve_session_risk_policy()
         effective_risk_policy = run_config.build_effective_risk_policy()
         params_json = {
             "session_code": run_config.session.session_code,
@@ -41,7 +42,7 @@ class BacktestRunRepository:
             "session_metadata": run_config.session.metadata_json,
             "execution_policy": run_config.session.execution_policy.model_dump(mode="json", by_alias=True),
             "protection_policy": run_config.session.protection_policy.model_dump(mode="json", by_alias=True),
-            "session_risk_policy": run_config.session.risk_policy.model_dump(mode="json", by_alias=True),
+            "session_risk_policy": resolved_session_risk_policy.model_dump(mode="json", by_alias=True),
             "risk_overrides": run_config.risk_overrides.as_patch_dict(),
             "risk_policy": effective_risk_policy.model_dump(mode="json", by_alias=True),
         }

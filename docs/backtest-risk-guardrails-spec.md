@@ -256,7 +256,9 @@ Current implementation status:
 - implemented for effective risk-policy snapshot persistence in run detail
 - implemented for assumption-bundle metadata linkage at the run level
 - compare/analyze now preserves room to diff session default risk policy, run-level overrides, and effective risk policy separately
-- named risk-policy and named assumption-bundle registries remain future work
+- implemented for a code-seeded named risk-policy registry foundation plus `GET /api/v1/backtests/risk-policies`
+- the current internal Backtests UI can inspect and select those named policies before applying run-level overrides
+- named assumption-bundle registry and fuller registry normalization remain future work
 
 ### Phase 5C / 6A: Richer Session Guardrails
 
@@ -313,7 +315,7 @@ Backtest run creation and inspection should expose:
 
 Recommended UI phases:
 - first: API + JSON/detail visibility
-- next: run-builder form fields for first-wave risk knobs
+- next: run-builder form fields for first-wave risk knobs plus named policy selection
 - later: named risk profiles / assumption bundles / compare-set deltas
 
 ---

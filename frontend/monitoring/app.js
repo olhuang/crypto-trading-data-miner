@@ -192,6 +192,7 @@ function parseBooleanInput(value) {
 }
 
 async function loadBacktests(filters = {}) {
+  await loadBacktestRiskPolicies();
   const runs = await fetchEnvelope("/api/v1/backtests/runs", { limit: 30, ...filters });
   renderTable(
     "backtest-runs-table",
@@ -285,6 +286,43 @@ async function loadBacktests(filters = {}) {
       );
     }
   );
+}
+
+async function loadBacktestRiskPolicies() {
+  const policies = await fetchEnvelope("/api/v1/backtests/risk-policies");
+  const records = (policies.risk_policies || []).map((entry) => ({
+    policy_code: entry.policy_code,
+    display_name: entry.display_name,
+    market_scope: entry.market_scope,
+    max_position_qty: entry.risk_policy.max_position_qty,
+    max_order_notional: entry.risk_policy.max_order_notional,
+    max_gross_exposure_multiple: entry.risk_policy.max_gross_exposure_multiple,
+    description: entry.description,
+  }));
+
+  renderTable(
+    "backtest-risk-policies-table",
+    [
+      { key: "policy_code", label: "Policy" },
+      { key: "market_scope", label: "Scope" },
+      { key: "max_position_qty", label: "Max Pos Qty" },
+      { key: "max_order_notional", label: "Max Order Notional" },
+      { key: "max_gross_exposure_multiple", label: "Max Gross x" },
+      { key: "description", label: "Description" },
+    ],
+    records
+  );
+
+  const datalist = document.getElementById("backtest-risk-policy-options");
+  if (datalist) {
+    datalist.innerHTML = "";
+    (policies.risk_policies || []).forEach((entry) => {
+      const option = document.createElement("option");
+      option.value = entry.policy_code;
+      option.label = `${entry.display_name} (${entry.market_scope})`;
+      datalist.appendChild(option);
+    });
+  }
 }
 
 async function launchBacktest(formValues) {

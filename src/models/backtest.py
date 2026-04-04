@@ -117,6 +117,17 @@ class RiskPolicyConfig(BaseContractModel):
                 raise ValueError(f"{field_name} must be positive when provided")
         return self
 
+    def as_patch_dict(self, *, explicit_only: bool = False) -> dict[str, Any]:
+        payload = self.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_none=True,
+            exclude_unset=explicit_only,
+        )
+        if not payload.get("metadata_json"):
+            payload.pop("metadata_json", None)
+        return payload
+
 
 class RiskPolicyOverrideConfig(BaseContractModel):
     policy_code: str | None = None
@@ -222,13 +233,15 @@ class BacktestRunConfig(BaseContractModel):
             raise ValueError("assumption_bundle_version must not be empty when provided")
         return self
 
+    def resolve_session_risk_policy(self) -> RiskPolicyConfig:
+        from backtest.risk_registry import build_default_risk_policy_registry
+
+        registry = build_default_risk_policy_registry()
+        return registry.resolve_session_policy(self.session.risk_policy)
+
     def build_effective_risk_policy(self) -> RiskPolicyConfig:
-        merged = self.session.risk_policy.model_dump(mode="json", by_alias=True)
-        patch = self.risk_overrides.as_patch_dict()
-        if patch.get("metadata_json"):
-            merged_metadata = dict(merged.get("metadata_json") or {})
-            merged_metadata.update(patch["metadata_json"])
-            merged["metadata_json"] = merged_metadata
-            patch = {key: value for key, value in patch.items() if key != "metadata_json"}
-        merged.update(patch)
-        return RiskPolicyConfig.model_validate(merged)
+        from backtest.risk_registry import build_default_risk_policy_registry
+
+        registry = build_default_risk_policy_registry()
+        session_policy = self.resolve_session_risk_policy()
+        return registry.apply_run_overrides(session_policy, self.risk_overrides)
