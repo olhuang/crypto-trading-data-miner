@@ -27,6 +27,7 @@ This file is intended to be used together with:
 - `docs/backtest-and-replay-diagnostics-spec.md` for report outputs, debug traces, replay diagnostics, and research-facing UI expectations
 - `docs/backtest-risk-guardrails-spec.md` for shared backtest guardrails, staged risk-policy rollout, and paper/live reuse expectations
 - `docs/strategy-workbench-spec.md` for the broader strategy-lab, replay-workbench, artifact, compare/analyze, and review facilities
+- `docs/ai-memory-and-handoff-spec.md` for repo-local stable/task/session memory layers and cross-session handoff workflow
 
 ---
 
@@ -600,14 +601,29 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ## Task 5.1B: Plan strategy-lab and research-workbench facilities
 ### Tasks
-- [ ] define draft/candidate/released strategy workflow
-- [ ] define parameter-set workflow
-- [ ] define assumption-bundle workflow
-- [ ] define benchmark/baseline library expectations
+- [x] define draft/candidate/released strategy workflow
+- [x] define parameter-set workflow
+- [x] define assumption-bundle workflow
+- [x] define benchmark/baseline library expectations
 
 ### Acceptance Checks
-- [ ] repository has an explicit strategy-lab/workbench plan beyond raw strategy registry rows
-- [ ] future strategy development can progress without relying on ad hoc notebook-only workflow
+- [x] repository has an explicit strategy-lab/workbench plan beyond raw strategy registry rows
+- [x] future strategy development can progress without relying on ad hoc notebook-only workflow
+
+---
+
+## Task 5.1D: Plan AI memory and cross-session handoff workflow
+### Tasks
+- [x] define stable vs task vs session memory layers for repo-visible AI-assisted work
+- [x] define canonical repo-local memory artifacts for project state, task board, decision log, handoff, and rolling session summary
+- [x] define a session start/stop workflow for loading stable memory, choosing one subtask, summarizing progress, and writing handoff state
+- [x] define source-of-truth precedence so repo-visible memory complements specs/checklists without replacing them
+- [x] define how the memory workflow should later connect to workbench annotations, replay investigation, and review surfaces
+
+### Acceptance Checks
+- [x] repository has an explicit source of truth for resumable AI-assisted long-running work
+- [x] future sessions can resume from repo-visible handoff files instead of relying on transcript continuity alone
+- [x] the memory workflow remains compatible with future strategy workbench and replay-diagnostics facilities
 
 ---
 
@@ -901,6 +917,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] a dedicated backtest risk-guardrails planning spec now exists for shared pre-trade guardrails and later paper/live reuse
 - [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
 - [x] a dedicated strategy workbench planning spec now exists for strategy-lab, artifact, compare/analyze, replay-scenario, and review facilities
+- [x] a dedicated AI memory/handoff planning spec now exists for repo-local stable/task/session memory and cross-session continuation
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling
 - [x] the Phase 5 skeleton now includes a first shared pre-trade risk-guardrail engine with session risk policy and blocked-intent runtime summary

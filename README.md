@@ -73,6 +73,7 @@ Major design areas already covered include:
 - backtest/replay reporting and diagnostics planning
 - staged backtest/replay diagnostics rollout and future period-level (`year` / `quarter` / `month`) analysis planning
 - strategy-lab/workbench planning for parameter sets, assumption bundles, artifacts, compare/analyze, replay scenarios, and review workflow
+- repo-local AI memory, session-summary, and cross-session handoff workflow planning for long-running agent-assisted work
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture
@@ -144,6 +145,11 @@ Current monitoring UI behavior:
 - the current console now also surfaces available named backtest risk policies so reusable guardrail profiles can be selected before applying run-level overrides
 - the current console depends on the existing API slice and local/shared auth behavior; it does not replace the future React app foundation described in the frontend specs
 
+Current AI memory/handoff workflow behavior:
+- repo-visible working memory now has a dedicated home under `docs/agent-memory/`
+- the intended stable/task/session/handoff workflow is documented in `docs/ai-memory-and-handoff-spec.md`
+- for long-running AI-assisted work, durable state should live in repo files rather than chat history alone
+
 Recent local collection validation:
 - a real local Binance collection run has been completed for `BTCUSDT_SPOT` and `BTCUSDT_PERP`
 - validated data types in that run:
@@ -206,6 +212,7 @@ Use it to understand:
 - `docs/architecture.md`
 - `docs/implementation-plan.md`
 - `docs/spec-index.md`
+- `docs/ai-memory-and-handoff-spec.md`
 
 ### Data and contracts
 - `docs/data-catalog.md`
@@ -227,6 +234,8 @@ Use it to understand:
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
+- `docs/strategy-workbench-spec.md`
+- `docs/ai-memory-and-handoff-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 
@@ -343,6 +352,10 @@ When adding or changing major design decisions:
 - update the relevant spec
 - update `docs/spec-index.md` if a major spec is added
 - update `README.md` if repo entry guidance changes materially
+
+When doing long-running AI-assisted work:
+- use `docs/ai-memory-and-handoff-spec.md` as the process guide
+- keep `docs/agent-memory/` updated instead of relying on chat history as the only memory layer
 
 When there is a conflict:
 - implementation SQL beats schema description docs for current DB state

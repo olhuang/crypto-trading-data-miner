@@ -86,8 +86,9 @@ Read in this order:
 14. `docs/strategy-research-and-evaluation-spec.md`
 15. `docs/backtest-and-replay-diagnostics-spec.md`
 16. `docs/strategy-workbench-spec.md`
-17. `docs/pnl-and-accounting-spec.md`
-18. `docs/testing-strategy-spec.md`
+17. `docs/ai-memory-and-handoff-spec.md`
+18. `docs/pnl-and-accounting-spec.md`
+19. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -184,6 +185,7 @@ Read in this order:
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
+- `docs/ai-memory-and-handoff-spec.md`
 
 ### Source of Truth
 - canonical internal payload contracts: `docs/api-contracts.md`
@@ -193,6 +195,7 @@ Read in this order:
 - strategy development, research, testing, and comparison workflow: `docs/strategy-research-and-evaluation-spec.md`
 - backtest/replay report and trace diagnostics planning: `docs/backtest-and-replay-diagnostics-spec.md`
 - strategy-lab, workbench, artifact, compare/analyze, replay-scenario, and review planning: `docs/strategy-workbench-spec.md`
+- AI working-memory, summary, and cross-session handoff workflow: `docs/ai-memory-and-handoff-spec.md`
 
 ---
 
@@ -323,6 +326,7 @@ Primary docs:
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
+- `docs/ai-memory-and-handoff-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 

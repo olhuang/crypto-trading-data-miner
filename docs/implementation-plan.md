@@ -52,6 +52,7 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/strategy-risk-assumption-management-spec.md` now freezes the intended management model for strategy identity, risk policy identity, assumption bundles, and effective run snapshots
 - `docs/backtest-and-replay-diagnostics-spec.md` now freezes the intended plan for run reporting, debug traces, replay diagnostics, and UI inspection needs
 - `docs/backtest-risk-guardrails-spec.md` now freezes the intended shared pre-trade guardrail model for Phase 5 backtests and later paper/live reuse
+- `docs/ai-memory-and-handoff-spec.md` now freezes the intended repo-local memory, summary, and cross-session handoff workflow for long-running AI-assisted implementation work
 - initial Phase 5 strategy/session/backtest skeleton now exists under `src/models/backtest.py`, `src/strategy/`, and `src/backtest/`
 - Phase 5 bars loading, bar-by-bar strategy evaluation, canonical signal normalization, and optional signal persistence now exist under `src/backtest/` and `src/storage/repositories/strategy.py`
 - automated tests now cover the current Phase 5 session, registry, example strategy, and lifecycle-planning skeleton
@@ -398,6 +399,12 @@ Also treat `docs/strategy-workbench-spec.md` as the planning backbone for:
 - compare/analyze workflow
 - replay scenario library and review workflow
 
+Also treat `docs/ai-memory-and-handoff-spec.md` as the planning backbone for:
+- repo-visible stable/task/session memory layers
+- cross-session handoff discipline for long-running Phase 5-8 work
+- compact summary-first continuation instead of transcript-only continuity
+- future workbench annotation/review/handoff integration points
+
 ### Goal
 Provide the first end-to-end research workflow using historical data.
 
@@ -411,6 +418,7 @@ Provide the first end-to-end research workflow using historical data.
 - performance output
 - diagnostics/reporting visibility
 - research workbench facilities around development, comparison, replay, and review
+- repo-visible memory and handoff workflow for long-horizon AI-assisted implementation and research work
 
 ### Deliverables
 - `src/strategy/`
@@ -457,6 +465,7 @@ Provide the first end-to-end research workflow using historical data.
 - the first Phase 5 slice stays compatible with the phased position/protection/reporting architecture in `docs/position-management-spec.md`
 - the phased diagnostics/reporting plan is explicit enough that later replay/UI work does not require redesign
 - the research tool plan is explicit enough that later compare/analyze and replay-scenario work does not require redesign
+- the repo now has an explicit AI memory/handoff workflow so long-running implementation work can be resumed without transcript-only continuity
 
 ### Dependencies
 - Phase 2
@@ -472,6 +481,7 @@ Provide the first end-to-end research workflow using historical data.
 - now also has the first richer stateful guardrail wave: `max_drawdown_pct`, `max_daily_loss_pct`, `max_leverage`, and `cooldown_bars_after_stop`, plus runtime state snapshot persistence and diagnostics flags
 - current daily-loss guardrail semantics now respect `session.trading_timezone`, with `UTC` remaining the default when no alternate trading timezone is provided
 - now also has a minimal internal UI slice for launching backtests, browsing recent runs, inspecting diagnostics/artifacts/month breakdown, inspecting signals/orders/fills/timeseries, and invoking compare-set analysis without raw SQL or inline Python
+- now also has a repo-local AI memory/handoff workflow baseline under `docs/agent-memory/`, with a dedicated process spec for resumable long-running design and implementation work
 
 ---
 
