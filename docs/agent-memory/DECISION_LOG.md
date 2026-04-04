@@ -125,3 +125,17 @@ Implement Level 2 debug-trace linkage by enriching persisted trace rows with lin
 ### Impact
 - `/api/v1/backtests/runs/{run_id}/debug-traces` now carries linkage/delta evidence that can be reused by later diagnostics anchors and replay-note flows
 - the next trace slice should focus on richer UI drill-down and diagnostics anchors rather than another backend-schema redesign
+
+## 2026-04-04
+
+### Decision
+Implement the next trace UI slice as a structured drill-down with summary, linkage, state-delta, decision, risk, and raw-trace sections instead of leaving the viewer as a single raw JSON blob.
+
+### Reason
+- the Level 2 backend already exposes richer linkage/delta fields, but they are hard to scan when buried in a single payload dump
+- a structured detail layout gives immediate diagnostic value without prematurely turning the monitoring console into a replay timeline
+- the same sections can become the future landing point for diagnostics anchors and replay-linked evidence
+
+### Impact
+- `/monitoring` now exposes Level 2 trace evidence in a more readable per-step drill-down
+- the next trace slice should connect diagnostics outputs to these structured sections rather than redesigning the viewer again

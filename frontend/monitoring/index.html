@@ -274,29 +274,54 @@
             </section>
           </div>
 
-          <div class="grid split-grid">
-            <section class="panel">
-              <div class="panel-header">
-                <h3>Debug Traces</h3>
-                <p>Compact step-level trace rows for strategy decisions, risk outcomes, and per-step portfolio state.</p>
-              </div>
-              <form id="backtest-trace-filter-form" class="filters">
-                <input name="limit" placeholder="limit" value="100" />
-                <input name="unified_symbol" placeholder="unified_symbol (optional)" />
-                <button type="submit">Load Traces</button>
-              </form>
-              <p id="backtest-debug-trace-context" class="card-detail">Select a run to inspect persisted debug traces.</p>
-              <div id="backtest-debug-traces-table" class="table-shell"></div>
-            </section>
-            <section class="panel">
-              <div class="panel-header">
-                <h3>Selected Trace Detail</h3>
-                <p>Inspect the full decision and risk payload for a single step.</p>
-              </div>
-              <div id="backtest-debug-trace-detail" class="json-shell">Select a debug trace row to inspect detail.</div>
-            </section>
-          </div>
-        </section>
+            <div class="grid split-grid">
+              <section class="panel">
+                <div class="panel-header">
+                  <h3>Debug Traces</h3>
+                  <p>Compact step-level trace rows for strategy decisions, risk outcomes, and per-step portfolio state.</p>
+                </div>
+                <form id="backtest-trace-filter-form" class="filters">
+                  <input name="limit" placeholder="limit" value="100" />
+                  <input name="unified_symbol" placeholder="unified_symbol (optional)" />
+                  <button type="submit">Load Traces</button>
+                </form>
+                <p id="backtest-debug-trace-context" class="card-detail">Select a run to inspect persisted debug traces.</p>
+                <div id="backtest-debug-traces-table" class="table-shell"></div>
+              </section>
+              <section class="panel">
+                <div class="panel-header">
+                  <h3>Selected Trace Detail</h3>
+                  <p>Inspect the full decision and risk payload for a single step.</p>
+                </div>
+                <div class="traceability-stack">
+                  <div class="panel-subsection">
+                    <h4>Step Summary</h4>
+                    <div id="backtest-debug-trace-summary" class="json-shell compact-shell">Select a debug trace row to inspect detail.</div>
+                  </div>
+                  <div class="panel-subsection">
+                    <h4>Linkage</h4>
+                    <div id="backtest-debug-trace-linkage" class="json-shell compact-shell">Linked orders, fills, and block reasons will appear here.</div>
+                  </div>
+                  <div class="panel-subsection">
+                    <h4>State Delta</h4>
+                    <div id="backtest-debug-trace-state" class="json-shell compact-shell">Position, cash, equity, and exposure deltas will appear here.</div>
+                  </div>
+                  <div class="panel-subsection">
+                    <h4>Decision Payload</h4>
+                    <div id="backtest-debug-trace-decision" class="json-shell">Decision payload will appear here.</div>
+                  </div>
+                  <div class="panel-subsection">
+                    <h4>Risk Outcomes</h4>
+                    <div id="backtest-debug-trace-risk" class="json-shell">Risk outcomes will appear here.</div>
+                  </div>
+                  <div class="panel-subsection">
+                    <h4>Raw Trace</h4>
+                    <div id="backtest-debug-trace-detail" class="json-shell">Full raw trace will appear here.</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
 
         <section id="view-jobs" class="view">
           <div class="panel">

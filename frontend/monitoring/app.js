@@ -118,6 +118,104 @@ function renderJson(targetId, payload) {
   container.textContent = JSON.stringify(payload, null, 2);
 }
 
+function renderBacktestDebugTraceDetail(trace) {
+  if (!trace) {
+    renderJson("backtest-debug-trace-summary", {
+      message: "Select a debug trace row to inspect detail.",
+    });
+    renderJson("backtest-debug-trace-linkage", {
+      blocked_codes: [],
+      sim_order_ids: [],
+      sim_fill_ids: [],
+    });
+    renderJson("backtest-debug-trace-state", {
+      current_position_qty: null,
+      position_qty_delta: null,
+      cash: null,
+      cash_delta: null,
+      equity: null,
+      equity_delta: null,
+      gross_exposure: null,
+      net_exposure: null,
+      drawdown: null,
+    });
+    renderJson("backtest-debug-trace-decision", {
+      message: "Decision payload will appear here.",
+    });
+    renderJson("backtest-debug-trace-risk", {
+      message: "Risk outcomes will appear here.",
+    });
+    renderJson("backtest-debug-trace-detail", {
+      message: "Full raw trace will appear here.",
+    });
+    return;
+  }
+
+  if (!trace.debug_trace_id && trace.message) {
+    renderJson("backtest-debug-trace-summary", {
+      run_id: trace.run_id || null,
+      trace_count: trace.trace_count || 0,
+      message: trace.message,
+    });
+    renderJson("backtest-debug-trace-linkage", {
+      blocked_codes: [],
+      sim_order_ids: [],
+      sim_fill_ids: [],
+    });
+    renderJson("backtest-debug-trace-state", {
+      current_position_qty: null,
+      position_qty_delta: null,
+      cash: null,
+      cash_delta: null,
+      equity: null,
+      equity_delta: null,
+      gross_exposure: null,
+      net_exposure: null,
+      drawdown: null,
+    });
+    renderJson("backtest-debug-trace-decision", {
+      message: "Decision payload will appear here.",
+    });
+    renderJson("backtest-debug-trace-risk", {
+      message: "Risk outcomes will appear here.",
+    });
+    renderJson("backtest-debug-trace-detail", trace);
+    return;
+  }
+
+  renderJson("backtest-debug-trace-summary", {
+    debug_trace_id: trace.debug_trace_id,
+    step_index: trace.step_index,
+    bar_time: trace.bar_time,
+    unified_symbol: trace.unified_symbol,
+    close_price: trace.close_price,
+    signal_count: trace.signal_count,
+    intent_count: trace.intent_count,
+    blocked_intent_count: trace.blocked_intent_count,
+    created_order_count: trace.created_order_count,
+    fill_count: trace.fill_count,
+  });
+  renderJson("backtest-debug-trace-linkage", {
+    blocked_codes: trace.blocked_codes || [],
+    sim_order_ids: trace.sim_order_ids || [],
+    sim_fill_ids: trace.sim_fill_ids || [],
+  });
+  renderJson("backtest-debug-trace-state", {
+    current_position_qty: trace.current_position_qty,
+    position_qty_delta: trace.position_qty_delta,
+    cash: trace.cash,
+    cash_delta: trace.cash_delta,
+    equity: trace.equity,
+    equity_delta: trace.equity_delta,
+    gross_exposure: trace.gross_exposure,
+    net_exposure: trace.net_exposure,
+    drawdown: trace.drawdown,
+  });
+  renderJson("backtest-debug-trace-decision", trace.decision_json || {});
+  renderJson("backtest-debug-trace-risk", trace.risk_outcomes_json || []);
+  renderJson("backtest-debug-trace-detail", trace);
+}
+
 function normalizeLineList(value) {
   return String(value || "")
     .split(/\r?\n/)
@@ -173,20 +271,22 @@ function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
       { key: "created_order_count", label: "Orders" },
       { key: "fill_count", label: "Fills" },
       { key: "current_position_qty", label: "Position Qty" },
-      { key: "equity", label: "Equity" },
+      { key: "position_qty_delta", label: "Position Delta" },
+      { key: "equity_delta", label: "Equity Delta" },
+      { key: "gross_exposure", label: "Gross" },
       { key: "drawdown", label: "Drawdown" },
     ],
     records,
     (record) => {
       state.selectedBacktestDebugTraceId = record.debug_trace_id;
-      renderJson("backtest-debug-trace-detail", record);
+      renderBacktestDebugTraceDetail(record);
     }
   );
 
   if (preferredTrace) {
-    renderJson("backtest-debug-trace-detail", preferredTrace);
+    renderBacktestDebugTraceDetail(preferredTrace);
   } else {
-    renderJson("backtest-debug-trace-detail", {
+    renderBacktestDebugTraceDetail({
       run_id: runId,
       trace_count: debugTraces.trace_count || 0,
       message: "No persisted debug traces matched the current filter for this run.",

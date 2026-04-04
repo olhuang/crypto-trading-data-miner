@@ -578,11 +578,11 @@ Required sections:
 - [x] the current internal Backtests view can list recent runs without raw SQL
 - [x] the current internal Backtests view can inspect run detail, diagnostics summary, artifact bundle, and month breakdown
 - [x] the current internal Backtests view can inspect recent persisted signals, simulated orders, simulated fills, and recent timeseries points for a selected run
-- [x] the current internal Backtests view can inspect persisted step-level debug traces for a selected run through a compact table and detail JSON panel
+- [x] the current internal Backtests view can inspect persisted step-level debug traces for a selected run through a compact table plus structured summary/linkage/state drill-down
 - [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
 - [x] the current internal Backtests view now also exposes compare-review notes for persisted compare sets, including system-seeded facts and human/agent review entry
 - [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
-- [ ] charts, richer trace drill-down, and replay scenario pages remain future UI work
+- [ ] charts, diagnostics-to-trace anchors, and replay scenario pages remain future UI work
 
 ## Handoff Criteria to Phase 6 UI
 - [ ] user can operate a research workflow fully from UI

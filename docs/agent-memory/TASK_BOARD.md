@@ -6,7 +6,7 @@
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
-- advance step-level debug traces from Level 2 linkage into richer UI drill-down and later diagnostics anchors
+- advance step-level debug traces from the completed Level 2 linkage/UI slice into diagnostics anchors and later replay investigation linkage
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 
 ## Blocked
@@ -14,11 +14,12 @@
 
 ## Next
 - integrate memory workflow with future strategy workbench annotation / review surfaces
-- expose the new linkage/delta fields more clearly in the internal trace viewer
+- connect diagnostics outputs back to concrete trace rows/ranges
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- completed the richer Level 2 trace viewer drill-down in `/monitoring` with structured summary, linkage, state-delta, decision, risk, and raw-trace sections
 - enriched persisted debug traces with linked simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas for Level 2 backend linkage
 - exposed persisted backtest debug traces in the internal `/monitoring` Backtests run detail with a compact table, selected-trace JSON detail, and UI fetch wiring to `/debug-traces`
 - implemented Level 1 backend debug traces with schema, repository, runner projection, persisted run support, artifact inventory, and `GET /api/v1/backtests/runs/{run_id}/debug-traces`

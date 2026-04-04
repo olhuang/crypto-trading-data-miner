@@ -220,6 +220,10 @@ textarea {
   margin-bottom: 1rem;
 }
 
+.panel-subsection:last-child {
+  margin-bottom: 0;
+}
+
 .form-actions {
   display: flex;
   flex-wrap: wrap;
