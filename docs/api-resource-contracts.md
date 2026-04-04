@@ -685,6 +685,30 @@ Used by:
     "blocked_intent_count": 3,
     "fill_rate_pct": "0.9474"
   },
+  "risk_summary": {
+    "blocked_intent_count": 3,
+    "block_counts_by_code": {
+      "max_drawdown_pct_breach": 2,
+      "cooldown_active": 1
+    },
+    "outcome_counts_by_code": {
+      "allowed": 35,
+      "max_drawdown_pct_breach": 2,
+      "cooldown_active": 1
+    },
+    "state_snapshot": {
+      "policy_code": "perp_medium_v1",
+      "peak_equity": "101250.00",
+      "daily_start_equity": "100800.00",
+      "active_day_utc": "2026-01-15",
+      "cooldown_bars_remaining": 0,
+      "current_drawdown_pct": "0.0310",
+      "current_daily_loss_pct": "0.0000",
+      "activation_counts_by_code": {
+        "cooldown_activated_after_loss_close": 1
+      }
+    }
+  },
   "pnl_summary": {
     "total_return": "0.0842",
     "max_drawdown": "0.0310",
@@ -712,7 +736,7 @@ Used by:
 ### Notes
 
 - this is the Stage A diagnostics surface from `docs/backtest-and-replay-diagnostics-spec.md`
-- the Stage A diagnostics surface now also includes blocked-intent counts from the first shared backtest guardrail layer
+- the Stage A diagnostics surface now also includes typed risk-guardrail breakdown and state snapshot fields from the shared backtest guardrail layer
 - the response is a summary/projection, not a full step trace
 - later debug-trace endpoints should drill down from the flags and aggregates returned here
 

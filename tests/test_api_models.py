@@ -361,6 +361,22 @@ class ModelsApiTests(unittest.TestCase):
                         blocked_intent_count=3,
                         fill_rate_pct="0.8333",
                     ),
+                    risk_summary=SimpleNamespace(
+                        blocked_intent_count=3,
+                        block_counts_by_code={"max_drawdown_pct_breach": 2, "cooldown_active": 1},
+                        outcome_counts_by_code={
+                            "allowed": 9,
+                            "max_drawdown_pct_breach": 2,
+                            "cooldown_active": 1,
+                        },
+                        state_snapshot={
+                            "policy_code": "perp_medium_v1",
+                            "peak_equity": "101000",
+                            "daily_start_equity": "99500",
+                            "active_day_utc": "2026-04-01",
+                            "cooldown_bars_remaining": 0,
+                        },
+                    ),
                     pnl_summary=SimpleNamespace(
                         total_return="0.1234",
                         max_drawdown="0.0456",
@@ -389,6 +405,8 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.diagnostic_status, "warning")
         self.assertEqual(response.data.execution_summary.expired_order_count, 2)
         self.assertEqual(response.data.execution_summary.blocked_intent_count, 3)
+        self.assertEqual(response.data.risk_summary.block_counts_by_code["max_drawdown_pct_breach"], 2)
+        self.assertEqual(response.data.risk_summary.state_snapshot["policy_code"], "perp_medium_v1")
         self.assertEqual(response.data.diagnostic_flags[0].code, "expired_orders_present")
 
     def test_backtest_risk_policies_endpoint_lists_named_registry_entries(self) -> None:

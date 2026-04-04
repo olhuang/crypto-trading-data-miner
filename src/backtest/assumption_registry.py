@@ -130,8 +130,8 @@ def build_default_assumption_bundle_registry() -> AssumptionBundleRegistry:
         RegisteredAssumptionBundle(
             assumption_bundle_code="stress_costs",
             assumption_bundle_version="v1",
-            display_name="Stress Costs",
-            description="Research bundle reserved for higher-cost execution studies while preserving the current bars-based model surface.",
+            display_name="Stress Costs Placeholder",
+            description="Placeholder lineage bundle for future higher-cost execution studies; the current Phase 5 foundation does not yet change runtime fee/slippage behavior beyond bundle identity.",
             market_scope="perp",
             assumptions=AssumptionBundleConfig(
                 assumption_bundle_code="stress_costs",

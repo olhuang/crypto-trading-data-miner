@@ -869,7 +869,7 @@ Purpose:
 
 Current implementation status:
 - implemented as the Stage A run-level diagnostics summary baseline
-- currently returns run integrity, strategy activity, execution summary, blocked-intent counts, PnL summary, and deterministic warning flags
+- currently returns run integrity, strategy activity, execution summary, typed risk-guardrail summary, PnL summary, and deterministic warning flags
 
 ### GET `/api/v1/backtests/runs/{run_id}/debug-traces`
 Purpose:

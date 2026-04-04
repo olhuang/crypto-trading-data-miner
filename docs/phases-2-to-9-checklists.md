@@ -780,9 +780,10 @@ Provide the first end-to-end research workflow using historical bar data.
 ## Task 5.6: Implement example report workflow
 ### Tasks
 - [x] compute total return
-- [ ] compute Sharpe and drawdown
+- [ ] compute Sharpe
+- [x] compute max drawdown
 - [x] compute turnover and fee costs
-- [ ] output a simple run summary to console or file
+- [x] expose a simple run summary through the current API/UI detail surfaces
 - [x] define or emit a first diagnostic summary separate from KPI-only output
 
 ### Acceptance Checks

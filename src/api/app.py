@@ -239,6 +239,13 @@ class BacktestExecutionSummaryResource(BaseModel):
     fill_rate_pct: str | None = None
 
 
+class BacktestRiskGuardrailSummaryResource(BaseModel):
+    blocked_intent_count: int = 0
+    block_counts_by_code: dict[str, int]
+    outcome_counts_by_code: dict[str, int]
+    state_snapshot: dict[str, Any]
+
+
 class BacktestPnlSummaryResource(BaseModel):
     total_return: str | None = None
     max_drawdown: str | None = None
@@ -257,6 +264,7 @@ class BacktestDiagnosticsSummaryResource(BaseModel):
     run_integrity: BacktestRunIntegrityResource
     strategy_activity: BacktestStrategyActivityResource
     execution_summary: BacktestExecutionSummaryResource
+    risk_summary: BacktestRiskGuardrailSummaryResource
     pnl_summary: BacktestPnlSummaryResource
     diagnostic_flags: list[DiagnosticFlagResource]
 
@@ -1623,6 +1631,12 @@ def create_app() -> FastAPI:
                     unlinked_order_count=summary.execution_summary.unlinked_order_count,
                     blocked_intent_count=summary.execution_summary.blocked_intent_count,
                     fill_rate_pct=summary.execution_summary.fill_rate_pct,
+                ),
+                risk_summary=BacktestRiskGuardrailSummaryResource(
+                    blocked_intent_count=summary.risk_summary.blocked_intent_count,
+                    block_counts_by_code=summary.risk_summary.block_counts_by_code,
+                    outcome_counts_by_code=summary.risk_summary.outcome_counts_by_code,
+                    state_snapshot=summary.risk_summary.state_snapshot,
                 ),
                 pnl_summary=BacktestPnlSummaryResource(
                     total_return=summary.pnl_summary.total_return,

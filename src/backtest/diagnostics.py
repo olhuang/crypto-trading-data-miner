@@ -47,6 +47,14 @@ class ExecutionSummary:
 
 
 @dataclass(slots=True)
+class RiskGuardrailSummary:
+    blocked_intent_count: int
+    block_counts_by_code: dict[str, int]
+    outcome_counts_by_code: dict[str, int]
+    state_snapshot: dict[str, Any]
+
+
+@dataclass(slots=True)
 class PnlSummary:
     total_return: str | None
     max_drawdown: str | None
@@ -66,6 +74,7 @@ class BacktestDiagnosticsSummary:
     run_integrity: RunIntegritySummary
     strategy_activity: StrategyActivitySummary
     execution_summary: ExecutionSummary
+    risk_summary: RiskGuardrailSummary
     pnl_summary: PnlSummary
     diagnostic_flags: list[DiagnosticFlag]
 
@@ -161,6 +170,14 @@ class BacktestDiagnosticsProjector:
         observed_timepoints = int(timeseries_row["timepoints_observed"])
         missing_timepoints = 0 if expected_timepoints is None else max(expected_timepoints - observed_timepoints, 0)
         blocked_intent_count = int(risk_summary.get("blocked_intent_count") or 0)
+        outcome_counts_by_code = {
+            str(key): int(value)
+            for key, value in dict(risk_summary.get("outcome_counts_by_code") or {}).items()
+        }
+        block_counts_by_code = {
+            str(key): int(value)
+            for key, value in dict(risk_summary.get("block_counts_by_code") or {}).items()
+        }
 
         flags = self._build_flags(
             missing_timepoints=missing_timepoints,
@@ -207,6 +224,12 @@ class BacktestDiagnosticsProjector:
                 unlinked_order_count=int(execution_row["unlinked_order_count"]),
                 blocked_intent_count=blocked_intent_count,
                 fill_rate_pct=self._format_ratio(fill_count, int(execution_row["simulated_order_count"])),
+            ),
+            risk_summary=RiskGuardrailSummary(
+                blocked_intent_count=blocked_intent_count,
+                block_counts_by_code=block_counts_by_code,
+                outcome_counts_by_code=outcome_counts_by_code,
+                state_snapshot=state_snapshot,
             ),
             pnl_summary=PnlSummary(
                 total_return=self._stringify_numeric(pnl_row, "total_return"),
