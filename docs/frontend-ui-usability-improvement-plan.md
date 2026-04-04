@@ -331,6 +331,7 @@ Acceptance:
 Current implementation note:
 - this slice has now landed in the current `/monitoring` Backtests page
 - the launch form now uses visible labels, grouped sections, checkbox/select controls, an advanced/debug subsection, preset buttons for common starting configurations, and a simple launch progress/status indicator
+- the selected run detail no longer drops users straight into unlabeled raw JSON; key configuration, risk, assumption, and runtime sections are now labeled before the full raw payload
 
 ## UI Phase B: Backtest Workspace Restructure
 

@@ -24,6 +24,7 @@
 - implemented the first Backtests usability cleanup slice with visible launch labels, grouped sections, preset helpers, better boolean controls, workspace headers, and a summary-first selected-run panel
 - added a Backtests launch-status indicator with staged progress, disabled form state during submission, and automatic selection of the created run on success
 - collapsed the Backtests assumption-bundle and risk-policy reference tables behind details panels so they stay available without permanently occupying the launch workspace
+- reworked the selected Backtests run detail so users now see labeled sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before the raw API payload
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -77,6 +78,7 @@
 - replay-linked investigation flow is still the next major trace slice
 - the current Backtests page is still too dense for repeated daily research use until the planned UI cleanup slices start landing
 - the current Backtests page is improved, but the next remaining UI need is a cleaner phase-B workspace split between launch, compare, runs, and investigation
+- the raw selected-run payload is now better labeled, but the broader Backtests page still needs stronger workspace separation in the next UI phase
 - the repository still needs discipline to avoid turning the current static `/monitoring` console into the accidental long-term frontend architecture
 
 ## Next

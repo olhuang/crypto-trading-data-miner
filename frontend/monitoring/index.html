@@ -457,9 +457,57 @@
                   <div id="backtest-run-summary" class="summary-cards">
                     <div class="summary-empty">Select a backtest run row to inspect a summary.</div>
                   </div>
+                  <div class="structured-detail-grid">
+                    <section class="detail-card">
+                      <div class="detail-card-header">
+                        <h4>Strategy Parameters</h4>
+                        <p>Runtime parameters passed into the selected strategy.</p>
+                      </div>
+                      <div id="backtest-run-strategy-params" class="property-shell">
+                        <div class="summary-empty">Strategy parameters will appear here.</div>
+                      </div>
+                    </section>
+                    <section class="detail-card">
+                      <div class="detail-card-header">
+                        <h4>Execution and Protection</h4>
+                        <p>Order behavior and protection settings active for this run.</p>
+                      </div>
+                      <div id="backtest-run-execution-protection" class="property-shell">
+                        <div class="summary-empty">Execution and protection settings will appear here.</div>
+                      </div>
+                    </section>
+                    <section class="detail-card">
+                      <div class="detail-card-header">
+                        <h4>Risk Snapshot</h4>
+                        <p>Session defaults, effective limits, and applied override keys.</p>
+                      </div>
+                      <div id="backtest-run-risk-snapshot" class="property-shell">
+                        <div class="summary-empty">Risk snapshot will appear here.</div>
+                      </div>
+                    </section>
+                    <section class="detail-card">
+                      <div class="detail-card-header">
+                        <h4>Assumption Snapshot</h4>
+                        <p>Model versions and bundle settings used to run this backtest.</p>
+                      </div>
+                      <div id="backtest-run-assumption-snapshot" class="property-shell">
+                        <div class="summary-empty">Assumption snapshot will appear here.</div>
+                      </div>
+                    </section>
+                    <section class="detail-card detail-card-span-2">
+                      <div class="detail-card-header">
+                        <h4>Runtime Metadata</h4>
+                        <p>Risk summary and debug-trace capture state observed while the run executed.</p>
+                      </div>
+                      <div id="backtest-run-runtime-snapshot" class="property-shell">
+                        <div class="summary-empty">Runtime metadata will appear here.</div>
+                      </div>
+                    </section>
+                  </div>
                   <details class="details-panel">
-                    <summary>Raw Run Metadata</summary>
+                    <summary>Raw API Detail Payload</summary>
                     <div class="details-panel-body">
+                      <p class="card-detail">Full `GET /api/v1/backtests/runs/{run_id}` payload for advanced debugging and support workflows.</p>
                       <div id="backtest-run-detail" class="json-shell">Select a backtest run row.</div>
                     </div>
                   </details>

@@ -30,11 +30,13 @@
 - the current `/monitoring` Backtests launch flow now uses visible labels, grouped sections, preset helpers, checkbox/select controls, and a summary-first selected-run panel instead of relying as heavily on placeholder-only inputs and raw JSON first
 - the current `/monitoring` Backtests launch flow now also shows an honest launch-status indicator with disabled form state, staged progress, and automatic run selection after a successful launch
 - the current `/monitoring` Backtests launch flow now keeps `Available Assumption Bundles` and `Available Risk Policies` in collapsed details panels by default to reduce visual clutter
+- the selected Backtests run detail now breaks the run payload into named sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before exposing the raw API payload
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
 - replay/debug trace linkage is still missing
 - the current Backtests page is less confusing than before, but it still mixes launch, compare, run inspection, and trace investigation into one larger page instead of a fully separated workspace
+- the selected-run workspace is clearer, but the broader page still needs stronger separation between launch, compare, run inspection, and investigation flows
 - richer saved-compare workflow remains future work
 - replay investigation notes and unified annotation service remain future work
 
@@ -71,4 +73,4 @@
 - `frontend/monitoring/styles.css`
 
 ## Recommended Next Action
-- when continuing the UI line, first align with `docs/frontend-keep-evolve-replace-strategy.md`, then continue from `docs/frontend-ui-usability-improvement-plan.md` at `UI Phase B: Backtest Workspace Restructure`
+- when continuing the UI line, first align with `docs/frontend-keep-evolve-replace-strategy.md`, then continue from `docs/frontend-ui-usability-improvement-plan.md` at `UI Phase B: Backtest Workspace Restructure`, now that selected-run metadata has been split into named summary sections

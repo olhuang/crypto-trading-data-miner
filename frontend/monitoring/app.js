@@ -169,6 +169,393 @@ function renderJson(targetId, payload) {
   container.textContent = JSON.stringify(payload, null, 2);
 }
 
+function humanizeKey(key) {
+  return String(key || "")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase())
+    .replaceAll(" Json", " JSON")
+    .replaceAll(" Pct", " Pct");
+}
+
+function isEmptyValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  if (typeof value === "object") {
+    return Object.keys(value).length === 0;
+  }
+  return false;
+}
+
+function formatCompactValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  if (Array.isArray(value)) {
+    if (!value.length) {
+      return "-";
+    }
+    return value.map((item) => formatCompactValue(item)).join(", ");
+  }
+  if (typeof value === "object") {
+    const entries = Object.entries(value);
+    if (!entries.length) {
+      return "-";
+    }
+    const preview = entries
+      .slice(0, 4)
+      .map(([key, entryValue]) => `${humanizeKey(key)}=${formatCompactValue(entryValue)}`)
+      .join(" | ");
+    if (entries.length <= 4) {
+      return preview;
+    }
+    return `${preview} | +${entries.length - 4} more`;
+  }
+  return String(value);
+}
+
+function renderPropertyGrid(targetId, items, emptyMessage) {
+  const container = document.getElementById(targetId);
+  if (!container) {
+    return;
+  }
+  if (!items.length) {
+    container.innerHTML = `<div class="summary-empty">${emptyMessage}</div>`;
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "property-grid";
+
+  items.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "property-card";
+
+    const label = document.createElement("p");
+    label.className = "property-label";
+    label.textContent = item.label;
+
+    const value = document.createElement("p");
+    value.className = "property-value";
+    value.textContent = formatCompactValue(item.value);
+
+    card.appendChild(label);
+    card.appendChild(value);
+    grid.appendChild(card);
+  });
+
+  container.innerHTML = "";
+  container.appendChild(grid);
+}
+
+function buildPropertyItemsFromObject(source, labelMap = {}, order = [], options = {}) {
+  if (!source || typeof source !== "object") {
+    return [];
+  }
+  const excludeKeys = new Set(options.excludeKeys || []);
+  const excludeEmpty = options.excludeEmpty !== false;
+  const entries = Object.entries(source).filter(([key, value]) => {
+    if (excludeKeys.has(key)) {
+      return false;
+    }
+    if (excludeEmpty && isEmptyValue(value)) {
+      return false;
+    }
+    return true;
+  });
+
+  const ranked = new Map(order.map((key, index) => [key, index]));
+  entries.sort(([leftKey], [rightKey]) => {
+    const leftRank = ranked.has(leftKey) ? ranked.get(leftKey) : Number.MAX_SAFE_INTEGER;
+    const rightRank = ranked.has(rightKey) ? ranked.get(rightKey) : Number.MAX_SAFE_INTEGER;
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+    return leftKey.localeCompare(rightKey);
+  });
+
+  return entries.map(([key, value]) => ({
+    label: labelMap[key] || humanizeKey(key),
+    value,
+  }));
+}
+
+function renderBacktestRunStructuredDetails(detail) {
+  if (!detail || !detail.run_id) {
+    renderPropertyGrid(
+      "backtest-run-strategy-params",
+      [],
+      "Strategy parameters will appear here."
+    );
+    renderPropertyGrid(
+      "backtest-run-execution-protection",
+      [],
+      "Execution and protection settings will appear here."
+    );
+    renderPropertyGrid("backtest-run-risk-snapshot", [], "Risk snapshot will appear here.");
+    renderPropertyGrid(
+      "backtest-run-assumption-snapshot",
+      [],
+      "Assumption snapshot will appear here."
+    );
+    renderPropertyGrid(
+      "backtest-run-runtime-snapshot",
+      [],
+      "Runtime metadata will appear here."
+    );
+    return;
+  }
+
+  const strategyItems = buildPropertyItemsFromObject(
+    detail.strategy_params_json || {},
+    {
+      short_window: "Short Window",
+      long_window: "Long Window",
+      target_qty: "Target Quantity",
+      allow_short: "Allow Short",
+      target_notional: "Target Notional",
+    },
+    ["short_window", "long_window", "target_qty", "target_notional", "allow_short"]
+  );
+
+  const executionItems = buildPropertyItemsFromObject(
+    {
+      execution_policy_code: detail.execution_policy?.policy_code,
+      order_type_preference: detail.execution_policy?.order_type_preference,
+      urgency: detail.execution_policy?.urgency,
+      reduce_only_on_exit: detail.execution_policy?.reduce_only_on_exit,
+      allow_position_flip: detail.execution_policy?.allow_position_flip,
+      maker_bias: detail.execution_policy?.maker_bias,
+      max_child_order_qty: detail.execution_policy?.max_child_order_qty,
+      max_participation_rate: detail.execution_policy?.max_participation_rate,
+      protection_policy_code: detail.protection_policy?.policy_code,
+      protection_scope_mode: detail.protection_policy?.scope_mode,
+      protection_trigger_basis: detail.protection_policy?.trigger_basis,
+      stop_loss_bps: detail.protection_policy?.stop_loss_bps,
+      take_profit_bps: detail.protection_policy?.take_profit_bps,
+      trailing_stop_bps: detail.protection_policy?.trailing_stop_bps,
+      time_exit_bars: detail.protection_policy?.time_exit_bars,
+    },
+    {
+      execution_policy_code: "Execution Policy Code",
+      order_type_preference: "Order Type Preference",
+      reduce_only_on_exit: "Reduce Only On Exit",
+      allow_position_flip: "Allow Position Flip",
+      maker_bias: "Maker Bias",
+      max_child_order_qty: "Max Child Order Qty",
+      max_participation_rate: "Max Participation Rate",
+      protection_policy_code: "Protection Policy Code",
+      protection_scope_mode: "Protection Scope Mode",
+      protection_trigger_basis: "Protection Trigger Basis",
+      stop_loss_bps: "Stop Loss Bps",
+      take_profit_bps: "Take Profit Bps",
+      trailing_stop_bps: "Trailing Stop Bps",
+      time_exit_bars: "Time Exit Bars",
+    },
+    [
+      "execution_policy_code",
+      "order_type_preference",
+      "urgency",
+      "reduce_only_on_exit",
+      "allow_position_flip",
+      "maker_bias",
+      "max_child_order_qty",
+      "max_participation_rate",
+      "protection_policy_code",
+      "protection_scope_mode",
+      "protection_trigger_basis",
+      "stop_loss_bps",
+      "take_profit_bps",
+      "trailing_stop_bps",
+      "time_exit_bars",
+    ]
+  );
+
+  const riskOverrideKeys = Object.keys(detail.risk_overrides_json || {});
+  const riskItems = buildPropertyItemsFromObject(
+    {
+      session_policy_code: detail.session_risk_policy?.policy_code,
+      effective_policy_code: detail.risk_policy?.policy_code,
+      override_keys: riskOverrideKeys.length ? riskOverrideKeys : "None",
+      max_position_qty: detail.risk_policy?.max_position_qty,
+      max_order_qty: detail.risk_policy?.max_order_qty,
+      max_order_notional: detail.risk_policy?.max_order_notional,
+      max_gross_exposure_multiple: detail.risk_policy?.max_gross_exposure_multiple,
+      max_drawdown_pct: detail.risk_policy?.max_drawdown_pct,
+      max_daily_loss_pct: detail.risk_policy?.max_daily_loss_pct,
+      max_leverage: detail.risk_policy?.max_leverage,
+      cooldown_bars_after_stop: detail.risk_policy?.cooldown_bars_after_stop,
+      enforce_spot_cash_check: detail.risk_policy?.enforce_spot_cash_check,
+      allow_reduce_only_when_blocked: detail.risk_policy?.allow_reduce_only_when_blocked,
+      block_new_entries_below_equity: detail.risk_policy?.block_new_entries_below_equity,
+    },
+    {
+      session_policy_code: "Session Policy Code",
+      effective_policy_code: "Effective Policy Code",
+      override_keys: "Run Override Keys",
+      max_position_qty: "Max Position Qty",
+      max_order_qty: "Max Order Qty",
+      max_order_notional: "Max Order Notional",
+      max_gross_exposure_multiple: "Max Gross Exposure Multiple",
+      max_drawdown_pct: "Max Drawdown Pct",
+      max_daily_loss_pct: "Max Daily Loss Pct",
+      max_leverage: "Max Leverage",
+      cooldown_bars_after_stop: "Cooldown Bars After Stop",
+      enforce_spot_cash_check: "Enforce Spot Cash Check",
+      allow_reduce_only_when_blocked: "Allow Reduce Only When Blocked",
+      block_new_entries_below_equity: "Block New Entries Below Equity",
+    },
+    [
+      "session_policy_code",
+      "effective_policy_code",
+      "override_keys",
+      "max_position_qty",
+      "max_order_qty",
+      "max_order_notional",
+      "max_gross_exposure_multiple",
+      "max_drawdown_pct",
+      "max_daily_loss_pct",
+      "max_leverage",
+      "cooldown_bars_after_stop",
+      "enforce_spot_cash_check",
+      "allow_reduce_only_when_blocked",
+      "block_new_entries_below_equity",
+    ],
+    { excludeEmpty: false }
+  );
+
+  const assumptionOverrideKeys = Object.keys(detail.assumption_overrides_json || {});
+  const assumptionItems = buildPropertyItemsFromObject(
+    {
+      assumption_bundle: detail.assumption_bundle_code
+        ? `${detail.assumption_bundle_code}@${detail.assumption_bundle_version || "latest"}`
+        : null,
+      market_data_version: detail.effective_assumptions_json?.market_data_version || detail.market_data_version,
+      feature_input_version:
+        detail.effective_assumptions_json?.feature_input_version || detail.feature_input_version,
+      fee_model_version: detail.effective_assumptions_json?.fee_model_version || detail.fee_model_version,
+      slippage_model_version:
+        detail.effective_assumptions_json?.slippage_model_version || detail.slippage_model_version,
+      fill_model_version: detail.effective_assumptions_json?.fill_model_version || detail.fill_model_version,
+      latency_model_version:
+        detail.effective_assumptions_json?.latency_model_version || detail.latency_model_version,
+      benchmark_set_code:
+        detail.effective_assumptions_json?.benchmark_set_code || detail.benchmark_set_code,
+      assumption_override_keys: assumptionOverrideKeys.length ? assumptionOverrideKeys : "None",
+    },
+    {
+      assumption_bundle: "Assumption Bundle",
+      market_data_version: "Market Data Version",
+      feature_input_version: "Feature Input Version",
+      fee_model_version: "Fee Model Version",
+      slippage_model_version: "Slippage Model Version",
+      fill_model_version: "Fill Model Version",
+      latency_model_version: "Latency Model Version",
+      benchmark_set_code: "Benchmark Set Code",
+      assumption_override_keys: "Assumption Override Keys",
+    },
+    [
+      "assumption_bundle",
+      "market_data_version",
+      "feature_input_version",
+      "fee_model_version",
+      "slippage_model_version",
+      "fill_model_version",
+      "latency_model_version",
+      "benchmark_set_code",
+      "assumption_override_keys",
+    ],
+    { excludeEmpty: false }
+  );
+
+  const riskSummary = detail.runtime_metadata_json?.risk_summary || {};
+  const stateSnapshot = riskSummary.state_snapshot || {};
+  const debugTraceSummary = detail.runtime_metadata_json?.debug_trace_summary || {};
+  const runtimeItems = buildPropertyItemsFromObject(
+    {
+      active_trading_day: stateSnapshot.active_trading_day,
+      trading_timezone: stateSnapshot.trading_timezone || detail.trading_timezone,
+      peak_equity: stateSnapshot.peak_equity,
+      daily_start_equity: stateSnapshot.daily_start_equity,
+      current_drawdown_pct: stateSnapshot.current_drawdown_pct,
+      current_daily_loss_pct: stateSnapshot.current_daily_loss_pct,
+      cooldown_bars_remaining: stateSnapshot.cooldown_bars_remaining,
+      activation_counts_by_code: stateSnapshot.activation_counts_by_code,
+      allowed_intent_count: riskSummary.allowed_intent_count,
+      blocked_intent_count: riskSummary.blocked_intent_count,
+      evaluated_intent_count: riskSummary.evaluated_intent_count,
+      block_counts_by_code: riskSummary.block_counts_by_code,
+      outcome_counts_by_code: riskSummary.outcome_counts_by_code,
+      trace_persisted: debugTraceSummary.persisted,
+      captured_trace_count: debugTraceSummary.captured_trace_count,
+    },
+    {
+      active_trading_day: "Active Trading Day",
+      trading_timezone: "Trading Timezone",
+      peak_equity: "Peak Equity",
+      daily_start_equity: "Daily Start Equity",
+      current_drawdown_pct: "Current Drawdown Pct",
+      current_daily_loss_pct: "Current Daily Loss Pct",
+      cooldown_bars_remaining: "Cooldown Bars Remaining",
+      activation_counts_by_code: "Activation Counts By Code",
+      allowed_intent_count: "Allowed Intent Count",
+      blocked_intent_count: "Blocked Intent Count",
+      evaluated_intent_count: "Evaluated Intent Count",
+      block_counts_by_code: "Block Counts By Code",
+      outcome_counts_by_code: "Outcome Counts By Code",
+      trace_persisted: "Trace Persisted",
+      captured_trace_count: "Captured Trace Count",
+    },
+    [
+      "active_trading_day",
+      "trading_timezone",
+      "peak_equity",
+      "daily_start_equity",
+      "current_drawdown_pct",
+      "current_daily_loss_pct",
+      "cooldown_bars_remaining",
+      "activation_counts_by_code",
+      "allowed_intent_count",
+      "blocked_intent_count",
+      "evaluated_intent_count",
+      "block_counts_by_code",
+      "outcome_counts_by_code",
+      "trace_persisted",
+      "captured_trace_count",
+    ],
+    { excludeEmpty: false }
+  );
+
+  renderPropertyGrid(
+    "backtest-run-strategy-params",
+    strategyItems,
+    "No strategy parameters were saved for this run."
+  );
+  renderPropertyGrid(
+    "backtest-run-execution-protection",
+    executionItems,
+    "No execution or protection settings were saved for this run."
+  );
+  renderPropertyGrid(
+    "backtest-run-risk-snapshot",
+    riskItems,
+    "No risk snapshot was saved for this run."
+  );
+  renderPropertyGrid(
+    "backtest-run-assumption-snapshot",
+    assumptionItems,
+    "No assumption snapshot was saved for this run."
+  );
+  renderPropertyGrid(
+    "backtest-run-runtime-snapshot",
+    runtimeItems,
+    "No runtime metadata was saved for this run."
+  );
+}
+
 function renderBacktestRunSummary(detail) {
   const container = document.getElementById("backtest-run-summary");
   if (!container) {
@@ -860,6 +1247,7 @@ async function loadSelectedBacktestRun(runId) {
         fetchEnvelope(`/api/v1/backtests/runs/${runId}/debug-traces`, traceFilters),
       ]);
   renderBacktestRunSummary(detail);
+  renderBacktestRunStructuredDetails(detail);
   renderJson("backtest-run-detail", detail);
   renderBacktestDiagnostics(diagnostics);
   renderJson("backtest-run-artifacts", artifacts);
