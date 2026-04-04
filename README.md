@@ -172,18 +172,27 @@ Recent local collection validation:
   - `BTCUSDT_PERP`: instrument sync, historical bars, funding rates, open interest, mark prices, index prices
 - `trades` remain intentionally out of the default historical collection flow
 - for a full local BTC bootstrap from `2020-01-01` to YTD, use `scripts/binance_btc_history_backfill.py`
+- a PowerShell wrapper now also exists at `scripts/binance_btc_history_backfill.ps1`
 - that script writes rolling progress to `tmp/binance_btc_history_backfill_status.json`
 - it also supports `--resume-from-status` so a failed long run can continue from the last completed chunk task
 - it also supports `--incremental`, which uses DB coverage as the source of truth and only catches each dataset up from its own latest stored timestamp
 - `open_interest` history is treated separately from funding/mark/index and only fetched from the endpoint's currently available lookback window onward
 - example:
   - `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py`
+- PowerShell bootstrap example:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\binance_btc_history_backfill.ps1 -Mode bootstrap`
 - resume example:
   - `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py --resume-from-status`
+- PowerShell resume example:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\binance_btc_history_backfill.ps1 -Mode resume`
 - incremental catch-up example:
   - `& .\.venv\Scripts\python.exe .\scripts\binance_btc_history_backfill.py --incremental`
+- PowerShell incremental example:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\binance_btc_history_backfill.ps1 -Mode incremental`
 - progress check:
   - `Get-Content .\tmp\binance_btc_history_backfill_status.json`
+- PowerShell status-only:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\binance_btc_history_backfill.ps1 -StatusOnly`
 
 ---
 

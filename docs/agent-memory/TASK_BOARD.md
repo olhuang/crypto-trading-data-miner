@@ -24,6 +24,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage
 - updated the local BTC history backfill tool so futures `open_interest` is handled as a separately available dataset and failed long runs can resume from `tmp/binance_btc_history_backfill_status.json`

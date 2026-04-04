@@ -32,6 +32,7 @@
 - updated the BTC backfill script to treat `openInterestHist` as a separate availability-limited dataset and added `--resume-from-status` so a failed long run can continue instead of restarting
 - added `--incremental` so future catch-up runs can derive their start point from DB coverage rather than from the bootstrap task count in the old status file
 - hardened `--incremental` so it ignores future-dated local test contamination by using bounded `safe_available_to` checkpoints and exposing `future_row_count` in coverage summaries
+- added `scripts/binance_btc_history_backfill.ps1` as a Windows-friendly wrapper for bootstrap, resume, incremental, and status-only operations
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`

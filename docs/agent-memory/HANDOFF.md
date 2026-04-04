@@ -40,6 +40,7 @@
 - the script now also supports `--resume-from-status`, and it treats `open_interest` as a separately available dataset so early windows are skipped instead of failing the full run
 - the script now also supports `--incremental`, using DB coverage instead of task-count resume so future monthly catch-up runs can fetch only the missing tail
 - local DB coverage for Binance BTC is currently contaminated by a few future-dated test fixtures, so the script now uses `safe_available_to` and `future_row_count` to avoid treating those anomalies as real checkpoints
+- a PowerShell wrapper now exists at `scripts/binance_btc_history_backfill.ps1` so Windows-local bootstrap/resume/incremental/status operations no longer require hand-building the Python command
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
