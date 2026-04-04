@@ -483,6 +483,7 @@ Required sections:
 - [ ] benchmark overlay block
 - [ ] `year` / `quarter` / `month` breakdown view
 - [ ] diagnostics delta panel
+- [ ] review notes panel
 
 ### Page 5.4: Backtest Run Detail
 Required sections:
@@ -505,6 +506,7 @@ Required sections:
 - [ ] scenario tags/bookmarks
 - [ ] launch replay action
 - [ ] expected-vs-observed result link
+- [ ] investigation notes panel
 
 ## Required Components
 - [ ] strategy/version selector components
@@ -545,11 +547,14 @@ Required sections:
 - `/api/v1/backtests/runs/{run_id}/artifacts`
 - `/api/v1/backtests/runs/{run_id}/period-breakdown`
 - `/api/v1/backtests/compare-sets`
+- `/api/v1/backtests/compare-sets/{compare_set_id}/notes`
 - `/api/v1/replays/runs`
 - `/api/v1/replays/runs/{run_id}`
 - `/api/v1/replays/runs/{run_id}/timeline`
 - `/api/v1/replays/runs/{run_id}/debug-traces`
+- `/api/v1/replays/runs/{run_id}/notes`
 - `/api/v1/replays/scenarios`
+- `/api/v1/replays/scenarios/{scenario_id}/notes`
 - `/api/v1/replays/runs/{run_id}/expected-vs-observed`
 
 ## Acceptance Checks
@@ -561,6 +566,7 @@ Required sections:
 - [ ] compare/analyze flow has a planned home in the Phase 5 research UI
 - [ ] replay scenarios have a planned home in the Phase 5 research UI
 - [ ] replay result UI/API plan is explicit enough for the next research slice
+- [ ] compare-review and replay-investigation notes have a planned home in the Phase 5 research UI
 
 ## Current Implementation Snapshot
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view

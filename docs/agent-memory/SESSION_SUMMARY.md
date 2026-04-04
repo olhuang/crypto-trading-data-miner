@@ -9,6 +9,7 @@
 - wired the workflow into the main repo entry docs and Phase 5 planning/checklist surfaces
 - added reusable operator templates for session start, session stop, and minimal CLI/VS Code execution
 - added repo-owned VS Code tasks and local PowerShell helper scripts so the workflow is directly runnable
+- added a dedicated object-level notes/annotations planning spec and wired it into Phase 5 planning/docs
 
 ## Files Changed
 - `docs/ai-memory-and-handoff-spec.md`
@@ -23,6 +24,11 @@
 - `.vscode/tasks.json`
 - `scripts/start_memory_session.ps1`
 - `scripts/stop_memory_session.ps1`
+- `docs/object-level-notes-and-annotations-spec.md`
+- `docs/strategy-workbench-spec.md`
+- `docs/backtest-and-replay-diagnostics-spec.md`
+- `docs/ui-api-spec.md`
+- `docs/api-resource-contracts.md`
 - `README.md`
 - `docs/implementation-plan.md`
 - `docs/phases-2-to-9-checklists.md`
@@ -36,4 +42,4 @@
 - this is now runnable locally, but still not yet enforced by runtime/UI
 
 ## Next
-- wire this workflow into future strategy workbench annotations, replay investigation, and compare/review flows
+- implement compare-review note foundation first, then replay investigation notes, then future workbench annotation UI

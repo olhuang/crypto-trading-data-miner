@@ -401,6 +401,12 @@ Also treat `docs/strategy-workbench-spec.md` as the planning backbone for:
 - compare/analyze workflow
 - replay scenario library and review workflow
 
+Also treat `docs/object-level-notes-and-annotations-spec.md` as the planning backbone for:
+- compare/review note generation and lifecycle
+- replay investigation note generation and lifecycle
+- object-linked annotation storage/API/UI direction
+- future linkage between repo-level handoff and workbench object notes
+
 Also treat `docs/ai-memory-and-handoff-spec.md` as the planning backbone for:
 - repo-visible stable/task/session memory layers
 - cross-session handoff discipline for long-running Phase 5-8 work
@@ -421,6 +427,7 @@ Provide the first end-to-end research workflow using historical data.
 - diagnostics/reporting visibility
 - research workbench facilities around development, comparison, replay, and review
 - repo-visible memory and handoff workflow for long-horizon AI-assisted implementation and research work
+- object-level compare/review notes, replay investigation notes, and future workbench annotations
 
 ### Deliverables
 - `src/strategy/`
@@ -457,6 +464,7 @@ Provide the first end-to-end research workflow using historical data.
   - artifact bundles
   - replay scenarios
   - review decisions
+- preserve room for object-level annotations on compare sets, replay runs, and replay scenarios
 
 ### Acceptance Criteria
 - at least one simple strategy can run from historical bars to performance output
@@ -468,6 +476,7 @@ Provide the first end-to-end research workflow using historical data.
 - the phased diagnostics/reporting plan is explicit enough that later replay/UI work does not require redesign
 - the research tool plan is explicit enough that later compare/analyze and replay-scenario work does not require redesign
 - the repo now has an explicit AI memory/handoff workflow so long-running implementation work can be resumed without transcript-only continuity
+- the repo now has an explicit object-level notes/annotation direction so compare/replay review state does not have to live only in chat or markdown
 
 ### Dependencies
 - Phase 2
@@ -484,6 +493,7 @@ Provide the first end-to-end research workflow using historical data.
 - current daily-loss guardrail semantics now respect `session.trading_timezone`, with `UTC` remaining the default when no alternate trading timezone is provided
 - now also has a minimal internal UI slice for launching backtests, browsing recent runs, inspecting diagnostics/artifacts/month breakdown, inspecting signals/orders/fills/timeseries, and invoking compare-set analysis without raw SQL or inline Python
 - now also has a repo-local AI memory/handoff workflow baseline under `docs/agent-memory/`, with a dedicated process spec for resumable long-running design and implementation work
+- object-level notes/annotations are now design-specified for future compare-review, replay investigation, and workbench annotation work
 
 ---
 

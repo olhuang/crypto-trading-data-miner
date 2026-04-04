@@ -6,6 +6,7 @@
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
+- formalize object-level notes and annotation planning for compare sets, replay runs, and replay scenarios
 
 ## Blocked
 - none currently recorded
@@ -17,6 +18,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- added a dedicated object-level notes/annotations planning spec for compare-review and replay investigation workflows
 - added repo-owned VS Code tasks and local PowerShell helpers for memory-session start/stop
 - added reusable session-start, session-stop, and CLI/VS Code workflow templates under `docs/agent-memory/`
 - formalized the repo-local AI memory and cross-session handoff workflow

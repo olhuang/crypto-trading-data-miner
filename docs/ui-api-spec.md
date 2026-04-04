@@ -906,6 +906,20 @@ Current implementation status:
 Purpose:
 - return comparison results, assumption diffs, benchmark overlays, and diagnostics deltas
 
+### GET `/api/v1/backtests/compare-sets/{compare_set_id}/notes`
+Purpose:
+- list review notes attached to a compare set
+
+Future direction:
+- should expose object-linked compare-review notes with system facts, human/agent findings, open questions, and next action
+
+### POST `/api/v1/backtests/compare-sets/{compare_set_id}/notes`
+Purpose:
+- create or update review notes attached to a compare set
+
+Future direction:
+- should support seeded review drafts, review-status updates, and explicit next-action workflow
+
 ### POST `/api/v1/replays/runs`
 Purpose:
 - create and start a replay run for a strategy over a bounded historical window
@@ -926,6 +940,17 @@ Purpose:
 Purpose:
 - replay step-level debug traces
 
+### GET `/api/v1/replays/runs/{run_id}/notes`
+Purpose:
+- list investigation notes attached to a replay run
+
+Future direction:
+- should expose replay investigation notes carrying expected/observed findings, trace refs, and next debugging action
+
+### POST `/api/v1/replays/runs/{run_id}/notes`
+Purpose:
+- create or update investigation notes attached to a replay run
+
 ### GET `/api/v1/replays/scenarios`
 Purpose:
 - list saved replay scenarios and investigation bookmarks
@@ -933,6 +958,14 @@ Purpose:
 ### POST `/api/v1/replays/scenarios`
 Purpose:
 - create a saved replay scenario definition
+
+### GET `/api/v1/replays/scenarios/{scenario_id}/notes`
+Purpose:
+- list investigation/bookmark notes attached to a replay scenario
+
+### POST `/api/v1/replays/scenarios/{scenario_id}/notes`
+Purpose:
+- create or update investigation/bookmark notes attached to a replay scenario
 
 ### GET `/api/v1/replays/runs/{run_id}/expected-vs-observed`
 Purpose:
@@ -944,7 +977,9 @@ Purpose:
 - [ ] UI can show run list and run detail
 - [ ] UI can inspect simulated orders/fills/timeseries
 - [ ] UI can inspect backtest diagnostics/debug traces
+- [ ] UI has a planned compare-review note surface linked to compare-set results
 - [ ] UI has a planned replay run surface and corresponding replay result APIs
+- [ ] UI has a planned replay-investigation note surface linked to replay runs/scenarios
 
 ---
 

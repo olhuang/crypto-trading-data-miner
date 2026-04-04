@@ -26,6 +26,7 @@ It complements:
 - `docs/phases-2-to-9-checklists.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
+- `docs/object-level-notes-and-annotations-spec.md`
 - `docs/repo-self-review-tracker.md`
 
 ---
@@ -121,6 +122,17 @@ Session memory should capture:
 - what the next session should do first
 
 This is the main handoff layer.
+
+### 2.4 Object-Level Memory
+
+Repo-level memory should later be complemented by object-linked notes attached to
+specific workbench objects such as:
+- compare sets
+- replay runs
+- replay scenarios
+
+That future object-level layer is defined in:
+- `docs/object-level-notes-and-annotations-spec.md`
 
 ---
 

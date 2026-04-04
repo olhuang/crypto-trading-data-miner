@@ -26,6 +26,7 @@ This spec complements:
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
+- `docs/object-level-notes-and-annotations-spec.md`
 - `docs/ui-spec.md`
 - `docs/ui-api-spec.md`
 
@@ -351,6 +352,10 @@ Examples:
 - `rejected`
 
 This allows the workbench to become a real decision-support tool, not only a run launcher.
+
+Object-linked note generation, review-note templates, replay investigation note
+shape, and future unified annotation behavior are defined in:
+- `docs/object-level-notes-and-annotations-spec.md`
 
 ---
 

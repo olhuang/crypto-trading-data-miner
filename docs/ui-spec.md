@@ -587,11 +587,13 @@ Displays:
 - benchmark overlay
 - `year` / `quarter` / `month` breakdown views
 - diagnostics delta summary
+- review notes panel
 
 Actions:
 - create compare set
 - open run-to-run diagnostics diff
 - save comparison configuration
+- review findings and record next action
 
 ### 7.5.4 Backtest Run Detail Page
 Sections:
@@ -620,6 +622,7 @@ Actions:
 - launch replay from scenario
 - inspect scenario detail
 - inspect expected-vs-observed replay result
+- inspect or update investigation notes
 
 ## Primary User Actions
 - choose strategy and time range
@@ -630,6 +633,7 @@ Actions:
 - compare runs
 - inspect assumption bundles, artifacts, and review notes
 - launch replay from a saved scenario
+- inspect or update replay investigation notes
 
 ## Validation Criteria
 A user must be able to confirm that:

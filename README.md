@@ -74,6 +74,7 @@ Major design areas already covered include:
 - staged backtest/replay diagnostics rollout and future period-level (`year` / `quarter` / `month`) analysis planning
 - strategy-lab/workbench planning for parameter sets, assumption bundles, artifacts, compare/analyze, replay scenarios, and review workflow
 - repo-local AI memory, session-summary, and cross-session handoff workflow planning for long-running agent-assisted work
+- object-level compare/review notes, replay investigation notes, and future workbench annotation planning
 - PnL/accounting methodology
 - testing strategy
 - UI and frontend architecture
@@ -215,6 +216,7 @@ Use it to understand:
 - `docs/implementation-plan.md`
 - `docs/spec-index.md`
 - `docs/ai-memory-and-handoff-spec.md`
+- `docs/object-level-notes-and-annotations-spec.md`
 
 ### Data and contracts
 - `docs/data-catalog.md`
@@ -238,6 +240,7 @@ Use it to understand:
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/ai-memory-and-handoff-spec.md`
+- `docs/object-level-notes-and-annotations-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 

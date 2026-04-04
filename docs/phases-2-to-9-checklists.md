@@ -28,6 +28,7 @@ This file is intended to be used together with:
 - `docs/backtest-risk-guardrails-spec.md` for shared backtest guardrails, staged risk-policy rollout, and paper/live reuse expectations
 - `docs/strategy-workbench-spec.md` for the broader strategy-lab, replay-workbench, artifact, compare/analyze, and review facilities
 - `docs/ai-memory-and-handoff-spec.md` for repo-local stable/task/session memory layers and cross-session handoff workflow
+- `docs/object-level-notes-and-annotations-spec.md` for compare/review notes, replay investigation notes, and future workbench annotation direction
 
 ---
 
@@ -881,6 +882,21 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ---
 
+## Task 5.7E: Plan object-level notes and annotation workflow
+### Tasks
+- [x] define how repo-level memory and object-level notes differ
+- [x] define canonical object types for notes, including compare sets and replay objects
+- [x] define the annotation resource shape, note types, source types, and verification-state handling
+- [x] define the three-layer generation flow: seed note, system fact enrichment, and human/agent review enrichment
+- [x] define how future workbench UI should expose compare review notes and replay investigation notes
+
+### Acceptance Checks
+- [x] the repository has an explicit source of truth for object-linked research/review notes
+- [x] compare/analyze and replay workflows no longer rely on ad hoc note handling as their only planned path
+- [x] object-level notes remain compatible with repo-level handoff workflow instead of replacing it
+
+---
+
 ## Task 5.7D: Implement compare/analyze foundation
 ### Tasks
 - [x] implement ad hoc compare-set projector over selected run ids
@@ -897,6 +913,21 @@ Provide the first end-to-end research workflow using historical bar data.
 
 ---
 
+## Task 5.7F: Implement compare/review note foundation
+### Tasks
+- [ ] persist compare-set review notes as first-class object-linked annotations
+- [ ] seed compare review drafts from compare-set identity and compared run ids
+- [ ] enrich seeded review drafts with KPI, benchmark, assumption-diff, and diagnostics-diff facts
+- [ ] expose compare-review note list/detail/create/update API surfaces
+- [ ] expose compare-review notes in the internal research UI
+
+### Acceptance Checks
+- [ ] compare work can leave durable review state without relying on repo-level markdown or chat transcripts alone
+- [ ] system facts and human/agent review conclusions remain distinguishable in compare-review notes
+- [ ] compare-review notes are compatible with future saved compare sets and promotion review workflow
+
+---
+
 ## Task 5.7C: Plan replay-scenario and golden-case workflow
 ### Tasks
 - [x] define replay scenario library workflow
@@ -907,6 +938,21 @@ Provide the first end-to-end research workflow using historical bar data.
 ### Acceptance Checks
 - [x] repository has an explicit replay-workbench plan beyond generic replay runs
 - [x] future replay investigations have a planned home for saved scenarios and regression cases
+
+---
+
+## Task 5.6C: Implement replay investigation note foundation
+### Tasks
+- [ ] persist replay-run or replay-scenario investigation notes as first-class object-linked annotations
+- [ ] seed investigation note drafts from replay metadata and scenario identity
+- [ ] enrich seeded notes with diagnostics flags, expected-vs-observed placeholders, and trace/timeline references
+- [ ] expose replay-investigation note list/detail/create/update API surfaces
+- [ ] expose replay investigation notes in future replay UI surfaces
+
+### Acceptance Checks
+- [ ] replay investigations can accumulate durable expected/observed findings without relying only on repo-level handoff or chat history
+- [ ] replay investigation notes preserve the distinction between system facts, assumptions, and verified findings
+- [ ] replay notes remain compatible with future replay scenario libraries and incident review workflow
 
 ## Phase 5 Current Implementation Snapshot
 - [x] `src/models/backtest.py` now defines strategy session, execution-policy, protection-policy, and backtest run config models
@@ -922,6 +968,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the diagnostics planning spec now also defines staged implementation rollout and future `per year` / `per quarter` / `per month` breakdown expectations
 - [x] a dedicated strategy workbench planning spec now exists for strategy-lab, artifact, compare/analyze, replay-scenario, and review facilities
 - [x] a dedicated AI memory/handoff planning spec now exists for repo-local stable/task/session memory and cross-session continuation
+- [x] a dedicated object-level notes/annotations planning spec now exists for compare-review notes, replay investigation notes, and future workbench annotation UI
 - [x] reusable session-start, session-stop, and CLI/VS Code workflow templates now exist under `docs/agent-memory/`
 - [x] the Phase 5 skeleton now includes a `md.bars_1m` loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence
 - [x] the Phase 5 skeleton now includes a deterministic bars-based fill model with market/limit simulation plus fee/slippage handling

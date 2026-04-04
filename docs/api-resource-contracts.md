@@ -896,6 +896,56 @@ Used by:
 
 ---
 
+## 4.7 Object Annotation Resource
+
+Used by future endpoints such as:
+- `GET /api/v1/backtests/compare-sets/{compare_set_id}/notes`
+- `POST /api/v1/backtests/compare-sets/{compare_set_id}/notes`
+- `GET /api/v1/replays/runs/{run_id}/notes`
+- `POST /api/v1/replays/runs/{run_id}/notes`
+- `GET /api/v1/replays/scenarios/{scenario_id}/notes`
+- `POST /api/v1/replays/scenarios/{scenario_id}/notes`
+
+### Resource Shape
+
+```json
+{
+  "annotation_id": 9001,
+  "entity_type": "compare_set",
+  "entity_id": "cmp_20260404_001",
+  "annotation_type": "review",
+  "status": "draft",
+  "title": "BTC momentum compare review",
+  "summary": "Initial review note for two compared runs.",
+  "note_source": "system",
+  "verification_state": "system_fact",
+  "verified_findings": [],
+  "open_questions": [],
+  "next_action": "Inspect assumption diff before deciding rerun.",
+  "source_refs": {
+    "run_ids": [5001, 5002],
+    "trace_refs": [],
+    "file_refs": []
+  },
+  "facts_snapshot_json": {},
+  "created_by": "system",
+  "updated_by": "system",
+  "created_at": "2026-04-04T12:00:00Z",
+  "updated_at": "2026-04-04T12:00:00Z"
+}
+```
+
+### Notes
+
+- the first implementation should prefer one generic annotation resource shape even if compare and replay use different UI forms
+- the system should preserve the distinction between:
+  - seeded/system facts
+  - human or agent review content
+  - verified vs assumption state
+- compare/review notes and replay investigation notes should both be projections of this general resource model
+
+---
+
 ## 5. Mismatch Review Result Resource
 
 Used by:

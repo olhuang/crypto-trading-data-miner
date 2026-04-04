@@ -24,6 +24,7 @@ This spec complements:
 - `docs/position-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
+- `docs/object-level-notes-and-annotations-spec.md`
 - `docs/ui-spec.md`
 - `docs/ui-api-spec.md`
 
@@ -78,6 +79,7 @@ At minimum, a report-capable run should expose:
 Future reporting should also support:
 - compare/analyze workflows
 - replay-vs-backtest comparison
+- object-linked review/investigation notes
 
 ---
 
@@ -134,6 +136,7 @@ Replay outputs should eventually include:
 - position/equity timeline
 - exception/warning timeline
 - step-level debug traces
+- object-linked investigation notes and expected-vs-observed review state
 
 ---
 
@@ -289,6 +292,7 @@ Deliver:
   - `per month`
 - compare/analyze support for run groups and period-level views
 - more opinionated anomaly flags for research/debug use
+- compare-review note integration points
 
 This stage completes the backtest-side diagnostics surface.
 
@@ -298,6 +302,7 @@ Deliver:
 - replay run model and replay result persistence
 - replay timeline/event/state inspection
 - replay-specific diagnostics summary and debug traces
+- replay investigation note integration points
 - UI support to launch replay runs and inspect replay outputs
 - eventual backtest-vs-replay comparison surfaces
 

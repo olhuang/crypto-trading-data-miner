@@ -87,8 +87,9 @@ Read in this order:
 15. `docs/backtest-and-replay-diagnostics-spec.md`
 16. `docs/strategy-workbench-spec.md`
 17. `docs/ai-memory-and-handoff-spec.md`
-18. `docs/pnl-and-accounting-spec.md`
-19. `docs/testing-strategy-spec.md`
+18. `docs/object-level-notes-and-annotations-spec.md`
+19. `docs/pnl-and-accounting-spec.md`
+20. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -186,6 +187,7 @@ Read in this order:
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/ai-memory-and-handoff-spec.md`
+- `docs/object-level-notes-and-annotations-spec.md`
 - `docs/agent-memory/SESSION_START_PROMPT.md`
 - `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
 - `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
@@ -199,6 +201,7 @@ Read in this order:
 - backtest/replay report and trace diagnostics planning: `docs/backtest-and-replay-diagnostics-spec.md`
 - strategy-lab, workbench, artifact, compare/analyze, replay-scenario, and review planning: `docs/strategy-workbench-spec.md`
 - AI working-memory, summary, and cross-session handoff workflow: `docs/ai-memory-and-handoff-spec.md`
+- object-linked compare/review notes, replay investigation notes, and future workbench annotations: `docs/object-level-notes-and-annotations-spec.md`
 - reusable session start/stop and CLI/VS Code memory-workflow templates: `docs/agent-memory/*`
 
 ---
@@ -331,6 +334,7 @@ Primary docs:
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/ai-memory-and-handoff-spec.md`
+- `docs/object-level-notes-and-annotations-spec.md`
 - `docs/pnl-and-accounting-spec.md`
 - `docs/testing-strategy-spec.md`
 

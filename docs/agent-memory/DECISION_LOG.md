@@ -54,3 +54,16 @@ Ship repo-owned VS Code tasks and PowerShell helper scripts for the memory start
 ### Impact
 - `.vscode/tasks.json` now exposes `Memory: Start Session` and `Memory: Stop Session`
 - `scripts/start_memory_session.ps1` and `scripts/stop_memory_session.ps1` are the baseline local workflow helpers
+
+## 2026-04-04
+
+### Decision
+Treat compare/review notes and replay investigation notes as object-level memory that complements repo-level handoff rather than replacing it.
+
+### Reason
+- repo-level handoff is too coarse once many runs, compare sets, and replay investigations exist
+- object-linked notes let research conclusions stay attached to the exact object they describe
+
+### Impact
+- repo-level memory remains the session/handoff layer
+- future compare/replay/workbench notes should use a shared annotation model and be linked from repo-level handoff when relevant
