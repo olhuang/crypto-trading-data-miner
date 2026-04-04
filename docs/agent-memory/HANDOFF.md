@@ -31,6 +31,7 @@
 - the current `/monitoring` Backtests launch flow now also shows an honest launch-status indicator with disabled form state, staged progress, and automatic run selection after a successful launch
 - the current `/monitoring` Backtests launch flow now keeps `Available Assumption Bundles` and `Available Risk Policies` in collapsed details panels by default to reduce visual clutter
 - the selected Backtests run detail now breaks the run payload into named sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before exposing the raw API payload
+- the Backtests page now places `Signals / Orders / Fills / Timeseries` after the `Investigate` workspace so users reach diagnostics and debug traces earlier in the inspection flow
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed

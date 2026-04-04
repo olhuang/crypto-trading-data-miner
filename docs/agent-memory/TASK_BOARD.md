@@ -23,6 +23,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 
 ## Recently Done
+- moved the Backtests `Signals / Orders / Fills / Timeseries` sections to after the `Investigate` workspace so the page flow reaches diagnostics and traces before execution detail tables
 - cleaned up the selected Backtests run detail so the main run payload is now labeled and split into named sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before the raw API payload
 - added targeted debug-trace filters for blocked-only, risk-code, signal-only, order-only, and fill-only investigation in the API and internal `/monitoring` viewer
 - landed the first front-end usability cleanup slice for Backtests: visible launch labels, grouped sections, preset helpers, better boolean controls, workspace headers, and a summary-first selected-run panel
