@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from itertools import groupby
 from typing import Any, Iterable, Mapping, Sequence
@@ -249,6 +250,7 @@ class BacktestRunnerSkeleton:
                             previous_cash=previous_trace_cash,
                             previous_equity=previous_trace_equity,
                             drawdown=trace_drawdown,
+                            market_context=market_context,
                         )
                     )
                     previous_trace_cash = trace_mark.cash
@@ -434,6 +436,7 @@ class BacktestRunnerSkeleton:
         previous_cash: Decimal,
         previous_equity: Decimal,
         drawdown: Decimal,
+        market_context: StrategyMarketContext | None,
     ) -> BacktestDebugTraceRecord:
         blocked_count = sum(
             1 for outcome in step_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK
@@ -464,12 +467,53 @@ class BacktestRunnerSkeleton:
             gross_exposure=trace_mark.gross_exposure,
             net_exposure=trace_mark.net_exposure,
             drawdown=drawdown,
+            market_context_json=BacktestRunnerSkeleton._serialize_market_context_snapshot(market_context),
             decision_json=BacktestRunnerSkeleton._serialize_step_decision(step_result),
             risk_outcomes_json=[
                 BacktestRunnerSkeleton._serialize_risk_outcome(outcome)
                 for outcome in step_result.risk_outcomes
             ],
         )
+
+    @staticmethod
+    def _serialize_market_context_snapshot(
+        market_context: StrategyMarketContext | None,
+    ) -> dict[str, Any] | None:
+        if market_context is None:
+            return None
+
+        snapshot: dict[str, Any] = {
+            "feature_input_version": market_context.feature_input_version,
+        }
+        for field_name in (
+            "funding_rate",
+            "open_interest",
+            "mark_price",
+            "index_price",
+            "global_long_short_account_ratio",
+            "top_trader_long_short_account_ratio",
+            "top_trader_long_short_position_ratio",
+            "taker_long_short_ratio",
+        ):
+            value = getattr(market_context, field_name)
+            if value is not None:
+                snapshot[field_name] = BacktestRunnerSkeleton._serialize_context_value(value)
+        return snapshot
+
+    @staticmethod
+    def _serialize_context_value(value: Any) -> Any:
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, Decimal):
+            return str(value)
+        if isinstance(value, Mapping):
+            return {
+                str(key): BacktestRunnerSkeleton._serialize_context_value(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return [BacktestRunnerSkeleton._serialize_context_value(item) for item in value]
+        return value
 
     @staticmethod
     def _serialize_step_decision(step_result: BacktestStepResult) -> dict[str, Any]:

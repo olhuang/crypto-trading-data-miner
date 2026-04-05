@@ -841,7 +841,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] Stage B backend foundation: implement compact persisted step-level debug traces plus read API
 - [x] Stage B UI surface: expose debug traces in the internal research console
 - [x] Stage B extension: add targeted trace filters for blocked/risk/signal/order/fill investigation
-- [ ] Stage B.5: surface strategy market context inside diagnostics/debug-trace inspection for feature-driven runs
+- [x] Stage B.5: surface strategy market context inside diagnostics/debug-trace inspection for feature-driven runs
 - [ ] Stage C: implement full backtest diagnostics and period-level analysis
 - [ ] Stage D: implement replay diagnostics, replay timelines, and replay UI inspection support
 - [x] create a dedicated debug-trace rollout tracking document with current status, staged scope, and resume guidance
@@ -1003,7 +1003,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the current runner now caps recent bar history when a strategy declares a finite requirement and avoids persisting full step caches by default for persisted runs
 - [x] the current Phase 5 planning baseline now explicitly preserves room for named risk policies, assumption bundles, and run-level effective snapshot precedence
 - [x] the current Phase 5 run metadata now persists selected assumption-bundle identity, resolved bundle snapshot, explicit assumption overrides, and effective assumption snapshot for later compare/analyze and review work
-- [ ] the current Phase 5 diagnostics/trace surfaces do not yet expose the strategy market context that drove feature-aware or sentiment-aware decisions
+- [x] the current Phase 5 diagnostics/trace surfaces now expose the strategy market context that drove feature-aware or sentiment-aware decisions
 
 ---
 

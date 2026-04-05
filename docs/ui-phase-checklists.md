@@ -604,7 +604,7 @@ Required sections:
 - [ ] Backtest Run Detail shows KPIs and equity curve
 - [ ] simulated orders/fills can be filtered and inspected
 - [x] diagnostics/debug traces can be inspected from the run detail experience
-- [ ] diagnostics/debug traces expose strategy market context for feature-driven runs
+- [x] diagnostics/debug traces expose strategy market context for feature-driven runs
 - [ ] compare/analyze flow has a planned home in the Phase 5 research UI
 - [ ] replay scenarios have a planned home in the Phase 5 research UI
 - [ ] replay result UI/API plan is explicit enough for the next research slice
@@ -629,7 +629,7 @@ Required sections:
 - [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
 - [x] the current internal Backtests view now also exposes compare-review notes for persisted compare sets, including system-seeded facts and human/agent review entry
 - [x] the current internal Backtests launch form now uses visible labels, grouped sections, checkbox/select controls, an advanced/debug subsection, and preset helpers instead of relying on placeholder-only inputs
-- [ ] the current internal Backtests debug-trace/detail surfaces still do not expose the strategy market context that drove feature-aware or sentiment-aware decisions
+- [x] the current internal Backtests debug-trace/detail surfaces now expose the strategy market context that drove feature-aware or sentiment-aware decisions
 - [ ] broader product-grade frontend work should follow `docs/frontend-keep-evolve-replace-strategy.md` instead of forcing all future UI into the current `/monitoring` console
 - [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
 - [ ] charts and replay scenario pages remain future UI work

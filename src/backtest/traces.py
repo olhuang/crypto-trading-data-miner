@@ -32,3 +32,4 @@ class BacktestDebugTraceRecord:
     drawdown: Decimal
     decision_json: dict[str, Any]
     risk_outcomes_json: list[dict[str, Any]]
+    market_context_json: dict[str, Any] | None = None

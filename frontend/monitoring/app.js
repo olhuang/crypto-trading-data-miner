@@ -2109,6 +2109,9 @@ function renderBacktestDebugTraceDetail(trace) {
       net_exposure: null,
       drawdown: null,
     });
+    renderJson("backtest-debug-trace-market-context", {
+      message: "Market context snapshot will appear here.",
+    });
     renderJson("backtest-debug-trace-decision", {
       message: "Decision payload will appear here.",
     });
@@ -2142,6 +2145,9 @@ function renderBacktestDebugTraceDetail(trace) {
       gross_exposure: null,
       net_exposure: null,
       drawdown: null,
+    });
+    renderJson("backtest-debug-trace-market-context", {
+      message: "Market context snapshot will appear here.",
     });
     renderJson("backtest-debug-trace-decision", {
       message: "Decision payload will appear here.",
@@ -2181,6 +2187,10 @@ function renderBacktestDebugTraceDetail(trace) {
     net_exposure: trace.net_exposure,
     drawdown: trace.drawdown,
   });
+  renderJson(
+    "backtest-debug-trace-market-context",
+    trace.market_context_json || { message: "No market context captured for this step." },
+  );
   renderJson("backtest-debug-trace-decision", trace.decision_json || {});
   renderJson("backtest-debug-trace-risk", trace.risk_outcomes_json || []);
   renderJson("backtest-debug-trace-detail", trace);

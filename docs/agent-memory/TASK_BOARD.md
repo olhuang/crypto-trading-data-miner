@@ -7,7 +7,7 @@
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
-- advance step-level debug traces from the completed Level 2 linkage/UI/anchor/filter slices into strategy market context visibility, then replay investigation linkage
+- advance step-level debug traces from the completed Level 2 linkage/UI/anchor/filter/context slices into replay investigation linkage
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
@@ -26,7 +26,7 @@
 - connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
-- surface strategy market context inside diagnostics / trace inspection for sentiment-aware runs
+- connect the new debug-trace market-context evidence into replay investigation linkage and future compare/review note anchors
 - defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
 
 ## Recently Done
@@ -37,6 +37,8 @@
 - fixed the integrity repair status flow so queued/running/final backfill messages are no longer immediately overwritten by a generic post-trigger message
 - verified that long sentiment-ratio history windows can collapse to only the latest ~500 rows from Binance, then hardened the sentiment-ratio backfill path to chunk history daily instead of issuing one long refresh window
 - operator-cleaned the local `BTCUSDT_PERP` sentiment-ratio tables so re-grab starts from an empty state instead of mixing recent rows with old `2024-04-02` fixture residue
+- added a compact `market_context_json` field to persisted backtest debug traces, capturing the actual latest-as-of perp context seen by feature-aware strategies at each step
+- exposed that compact market-context snapshot through the debug-trace API and `/monitoring -> Backtests -> Selected Trace Detail`, so sentiment-aware runs are now explainable without digging back through market-data tables by hand
 - added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
 - updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - tightened the repair UX so finding-triggered incremental repairs now surface a live staged progress indicator instead of only a queued/complete message

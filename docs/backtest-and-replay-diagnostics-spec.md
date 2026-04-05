@@ -115,7 +115,8 @@ Recommended modes:
 
 Current implementation note:
 - the current Phase 5 trace substrate already persists compact step-level trace rows, supports diagnostics anchors plus targeted trace filters, and is used by the internal `/monitoring` Backtests viewer
-- the most immediate follow-up is to surface the aligned strategy market context that drove feature-aware or sentiment-aware decisions inside trace inspection
+- the current trace substrate now also persists a compact `market_context_json` snapshot for feature-aware runs and surfaces it in selected trace inspection
+- the most immediate follow-up is replay/debug-trace investigation linkage so the new market-context evidence can anchor compare/review and replay-note workflows
 
 ---
 

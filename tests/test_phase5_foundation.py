@@ -504,7 +504,7 @@ class Phase5FoundationTests(unittest.TestCase):
                     "session_code": "bt_btc_assumption_bundle_sentiment_resolution",
                     "environment": "backtest",
                     "account_code": "paper_main",
-                    "strategy_code": "btc_sentiment_momentum",
+                    "strategy_code": "btc_momentum",
                     "strategy_version": "v1.0.0",
                     "exchange_code": "binance",
                     "universe": ["BTCUSDT_PERP"],
@@ -1710,7 +1710,11 @@ class Phase5FoundationTests(unittest.TestCase):
             for bar in bars:
                 bar_repository.upsert(connection, bar)
 
-            persisted = runner.load_run_and_persist(connection, persist_debug_traces=True)
+            persisted = runner.load_run_and_persist(
+                connection,
+                persist_signals=False,
+                persist_debug_traces=True,
+            )
 
             debug_trace_rows = connection.execute(
                 text(
@@ -1802,6 +1806,170 @@ class Phase5FoundationTests(unittest.TestCase):
             )
             self.assertEqual(debug_trace_artifact.status, "available")
             self.assertEqual(debug_trace_artifact.record_count, 3)
+        finally:
+            transaction.rollback()
+            connection.close()
+
+    def test_load_run_and_persist_can_persist_market_context_snapshot(self) -> None:
+        start_time = datetime(2036, 1, 4, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2036, 1, 4, 0, 5, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_strategy_market_context_window,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_market_context_trace",
+                "session": {
+                    "session_code": "bt_btc_context_trace",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "initial_cash": "10000",
+                "feature_input_version": "bars_perp_context_v1",
+            }
+        )
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for table_name, time_column in (
+                ("md.taker_long_short_ratios", "ts"),
+                ("md.global_long_short_account_ratios", "ts"),
+                ("md.bars_1m", "bar_time"),
+            ):
+                connection.execute(
+                    text(
+                        f"""
+                        delete from {table_name}
+                        where instrument_id = (
+                            select instrument.instrument_id
+                            from ref.instruments instrument
+                            join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                            where exchange.exchange_code = :exchange_code
+                              and instrument.unified_symbol = :unified_symbol
+                            limit 1
+                        )
+                          and {time_column} between :start_time and :end_time
+                        """
+                    ),
+                    {
+                        "exchange_code": "binance",
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "start_time": start_time,
+                        "end_time": end_time,
+                    },
+                )
+
+            bar_repo = BarRepository()
+            for index in range(5):
+                bar_time = start_time + timedelta(minutes=index)
+                close = Decimal("100") + Decimal(index)
+                bar_repo.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": str(close),
+                            "high": str(close),
+                            "low": str(close),
+                            "close": str(close),
+                            "volume": "10",
+                        }
+                    ),
+                )
+
+            GlobalLongShortAccountRatioRepository().upsert(
+                connection,
+                GlobalLongShortAccountRatioEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    ingest_time=start_time + timedelta(minutes=2),
+                    event_time=start_time + timedelta(minutes=2),
+                    period_code="5m",
+                    long_short_ratio=Decimal("1.30"),
+                    long_account_ratio=Decimal("0.56"),
+                    short_account_ratio=Decimal("0.44"),
+                ),
+            )
+            TakerLongShortRatioRepository().upsert(
+                connection,
+                TakerLongShortRatioEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    ingest_time=start_time + timedelta(minutes=2),
+                    event_time=start_time + timedelta(minutes=2),
+                    period_code="5m",
+                    buy_sell_ratio=Decimal("1.08"),
+                    buy_vol=Decimal("125"),
+                    sell_vol=Decimal("116"),
+                ),
+            )
+
+            runner = BacktestRunnerSkeleton(
+                run_config,
+                strategy=MarketContextEntryStrategy(),
+                fill_model=DeterministicBarsFillModel(
+                    fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                    slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+                ),
+            )
+            persisted = runner.load_run_and_persist(
+                connection,
+                persist_signals=False,
+                persist_debug_traces=True,
+            )
+
+            debug_trace_rows = connection.execute(
+                text(
+                    """
+                    select step_index, market_context_json
+                    from backtest.debug_traces
+                    where run_id = :run_id
+                    order by step_index asc
+                    """
+                ),
+                {"run_id": persisted.run_id},
+            ).mappings().all()
+            repository = BacktestRunRepository()
+            listed_rows = repository.list_debug_trace_records(connection, run_id=persisted.run_id)
+
+            self.assertEqual(len(debug_trace_rows), 5)
+            self.assertEqual(
+                debug_trace_rows[2]["market_context_json"]["feature_input_version"],
+                "bars_perp_context_v1",
+            )
+            self.assertEqual(
+                Decimal(
+                    debug_trace_rows[2]["market_context_json"]["global_long_short_account_ratio"][
+                        "long_short_ratio"
+                    ]
+                ),
+                Decimal("1.30"),
+            )
+            self.assertEqual(
+                Decimal(debug_trace_rows[2]["market_context_json"]["taker_long_short_ratio"]["buy_sell_ratio"]),
+                Decimal("1.08"),
+            )
+            self.assertEqual(
+                debug_trace_rows[2]["market_context_json"]["global_long_short_account_ratio"]["event_time"],
+                (start_time + timedelta(minutes=2)).isoformat(),
+            )
+            self.assertEqual(
+                listed_rows[2]["market_context_json"]["taker_long_short_ratio"]["period_code"],
+                "5m",
+            )
         finally:
             transaction.rollback()
             connection.close()

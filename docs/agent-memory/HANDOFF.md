@@ -3,13 +3,13 @@
 ## Current Focus
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
-- continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter slices into strategy market context visibility, then replay investigation linkage
+- continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter/context slices into replay investigation linkage
 - continue cleaning up the current `/monitoring` Backtests UX now that the first launch-form cleanup slice has landed
 - keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
 - provide a local runnable Binance BTC history backfill path with explicit progress/status output now that direct outbound execution is blocked inside the current harness
 - continue the Quality workspace evolve path now that the first integrity-validation UI slice is live inside `/monitoring`
 - continue the Binance futures sentiment-ratio rollout from the completed collection/quality slices into strategy feature-input and research-consumption surfaces
-- make sentiment-aware backtests explainable by surfacing strategy market context inside diagnostics / debug-trace inspection
+- keep sentiment-aware backtests explainable now that diagnostics / debug-trace inspection surfaces compact strategy market context snapshots
 - widen the Quality finding-action flow across more incremental-repairable datasets while keeping retention-limited cases explicit
 - keep sentiment-ratio backfill aligned to real Binance endpoint behavior now that long history windows were found to collapse to the latest ~500 rows unless chunked more aggressively
 
@@ -110,6 +110,9 @@
 - targeted Phase 5 regression coverage now proves the seeded strategy registry exposes `btc_sentiment_momentum`, the new assumption bundle resolves correctly, and a runner can trigger a trade from persisted sentiment-ratio context
 - the `/monitoring -> Backtests` launch form now exposes the seeded sentiment-aware research path directly through a `Sentiment Perp` preset, a real strategy selector, threshold inputs, and clearer assumption-bundle guidance
 - the sentiment-threshold section in the Backtests launch form now truly hides for non-sentiment strategies; a CSS `display:grid` override had been defeating the `hidden` attribute until this follow-up fix
+- persisted backtest debug traces now include a compact `market_context_json` snapshot, carrying latest-as-of funding/OI/mark/index and Binance futures sentiment-ratio context when `feature_input_version = bars_perp_context_v1`
+- `GET /api/v1/backtests/runs/{run_id}/debug-traces` now returns that compact `market_context_json`, and `/monitoring -> Backtests -> Selected Trace Detail` now shows it in a dedicated `Market Context` subsection instead of forcing operators to infer context from decision JSON alone
+- a new DB migration now exists at `db/init/012_backtest_debug_trace_market_context.sql`, extending `backtest.debug_traces` with `market_context_json`
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -127,7 +130,7 @@
 - the actual bounded `bars_1m` refill for the corrupt-minute and tail-gap windows still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 - the harness still cannot execute the actual Binance repair/refill calls end-to-end because outbound network access is blocked here; only the operator machine can run the bounded repair scripts and incremental catch-up
 - the new UI-triggered incremental path is intentionally local-operator oriented; it currently launches a detached local process and does not yet integrate with the broader generic job orchestration spec
-- the current backtest diagnostics/trace surfaces do not yet show the strategy market context that drove a sentiment-aware decision, so debugging remains signal/decision-centric rather than feature-context-centric
+- the current backtest diagnostics/trace surfaces now show compact strategy market context snapshots, but compare/review and replay investigation flows still do not attach directly to that evidence layer
 - the new finding-action flow is still intentionally partial: it does not yet offer one-click repair for retention-limited coverage shortfall, generic duplicate cleanup, or generic non-bars corrupt cleanup outside the existing targeted tooling
 
 ## Files To Inspect Next
@@ -150,6 +153,7 @@
 - `docs/quality-integrity-ui-plan.md`
 - `db/init/009_backtest_debug_traces.sql`
 - `db/init/010_backtest_debug_trace_level2.sql`
+- `db/init/012_backtest_debug_trace_market_context.sql`
 - `src/backtest/traces.py`
 - `src/backtest/runner.py`
 - `src/backtest/artifacts.py`
@@ -196,5 +200,5 @@
 ## Recommended Next Action
 - if the data-quality UI line stays active, the next most natural slice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` Quality workspace restructure now that `UI Slice 4C` has landed
 - if the data-maintenance line stays active, use the new `/monitoring -> Quality` backfill panel or `scripts/binance_btc_history_backfill.ps1 -Mode incremental` to refresh the BTC tail, then re-run integrity validation to watch the warning-only tail counts shrink
-- if the sentiment-ratio line stays active, the next most natural slice is to surface strategy market context inside diagnostics/trace inspection, then consider broader feature-pipeline formalization only after that evidence path exists
+- if the sentiment-ratio / diagnostics line stays active, the next most natural slice is replay/debug-trace investigation linkage so the new market-context evidence can anchor future compare/review and replay-note workflows
 - if the Quality line stays active, the next most natural slice is to expand or polish finding-aware repair coverage after the current `bars_1m` + `tail` actions have seen real operator use

@@ -821,6 +821,7 @@ class BacktestDebugTraceRecordResource(BaseModel):
     gross_exposure: str | None = None
     net_exposure: str | None = None
     drawdown: str | None = None
+    market_context_json: dict[str, Any] | None = None
     decision_json: dict[str, Any]
     risk_outcomes_json: list[dict[str, Any]]
 
@@ -1261,6 +1262,7 @@ def _build_backtest_debug_trace_resource(record: dict[str, Any]) -> BacktestDebu
         gross_exposure=_stringify_decimal(record.get("gross_exposure")),
         net_exposure=_stringify_decimal(record.get("net_exposure")),
         drawdown=_stringify_decimal(record.get("drawdown")),
+        market_context_json=dict(record.get("market_context_json") or {}) or None,
         decision_json=dict(record.get("decision_json") or {}),
         risk_outcomes_json=list(record.get("risk_outcomes_json") or []),
     )

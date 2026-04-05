@@ -371,6 +371,7 @@ class BacktestRunRepository:
                             gross_exposure,
                             net_exposure,
                             drawdown,
+                            market_context_json,
                             decision_json,
                             risk_outcomes_json
                         ) values (
@@ -396,6 +397,7 @@ class BacktestRunRepository:
                             :gross_exposure,
                             :net_exposure,
                             :drawdown,
+                            cast(:market_context_json as jsonb),
                             cast(:decision_json as jsonb),
                             cast(:risk_outcomes_json as jsonb)
                         )
@@ -429,6 +431,7 @@ class BacktestRunRepository:
                         "gross_exposure": trace.gross_exposure,
                         "net_exposure": trace.net_exposure,
                         "drawdown": trace.drawdown,
+                        "market_context_json": json.dumps(trace.market_context_json, default=str),
                         "decision_json": json.dumps(trace.decision_json, default=str),
                         "risk_outcomes_json": json.dumps(trace.risk_outcomes_json, default=str),
                     },
@@ -825,6 +828,7 @@ class BacktestRunRepository:
                 trace.gross_exposure,
                 trace.net_exposure,
                 trace.drawdown,
+                trace.market_context_json,
                 trace.decision_json,
                 trace.risk_outcomes_json
             from backtest.debug_traces trace

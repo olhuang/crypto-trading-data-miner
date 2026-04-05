@@ -57,11 +57,11 @@ Without this layer:
 - [x] Level 2 diagnostics-to-trace anchors across diagnostics API output and the internal trace viewer
 
 ### Not Yet Implemented
-- [ ] strategy market context is not yet surfaced inside debug-trace detail for feature-driven or sentiment-aware runs
+- [x] strategy market context is now surfaced inside persisted debug-trace detail for feature-driven or sentiment-aware runs
 - [ ] replay investigation trace linkage
 
 ### Current Recommended Resume Point
-- Continue with a focused trace-evidence slice that surfaces strategy market context inside diagnostics/debug-trace inspection for feature-driven runs, then resume `Level 3` replay investigation linkage on top of that richer evidence layer.
+- Continue with a focused replay/investigation slice that attaches note-worthy anchors and replay evidence to the now-richer debug-trace substrate.
 
 ---
 
@@ -180,7 +180,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 4. [x] `Level 2 richer UI drill-down`
 5. [x] `Level 2 diagnostics-to-trace anchors`
 6. [x] `Level 2 targeted trace filters`
-7. `Level 2.5 strategy market context visibility`
+7. [x] `Level 2.5 strategy market context visibility`
 8. `Level 3 replay/investigation trace integration`
 
 Do not skip directly to Level 3.
@@ -192,16 +192,16 @@ Do not skip directly to Level 3.
 If resuming from here, implement only this slice:
 
 ### Slice
-`Level 2.5 strategy market context visibility`
+`Level 3 replay/investigation trace integration`
 
 ### Exact Work
-- surface the strategy market context that drove a step into diagnostics/debug-trace detail for feature-driven runs
-- show latest-as-of funding/OI/mark/index and sentiment-ratio snapshots in selected trace inspection where available
-- keep the next slice grounded in the current compact trace substrate instead of redesigning the trace schema again
+- attach replay investigation linkage and future note anchors to concrete debug-trace rows now that compact market-context evidence exists
+- reuse the existing trace substrate instead of redesigning the trace schema again
+- keep replay-specific enrichments anchored to persisted trace IDs or bounded step ranges where possible
 
 ### Leave For Immediately After
-- `Level 3 replay/investigation trace linkage`
 - richer replay timeline polish and follow-up annotation surfaces
+- optional strategy-threshold or rationale rendering on top of the now-persisted market-context snapshot
 
 ### Explicitly Defer
 - replay note integration
@@ -253,7 +253,7 @@ When returning to this work:
 The repository now has `Level 1` backend/UI debug traces plus the first Level 2 linkage, richer drill-down, diagnostics-anchor slices, and targeted trace filters in place.
 
 The correct next move is:
-- connect trace rows to replay-note work and investigation linkage
+- connect the richer trace rows to replay-note work and investigation linkage
 - then grow that into fuller replay timeline and annotation surfaces later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.
