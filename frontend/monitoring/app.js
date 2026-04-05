@@ -7,7 +7,19 @@ const state = {
   selectedBacktestDebugTraceId: null,
   selectedCompareSetId: null,
   selectedCompareNoteId: null,
+  currentIntegrityResult: null,
+  selectedIntegrityDataType: null,
 };
+
+const INTEGRITY_DATASET_FIELDS = [
+  "bars_1m",
+  "funding_rates",
+  "open_interest",
+  "mark_prices",
+  "index_prices",
+  "trades",
+  "raw_market_events",
+];
 
 const BACKTEST_LAUNCH_PRESETS = {
   baseline_perp: {
@@ -193,55 +205,6 @@ function setJsonCopyButtonState(button, copied) {
   button.classList.toggle("is-copied", copied);
   button.setAttribute("aria-label", copied ? "Copied" : "Copy contents");
   button.setAttribute("title", copied ? "Copied" : "Copy contents");
-}
-
-function createJsonCopyButton() {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "json-copy-button";
-  button.setAttribute("aria-label", "Copy contents");
-  button.setAttribute("title", "Copy contents");
-  button.innerHTML = `
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M9 9h9v11H9z"></path>
-      <path d="M6 5h9v2H8v9H6z"></path>
-    </svg>
-  `;
-  return button;
-}
-
-function enhanceJsonShells() {
-  document.querySelectorAll(".json-shell").forEach((shell) => {
-    if (shell.parentElement?.classList.contains("json-shell-frame")) {
-      return;
-    }
-
-    const frame = document.createElement("div");
-    frame.className = "json-shell-frame";
-    shell.parentNode.insertBefore(frame, shell);
-    frame.appendChild(shell);
-
-    const button = createJsonCopyButton();
-    let resetTimer = null;
-    button.addEventListener("click", async () => {
-      const text = shell.textContent || "";
-      if (!text.trim()) {
-        return;
-      }
-      try {
-        await copyTextToClipboard(text);
-        setJsonCopyButtonState(button, true);
-        window.clearTimeout(resetTimer);
-        resetTimer = window.setTimeout(() => {
-          setJsonCopyButtonState(button, false);
-        }, 1200);
-      } catch (error) {
-        window.alert(`Unable to copy contents: ${error.message}`);
-      }
-    });
-
-    frame.appendChild(button);
-  });
 }
 
 function createJsonCopyButton() {
@@ -782,6 +745,337 @@ function bindBacktestPresetButtons() {
       applyBacktestPreset(button.dataset.backtestPreset);
     });
   });
+}
+
+function toIsoUtc(date) {
+  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function setIntegrityQuickRange(rangeKey) {
+  const form = document.getElementById("integrity-validation-form");
+  if (!form) {
+    return;
+  }
+  const startControl = form.elements.namedItem("start_time");
+  const endControl = form.elements.namedItem("end_time");
+  const now = new Date();
+  let start = new Date(now);
+
+  if (rangeKey === "last_24h") {
+    start.setUTCDate(start.getUTCDate() - 1);
+  } else if (rangeKey === "last_7d") {
+    start.setUTCDate(start.getUTCDate() - 7);
+  } else if (rangeKey === "last_30d") {
+    start.setUTCDate(start.getUTCDate() - 30);
+  } else if (rangeKey === "this_month") {
+    start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
+  } else if (rangeKey === "ytd") {
+    start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1, 0, 0, 0));
+  } else {
+    return;
+  }
+
+  setFormControlValue(startControl, toIsoUtc(start));
+  setFormControlValue(endControl, toIsoUtc(now));
+}
+
+function syncIntegrityDatasetControls() {
+  const form = document.getElementById("integrity-validation-form");
+  if (!form) {
+    return;
+  }
+
+  const useDefaults = form.elements.namedItem("use_symbol_defaults")?.checked !== false;
+  INTEGRITY_DATASET_FIELDS.forEach((dataType) => {
+    const control = form.elements.namedItem(`integrity_data_type_${dataType}`);
+    if (!control) {
+      return;
+    }
+    control.disabled = useDefaults;
+    if (useDefaults) {
+      control.checked = false;
+    }
+  });
+
+  const rawEventsEnabled =
+    !useDefaults && Boolean(form.elements.namedItem("integrity_data_type_raw_market_events")?.checked);
+  const rawEventChannelControl = form.elements.namedItem("raw_event_channel");
+  if (rawEventChannelControl) {
+    rawEventChannelControl.disabled = !rawEventsEnabled;
+    if (!rawEventsEnabled) {
+      rawEventChannelControl.value = "";
+    }
+  }
+}
+
+function bindIntegrityQuickRangeButtons() {
+  document.querySelectorAll("[data-integrity-range]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setIntegrityQuickRange(button.dataset.integrityRange);
+    });
+  });
+}
+
+function initializeIntegrityValidationControls() {
+  const form = document.getElementById("integrity-validation-form");
+  if (!form) {
+    return;
+  }
+
+  if (!String(form.elements.namedItem("start_time")?.value || "").trim()) {
+    setIntegrityQuickRange("last_24h");
+  }
+  syncIntegrityDatasetControls();
+
+  const controlsToWatch = [
+    "use_symbol_defaults",
+    ...INTEGRITY_DATASET_FIELDS.map((dataType) => `integrity_data_type_${dataType}`),
+  ];
+  controlsToWatch.forEach((fieldName) => {
+    const control = form.elements.namedItem(fieldName);
+    if (!control) {
+      return;
+    }
+    control.addEventListener("change", () => {
+      syncIntegrityDatasetControls();
+    });
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await runIntegrityValidation(form);
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
+}
+
+function getSelectedIntegrityDataTypes(form) {
+  return INTEGRITY_DATASET_FIELDS.filter((dataType) => {
+    return Boolean(form.elements.namedItem(`integrity_data_type_${dataType}`)?.checked);
+  });
+}
+
+function renderIntegritySummaryCards(result) {
+  const container = document.getElementById("integrity-result-summary");
+  if (!container) {
+    return;
+  }
+  if (!result) {
+    container.innerHTML = '<div class="summary-empty">No integrity validation has been run in this session.</div>';
+    return;
+  }
+
+  const summaryItems = [
+    {
+      label: "Symbol",
+      value: formatValue(result.unified_symbol),
+      detail: `${formatValue(result.exchange_code)} | persisted checks ${formatValue(result.persisted_checks_written)}`,
+    },
+    {
+      label: "Window",
+      value: `${formatValue(result.start_time)} -> ${formatValue(result.end_time)}`,
+      detail: `Observed ${formatValue(result.observed_at)}`,
+    },
+    {
+      label: "Datasets",
+      value: `${formatValue(result.summary?.passed_datasets)} pass / ${formatValue(result.summary?.failed_datasets)} fail`,
+      detail: `Total ${formatValue(result.summary?.dataset_count)}`,
+    },
+    {
+      label: "Gap / Missing",
+      value: `${formatValue(result.summary?.total_gap_count)} / ${formatValue(result.summary?.total_missing_count)}`,
+      detail: "Gap segments / missing points",
+    },
+    {
+      label: "Duplicate / Corrupt",
+      value: `${formatValue(result.summary?.total_duplicate_count)} / ${formatValue(result.summary?.total_corrupt_count)}`,
+      detail: `Future rows ${formatValue(result.summary?.total_future_row_count)}`,
+    },
+    {
+      label: "Persisted",
+      value: `Checks ${formatValue(result.persisted_checks_written)}`,
+      detail: `Gaps ${formatValue(result.persisted_gaps_written)}`,
+    },
+  ];
+
+  container.innerHTML = "";
+  summaryItems.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "summary-card";
+
+    const label = document.createElement("p");
+    label.className = "summary-label";
+    label.textContent = item.label;
+
+    const value = document.createElement("h4");
+    value.textContent = item.value;
+
+    const detail = document.createElement("p");
+    detail.className = "summary-detail";
+    detail.textContent = item.detail;
+
+    card.appendChild(label);
+    card.appendChild(value);
+    card.appendChild(detail);
+    container.appendChild(card);
+  });
+}
+
+function renderIntegrityDatasetDetail(dataset) {
+  if (!dataset) {
+    renderPropertyGrid(
+      "integrity-dataset-summary",
+      [],
+      "Select a dataset row after running integrity validation."
+    );
+    renderTable("integrity-findings-table", [], []);
+    renderJson("integrity-dataset-raw", {
+      message: "Dataset detail will appear here.",
+    });
+    return;
+  }
+
+  const summaryItems = buildPropertyItemsFromObject(
+    {
+      data_type: dataset.data_type,
+      status: dataset.status,
+      row_count: dataset.row_count,
+      expected_interval_seconds: dataset.expected_interval_seconds,
+      expected_points: dataset.expected_points,
+      available_from: dataset.available_from,
+      available_to: dataset.available_to,
+      safe_available_to: dataset.safe_available_to,
+      missing_count: dataset.missing_count,
+      gap_count: dataset.gap_count,
+      duplicate_count: dataset.duplicate_count,
+      corrupt_count: dataset.corrupt_count,
+      future_row_count: dataset.future_row_count,
+    },
+    {
+      data_type: "Data Type",
+      row_count: "Row Count",
+      expected_interval_seconds: "Expected Interval Seconds",
+      expected_points: "Expected Points",
+      available_from: "Available From",
+      available_to: "Available To",
+      safe_available_to: "Safe Available To",
+      missing_count: "Missing Count",
+      gap_count: "Gap Count",
+      duplicate_count: "Duplicate Count",
+      corrupt_count: "Corrupt Count",
+      future_row_count: "Future Row Count",
+    },
+    [
+      "data_type",
+      "status",
+      "row_count",
+      "expected_interval_seconds",
+      "expected_points",
+      "available_from",
+      "available_to",
+      "safe_available_to",
+      "missing_count",
+      "gap_count",
+      "duplicate_count",
+      "corrupt_count",
+      "future_row_count",
+    ],
+    { excludeEmpty: false }
+  );
+
+  renderPropertyGrid(
+    "integrity-dataset-summary",
+    summaryItems,
+    "Dataset-level integrity summary will appear here."
+  );
+
+  renderTable(
+    "integrity-findings-table",
+    [
+      { key: "category", label: "Category", type: "status" },
+      { key: "severity", label: "Severity", type: "status" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "related_count", label: "Count" },
+      { key: "message", label: "Message" },
+    ],
+    dataset.findings || []
+  );
+  renderJson("integrity-dataset-raw", dataset);
+}
+
+function renderIntegrityValidationResult(result) {
+  state.currentIntegrityResult = result || null;
+  state.selectedIntegrityDataType = result?.datasets?.[0]?.data_type || null;
+
+  renderIntegritySummaryCards(result);
+  renderJson("integrity-result-raw", result || { message: "Full integrity payload will appear here." });
+
+  setText(
+    "integrity-validation-context",
+    result
+      ? `symbol=${result.unified_symbol} | datasets=${result.summary?.dataset_count ?? 0} | gaps=${result.summary?.total_gap_count ?? 0} | missing=${result.summary?.total_missing_count ?? 0}`
+      : "Run one bounded validation window to see the latest integrity summary."
+  );
+
+  const datasets = result?.datasets || [];
+  renderTable(
+    "integrity-datasets-table",
+    [
+      { key: "data_type", label: "Dataset" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "available_from", label: "Available From" },
+      { key: "safe_available_to", label: "Safe Available To" },
+      { key: "expected_points", label: "Expected" },
+      { key: "row_count", label: "Actual" },
+      { key: "missing_count", label: "Missing" },
+      { key: "duplicate_count", label: "Duplicate" },
+      { key: "corrupt_count", label: "Corrupt" },
+      { key: "future_row_count", label: "Future" },
+    ],
+    datasets,
+    (record) => {
+      state.selectedIntegrityDataType = record.data_type;
+      renderIntegrityDatasetDetail(record);
+    }
+  );
+
+  const selectedDataset =
+    datasets.find((record) => record.data_type === state.selectedIntegrityDataType) || datasets[0] || null;
+  renderIntegrityDatasetDetail(selectedDataset);
+}
+
+async function runIntegrityValidation(form) {
+  const formData = new FormData(form);
+  const useSymbolDefaults = form.elements.namedItem("use_symbol_defaults")?.checked !== false;
+  const selectedDataTypes = getSelectedIntegrityDataTypes(form);
+  const payload = {
+    exchange_code: String(formData.get("exchange_code") || "").trim() || "binance",
+    unified_symbol: String(formData.get("unified_symbol") || "").trim(),
+    start_time: String(formData.get("start_time") || "").trim(),
+    end_time: String(formData.get("end_time") || "").trim(),
+    persist_findings: Boolean(form.elements.namedItem("persist_findings")?.checked),
+  };
+
+  if (!payload.unified_symbol || !payload.start_time || !payload.end_time) {
+    throw new Error("exchange_code, unified_symbol, start_time, and end_time are required");
+  }
+
+  if (!useSymbolDefaults) {
+    if (!selectedDataTypes.length) {
+      throw new Error("Select at least one dataset override or turn symbol defaults back on.");
+    }
+    payload.data_types = selectedDataTypes;
+  }
+
+  const rawEventChannel = String(formData.get("raw_event_channel") || "").trim();
+  if (rawEventChannel) {
+    payload.raw_event_channel = rawEventChannel;
+  }
+
+  const result = await sendEnvelope("/api/v1/quality/integrity", "POST", payload);
+  renderIntegrityValidationResult(result);
 }
 
 function setBacktestLaunchFormBusy(isBusy) {
@@ -1839,6 +2133,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-compare-note-form", saveCompareReviewNote);
   bindForm("backtest-trace-filter-form", loadBacktestDebugTraces);
   bindBacktestPresetButtons();
+  bindIntegrityQuickRangeButtons();
+  initializeIntegrityValidationControls();
   document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {
     resetCompareNoteForm();
   });

@@ -394,6 +394,12 @@ select {
   color: var(--text);
 }
 
+.checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
 .details-panel {
   border: 1px solid var(--border);
   border-radius: 1rem;
@@ -746,6 +752,7 @@ tbody tr:hover {
   .stacked-form,
   .labeled-form,
   .form-grid,
+  .checklist-grid,
   .summary-cards,
   .structured-detail-grid,
   .property-grid {

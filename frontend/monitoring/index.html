@@ -669,8 +669,19 @@
         </section>
 
         <section id="view-quality" class="view">
+          <div class="workspace-strip">
+            <div>
+              <p class="eyebrow">Quality Workspace</p>
+              <h3 class="workspace-title">Review effective checks, validate bounded windows, and prepare for post-backfill inspection.</h3>
+            </div>
+            <div class="workspace-links">
+              <a class="workspace-link" href="#quality-checks-workspace">Checks</a>
+              <a class="workspace-link" href="#quality-gaps-workspace">Gaps</a>
+              <a class="workspace-link" href="#quality-integrity-workspace">Integrity</a>
+            </div>
+          </div>
           <div class="grid split-grid">
-            <section class="panel">
+            <section class="panel" id="quality-checks-workspace">
               <div class="panel-header">
                 <h3>Quality Checks</h3>
                 <p>Freshness, duplicate, continuity, and gap-related checks</p>
@@ -684,12 +695,139 @@
               </form>
               <div id="quality-checks" class="table-shell"></div>
             </section>
-            <section class="panel">
+            <section class="panel" id="quality-gaps-workspace">
               <div class="panel-header">
                 <h3>Open Gaps</h3>
                 <p>Recent unresolved or historical gaps from ops.data_gaps</p>
               </div>
               <div id="quality-gaps" class="table-shell"></div>
+            </section>
+          </div>
+
+          <div class="workspace-section-header compact-header" id="quality-integrity-workspace">
+            <p class="eyebrow">Integrity</p>
+            <h3>Validate one bounded symbol/window for gap, duplicate, missing, and corrupt conditions without leaving the console.</h3>
+          </div>
+
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Integrity Validation</h3>
+                <p>Use an explicit time window, quick ranges, and optional persistence to validate one symbol at a time.</p>
+              </div>
+              <div class="preset-row">
+                <button type="button" class="secondary-button integrity-range-button" data-integrity-range="last_24h">Last 24h</button>
+                <button type="button" class="secondary-button integrity-range-button" data-integrity-range="last_7d">Last 7d</button>
+                <button type="button" class="secondary-button integrity-range-button" data-integrity-range="last_30d">Last 30d</button>
+                <button type="button" class="secondary-button integrity-range-button" data-integrity-range="this_month">This Month</button>
+                <button type="button" class="secondary-button integrity-range-button" data-integrity-range="ytd">YTD</button>
+              </div>
+              <form id="integrity-validation-form" class="filters labeled-form">
+                <label class="field">
+                  <span class="field-label">Exchange Code</span>
+                  <input name="exchange_code" value="binance" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Unified Symbol</span>
+                  <input name="unified_symbol" value="BTCUSDT_PERP" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Start Time</span>
+                  <input name="start_time" />
+                </label>
+                <label class="field">
+                  <span class="field-label">End Time</span>
+                  <input name="end_time" />
+                </label>
+                <label class="field field-span-2">
+                  <span class="field-label">Raw Event Channel</span>
+                  <input name="raw_event_channel" placeholder="optional, only used with raw_market_events" disabled />
+                </label>
+                <label class="checkbox-field field-span-2">
+                  <input type="checkbox" name="persist_findings" checked />
+                  <span class="checkbox-copy">
+                    <strong>Persist Findings</strong>
+                    <span>Write integrity findings back into `ops.data_quality_checks` and interval gap segments into `ops.data_gaps`.</span>
+                  </span>
+                </label>
+                <label class="checkbox-field field-span-2">
+                  <input type="checkbox" name="use_symbol_defaults" checked />
+                  <span class="checkbox-copy">
+                    <strong>Use Symbol Default Datasets</strong>
+                    <span>Spot defaults to `bars_1m`; perp defaults to `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, and `index_prices`.</span>
+                  </span>
+                </label>
+                <div class="field field-span-2">
+                  <span class="field-label">Optional Dataset Overrides</span>
+                  <div class="checklist-grid" id="integrity-dataset-checklist">
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_bars_1m" value="bars_1m" disabled />
+                      <span class="checkbox-copy"><strong>bars_1m</strong><span>Minute bars</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_funding_rates" value="funding_rates" disabled />
+                      <span class="checkbox-copy"><strong>funding_rates</strong><span>Funding history</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_open_interest" value="open_interest" disabled />
+                      <span class="checkbox-copy"><strong>open_interest</strong><span>Open interest snapshots</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_mark_prices" value="mark_prices" disabled />
+                      <span class="checkbox-copy"><strong>mark_prices</strong><span>Mark price history</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_index_prices" value="index_prices" disabled />
+                      <span class="checkbox-copy"><strong>index_prices</strong><span>Index price history</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_trades" value="trades" disabled />
+                      <span class="checkbox-copy"><strong>trades</strong><span>Trade rows</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_raw_market_events" value="raw_market_events" disabled />
+                      <span class="checkbox-copy"><strong>raw_market_events</strong><span>Raw payload capture</span></span>
+                    </label>
+                  </div>
+                  <span class="field-help">Leave defaults on for the common path; turn them off only when you need a custom dataset set.</span>
+                </div>
+                <div class="form-actions field-span-2">
+                  <button type="submit">Validate Integrity</button>
+                </div>
+              </form>
+              <p id="integrity-validation-context" class="card-detail">Run one bounded validation window to see the latest integrity summary.</p>
+              <div id="integrity-result-summary" class="summary-cards">
+                <div class="summary-empty">No integrity validation has been run in this session.</div>
+              </div>
+              <div class="panel-subsection">
+                <h4>Datasets</h4>
+                <div id="integrity-datasets-table" class="table-shell"></div>
+              </div>
+              <details class="details-panel">
+                <summary>Raw Integrity Payload</summary>
+                <div class="details-panel-body">
+                  <div id="integrity-result-raw" class="json-shell compact-shell">Full integrity payload will appear here.</div>
+                </div>
+              </details>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Selected Dataset Integrity</h3>
+                <p>Inspect one dataset's counts and findings before drilling into the full raw payload.</p>
+              </div>
+              <div id="integrity-dataset-summary" class="property-shell">
+                <div class="summary-empty">Select a dataset row after running integrity validation.</div>
+              </div>
+              <div class="panel-subsection">
+                <h4>Findings</h4>
+                <div id="integrity-findings-table" class="table-shell"></div>
+              </div>
+              <details class="details-panel">
+                <summary>Selected Dataset Raw</summary>
+                <div class="details-panel-body">
+                  <div id="integrity-dataset-raw" class="json-shell compact-shell">Dataset detail will appear here.</div>
+                </div>
+              </details>
             </section>
           </div>
         </section>

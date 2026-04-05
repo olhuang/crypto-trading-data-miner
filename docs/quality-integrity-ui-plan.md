@@ -38,16 +38,21 @@ It already supports the current BTC backfill footprint:
 - `BTCUSDT_PERP`
   - default: `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, `index_prices`
 
-But today this workflow is still API/CLI-first.
-The `/monitoring` Quality page currently shows:
+The `/monitoring` Quality page now exposes an initial Integrity slice with:
+- bounded validation form
+- quick ranges
+- dataset summary table
+- selected dataset summary/detail
+- raw JSON as collapsible secondary detail
+
+The rest of the Quality page currently shows:
 - quality checks
 - open gaps
 
 It does not yet expose:
-- integrity validation form
-- integrity result summaries
-- dataset-level missing/duplicate/corrupt details
 - BTC backfill status
+- stronger segmented Quality workspace navigation
+- deeper dataset-detail polish for gap/future-row evidence
 
 ---
 
@@ -255,6 +260,9 @@ This should be read-only.
 
 ## UI Slice 4A: Integrity Form + Result Summary
 
+Status:
+- completed
+
 Scope:
 - add `Integrity` panel to current Quality page
 - bounded validation form
@@ -312,11 +320,17 @@ The safest next move is:
 - it stays inside the current `Quality` page instead of widening scope
 - it keeps the first step summary-first and workflow-friendly
 
+This slice is now landed in `/monitoring` and should be treated as the baseline integrity workspace.
+
 ### Explicitly Defer
 - backfill-launch controls
 - long-running progress orchestration inside the UI
 - generic multi-symbol integrity workspace
 - product-grade charts
+
+### Next Recommended Slice
+- `UI Slice 4C: BTC Backfill Status Panel`
+- optional follow-up: polish the current selected-dataset detail into the fuller `UI Slice 4B` presentation
 
 ---
 

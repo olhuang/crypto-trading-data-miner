@@ -7,6 +7,7 @@
 - continue cleaning up the current `/monitoring` Backtests UX now that the first launch-form cleanup slice has landed
 - keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
 - provide a local runnable Binance BTC history backfill path with explicit progress/status output now that direct outbound execution is blocked inside the current harness
+- continue the Quality workspace evolve path now that the first integrity-validation UI slice is live inside `/monitoring`
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -47,6 +48,8 @@
 - dataset-integrity validation is now available at `POST /api/v1/quality/integrity` plus local entrypoints `scripts/validate_dataset_integrity.py` and `scripts/validate_dataset_integrity.ps1`
 - by default, spot integrity validation checks `bars_1m`; perp integrity validation checks `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, and `index_prices`
 - interval-gap findings can now persist into `ops.data_gaps`, while higher-level integrity findings persist into `ops.data_quality_checks`
+- `/monitoring -> Quality` now exposes `UI Slice 4A` for integrity validation with quick ranges, bounded form inputs, optional dataset overrides, result summary cards, dataset summary rows, selected dataset detail, and collapsible raw payload surfaces
+- `docs/quality-integrity-ui-plan.md` now reflects that `UI Slice 4A` is complete and points the next likely resume slice toward `UI Slice 4C: BTC Backfill Status Panel`
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -56,8 +59,9 @@
 - richer saved-compare workflow remains future work
 - replay investigation notes and unified annotation service remain future work
 - the actual Binance BTC long-history pull still has to be run on the local machine outside the harness
-- the new dataset-integrity workflow is not yet surfaced inside `/monitoring`, so it currently remains API/CLI-first
 - the quality-side UI direction is now explicit: keep integrity validation bounded by date window, add quick-range helpers, and stage BTC backfill status as a companion quality surface instead of a separate top-level page
+- the Quality page still does not surface BTC backfill status, so operators still need the local status file or PowerShell wrapper for that workflow
+- the new integrity UI has not yet been browser e2e tested in this harness
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -101,4 +105,4 @@
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- if the data-quality line stays active, begin `UI Slice 4A: Integrity Form + Result Summary` from `docs/quality-integrity-ui-plan.md`; otherwise return to the UI line at `UI Phase B: Backtest Workspace Restructure`
+- if the data-quality line stays active, begin `UI Slice 4C: BTC Backfill Status Panel` from `docs/quality-integrity-ui-plan.md`; otherwise return to the UI line at `UI Phase B: Backtest Workspace Restructure`
