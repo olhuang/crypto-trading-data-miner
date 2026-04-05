@@ -1131,8 +1131,19 @@ function createIntegrityFindingActionButton(label, onClick) {
   return button;
 }
 
-function buildIntegrityFindingAction(dataset, finding) {
+function buildDatasetScopedIncrementalFindingAction(dataset, finding, label) {
   const unifiedSymbol = getCurrentIntegrityUnifiedSymbol();
+  const backfillDataset = mapIntegrityDataTypeToBackfillDataset(unifiedSymbol, dataset?.data_type);
+  if (!backfillDataset || Number(finding?.related_count || 0) <= 0) {
+    return null;
+  }
+  return {
+    label,
+    execute: () => triggerBtcIncrementalBackfill({ datasets: [backfillDataset], sourceDataset: dataset?.data_type }),
+  };
+}
+
+function buildIntegrityFindingAction(dataset, finding) {
   if (dataset?.data_type === "bars_1m" && finding?.status === "fail" && ["gap", "corrupt"].includes(finding?.category)) {
     return {
       label: finding.category === "gap" ? "Repair Gap" : "Repair Corrupt",
@@ -1140,12 +1151,16 @@ function buildIntegrityFindingAction(dataset, finding) {
     };
   }
 
-  const backfillDataset = mapIntegrityDataTypeToBackfillDataset(unifiedSymbol, dataset?.data_type);
-  if (finding?.category === "tail" && Number(finding?.related_count || 0) > 0 && backfillDataset) {
-    return {
-      label: "Run Incremental",
-      execute: () => triggerBtcIncrementalBackfill({ datasets: [backfillDataset], sourceDataset: dataset?.data_type }),
-    };
+  if (finding?.category === "tail") {
+    return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Run Incremental");
+  }
+
+  if (finding?.category === "gap" && dataset?.data_type !== "bars_1m" && finding?.status === "fail") {
+    return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Repair via Incremental");
+  }
+
+  if (finding?.category === "coverage" && dataset?.data_type !== "open_interest") {
+    return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Backfill Coverage");
   }
 
   return null;

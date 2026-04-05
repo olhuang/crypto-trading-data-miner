@@ -54,6 +54,7 @@ It now also exposes:
 - BTC backfill status
 - UI-triggered incremental BTC backfill
 - a first finding-aware repair flow for supported integrity findings
+- broader finding-aware repair coverage for supported non-bars `gap` findings and non-retention-limited `coverage` findings via dataset-scoped incremental backfill
 
 It does not yet expose:
 - stronger segmented Quality workspace navigation
@@ -106,6 +107,7 @@ Only the second category should read as a true interval-integrity failure by def
   - inspect current BTC backfill coverage/status
   - validate the newly backfilled window
   - inspect gaps/findings
+  - trigger a scoped repair/backfill action when the finding is safely automatable
 
 ---
 

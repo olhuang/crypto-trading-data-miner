@@ -432,7 +432,7 @@ Required sections:
 - [x] user validates one symbol/window for integrity from UI
 - [x] user uses quick ranges to set the validation window
 - [x] user inspects one dataset's integrity findings
-- [x] user can trigger supported repair actions from selected integrity findings
+- [x] user can trigger supported repair actions from selected integrity findings, including bounded `bars_1m` repair plus eligible dataset `gap` / `coverage` / `tail` incremental actions
 - [x] user inspects current BTC backfill status from UI
 - [x] user triggers a BTC incremental backfill from UI
 

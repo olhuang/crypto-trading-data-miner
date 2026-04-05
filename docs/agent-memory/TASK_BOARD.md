@@ -13,7 +13,7 @@
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
-- keep the Quality workspace moving toward guided repair actions now that integrity findings can trigger bounded bars repair and dataset-scoped incremental backfill
+- keep the Quality workspace moving toward guided repair actions now that integrity findings can trigger bounded bars repair plus broader dataset-scoped incremental repair/backfill actions
 
 ## Blocked
 - none currently recorded
@@ -27,10 +27,10 @@
 - align cooldown semantics to future explicit protection-trigger events
 - surface strategy market context inside diagnostics / trace inspection for sentiment-aware runs
 - defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
-- optionally expand the new integrity finding-action flow beyond `bars_1m` and `tail` once the current v1 path has been used in practice
 
 ## Recently Done
 - added a first finding-aware repair flow inside `/monitoring -> Quality`, so `Selected Dataset Integrity -> Findings` can now trigger bounded `bars_1m` repair and dataset-scoped incremental backfill directly from the UI
+- expanded the finding-aware repair flow so supported non-bars `gap` findings can trigger incremental repair and non-retention-limited `coverage` findings can trigger coverage backfill from the same findings table
 - added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
 - updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - tightened the repair UX so finding-triggered incremental repairs now surface a live staged progress indicator instead of only a queued/complete message
