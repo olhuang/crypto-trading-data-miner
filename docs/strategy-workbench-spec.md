@@ -429,6 +429,8 @@ Current Phase 5 foundation note:
 
 Current implementation note:
 - `POST /api/v1/backtests/compare-sets` now exists as an ad hoc compare/analyze baseline for selected run ids
+- the current Backtests research slice now also exposes a seeded sentiment-aware launch path through `btc_sentiment_momentum` and `baseline_perp_sentiment_research`
+- the next workbench-facing gap on that line is to surface strategy market context inside diagnostics/debug-trace inspection so feature-driven decisions can be reviewed as evidence instead of only inferred from outcomes
 - the rest of these surfaces remain planning-level and do not all need immediate implementation
 
 ---

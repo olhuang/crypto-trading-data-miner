@@ -826,6 +826,7 @@ Request:
 Request semantics:
 - `strategy_code` identifies the strategy variant to run
 - `strategy_version` identifies the immutable released version of that variant
+- `strategy_params` remains strategy-specific; for example, `btc_sentiment_momentum` currently accepts `max_global_long_short_ratio` and `min_taker_buy_sell_ratio`
 - `session.risk_policy` captures the session-default backtest guardrail assumptions for the run
 - `session.trading_timezone` defines the strategy session trading-day boundary used by daily-loss guardrails; `UTC` remains the default
 - `risk_overrides` captures explicit run-level risk changes over the session default
@@ -838,6 +839,7 @@ Current implementation status:
 - currently persists the run, simulated orders/fills, summary, and timeseries before responding
 - current request body follows the canonical `BacktestRunConfig` shape plus `persist_signals`
 - the current launch surface also accepts a session-level `risk_policy`, top-level `risk_overrides`, and optional named assumption-bundle selection for shared backtest guardrails and research lineage
+- the current internal Backtests UI now also exposes the seeded sentiment-aware path through `btc_sentiment_momentum` plus `baseline_perp_sentiment_research@v1`
 
 Response fields:
 - run detail resource with metadata, assumptions, and top-level KPI summary
@@ -931,6 +933,7 @@ Current implementation status:
 - now also includes Level 2 linkage/delta fields such as `sim_order_ids`, `sim_fill_ids`, blocked codes, position qty delta, cash/equity delta, and exposure values
 - currently supports `limit`, `unified_symbol`, `bar_time_from`, `bar_time_to`, `blocked_only`, `risk_code`, `signals_only`, `fills_only`, and `orders_only`
 - the current internal `/monitoring` Backtests run detail now uses this endpoint for a compact trace table plus selected-trace JSON inspection
+- the next planned extension is to expose the aligned strategy market context that drove feature-aware decisions inside selected trace inspection
 
 ### GET `/api/v1/backtests/runs/{run_id}/artifacts`
 Purpose:
@@ -1032,6 +1035,7 @@ Purpose:
 
 ## Phase 5 Acceptance via UI/API
 - [ ] UI can launch backtest from form
+- [x] the current internal UI can expose the seeded sentiment-aware run-builder path for `btc_sentiment_momentum`
 - [ ] UI can list and inspect named risk-policy choices from the run builder
 - [ ] UI can show run list and run detail
 - [ ] UI can inspect simulated orders/fills/timeseries

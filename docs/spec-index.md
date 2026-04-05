@@ -92,8 +92,9 @@ Read in this order:
 20. `docs/frontend-keep-evolve-replace-strategy.md`
 21. `docs/frontend-ui-usability-improvement-plan.md`
 22. `docs/quality-integrity-ui-plan.md`
-23. `docs/pnl-and-accounting-spec.md`
-24. `docs/testing-strategy-spec.md`
+23. `docs/binance-futures-sentiment-ratios-rollout-plan.md`
+24. `docs/pnl-and-accounting-spec.md`
+25. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -196,6 +197,7 @@ Read in this order:
 - `docs/ai-memory-and-handoff-spec.md`
 - `docs/object-level-notes-and-annotations-spec.md`
 - `docs/debug-trace-rollout-plan.md`
+- `docs/binance-futures-sentiment-ratios-rollout-plan.md`
 - `docs/frontend-keep-evolve-replace-strategy.md`
 - `docs/frontend-ui-usability-improvement-plan.md`
 - `docs/quality-integrity-ui-plan.md`
@@ -214,6 +216,7 @@ Read in this order:
 - AI working-memory, summary, and cross-session handoff workflow: `docs/ai-memory-and-handoff-spec.md`
 - object-linked compare/review notes, replay investigation notes, and future workbench annotations: `docs/object-level-notes-and-annotations-spec.md`
 - step-level debug trace phased rollout tracking: `docs/debug-trace-rollout-plan.md`
+- Binance futures sentiment-ratio collection, quality, and research-consumption rollout: `docs/binance-futures-sentiment-ratios-rollout-plan.md`
 - keep/evolve/replace role split between the current `/monitoring` console and the future primary frontend: `docs/frontend-keep-evolve-replace-strategy.md`
 - front-end usability cleanup and phased `/monitoring` workbench restructuring: `docs/frontend-ui-usability-improvement-plan.md`
 - Phase 4 integrity-validation and BTC backfill-status UX inside the current `Quality` workspace: `docs/quality-integrity-ui-plan.md`
@@ -354,6 +357,7 @@ Primary docs:
 - `docs/strategy-research-and-evaluation-spec.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
+- `docs/binance-futures-sentiment-ratios-rollout-plan.md`
 - `docs/ai-memory-and-handoff-spec.md`
 - `docs/object-level-notes-and-annotations-spec.md`
 - `docs/pnl-and-accounting-spec.md`
@@ -506,6 +510,7 @@ Current implementation reality:
 - Phase 2 is complete for the planned model/storage layer, with working foundations in `src/models/`, `src/storage/`, `src/services/`, and `src/api/`
 - Phase 3 now has a working first Binance public-ingestion slice in `src/ingestion/`, `src/jobs/`, `src/runtime/`, and the minimal API
 - Phase 4 now has working data-quality jobs, raw-event traceability, replay-readiness policy, and supporting API endpoints
+- Phase 5 now has a working bars-based backtest path, seeded sentiment-aware research flow, and a documented next slice to expose strategy market context inside diagnostics/debug traces
 - checklist docs should be treated as live implementation tracking and updated whenever a phase slice lands
 
 The simplest way to navigate it is:

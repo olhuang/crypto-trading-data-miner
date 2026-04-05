@@ -647,10 +647,15 @@ A user must be able to confirm that:
 
 ## Suggested Acceptance UI Checks
 - [ ] Backtest Run Builder can launch a run
+- [x] the current internal Backtest Run Builder can already expose a sentiment-aware research path through `btc_sentiment_momentum`
 - [ ] Backtest Runs page lists completed run
 - [ ] Backtest Run Detail shows equity curve and summary stats
 - [ ] simulated orders and fills are inspectable from the UI
 - [ ] diagnostics/debug traces are inspectable from the UI
+
+Current implementation note:
+- the current internal `/monitoring -> Backtests` view already supports persisted run launch, diagnostics/debug-trace inspection, risk-policy and assumption-bundle selection, and the seeded sentiment-aware strategy path
+- the most immediate missing Backtests UX slice is to expose strategy market context inside selected trace/diagnostic inspection for feature-driven runs
 
 ---
 

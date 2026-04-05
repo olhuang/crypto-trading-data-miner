@@ -30,6 +30,7 @@
 - the debug-trace API and internal viewer now support targeted investigation filters for blocked-only traces, specific risk codes, signal presence, order presence, and fill presence
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 - the Phase 5 phase/task/checklist docs are now aligned to the current sentiment/context status: `bars_perp_context_v1`, `btc_sentiment_momentum`, Backtests UI launch support, and diagnostics/trace market-context visibility as the next slice
+- the broader spec set has now been re-scanned and the stale spec bodies were updated so `spec-index`, feature-pipeline, diagnostics, UI/UI API, and strategy-workbench docs all reflect the seeded sentiment-aware backtest path and the same next diagnostics slice
 - `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
 - `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
 - `docs/quality-integrity-ui-plan.md` now exists as the dedicated resume document for surfacing bounded dataset-integrity validation and BTC backfill status inside the current `/monitoring` Quality workspace

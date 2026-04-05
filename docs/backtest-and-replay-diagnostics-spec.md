@@ -113,6 +113,10 @@ Recommended modes:
 - `normal`
 - `verbose`
 
+Current implementation note:
+- the current Phase 5 trace substrate already persists compact step-level trace rows, supports diagnostics anchors plus targeted trace filters, and is used by the internal `/monitoring` Backtests viewer
+- the most immediate follow-up is to surface the aligned strategy market context that drove feature-aware or sentiment-aware decisions inside trace inspection
+
 ---
 
 ## 5. Replay Diagnostics
@@ -281,6 +285,10 @@ Deliver:
 - UI drill-down entry from summary flags into traces
 
 This stage should follow once deterministic fills and state projection are stable enough to trace.
+
+Stage B implementation note:
+- the compact trace foundation, UI drill-down, diagnostics anchors, and targeted filters are now in place
+- the next trace-side extension is a focused `Stage B.5` slice to expose strategy market context in diagnostics/debug-trace inspection before moving deeper into replay linkage
 
 ### Stage C: Full Backtest Diagnostics and Period Analysis
 

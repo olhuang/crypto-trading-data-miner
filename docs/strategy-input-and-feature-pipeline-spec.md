@@ -355,6 +355,11 @@ Add:
 
 This is the first recommended extension after the bars-only MVP is stable.
 
+Current implementation note:
+- this expansion has now started through `feature_input_version = bars_perp_context_v1`
+- the current Phase 5 runner can pass latest-as-of funding rate, open interest, mark price, index price, and Binance futures sentiment-ratio snapshots into strategy evaluation
+- this remains optional strategy context rather than a requirement for every Phase 5 strategy
+
 ### 10.3 Phase 6 / Phase 7
 Extend the same strategy-input contract to:
 - paper trading
@@ -403,7 +408,7 @@ This plan is actionable when:
 
 The long-term strategy-input plan for this repo is:
 - Phase 5 starts with bars-only strategy inputs for the first deterministic backtest slice
-- later phases extend the same interface with aligned funding/OI/mark/index context
+- Phase 5 has now begun extending the same interface with optional aligned funding/OI/mark/index and sentiment-ratio context through `bars_perp_context_v1`
 - higher-frequency or external datasets are added through explicit loader/alignment/feature layers
 - strategy code should ultimately consume a canonical `StrategyInputSnapshot`, not raw tables
 
