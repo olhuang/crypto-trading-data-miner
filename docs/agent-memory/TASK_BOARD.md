@@ -35,6 +35,7 @@
 - tightened Phase 4 quality tests so integrity fixtures clean up after themselves and no longer leave future-dated contamination behind in the local DB
 - added and used a reusable cleanup tool for future-dated local Binance BTC market-data contamination, restoring the raw DB coverage horizon to real timestamps
 - added and used a reusable cleanup tool for legacy off-grid `mark_prices / index_prices` rows, removing 67 polluted rows from each BTC perp dataset and making integrity results interpretable again
+- investigated the remaining BTC perp `mark/index` integrity gap, confirmed it was caused by earlier off-grid checkpoint pollution, and added a bounded repair tool plus minute-series checkpoint hardening to prevent recurrence
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

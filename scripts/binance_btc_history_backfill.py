@@ -38,6 +38,7 @@ class DatasetSpec:
     chunk_months: int = 1
     table_name: str | None = None
     time_column: str | None = None
+    checkpoint_interval_seconds: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +131,7 @@ def build_dataset_specs() -> list[DatasetSpec]:
             task_kind="bars",
             table_name="md.bars_1m",
             time_column="bar_time",
+            checkpoint_interval_seconds=60,
         ),
         DatasetSpec(
             dataset_key="btc_perp_bars_1m",
@@ -139,6 +141,7 @@ def build_dataset_specs() -> list[DatasetSpec]:
             task_kind="bars",
             table_name="md.bars_1m",
             time_column="bar_time",
+            checkpoint_interval_seconds=60,
         ),
         DatasetSpec(
             dataset_key="btc_perp_snapshot_history",
@@ -160,6 +163,7 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             task_kind="bars",
             table_name="md.bars_1m",
             time_column="bar_time",
+            checkpoint_interval_seconds=60,
         ),
         DatasetSpec(
             dataset_key="btc_perp_bars_1m",
@@ -169,6 +173,7 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             task_kind="bars",
             table_name="md.bars_1m",
             time_column="bar_time",
+            checkpoint_interval_seconds=60,
         ),
         DatasetSpec(
             dataset_key="btc_perp_funding_rates",
@@ -196,6 +201,7 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             task_kind="mark_prices",
             table_name="md.mark_prices",
             time_column="ts",
+            checkpoint_interval_seconds=60,
         ),
         DatasetSpec(
             dataset_key="btc_perp_index_prices",
@@ -205,6 +211,7 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             task_kind="index_prices",
             table_name="md.index_prices",
             time_column="ts",
+            checkpoint_interval_seconds=60,
         ),
     ]
 
@@ -260,6 +267,17 @@ def write_status(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def aligned_checkpoint_condition_sql(time_column: str, interval_seconds: int) -> str:
+    if interval_seconds == 60:
+        return f"date_trunc('minute', {time_column}) = {time_column}"
+    if interval_seconds == 300:
+        return (
+            f"date_trunc('minute', {time_column}) = {time_column} "
+            f"and mod(extract(minute from {time_column})::int, 5) = 0"
+        )
+    raise ValueError(f"unsupported checkpoint interval: {interval_seconds}")
+
+
 def coverage_row(
     connection,
     *,
@@ -268,6 +286,7 @@ def coverage_row(
     table_name: str,
     time_column: str,
     safe_upper_bound: datetime | None = None,
+    checkpoint_interval_seconds: int | None = None,
 ) -> dict[str, Any]:
     instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
     row = connection.execute(
@@ -284,6 +303,7 @@ def coverage_row(
         {"instrument_id": instrument_id},
     ).mappings().one()
     safe_latest_to = None
+    checkpoint_available_to = None
     future_row_count = 0
     if safe_upper_bound is not None:
         safe_latest_to = connection.execute(
@@ -310,6 +330,19 @@ def coverage_row(
                 {"instrument_id": instrument_id, "safe_upper_bound": safe_upper_bound},
             ).scalar_one()
         )
+        if checkpoint_interval_seconds is not None:
+            checkpoint_available_to = connection.execute(
+                text(
+                    f"""
+                    select max({time_column}) as checkpoint_available_to
+                    from {table_name}
+                    where instrument_id = :instrument_id
+                      and {time_column} <= :safe_upper_bound
+                      and {aligned_checkpoint_condition_sql(time_column, checkpoint_interval_seconds)}
+                    """
+                ),
+                {"instrument_id": instrument_id, "safe_upper_bound": safe_upper_bound},
+            ).scalar_one_or_none()
 
     payload = {
         "table_name": table_name,
@@ -322,6 +355,7 @@ def coverage_row(
     if safe_upper_bound is not None:
         payload["safe_upper_bound"] = safe_upper_bound.isoformat()
         payload["safe_available_to"] = isoformat_or_none(safe_latest_to)
+        payload["checkpoint_available_to"] = isoformat_or_none(checkpoint_available_to)
         payload["future_row_count"] = future_row_count
     return payload
 
@@ -339,7 +373,11 @@ def next_start_from_coverage(spec: DatasetSpec, *, default_start: datetime, cove
     if spec.task_kind == "open_interest":
         return max(default_start, open_interest_available_from())
 
-    available_to = parse_iso_datetime_or_none(coverage.get("safe_available_to") or coverage.get("available_to"))
+    available_to = parse_iso_datetime_or_none(
+        coverage.get("checkpoint_available_to")
+        or coverage.get("safe_available_to")
+        or coverage.get("available_to")
+    )
     if available_to is None:
         next_start = default_start
     else:
@@ -362,6 +400,7 @@ def build_incremental_tasks(start_time: datetime, end_time: datetime) -> tuple[l
                 table_name=spec.table_name,
                 time_column=spec.time_column,
                 safe_upper_bound=end_time,
+                checkpoint_interval_seconds=spec.checkpoint_interval_seconds,
             )
             dataset_start = next_start_from_coverage(spec, default_start=start_time, coverage=coverage)
             if dataset_start > end_time:
@@ -396,6 +435,7 @@ def collect_coverage_summary(*, safe_upper_bound: datetime | None = None) -> dic
                     table_name="md.bars_1m",
                     time_column="bar_time",
                     safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=60,
                 ),
             },
             "BTCUSDT_PERP": {
@@ -406,6 +446,7 @@ def collect_coverage_summary(*, safe_upper_bound: datetime | None = None) -> dic
                     table_name="md.bars_1m",
                     time_column="bar_time",
                     safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=60,
                 ),
                 "funding_rates": coverage_row(
                     connection,
@@ -430,6 +471,7 @@ def collect_coverage_summary(*, safe_upper_bound: datetime | None = None) -> dic
                     table_name="md.mark_prices",
                     time_column="ts",
                     safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=60,
                 ),
                 "index_prices": coverage_row(
                     connection,
@@ -438,6 +480,7 @@ def collect_coverage_summary(*, safe_upper_bound: datetime | None = None) -> dic
                     table_name="md.index_prices",
                     time_column="ts",
                     safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=60,
                 ),
             },
         }

@@ -60,6 +60,11 @@
 - after the cleanup, a dry-run confirms there are no remaining off-grid `mark/index` rows for `BTCUSDT_PERP`
 - the cleanup materially reduced integrity noise for `mark/index`: gap segments dropped from 30 to 3 per dataset, so the remaining failures now point to real coverage shortfall and at least one larger missing range instead of timestamp contamination
 - the remaining `bars_1m` integrity issue is now clearly a separate problem: one corrupt candle (`close > high`) plus a 5-minute tail shortfall at the end of the selected day window
+- the remaining true `mark/index` problem is now precisely identified as a fully empty internal window from `2026-04-03T08:39:00Z` through `2026-04-04T13:27:00Z`
+- the root cause of that gap is also confirmed: older off-grid snapshot rows had previously advanced the incremental checkpoint to about `2026-04-04T13:27`, so later catch-up skipped the missing block instead of repairing it
+- `scripts/binance_btc_history_backfill.py` now hardens minute-series checkpoints through `checkpoint_available_to`, so `bars_1m`, `mark_prices`, and `index_prices` no longer trust off-grid latest rows when planning incremental catch-up
+- a bounded repair entrypoint now exists at `scripts/repair_mark_index_gap.py` plus `scripts/repair_mark_index_gap.ps1` for re-fetching the known BTC perp `mark/index` gap window locally
+- a regression test now exists in `tests/test_binance_btc_history_backfill.py` to prove off-grid `mark_prices` rows do not dominate the minute-series incremental checkpoint
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -74,6 +79,7 @@
 - the new integrity UI has not yet been browser e2e tested in this harness
 - current `mark_prices / index_prices` integrity failures no longer look dominated by timestamp contamination; the remaining problem is historical coverage shortfall plus a real missing block after `2026-04-03T08:39Z`
 - `bars_1m` still contains a real corrupt row and a small tail gap, so integrity work is not finished even after the `mark/index` cleanup
+- the actual bounded `mark/index` gap refill still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -111,11 +117,14 @@
 - `scripts/binance_btc_history_backfill.ps1`
 - `scripts/cleanup_future_dated_binance_market_data.py`
 - `scripts/cleanup_offgrid_mark_index_rows.py`
+- `scripts/repair_mark_index_gap.py`
+- `scripts/repair_mark_index_gap.ps1`
 - `scripts/validate_dataset_integrity.py`
 - `scripts/validate_dataset_integrity.ps1`
+- `tests/test_binance_btc_history_backfill.py`
 - `src/jobs/data_quality.py`
 - `tests/test_phase4_quality.py`
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- if the data-quality line stays active, either begin `UI Slice 4C: BTC Backfill Status Panel` from `docs/quality-integrity-ui-plan.md` or investigate the remaining true `mark/index` coverage gap now that off-grid contamination has been removed
+- if the data-quality line stays active, first run `scripts/repair_mark_index_gap.ps1` locally and re-run integrity validation; after the gap is confirmed fixed, either continue to `UI Slice 4C: BTC Backfill Status Panel` or move to the remaining `bars_1m` corrupt-row investigation
