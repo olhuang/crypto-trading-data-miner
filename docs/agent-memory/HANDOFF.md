@@ -42,6 +42,10 @@
 - local DB coverage for Binance BTC is currently contaminated by a few future-dated test fixtures, so the script now uses `safe_available_to` and `future_row_count` to avoid treating those anomalies as real checkpoints
 - a PowerShell wrapper now exists at `scripts/binance_btc_history_backfill.ps1` so Windows-local bootstrap/resume/incremental/status operations no longer require hand-building the Python command
 - a cleanup tool now exists at `scripts/cleanup_future_dated_binance_market_data.py`, and the current local DB has already had the known future-dated Binance BTC contamination rows removed
+- Phase 4 now also has a typed dataset-integrity validation workflow that checks `gap / duplicate / missing / corrupt` conditions for the main BTC spot/perp datasets
+- dataset-integrity validation is now available at `POST /api/v1/quality/integrity` plus local entrypoints `scripts/validate_dataset_integrity.py` and `scripts/validate_dataset_integrity.ps1`
+- by default, spot integrity validation checks `bars_1m`; perp integrity validation checks `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, and `index_prices`
+- interval-gap findings can now persist into `ops.data_gaps`, while higher-level integrity findings persist into `ops.data_quality_checks`
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -51,6 +55,7 @@
 - richer saved-compare workflow remains future work
 - replay investigation notes and unified annotation service remain future work
 - the actual Binance BTC long-history pull still has to be run on the local machine outside the harness
+- the new dataset-integrity workflow is not yet surfaced inside `/monitoring`, so it currently remains API/CLI-first
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -86,7 +91,11 @@
 - `scripts/binance_btc_history_backfill.py`
 - `scripts/binance_btc_history_backfill.ps1`
 - `scripts/cleanup_future_dated_binance_market_data.py`
+- `scripts/validate_dataset_integrity.py`
+- `scripts/validate_dataset_integrity.ps1`
+- `src/jobs/data_quality.py`
+- `tests/test_phase4_quality.py`
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- after the cleanup, rerun the BTC backfill in `--incremental` mode when you want a fresh status file/coverage snapshot; then return to the UI line at `UI Phase B: Backtest Workspace Restructure`
+- if the data-quality line stays active, expose BTC backfill status and dataset-integrity validation in `/monitoring`; otherwise return to the UI line at `UI Phase B: Backtest Workspace Restructure`

@@ -96,6 +96,7 @@ Major implementation areas now present include:
 - historical bars/funding/OI/mark/index fetches now paginate across Binance REST windows instead of only taking the first page
 - Phase 4 quality jobs under `src/jobs/data_quality.py`
 - dataset-level sanity checks for funding/OI/mark/index under the Phase 4 quality path
+- typed dataset-integrity validation for one symbol/window, including gap/missing/duplicate/corrupt reporting plus optional persistence back into ops tables
 - bars gap checks now align requested windows to minute boundaries before calculating expected 1m candles
 - spot quality runs now skip perp-only funding/OI/mark/index checks so spot bars can be validated without false snapshot failures
 - optional dev-only startup gap remediation under `src/services/startup_remediation.py`
@@ -196,6 +197,9 @@ Recent local collection validation:
 - future-dated local test contamination cleanup:
   - `& .\.venv\Scripts\python.exe .\scripts\cleanup_future_dated_binance_market_data.py --dry-run`
   - `& .\.venv\Scripts\python.exe .\scripts\cleanup_future_dated_binance_market_data.py`
+- dataset-integrity validation after backfill:
+  - `& .\.venv\Scripts\python.exe .\scripts\validate_dataset_integrity.py --unified-symbol BTCUSDT_SPOT --start-time 2020-01-01T00:00:00Z --end-time 2026-04-05T00:00:00Z --no-persist`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate_dataset_integrity.ps1 -UnifiedSymbol BTCUSDT_PERP -StartTime 2020-01-01T00:00:00Z -EndTime 2026-04-05T00:00:00Z`
 
 ---
 

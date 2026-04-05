@@ -272,3 +272,18 @@ Provide a dedicated cleanup utility for future-dated local Binance market-data c
 ### Impact
 - `scripts/cleanup_future_dated_binance_market_data.py` is now the reusable cleanup entrypoint
 - the known future-dated Binance BTC rows in `md.bars_1m`, `md.funding_rates`, `md.open_interest`, and `md.mark_prices` have been removed from the local DB
+
+## 2026-04-05
+
+### Decision
+Implement dataset-integrity validation as a typed, dataset-aware Phase 4 workflow with API plus local CLI/PowerShell entrypoints, instead of treating integrity checks as ad hoc SQL-only operator work.
+
+### Reason
+- operators need a repeatable way to validate `gap / duplicate / missing / corrupt` conditions after backfills and catch-up runs
+- interval datasets and event-like datasets need different integrity heuristics, so one generic row-count check would not be reliable enough
+- keeping the workflow typed and persisted allows Phase 4 quality artifacts to stay aligned with the rest of the repo's API-first tooling
+
+### Impact
+- `POST /api/v1/quality/integrity` now exposes typed integrity validation results
+- `scripts/validate_dataset_integrity.py` and `scripts/validate_dataset_integrity.ps1` are the local operator entrypoints
+- interval gaps can now persist into `ops.data_gaps`, while duplicate/corrupt/missing integrity findings persist into `ops.data_quality_checks`

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+from typing import Any
 
 from storage.db import transaction_scope
 from storage.lookups import resolve_instrument_id
@@ -21,6 +23,59 @@ class DataQualityRunResult:
     gaps_written: int
 
 
+@dataclass(slots=True)
+class DatasetIntegrityFinding:
+    category: str
+    severity: str
+    status: str
+    message: str
+    related_count: int
+    detail_json: dict[str, Any]
+
+
+@dataclass(slots=True)
+class DatasetIntegrityDatasetReport:
+    data_type: str
+    status: str
+    row_count: int
+    expected_interval_seconds: int | None
+    expected_points: int | None
+    available_from: datetime | None
+    available_to: datetime | None
+    safe_available_to: datetime | None
+    missing_count: int
+    gap_count: int
+    duplicate_count: int
+    corrupt_count: int
+    future_row_count: int
+    findings: list[DatasetIntegrityFinding]
+
+
+@dataclass(slots=True)
+class DatasetIntegritySummary:
+    dataset_count: int
+    passed_datasets: int
+    failed_datasets: int
+    total_gap_count: int
+    total_missing_count: int
+    total_duplicate_count: int
+    total_corrupt_count: int
+    total_future_row_count: int
+
+
+@dataclass(slots=True)
+class DatasetIntegrityValidationResult:
+    exchange_code: str
+    unified_symbol: str
+    start_time: datetime
+    end_time: datetime
+    observed_at: datetime
+    persisted_checks_written: int
+    persisted_gaps_written: int
+    summary: DatasetIntegritySummary
+    datasets: list[DatasetIntegrityDatasetReport]
+
+
 BAR_FRESHNESS_SLA = timedelta(minutes=2)
 TRADE_FRESHNESS_SLA = timedelta(minutes=2)
 FUNDING_FRESHNESS_SLA = timedelta(hours=12)
@@ -30,6 +85,114 @@ INDEX_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
 FUNDING_CONTINUITY_INTERVAL = timedelta(hours=8)
 OPEN_INTEREST_CONTINUITY_INTERVAL = timedelta(minutes=5)
 MARK_INDEX_CONTINUITY_INTERVAL = timedelta(minutes=1)
+EPOCH_UTC = datetime(1970, 1, 1, tzinfo=timezone.utc)
+INTEGRITY_DATASET_SPECS: dict[str, dict[str, Any]] = {
+    "bars_1m": {
+        "table_name": "md.bars_1m",
+        "time_column": "bar_time",
+        "interval": timedelta(minutes=1),
+        "duplicate_key": "bar_time",
+        "corrupt_where": """
+            (
+                bar_time > %s
+                or open <= 0
+                or high <= 0
+                or low <= 0
+                or close <= 0
+                or volume < 0
+                or coalesce(quote_volume, 0) < 0
+                or coalesce(trade_count, 0) < 0
+                or high < open
+                or high < close
+                or high < low
+                or low > open
+                or low > close
+                or low > high
+            )
+        """,
+        "corrupt_sample_columns": "bar_time as ts, open, high, low, close, volume, quote_volume, trade_count",
+    },
+    "trades": {
+        "table_name": "md.trades",
+        "time_column": "event_time",
+        "interval": None,
+        "duplicate_key": "exchange_trade_id",
+        "corrupt_where": """
+            (
+                event_time > %s
+                or price <= 0
+                or qty <= 0
+            )
+        """,
+        "corrupt_sample_columns": "event_time as ts, exchange_trade_id, price, qty, aggressor_side",
+    },
+    "funding_rates": {
+        "table_name": "md.funding_rates",
+        "time_column": "funding_time",
+        "interval": FUNDING_CONTINUITY_INTERVAL,
+        "duplicate_key": "funding_time",
+        "corrupt_where": """
+            (
+                funding_time > %s
+                or coalesce(mark_price, 1) <= 0
+                or coalesce(index_price, 1) <= 0
+            )
+        """,
+        "corrupt_sample_columns": "funding_time as ts, funding_rate, mark_price, index_price",
+    },
+    "open_interest": {
+        "table_name": "md.open_interest",
+        "time_column": "ts",
+        "interval": OPEN_INTEREST_CONTINUITY_INTERVAL,
+        "duplicate_key": "ts",
+        "corrupt_where": """
+            (
+                ts > %s
+                or open_interest <= 0
+            )
+        """,
+        "corrupt_sample_columns": "ts, open_interest",
+    },
+    "mark_prices": {
+        "table_name": "md.mark_prices",
+        "time_column": "ts",
+        "interval": MARK_INDEX_CONTINUITY_INTERVAL,
+        "duplicate_key": "ts",
+        "corrupt_where": """
+            (
+                ts > %s
+                or mark_price <= 0
+            )
+        """,
+        "corrupt_sample_columns": "ts, mark_price, funding_basis_bps",
+    },
+    "index_prices": {
+        "table_name": "md.index_prices",
+        "time_column": "ts",
+        "interval": MARK_INDEX_CONTINUITY_INTERVAL,
+        "duplicate_key": "ts",
+        "corrupt_where": """
+            (
+                ts > %s
+                or index_price <= 0
+            )
+        """,
+        "corrupt_sample_columns": "ts, index_price",
+    },
+    "raw_market_events": {
+        "table_name": "md.raw_market_events",
+        "time_column": "coalesce(event_time, ingest_time)",
+        "interval": None,
+        "duplicate_key": "coalesce(source_message_id, '')",
+        "corrupt_where": """
+            (
+                coalesce(event_time, ingest_time) > %s
+                or event_time is null
+            )
+        """,
+        "corrupt_sample_columns": "coalesce(event_time, ingest_time) as ts, channel, event_type, source_message_id",
+    },
+}
 
 
 def _is_spot_symbol(unified_symbol: str) -> bool:
@@ -43,6 +206,695 @@ def _align_bar_window(start_time: datetime, end_time: datetime) -> tuple[datetim
 
     aligned_end = end_time.replace(second=0, microsecond=0)
     return aligned_start, aligned_end
+
+
+def _default_integrity_data_types(*, unified_symbol: str, raw_event_channel: str | None = None) -> list[str]:
+    data_types = ["bars_1m"]
+    if not _is_spot_symbol(unified_symbol):
+        data_types.extend(["funding_rates", "open_interest", "mark_prices", "index_prices"])
+    if raw_event_channel is not None:
+        data_types.append("raw_market_events")
+    return data_types
+
+
+def _ensure_supported_integrity_data_types(data_types: list[str]) -> list[str]:
+    normalized = list(dict.fromkeys(data_types))
+    unsupported = sorted(set(normalized) - set(INTEGRITY_DATASET_SPECS))
+    if unsupported:
+        raise ValueError(f"unsupported integrity data_type(s): {', '.join(unsupported)}")
+    return normalized
+
+
+def _ceil_to_interval(timestamp: datetime, interval: timedelta) -> datetime:
+    interval_microseconds = int(interval.total_seconds() * 1_000_000)
+    delta_microseconds = int((timestamp - EPOCH_UTC).total_seconds() * 1_000_000)
+    remainder = delta_microseconds % interval_microseconds
+    if remainder == 0:
+        return timestamp.replace(microsecond=0)
+    return (EPOCH_UTC + timedelta(microseconds=(delta_microseconds + (interval_microseconds - remainder)))).replace(microsecond=0)
+
+
+def _floor_to_interval(timestamp: datetime, interval: timedelta) -> datetime:
+    interval_microseconds = int(interval.total_seconds() * 1_000_000)
+    delta_microseconds = int((timestamp - EPOCH_UTC).total_seconds() * 1_000_000)
+    floored_microseconds = delta_microseconds - (delta_microseconds % interval_microseconds)
+    return (EPOCH_UTC + timedelta(microseconds=floored_microseconds)).replace(microsecond=0)
+
+
+def _align_window_for_interval(start_time: datetime, end_time: datetime, interval: timedelta) -> tuple[datetime, datetime]:
+    return _ceil_to_interval(start_time, interval), _floor_to_interval(end_time, interval)
+
+
+def _expected_points_in_interval_window(
+    aligned_start_time: datetime,
+    aligned_end_time: datetime,
+    interval: timedelta,
+) -> int:
+    if aligned_end_time < aligned_start_time:
+        return 0
+    return int(((aligned_end_time - aligned_start_time) / interval)) + 1
+
+
+def _segment_missing_interval_timestamps(
+    *,
+    timestamps: list[datetime],
+    aligned_start_time: datetime,
+    aligned_end_time: datetime,
+    interval: timedelta,
+) -> tuple[int, list[dict[str, Any]]]:
+    if aligned_end_time < aligned_start_time:
+        return 0, []
+
+    if not timestamps:
+        expected_points = _expected_points_in_interval_window(aligned_start_time, aligned_end_time, interval)
+        if expected_points == 0:
+            return 0, []
+        return expected_points, [
+            {
+                "gap_start": aligned_start_time,
+                "gap_end": aligned_end_time,
+                "missing_points": expected_points,
+            }
+        ]
+
+    segments: list[dict[str, Any]] = []
+    missing_count = 0
+    first_timestamp = timestamps[0]
+    if first_timestamp > aligned_start_time:
+        leading_missing_points = int((first_timestamp - aligned_start_time) / interval)
+        if leading_missing_points > 0:
+            segments.append(
+                {
+                    "gap_start": aligned_start_time,
+                    "gap_end": first_timestamp - interval,
+                    "missing_points": leading_missing_points,
+                }
+            )
+            missing_count += leading_missing_points
+
+    for previous_timestamp, current_timestamp in zip(timestamps, timestamps[1:]):
+        delta = current_timestamp - previous_timestamp
+        delta_points = int(delta / interval)
+        if delta_points <= 1:
+            continue
+        missing_points = delta_points - 1
+        segments.append(
+            {
+                "gap_start": previous_timestamp + interval,
+                "gap_end": current_timestamp - interval,
+                "missing_points": missing_points,
+            }
+        )
+        missing_count += missing_points
+
+    last_timestamp = timestamps[-1]
+    if last_timestamp < aligned_end_time:
+        trailing_missing_points = int((aligned_end_time - last_timestamp) / interval)
+        if trailing_missing_points > 0:
+            segments.append(
+                {
+                    "gap_start": last_timestamp + interval,
+                    "gap_end": aligned_end_time,
+                    "missing_points": trailing_missing_points,
+                }
+            )
+            missing_count += trailing_missing_points
+
+    return missing_count, segments
+
+
+def _status_for_count(count: int, *, fail_severity: str = "error") -> tuple[str, str]:
+    return ("fail", fail_severity) if count > 0 else ("pass", "info")
+
+
+def _normalize_json_value(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _normalize_json_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_normalize_json_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_normalize_json_value(item) for item in value]
+    return value
+
+
+def _dataset_interval_window(
+    *,
+    data_type: str,
+    start_time: datetime,
+    end_time: datetime,
+    interval: timedelta | None,
+) -> tuple[datetime, datetime]:
+    if interval is None:
+        return start_time, end_time
+    if data_type == "bars_1m":
+        return _align_bar_window(start_time, end_time)
+    return _align_window_for_interval(start_time, end_time, interval)
+
+
+def _query_dataset_window_stats(
+    connection,
+    *,
+    table_name: str,
+    time_column: str,
+    instrument_id: int,
+    start_time: datetime,
+    end_time: datetime,
+    raw_event_channel: str | None = None,
+) -> dict[str, Any]:
+    where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s"]
+    params: list[Any] = [instrument_id, start_time, end_time]
+    if table_name == "md.raw_market_events" and raw_event_channel is not None:
+        where_clauses.append("channel = %s")
+        params.append(raw_event_channel)
+    where_sql = " and ".join(where_clauses)
+    row = connection.exec_driver_sql(
+        f"""
+        select
+            count(*) as row_count,
+            min({time_column}) as available_from,
+            max({time_column}) as available_to
+        from {table_name}
+        where {where_sql}
+        """,
+        tuple(params),
+    ).mappings().first()
+    return dict(row or {})
+
+
+def _query_dataset_timestamps(
+    connection,
+    *,
+    table_name: str,
+    time_column: str,
+    instrument_id: int,
+    start_time: datetime,
+    end_time: datetime,
+    raw_event_channel: str | None = None,
+) -> list[datetime]:
+    where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s"]
+    params: list[Any] = [instrument_id, start_time, end_time]
+    if table_name == "md.raw_market_events" and raw_event_channel is not None:
+        where_clauses.append("channel = %s")
+        params.append(raw_event_channel)
+    where_sql = " and ".join(where_clauses)
+    rows = connection.exec_driver_sql(
+        f"""
+        select {time_column} as ts
+        from {table_name}
+        where {where_sql}
+        order by {time_column} asc
+        """,
+        tuple(params),
+    ).all()
+    return [row[0] for row in rows if row[0] is not None]
+
+
+def _query_duplicate_profile(
+    connection,
+    *,
+    table_name: str,
+    duplicate_key: str,
+    time_column: str,
+    instrument_id: int,
+    start_time: datetime,
+    end_time: datetime,
+    raw_event_channel: str | None = None,
+) -> tuple[int, list[dict[str, Any]]]:
+    where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s"]
+    params: list[Any] = [instrument_id, start_time, end_time]
+    if table_name == "md.raw_market_events":
+        where_clauses.append(f"{duplicate_key} <> ''")
+        if raw_event_channel is not None:
+            where_clauses.append("channel = %s")
+            params.append(raw_event_channel)
+    where_sql = " and ".join(where_clauses)
+    rows = connection.exec_driver_sql(
+        f"""
+        select duplicate_key, row_count
+        from (
+            select {duplicate_key} as duplicate_key, count(*) as row_count
+            from {table_name}
+            where {where_sql}
+            group by {duplicate_key}
+            having count(*) > 1
+        ) duplicates
+        order by row_count desc, duplicate_key asc
+        limit 10
+        """,
+        tuple(params),
+    ).mappings().all()
+    duplicate_examples = [dict(row) for row in rows]
+    duplicate_count = int(sum(int(row["row_count"]) - 1 for row in duplicate_examples))
+    if duplicate_examples:
+        duplicate_count = int(
+            connection.exec_driver_sql(
+                f"""
+                select coalesce(sum(row_count - 1), 0)
+                from (
+                    select count(*) as row_count
+                    from {table_name}
+                    where {where_sql}
+                    group by {duplicate_key}
+                    having count(*) > 1
+                ) duplicates
+                """,
+                tuple(params),
+            ).scalar_one()
+        )
+    return duplicate_count, duplicate_examples
+
+
+def _query_corrupt_profile(
+    connection,
+    *,
+    table_name: str,
+    corrupt_where: str,
+    corrupt_sample_columns: str,
+    time_column: str,
+    instrument_id: int,
+    start_time: datetime,
+    end_time: datetime,
+    observed_at: datetime,
+    raw_event_channel: str | None = None,
+) -> tuple[int, list[dict[str, Any]]]:
+    where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s", corrupt_where]
+    params: list[Any] = [instrument_id, start_time, end_time, observed_at]
+    if table_name == "md.raw_market_events" and raw_event_channel is not None:
+        where_clauses.insert(2, "channel = %s")
+        params.insert(3, raw_event_channel)
+    where_sql = " and ".join(f"({clause.strip()})" for clause in where_clauses)
+    corrupt_count = int(
+        connection.exec_driver_sql(
+            f"""
+            select count(*)
+            from {table_name}
+            where {where_sql}
+            """,
+            tuple(params),
+        ).scalar_one()
+    )
+    corrupt_examples = [
+        dict(row)
+        for row in connection.exec_driver_sql(
+            f"""
+            select {corrupt_sample_columns}
+            from {table_name}
+            where {where_sql}
+            order by {time_column} asc
+            limit 10
+            """,
+            tuple(params),
+        ).mappings().all()
+    ]
+    return corrupt_count, corrupt_examples
+
+
+def _query_future_row_profile(
+    connection,
+    *,
+    table_name: str,
+    time_column: str,
+    instrument_id: int,
+    observed_at: datetime,
+    raw_event_channel: str | None = None,
+) -> tuple[int, list[dict[str, Any]]]:
+    where_clauses = [f"instrument_id = %s", f"{time_column} > %s"]
+    params: list[Any] = [instrument_id, observed_at]
+    if table_name == "md.raw_market_events" and raw_event_channel is not None:
+        where_clauses.append("channel = %s")
+        params.append(raw_event_channel)
+    where_sql = " and ".join(where_clauses)
+    future_row_count = int(
+        connection.exec_driver_sql(
+            f"""
+            select count(*)
+            from {table_name}
+            where {where_sql}
+            """,
+            tuple(params),
+        ).scalar_one()
+    )
+    future_examples = [
+        dict(row)
+        for row in connection.exec_driver_sql(
+            f"""
+            select {time_column} as ts
+            from {table_name}
+            where {where_sql}
+            order by {time_column} asc
+            limit 10
+            """,
+            tuple(params),
+        ).mappings().all()
+    ]
+    return future_row_count, future_examples
+
+
+def _persist_integrity_check(
+    *,
+    quality_repo: DataQualityCheckRepository,
+    connection,
+    exchange_code: str,
+    unified_symbol: str,
+    data_type: str,
+    check_name: str,
+    expected_value: str | None,
+    observed_value: str | None,
+    related_count: int,
+    detail_json: dict[str, Any],
+) -> int:
+    status, severity = _status_for_count(related_count)
+    quality_repo.insert(
+        connection,
+        DataQualityCheckRecord(
+            exchange_code=exchange_code,
+            unified_symbol=unified_symbol,
+            data_type=data_type,
+            check_name=check_name,
+            severity=severity,
+            status=status,
+            expected_value=expected_value,
+            observed_value=observed_value,
+            detail_json=_normalize_json_value(detail_json),
+        ),
+    )
+    return 1
+
+
+def validate_dataset_integrity(
+    *,
+    exchange_code: str,
+    unified_symbol: str,
+    start_time: datetime,
+    end_time: datetime,
+    observed_at: datetime | None = None,
+    data_types: list[str] | None = None,
+    raw_event_channel: str | None = None,
+    persist_findings: bool = True,
+) -> DatasetIntegrityValidationResult:
+    effective_observed_at = observed_at or datetime.now(timezone.utc)
+    selected_data_types = _ensure_supported_integrity_data_types(
+        data_types or _default_integrity_data_types(unified_symbol=unified_symbol, raw_event_channel=raw_event_channel)
+    )
+    persisted_checks_written = 0
+    persisted_gaps_written = 0
+    dataset_reports: list[DatasetIntegrityDatasetReport] = []
+
+    with transaction_scope() as connection:
+        instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
+        quality_repo = DataQualityCheckRepository()
+        gap_repo = DataGapRepository()
+
+        for data_type in selected_data_types:
+            spec = INTEGRITY_DATASET_SPECS[data_type]
+            table_name = spec["table_name"]
+            time_column = spec["time_column"]
+            interval = spec["interval"]
+            aligned_start_time, aligned_end_time = _dataset_interval_window(
+                data_type=data_type,
+                start_time=start_time,
+                end_time=end_time,
+                interval=interval,
+            )
+            window_stats = _query_dataset_window_stats(
+                connection,
+                table_name=table_name,
+                time_column=time_column,
+                instrument_id=instrument_id,
+                start_time=aligned_start_time,
+                end_time=aligned_end_time,
+                raw_event_channel=raw_event_channel,
+            )
+            row_count = int(window_stats.get("row_count") or 0)
+            available_from = window_stats.get("available_from")
+            available_to = window_stats.get("available_to")
+            timestamps = []
+            expected_points: int | None = None
+            missing_count = 0
+            gap_segments: list[dict[str, Any]] = []
+            if interval is not None:
+                timestamps = _query_dataset_timestamps(
+                    connection,
+                    table_name=table_name,
+                    time_column=time_column,
+                    instrument_id=instrument_id,
+                    start_time=aligned_start_time,
+                    end_time=aligned_end_time,
+                    raw_event_channel=raw_event_channel,
+                )
+                expected_points = _expected_points_in_interval_window(aligned_start_time, aligned_end_time, interval)
+                missing_count, gap_segments = _segment_missing_interval_timestamps(
+                    timestamps=timestamps,
+                    aligned_start_time=aligned_start_time,
+                    aligned_end_time=aligned_end_time,
+                    interval=interval,
+                )
+            elif row_count == 0:
+                missing_count = 1
+
+            duplicate_count, duplicate_examples = _query_duplicate_profile(
+                connection,
+                table_name=table_name,
+                duplicate_key=spec["duplicate_key"],
+                time_column=time_column,
+                instrument_id=instrument_id,
+                start_time=aligned_start_time,
+                end_time=aligned_end_time,
+                raw_event_channel=raw_event_channel,
+            )
+            corrupt_count, corrupt_examples = _query_corrupt_profile(
+                connection,
+                table_name=table_name,
+                corrupt_where=spec["corrupt_where"],
+                corrupt_sample_columns=spec["corrupt_sample_columns"],
+                time_column=time_column,
+                instrument_id=instrument_id,
+                start_time=aligned_start_time,
+                end_time=aligned_end_time,
+                observed_at=effective_observed_at,
+                raw_event_channel=raw_event_channel,
+            )
+            future_row_count, future_examples = _query_future_row_profile(
+                connection,
+                table_name=table_name,
+                time_column=time_column,
+                instrument_id=instrument_id,
+                observed_at=effective_observed_at,
+                raw_event_channel=raw_event_channel,
+            )
+            total_corrupt_count = corrupt_count + future_row_count
+            safe_available_to = available_to
+            if future_row_count > 0:
+                safe_available_to_row = connection.exec_driver_sql(
+                    f"""
+                    select max({time_column})
+                    from {table_name}
+                    where instrument_id = %s
+                      and {time_column} <= %s
+                    """,
+                    (instrument_id, effective_observed_at),
+                ).scalar_one()
+                safe_available_to = safe_available_to_row
+
+            findings: list[DatasetIntegrityFinding] = []
+            if interval is not None:
+                gap_status, gap_severity = _status_for_count(len(gap_segments))
+                findings.append(
+                    DatasetIntegrityFinding(
+                        category="gap",
+                        severity=gap_severity,
+                        status=gap_status,
+                        message="interval gap segments detected" if gap_segments else "no interval gaps detected",
+                        related_count=len(gap_segments),
+                        detail_json=_normalize_json_value({
+                            "aligned_window_start": aligned_start_time.isoformat(),
+                            "aligned_window_end": aligned_end_time.isoformat(),
+                            "expected_points": expected_points,
+                            "segments": [
+                                {
+                                    "gap_start": segment["gap_start"].isoformat(),
+                                    "gap_end": segment["gap_end"].isoformat(),
+                                    "missing_points": segment["missing_points"],
+                                }
+                                for segment in gap_segments[:20]
+                            ],
+                        }),
+                    )
+                )
+            missing_status, missing_severity = _status_for_count(missing_count)
+            findings.append(
+                DatasetIntegrityFinding(
+                    category="missing",
+                    severity=missing_severity,
+                    status=missing_status,
+                    message="expected rows missing inside validation window" if missing_count else "no missing rows detected",
+                    related_count=missing_count,
+                    detail_json=_normalize_json_value({
+                        "row_count": row_count,
+                        "expected_points": expected_points,
+                        "available_from": available_from.isoformat() if available_from else None,
+                        "available_to": available_to.isoformat() if available_to else None,
+                    }),
+                )
+            )
+            duplicate_status, duplicate_severity = _status_for_count(duplicate_count)
+            findings.append(
+                DatasetIntegrityFinding(
+                    category="duplicate",
+                    severity=duplicate_severity,
+                    status=duplicate_status,
+                    message="duplicate records detected" if duplicate_count else "no duplicates detected",
+                    related_count=duplicate_count,
+                    detail_json=_normalize_json_value({"examples": duplicate_examples}),
+                )
+            )
+            corrupt_status, corrupt_severity = _status_for_count(total_corrupt_count)
+            findings.append(
+                DatasetIntegrityFinding(
+                    category="corrupt",
+                    severity=corrupt_severity,
+                    status=corrupt_status,
+                    message="corrupt or future-dated records detected" if total_corrupt_count else "no corrupt records detected",
+                    related_count=total_corrupt_count,
+                    detail_json=_normalize_json_value({
+                        "corrupt_examples": corrupt_examples,
+                        "future_examples": future_examples,
+                        "future_row_count": future_row_count,
+                        "safe_available_to": safe_available_to.isoformat() if safe_available_to else None,
+                    }),
+                )
+            )
+
+            dataset_status = "fail" if any(finding.status == "fail" for finding in findings) else "pass"
+            report = DatasetIntegrityDatasetReport(
+                data_type=data_type,
+                status=dataset_status,
+                row_count=row_count,
+                expected_interval_seconds=int(interval.total_seconds()) if interval is not None else None,
+                expected_points=expected_points,
+                available_from=available_from,
+                available_to=available_to,
+                safe_available_to=safe_available_to,
+                missing_count=missing_count,
+                gap_count=len(gap_segments),
+                duplicate_count=duplicate_count,
+                corrupt_count=total_corrupt_count,
+                future_row_count=future_row_count,
+                findings=findings,
+            )
+            dataset_reports.append(report)
+
+            if persist_findings:
+                if interval is not None:
+                    persisted_checks_written += _persist_integrity_check(
+                        quality_repo=quality_repo,
+                        connection=connection,
+                        exchange_code=exchange_code,
+                        unified_symbol=unified_symbol,
+                        data_type=data_type,
+                        check_name="integrity_gap_check",
+                        expected_value="0",
+                        observed_value=str(len(gap_segments)),
+                        related_count=len(gap_segments),
+                        detail_json=report.findings[0].detail_json,
+                    )
+                    resolved_gap_count = gap_repo.resolve_overlapping_open_gaps(
+                        connection,
+                        data_type=data_type,
+                        exchange_code=exchange_code,
+                        unified_symbol=unified_symbol,
+                        gap_start=aligned_start_time,
+                        gap_end=aligned_end_time,
+                        detail_json={
+                            "resolved_by": "dataset_integrity_validate",
+                            "aligned_window_start": aligned_start_time.isoformat(),
+                            "aligned_window_end": aligned_end_time.isoformat(),
+                        },
+                    )
+                    if gap_segments:
+                        for segment in gap_segments:
+                            gap_repo.insert(
+                                connection,
+                                DataGapRecord(
+                                    exchange_code=exchange_code,
+                                    unified_symbol=unified_symbol,
+                                    data_type=data_type,
+                                    gap_start=segment["gap_start"],
+                                    gap_end=segment["gap_end"],
+                                    expected_count=segment["missing_points"],
+                                    actual_count=0,
+                                    detail_json={
+                                        "source": "dataset_integrity_validate",
+                                        "expected_interval_seconds": int(interval.total_seconds()),
+                                    },
+                                ),
+                            )
+                            persisted_gaps_written += 1
+                    elif resolved_gap_count:
+                        persisted_gaps_written += 0
+                persisted_checks_written += _persist_integrity_check(
+                    quality_repo=quality_repo,
+                    connection=connection,
+                    exchange_code=exchange_code,
+                    unified_symbol=unified_symbol,
+                    data_type=data_type,
+                    check_name="integrity_missing_check",
+                    expected_value="0",
+                    observed_value=str(missing_count),
+                    related_count=missing_count,
+                    detail_json=next(f.detail_json for f in findings if f.category == "missing"),
+                )
+                persisted_checks_written += _persist_integrity_check(
+                    quality_repo=quality_repo,
+                    connection=connection,
+                    exchange_code=exchange_code,
+                    unified_symbol=unified_symbol,
+                    data_type=data_type,
+                    check_name="integrity_duplicate_check",
+                    expected_value="0",
+                    observed_value=str(duplicate_count),
+                    related_count=duplicate_count,
+                    detail_json=next(f.detail_json for f in findings if f.category == "duplicate"),
+                )
+                persisted_checks_written += _persist_integrity_check(
+                    quality_repo=quality_repo,
+                    connection=connection,
+                    exchange_code=exchange_code,
+                    unified_symbol=unified_symbol,
+                    data_type=data_type,
+                    check_name="integrity_corrupt_check",
+                    expected_value="0",
+                    observed_value=str(total_corrupt_count),
+                    related_count=total_corrupt_count,
+                    detail_json=next(f.detail_json for f in findings if f.category == "corrupt"),
+                )
+
+        summary = DatasetIntegritySummary(
+            dataset_count=len(dataset_reports),
+            passed_datasets=sum(1 for report in dataset_reports if report.status == "pass"),
+            failed_datasets=sum(1 for report in dataset_reports if report.status == "fail"),
+            total_gap_count=sum(report.gap_count for report in dataset_reports),
+            total_missing_count=sum(report.missing_count for report in dataset_reports),
+            total_duplicate_count=sum(report.duplicate_count for report in dataset_reports),
+            total_corrupt_count=sum(report.corrupt_count for report in dataset_reports),
+            total_future_row_count=sum(report.future_row_count for report in dataset_reports),
+        )
+
+    return DatasetIntegrityValidationResult(
+        exchange_code=exchange_code,
+        unified_symbol=unified_symbol,
+        start_time=start_time,
+        end_time=end_time,
+        observed_at=effective_observed_at,
+        persisted_checks_written=persisted_checks_written,
+        persisted_gaps_written=persisted_gaps_written,
+        summary=summary,
+        datasets=dataset_reports,
+    )
 
 
 def run_bar_gap_checks(

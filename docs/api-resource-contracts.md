@@ -1117,6 +1117,108 @@ Current implementation note:
 - `GET /api/v1/quality/checks` also accepts `latest_only=true`
 - when enabled, the API returns only the latest check per `(symbol, data_type, check_name)` so monitoring views can focus on current state instead of full historical logs
 
+## 7.0 Dataset Integrity Validation Resource
+
+Used by:
+- `POST /api/v1/quality/integrity`
+
+```json
+{
+  "exchange_code": "binance",
+  "unified_symbol": "BTCUSDT_PERP",
+  "start_time": "2026-01-01T00:00:00Z",
+  "end_time": "2026-04-04T23:59:00Z",
+  "observed_at": "2026-04-05T00:00:00Z",
+  "persisted_checks_written": 18,
+  "persisted_gaps_written": 2,
+  "summary": {
+    "dataset_count": 5,
+    "passed_datasets": 4,
+    "failed_datasets": 1,
+    "total_gap_count": 1,
+    "total_missing_count": 3,
+    "total_duplicate_count": 0,
+    "total_corrupt_count": 2,
+    "total_future_row_count": 2
+  },
+  "datasets": [
+    {
+      "data_type": "bars_1m",
+      "status": "fail",
+      "row_count": 5000,
+      "expected_interval_seconds": 60,
+      "expected_points": 5003,
+      "available_from": "2026-01-01T00:00:00Z",
+      "available_to": "2026-04-04T23:59:00Z",
+      "safe_available_to": "2026-04-04T23:59:00Z",
+      "missing_count": 3,
+      "gap_count": 1,
+      "duplicate_count": 0,
+      "corrupt_count": 2,
+      "future_row_count": 2,
+      "findings": [
+        {
+          "category": "gap",
+          "severity": "error",
+          "status": "fail",
+          "message": "interval gap segments detected",
+          "related_count": 1,
+          "detail_json": {
+            "aligned_window_start": "2026-01-01T00:00:00Z",
+            "aligned_window_end": "2026-04-04T23:59:00Z",
+            "expected_points": 5003,
+            "segments": [
+              {
+                "gap_start": "2026-02-01T10:15:00Z",
+                "gap_end": "2026-02-01T10:17:00Z",
+                "missing_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "category": "duplicate",
+          "severity": "info",
+          "status": "pass",
+          "message": "no duplicates detected",
+          "related_count": 0,
+          "detail_json": {
+            "examples": []
+          }
+        },
+        {
+          "category": "corrupt",
+          "severity": "error",
+          "status": "fail",
+          "message": "corrupt or future-dated records detected",
+          "related_count": 2,
+          "detail_json": {
+            "corrupt_examples": [],
+            "future_examples": [
+              {
+                "ts": "2031-05-01T00:00:00Z"
+              }
+            ],
+            "future_row_count": 2,
+            "safe_available_to": "2026-04-04T23:59:00Z"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Notes:
+- this endpoint is a typed integrity report for one symbol and one validation window, not just a raw list of historical quality rows
+- by default it validates the datasets that the current historical backfill footprint actually maintains:
+  - spot: `bars_1m`
+  - perp: `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, `index_prices`
+- `raw_market_events` and `trades` remain opt-in datasets for this integrity surface
+- interval datasets report `gap_count`, `missing_count`, and aligned-window details
+- all supported datasets also report `duplicate_count`, `corrupt_count`, and `future_row_count`
+- when `persist_findings=true`, the validator also writes `integrity_*_check` rows into `ops.data_quality_checks` and interval gap segments into `ops.data_gaps`
+
 ## 7.1 Raw Event Detail Resource
 
 Used by:

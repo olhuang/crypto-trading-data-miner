@@ -455,10 +455,14 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] add open-interest continuity checks
 - [x] add mark-price continuity checks
 - [x] add index-price continuity checks
+- [x] add typed dataset-integrity validation for one symbol/window across the currently maintained backfill datasets
+- [x] add explicit corrupt/future-dated row detection to the integrity validator
+- [x] add CLI/PowerShell entrypoints for post-backfill integrity validation
 
 ### Acceptance Checks
 - [x] funding/OI/mark/index sanity checks are persisted to `ops.data_quality_checks`
 - [x] quality summary and inspection APIs can surface these checks
+- [x] one symbol/window can now be validated through a single typed report covering gaps, missing rows, duplicates, and corrupt/future-dated rows
 
 ---
 
@@ -498,6 +502,7 @@ Make the collected market data reliable enough for research, backtest, and repla
 - [x] historical trades are explicitly documented as a future manual bounded-backfill path, not a startup or continuous auto-remediation path
 - [x] funding/OI/mark/index now have a scheduler-ready remediation job path without turning on continuous auto catch-up
 - [x] funding/OI/mark/index now also have dataset-level sanity checks for freshness, duplicates, and bounded continuity
+- [x] the Phase 4 quality path now also includes a typed dataset-integrity validator plus CLI/PowerShell wrappers for post-backfill verification
 - [x] bar gap checks now align non-minute requested windows to minute boundaries before evaluating 1m completeness
 - [x] spot quality runs now skip perp-only funding/OI/mark/index checks to avoid false snapshot failures on `_SPOT` symbols
 - [x] a minimal internal Monitoring Console now exists for Overview, Jobs, Quality, and Traceability views using the implemented Phase 3/4 APIs

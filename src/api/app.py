@@ -22,7 +22,7 @@ from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.periods import BacktestPeriodBreakdownProjector
 from models.backtest import BacktestRunConfig
 from jobs.backfill_bars import run_bar_backfill
-from jobs.data_quality import run_phase4_quality_suite
+from jobs.data_quality import validate_dataset_integrity, run_phase4_quality_suite
 from jobs.remediate_market_snapshots import run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
@@ -92,6 +92,27 @@ class Phase4QualityRunRequest(ApiRequestModel):
     gap_end_time: datetime
     observed_at: datetime | None = None
     raw_event_channel: str | None = None
+
+
+class DatasetIntegrityValidationRequest(ApiRequestModel):
+    exchange_code: str = "binance"
+    unified_symbol: str
+    start_time: datetime
+    end_time: datetime
+    observed_at: datetime | None = None
+    data_types: list[str] | None = None
+    raw_event_channel: str | None = None
+    persist_findings: bool = True
+
+    @model_validator(mode="after")
+    def validate_integrity_request(self) -> "DatasetIntegrityValidationRequest":
+        if self.end_time < self.start_time:
+            raise ValueError("end_time must be greater than or equal to start_time")
+        if self.data_types is not None:
+            self.data_types = list(dict.fromkeys(self.data_types))
+            if not self.data_types:
+                raise ValueError("data_types must not be empty when provided")
+        return self
 
 
 class BacktestCompareSetRequest(ApiRequestModel):
@@ -210,6 +231,55 @@ class QualitySummaryResource(BaseModel):
     failed_checks: int
     severe_checks: int
     latest_only: bool = False
+
+
+class DatasetIntegrityFindingResource(BaseModel):
+    category: str
+    severity: str
+    status: str
+    message: str
+    related_count: int
+    detail_json: dict[str, Any]
+
+
+class DatasetIntegrityDatasetResource(BaseModel):
+    data_type: str
+    status: str
+    row_count: int
+    expected_interval_seconds: int | None = None
+    expected_points: int | None = None
+    available_from: str | None = None
+    available_to: str | None = None
+    safe_available_to: str | None = None
+    missing_count: int
+    gap_count: int
+    duplicate_count: int
+    corrupt_count: int
+    future_row_count: int
+    findings: list[DatasetIntegrityFindingResource]
+
+
+class DatasetIntegritySummaryResource(BaseModel):
+    dataset_count: int
+    passed_datasets: int
+    failed_datasets: int
+    total_gap_count: int
+    total_missing_count: int
+    total_duplicate_count: int
+    total_corrupt_count: int
+    total_future_row_count: int
+
+
+class DatasetIntegrityValidationResource(BaseModel):
+    exchange_code: str
+    unified_symbol: str
+    start_time: str
+    end_time: str
+    observed_at: str
+    persisted_checks_written: int
+    persisted_gaps_written: int
+    summary: DatasetIntegritySummaryResource
+    datasets: list[DatasetIntegrityDatasetResource]
 
 
 class RawEventDetailResource(BaseModel):
@@ -1275,6 +1345,80 @@ def create_app() -> FastAPI:
         synthetic_job_id = int(datetime.now(timezone.utc).timestamp())
         return SuccessEnvelope[JobActionResource](
             data=JobActionResource(job_id=synthetic_job_id, status=f"checks:{result.checks_written}/gaps:{result.gaps_written}"),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/quality/integrity")
+    def validate_quality_integrity(
+        request: DatasetIntegrityValidationRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[DatasetIntegrityValidationResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            result = validate_dataset_integrity(
+                exchange_code=request.exchange_code,
+                unified_symbol=request.unified_symbol,
+                start_time=request.start_time,
+                end_time=request.end_time,
+                observed_at=request.observed_at,
+                data_types=request.data_types,
+                raw_event_channel=request.raw_event_channel,
+                persist_findings=request.persist_findings,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "VALIDATION_ERROR", "message": str(exc), "details": {}},
+            ) from exc
+        return SuccessEnvelope[DatasetIntegrityValidationResource](
+            data=DatasetIntegrityValidationResource(
+                exchange_code=result.exchange_code,
+                unified_symbol=result.unified_symbol,
+                start_time=result.start_time.isoformat(),
+                end_time=result.end_time.isoformat(),
+                observed_at=result.observed_at.isoformat(),
+                persisted_checks_written=result.persisted_checks_written,
+                persisted_gaps_written=result.persisted_gaps_written,
+                summary=DatasetIntegritySummaryResource(
+                    dataset_count=result.summary.dataset_count,
+                    passed_datasets=result.summary.passed_datasets,
+                    failed_datasets=result.summary.failed_datasets,
+                    total_gap_count=result.summary.total_gap_count,
+                    total_missing_count=result.summary.total_missing_count,
+                    total_duplicate_count=result.summary.total_duplicate_count,
+                    total_corrupt_count=result.summary.total_corrupt_count,
+                    total_future_row_count=result.summary.total_future_row_count,
+                ),
+                datasets=[
+                    DatasetIntegrityDatasetResource(
+                        data_type=dataset.data_type,
+                        status=dataset.status,
+                        row_count=dataset.row_count,
+                        expected_interval_seconds=dataset.expected_interval_seconds,
+                        expected_points=dataset.expected_points,
+                        available_from=dataset.available_from.isoformat() if dataset.available_from else None,
+                        available_to=dataset.available_to.isoformat() if dataset.available_to else None,
+                        safe_available_to=dataset.safe_available_to.isoformat() if dataset.safe_available_to else None,
+                        missing_count=dataset.missing_count,
+                        gap_count=dataset.gap_count,
+                        duplicate_count=dataset.duplicate_count,
+                        corrupt_count=dataset.corrupt_count,
+                        future_row_count=dataset.future_row_count,
+                        findings=[
+                            DatasetIntegrityFindingResource(
+                                category=finding.category,
+                                severity=finding.severity,
+                                status=finding.status,
+                                message=finding.message,
+                                related_count=finding.related_count,
+                                detail_json=finding.detail_json,
+                            )
+                            for finding in dataset.findings
+                        ],
+                    )
+                    for dataset in result.datasets
+                ],
+            ),
             meta=_meta(actor),
         )
 

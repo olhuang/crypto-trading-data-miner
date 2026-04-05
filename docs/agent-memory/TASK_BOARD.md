@@ -3,6 +3,7 @@
 ## Current Focus
 - make the repository more usable as a complete strategy development / backtest / replay / diagnostics / reporting tool
 - keep long-running AI-assisted work resumable without relying on fragile chat-only memory
+- keep local Binance BTC data maintenance usable through backfill, cleanup, and dataset-integrity validation workflows
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
@@ -11,6 +12,7 @@
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
+- decide whether the new dataset-integrity validation flow should stay CLI/API-first for now or get a `/monitoring` quality surface next
 
 ## Blocked
 - none currently recorded
@@ -22,8 +24,12 @@
 - connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
+- expose dataset-integrity validation and/or BTC backfill status inside `/monitoring` if the data-quality line becomes the next active slice
 
 ## Recently Done
+- added typed dataset-integrity validation for `gap / duplicate / missing / corrupt` checks, plus persisted integrity findings into `ops.data_quality_checks` and `ops.data_gaps`
+- added `POST /api/v1/quality/integrity` plus local `scripts/validate_dataset_integrity.py` and `scripts/validate_dataset_integrity.ps1` entrypoints
+- tightened Phase 4 quality tests so integrity fixtures clean up after themselves and no longer leave future-dated contamination behind in the local DB
 - added and used a reusable cleanup tool for future-dated local Binance BTC market-data contamination, restoring the raw DB coverage horizon to real timestamps
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps

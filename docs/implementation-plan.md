@@ -38,6 +38,7 @@ The repository already has a strong design foundation and is now design-complete
 - historical funding/open-interest/mark/index windows are now supported through the current market-snapshot refresh path
 - the current Binance historical fetch paths now paginate through multi-page REST windows for bars, funding, OI, mark, and index history
 - Phase 4 data-quality jobs for gap, freshness, and duplicate checks in `src/jobs/data_quality.py`
+- Phase 4 dataset-integrity validation now also exists for one symbol/window, including typed gap/missing/duplicate/corrupt reporting plus optional persistence back into `ops.data_quality_checks` and `ops.data_gaps`
 - the current Phase 4 quality path now aligns requested bar windows to minute boundaries and treats spot symbols as ineligible for perp-only funding/OI/mark/index checks
 - Phase 4 quality, raw-event traceability, and replay-readiness API endpoints in `src/api/`
 - replay and hot-retention baseline documented in `docs/replay-retention-policy.md`
@@ -343,6 +344,7 @@ Make collected market data reliable enough for research and downstream execution
 ### Recommended Status
 - implemented for the current Phase 4 baseline
 - validated locally with automated checks for gap detection, freshness checks, duplicate detection, raw-event traceability, and replay-readiness APIs
+- the Phase 4 quality path now also exposes a typed dataset-integrity validator plus CLI/PowerShell wrappers for post-backfill verification
 - funding/open-interest/mark/index dataset-level sanity checks now exist within the Phase 4 quality path
 - current quality runs now avoid false bar gap off-by-one results from non-minute windows and avoid false spot snapshot failures by skipping perp-only datasets for `_SPOT` symbols
 - complete enough to support Phase 5 bars-based research on quality-gated market data

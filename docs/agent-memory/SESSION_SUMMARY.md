@@ -1,100 +1,41 @@
 # Session Summary
 
 ## Goal
-- define and start landing durable memory workflow foundations for long-running research/review work in this repository
+- add a usable dataset-integrity validation workflow so local market-data coverage can be checked for gap / duplicate / missing / corrupt issues without manual SQL digging
 
 ## Done
-- studied the proposed chunking / summary / external-memory / handoff ideas
-- translated them into a project-specific spec and repo-local memory file set
-- wired the workflow into the main repo entry docs and Phase 5 planning/checklist surfaces
-- added reusable operator templates for session start, session stop, and minimal CLI/VS Code execution
-- added repo-owned VS Code tasks and local PowerShell helper scripts so the workflow is directly runnable
-- added a dedicated object-level notes/annotations planning spec and wired it into Phase 5 planning/docs
-- added the first compare-review note foundation with persisted compare-set identity, seeded system review drafts, and compare note APIs
-- exposed compare-review notes in the internal `/monitoring` Backtests UI, including compare tables, system-note inspection, and human/agent note write flow
-- created `docs/debug-trace-rollout-plan.md` so the next debug-trace slice has a dedicated tracking and resume document
-- implemented Level 1 backend debug traces with persisted compact rows, artifact inventory, and `GET /api/v1/backtests/runs/{run_id}/debug-traces`
-- exposed Level 1 debug traces in the internal `/monitoring` Backtests run detail with a compact table, selected-trace JSON detail, and minimal trace filters
-- enriched persisted debug traces with Level 2 linkage/delta fields, including simulated order/fill ids, blocked codes, and basic position/cash/equity/exposure deltas
-- upgraded the internal trace viewer so selected traces now render as structured summary/linkage/state/decision/risk sections instead of only raw JSON
-- extended diagnostics so they now project typed trace anchors, and wired the internal UI to jump from diagnostics anchors into matching trace windows
-- added Level 2 targeted trace filters across the debug-trace API and internal viewer for blocked-only, risk-code, signal-only, order-only, and fill-only investigation
-- reviewed the current `/monitoring` Backtests UX and added a dedicated usability-improvement plan focused on reducing density, separating workflows, and cleaning up the launch form first
-- defined a dedicated keep/evolve/replace frontend strategy so the current `/monitoring` console can remain useful while future product-grade frontend work moves onto the planned route-based foundation
-- implemented the first Backtests usability cleanup slice with visible launch labels, grouped sections, preset helpers, better boolean controls, workspace headers, and a summary-first selected-run panel
-- added a Backtests launch-status indicator with staged progress, disabled form state during submission, and automatic selection of the created run on success
-- collapsed the Backtests assumption-bundle and risk-policy reference tables behind details panels so they stay available without permanently occupying the launch workspace
-- reworked the selected Backtests run detail so users now see labeled sections for strategy parameters, execution/protection, risk, assumptions, and runtime metadata before the raw API payload
-- moved the execution-detail tables so `Signals / Orders / Fills / Timeseries` now appear after the `Investigate` workspace instead of before it
-- added a reusable copy icon to the persistent JSON panels in `/monitoring`, so users can copy diagnostics, raw payloads, compare-note detail, and trace detail without manual text selection
-- added `scripts/binance_btc_history_backfill.py` so `BTCUSDT_SPOT` and `BTCUSDT_PERP` can be backfilled locally from `2020-01-01` to YTD even though outbound Binance access is blocked inside the current harness
-- added a rolling status-file path at `tmp/binance_btc_history_backfill_status.json` so progress can be inspected while the local backfill is running
-- updated the BTC backfill script to treat `openInterestHist` as a separate availability-limited dataset and added `--resume-from-status` so a failed long run can continue instead of restarting
-- added `--incremental` so future catch-up runs can derive their start point from DB coverage rather than from the bootstrap task count in the old status file
-- hardened `--incremental` so it ignores future-dated local test contamination by using bounded `safe_available_to` checkpoints and exposing `future_row_count` in coverage summaries
-- added `scripts/binance_btc_history_backfill.ps1` as a Windows-friendly wrapper for bootstrap, resume, incremental, and status-only operations
-- added `scripts/cleanup_future_dated_binance_market_data.py` and used it to remove the current future-dated Binance BTC fixture contamination from the local database
+- added a typed Phase 4 dataset-integrity validator that reports per-dataset `gap / duplicate / missing / corrupt` findings for `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, `index_prices`, and optional `trades` / `raw_market_events`
+- added `POST /api/v1/quality/integrity` with typed request/response resources so integrity checks can be invoked without ad hoc SQL
+- added `scripts/validate_dataset_integrity.py` and `scripts/validate_dataset_integrity.ps1` for local CLI/PowerShell validation
+- made the integrity validator optionally persist findings into `ops.data_quality_checks` and interval-gap segments into `ops.data_gaps`
+- aligned the default integrity dataset selection with the BTC backfill footprint: spot defaults to `bars_1m`; perp defaults to `bars_1m + funding/open_interest/mark/index`
+- tightened Phase 4 tests so integrity fixtures clean themselves up and local test runs stop leaving future-dated contamination behind
+- verified the new workflow with `py_compile`, targeted Phase 4 unit tests, full-unit discovery, and a PowerShell wrapper smoke check
 
 ## Files Changed
-- `docs/ai-memory-and-handoff-spec.md`
 - `docs/agent-memory/PROJECT_STATE.md`
 - `docs/agent-memory/TASK_BOARD.md`
-- `docs/agent-memory/DECISION_LOG.md`
 - `docs/agent-memory/HANDOFF.md`
 - `docs/agent-memory/SESSION_SUMMARY.md`
-- `docs/agent-memory/SESSION_START_PROMPT.md`
-- `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
-- `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
-- `.vscode/tasks.json`
-- `scripts/start_memory_session.ps1`
-- `scripts/stop_memory_session.ps1`
-- `docs/object-level-notes-and-annotations-spec.md`
-- `docs/debug-trace-rollout-plan.md`
-- `db/init/009_backtest_debug_traces.sql`
-- `src/backtest/traces.py`
-- `src/backtest/runner.py`
-- `src/backtest/artifacts.py`
-- `src/storage/repositories/backtest.py`
-- `db/init/010_backtest_debug_trace_level2.sql`
-- `db/init/008_compare_sets_and_annotations.sql`
-- `src/backtest/compare_review.py`
-- `src/storage/repositories/research.py`
-- `src/api/app.py`
-- `frontend/monitoring/index.html`
-- `frontend/monitoring/app.js`
-- `frontend/monitoring/styles.css`
-- `scripts/binance_btc_history_backfill.py`
-- `.gitignore`
-- `tests/test_phase5_foundation.py`
-- `tests/test_api_models.py`
-- `docs/strategy-workbench-spec.md`
-- `docs/backtest-and-replay-diagnostics-spec.md`
-- `docs/ui-api-spec.md`
-- `docs/ui-phase-checklists.md`
-- `docs/repo-self-review-tracker.md`
 - `docs/api-resource-contracts.md`
-- `README.md`
+- `docs/ui-api-spec.md`
 - `docs/implementation-plan.md`
 - `docs/phases-2-to-9-checklists.md`
-- `docs/spec-index.md`
-- `docs/frontend-ui-usability-improvement-plan.md`
-- `docs/frontend-keep-evolve-replace-strategy.md`
+- `README.md`
+- `src/api/app.py`
+- `src/jobs/data_quality.py`
+- `tests/test_phase4_quality.py`
+- `scripts/validate_dataset_integrity.py`
+- `scripts/validate_dataset_integrity.ps1`
 
 ## Decisions
-- use repo-visible files as the primary durable AI memory layer
-- keep memory layered instead of mixing stable state, task state, and session state together
+- keep dataset-integrity validation typed and dataset-aware instead of falling back to one generic row-count check
+- align default integrity checks to the actual backfill footprint so spot/perp operators get useful defaults without validating unsupported datasets every time
 
-## Risks
-- replay investigation notes and unified annotation service remain future slices
-- replay-linked investigation flow is still the next major trace slice
-- the current Backtests page is still too dense for repeated daily research use until the planned UI cleanup slices start landing
-- the current Backtests page is improved, but the next remaining UI need is a cleaner phase-B workspace split between launch, compare, runs, and investigation
-- the raw selected-run payload is now better labeled, but the broader Backtests page still needs stronger workspace separation in the next UI phase
-- the repository still needs discipline to avoid turning the current static `/monitoring` console into the accidental long-term frontend architecture
-- the actual historical Binance pull still has to be executed locally outside the harness because network access remains blocked in this environment
-- the open-interest history endpoint appears to be availability-limited and may only cover a recent lookback window, so older futures windows will intentionally show no open-interest history
-- future monthly catch-up should use `--incremental`; `--resume-from-status` should stay scoped to interrupted bootstrap execution
-- the on-disk status file still reflects the last completed backfill run, so it needs a fresh incremental run if we want the status payload to reflect the post-cleanup raw coverage
+## Risks / Unknowns
+- the new integrity workflow is API/CLI-first; `/monitoring` does not yet surface integrity results
+- interval-based gap detection is strongest for time-series datasets; `trades` and `raw_market_events` remain opt-in and are better suited to duplicate/corrupt checks than cadence-gap expectations
+- open-interest history remains availability-limited on the Binance side, so old windows can still legitimately report no coverage
 
 ## Next
-- finish the current bootstrap with `--resume-from-status`, then use `--incremental` for future catch-up runs; after data coverage is verified, continue from `UI Phase B: Backtest Workspace Restructure` in `docs/frontend-ui-usability-improvement-plan.md`
+- if the data-quality line continues next, add a `/monitoring` surface for BTC backfill status and dataset-integrity validation; otherwise resume `UI Phase B: Backtest Workspace Restructure`

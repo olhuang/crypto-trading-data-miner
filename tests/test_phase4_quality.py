@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 import unittest
@@ -13,8 +13,8 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from api.app import Phase4QualityRunRequest, create_app
-from jobs.data_quality import run_bar_gap_checks, run_freshness_checks, run_phase4_quality_suite
+from api.app import DatasetIntegrityValidationRequest, Phase4QualityRunRequest, create_app
+from jobs.data_quality import run_bar_gap_checks, run_freshness_checks, run_phase4_quality_suite, validate_dataset_integrity
 from models.market import (
     BarEvent,
     FundingRateEvent,
@@ -352,6 +352,222 @@ def _seed_phase4_dataset() -> dict[str, object]:
     }
 
 
+def _cleanup_quality_window(*, exchange_code: str, unified_symbol: str, start_time: datetime, end_time: datetime) -> None:
+    with transaction_scope() as connection:
+        connection.exec_driver_sql(
+            """
+            delete from ops.data_quality_checks
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and check_time between %s and (%s + interval '1 day')
+            """,
+            (exchange_code, unified_symbol, start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from ops.data_gaps
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and gap_start between %s - interval '5 minute' and %s + interval '5 minute'
+            """,
+            (exchange_code, unified_symbol, start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.raw_market_events
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and coalesce(event_time, ingest_time) between %s and %s
+            """,
+            (exchange_code, unified_symbol, start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.liquidations
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and event_time between %s and %s
+            """,
+            (exchange_code, unified_symbol, start_time, end_time),
+        )
+        for table_name, time_column in (
+            ("md.mark_prices", "ts"),
+            ("md.open_interest", "ts"),
+            ("md.funding_rates", "funding_time"),
+            ("md.trades", "event_time"),
+            ("md.bars_1m", "bar_time"),
+        ):
+            connection.exec_driver_sql(
+                f"""
+                delete from {table_name}
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and {time_column} between %s and %s
+                """,
+                (exchange_code, unified_symbol, start_time, end_time),
+            )
+
+
+def _seed_integrity_dataset() -> dict[str, object]:
+    suffix = uuid4().hex[:10]
+    start_time = datetime(2031, 7, 1, 0, 0, tzinfo=timezone.utc)
+    middle_time = datetime(2031, 7, 1, 0, 1, tzinfo=timezone.utc)
+    end_time = datetime(2031, 7, 1, 0, 2, tzinfo=timezone.utc)
+    duplicate_source_message_id = f"integrity_raw_dup_{suffix}"
+
+    with transaction_scope() as connection:
+        connection.exec_driver_sql(
+            """
+            delete from ops.data_quality_checks
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and check_time between %s and (%s + interval '1 day')
+            """,
+            ("binance", "BTCUSDT_SPOT", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from ops.data_gaps
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and gap_start between %s and %s
+            """,
+            ("binance", "BTCUSDT_SPOT", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.raw_market_events
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and coalesce(event_time, ingest_time) between %s and %s
+            """,
+            ("binance", "BTCUSDT_SPOT", start_time, end_time),
+        )
+        connection.exec_driver_sql(
+            """
+            delete from md.bars_1m
+            where instrument_id = (
+                select instrument.instrument_id
+                from ref.instruments instrument
+                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                limit 1
+            )
+              and bar_time between %s and %s
+            """,
+            ("binance", "BTCUSDT_SPOT", start_time, end_time),
+        )
+        BarRepository().upsert(
+            connection,
+            BarEvent(
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                ingest_time=start_time,
+                bar_interval="1m",
+                bar_time=start_time,
+                event_time=start_time,
+                open="100000.0",
+                high="99900.0",
+                low="100010.0",
+                close="100005.0",
+                volume="5.0",
+                quote_volume="500025.0",
+                trade_count=50,
+            ),
+        )
+        BarRepository().upsert(
+            connection,
+            BarEvent(
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                ingest_time=end_time,
+                bar_interval="1m",
+                bar_time=end_time,
+                event_time=end_time,
+                open="100010.0",
+                high="100020.0",
+                low="100000.0",
+                close="100015.0",
+                volume="4.0",
+                quote_volume="400060.0",
+                trade_count=40,
+            ),
+        )
+        RawMarketEventRepository().insert(
+            connection,
+            RawMarketEvent(
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                channel="integrity_duplicate_stream",
+                event_type="trade",
+                event_time=middle_time,
+                ingest_time=middle_time,
+                source_message_id=duplicate_source_message_id,
+                payload_json={"seq": 1},
+            ),
+        )
+        RawMarketEventRepository().insert(
+            connection,
+            RawMarketEvent(
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                channel="integrity_duplicate_stream",
+                event_type="trade",
+                event_time=middle_time,
+                ingest_time=middle_time,
+                source_message_id=duplicate_source_message_id,
+                payload_json={"seq": 2},
+            ),
+        )
+
+    return {
+        "start_time": start_time,
+        "middle_time": middle_time,
+        "end_time": end_time,
+        "raw_event_channel": "integrity_duplicate_stream",
+    }
+
+
 class Phase4QualityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -363,6 +579,15 @@ class Phase4QualityTests(unittest.TestCase):
             gap_end_time=cls.seed["end_time"],
             observed_at=datetime(2026, 5, 1, 0, 20, tzinfo=timezone.utc),
             raw_event_channel="phase4_duplicate_stream",
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        _cleanup_quality_window(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=cls.seed["start_time"],
+            end_time=cls.seed["end_time"],
         )
 
     def test_quality_suite_persists_checks_and_gap_rows(self) -> None:
@@ -439,6 +664,15 @@ class Phase4ApiTests(unittest.TestCase):
         cls.raw_event_detail_endpoint = _resolve_route(cls.app, "/api/v1/market/raw-events/{raw_event_id}", "GET")
         cls.raw_event_links_endpoint = _resolve_route(cls.app, "/api/v1/market/raw-events/{raw_event_id}/normalized-links", "GET")
         cls.replay_readiness_endpoint = _resolve_route(cls.app, "/api/v1/replay/readiness", "GET")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        _cleanup_quality_window(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=cls.seed["start_time"],
+            end_time=cls.seed["end_time"],
+        )
 
     def test_quality_endpoints_expose_checks_summary_and_gaps(self) -> None:
         checks_response = self.__class__.quality_checks_endpoint(
@@ -522,6 +756,13 @@ class Phase4QualityScopeTests(unittest.TestCase):
     def test_bar_gap_checks_align_non_minute_windows(self) -> None:
         start_time = datetime(2031, 6, 1, 0, 0, 30, tzinfo=timezone.utc)
         end_time = datetime(2031, 6, 1, 0, 2, 45, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_quality_window,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=start_time,
+            end_time=end_time,
+        )
 
         with transaction_scope() as connection:
             connection.exec_driver_sql(
@@ -620,6 +861,13 @@ class Phase4QualityScopeTests(unittest.TestCase):
         observed_at = datetime(2031, 6, 1, 0, 5, tzinfo=timezone.utc)
         bar_time = datetime(2031, 6, 1, 0, 4, tzinfo=timezone.utc)
         trade_time = datetime(2031, 6, 1, 0, 4, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_quality_window,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=observed_at - timedelta(hours=1),
+            end_time=observed_at,
+        )
 
         with transaction_scope() as connection:
             connection.exec_driver_sql(
@@ -721,6 +969,13 @@ class Phase4QualityScopeTests(unittest.TestCase):
     def test_bar_gap_checks_resolve_overlapping_open_gaps_when_window_is_clean(self) -> None:
         start_time = datetime(2031, 6, 2, 0, 0, 30, tzinfo=timezone.utc)
         end_time = datetime(2031, 6, 2, 0, 2, 45, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_quality_window,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=start_time,
+            end_time=end_time,
+        )
 
         with transaction_scope() as connection:
             connection.exec_driver_sql(
@@ -794,6 +1049,99 @@ class Phase4QualityScopeTests(unittest.TestCase):
         resolved_gap = next(gap for gap in gap_rows if gap["gap_id"] == gap_id)
         self.assertEqual(resolved_gap["status"], "resolved")
         self.assertEqual(resolved_gap["detail_json"]["resolved_by"], "bar_gap_check")
+
+
+class DatasetIntegrityValidationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.seed = _seed_integrity_dataset()
+        cls.result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=cls.seed["start_time"],
+            end_time=cls.seed["end_time"],
+            observed_at=cls.seed["end_time"],
+            data_types=["bars_1m", "raw_market_events"],
+            raw_event_channel=cls.seed["raw_event_channel"],
+            persist_findings=True,
+        )
+        cls.app = create_app()
+        cls.integrity_endpoint = _resolve_route(cls.app, "/api/v1/quality/integrity", "POST")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        _cleanup_quality_window(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=cls.seed["start_time"],
+            end_time=cls.seed["end_time"],
+        )
+
+    def test_validator_reports_gap_duplicate_missing_and_corrupt_counts(self) -> None:
+        bars_report = next(report for report in self.__class__.result.datasets if report.data_type == "bars_1m")
+        raw_report = next(report for report in self.__class__.result.datasets if report.data_type == "raw_market_events")
+
+        self.assertEqual(self.__class__.result.summary.dataset_count, 2)
+        self.assertEqual(self.__class__.result.summary.failed_datasets, 2)
+        self.assertEqual(bars_report.gap_count, 1)
+        self.assertEqual(bars_report.missing_count, 1)
+        self.assertEqual(bars_report.duplicate_count, 0)
+        self.assertGreaterEqual(bars_report.corrupt_count, 1)
+        self.assertEqual(raw_report.duplicate_count, 1)
+        self.assertEqual(raw_report.missing_count, 0)
+
+    def test_default_integrity_dataset_selection_matches_backfill_footprint(self) -> None:
+        default_result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=self.__class__.seed["start_time"],
+            end_time=self.__class__.seed["end_time"],
+            observed_at=self.__class__.seed["end_time"],
+            persist_findings=False,
+        )
+
+        self.assertEqual([report.data_type for report in default_result.datasets], ["bars_1m"])
+
+    def test_validator_persists_integrity_checks_and_gap_rows(self) -> None:
+        with connection_scope() as connection:
+            checks = DataQualityCheckRepository().list_recent(
+                connection,
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                limit=20,
+            )
+            gaps = DataGapRepository().list_recent(
+                connection,
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                data_type="bars_1m",
+                limit=10,
+            )
+
+        self.assertTrue(any(check["check_name"] == "integrity_gap_check" for check in checks))
+        self.assertTrue(any(check["check_name"] == "integrity_duplicate_check" for check in checks))
+        self.assertTrue(any(check["check_name"] == "integrity_corrupt_check" for check in checks))
+        self.assertTrue(any(gap["detail_json"]["source"] == "dataset_integrity_validate" for gap in gaps))
+
+    def test_integrity_endpoint_returns_typed_report(self) -> None:
+        response = self.__class__.integrity_endpoint(
+            DatasetIntegrityValidationRequest(
+                exchange_code="binance",
+                unified_symbol="BTCUSDT_SPOT",
+                start_time=self.__class__.seed["start_time"],
+                end_time=self.__class__.seed["end_time"],
+                observed_at=self.__class__.seed["end_time"],
+                data_types=["bars_1m", "raw_market_events"],
+                raw_event_channel=self.__class__.seed["raw_event_channel"],
+                persist_findings=False,
+            )
+        )
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.summary.dataset_count, 2)
+        self.assertEqual(response.data.summary.total_gap_count, 1)
+        self.assertEqual(response.data.summary.total_duplicate_count, 1)
+        self.assertGreaterEqual(response.data.summary.total_corrupt_count, 1)
 
 
 if __name__ == "__main__":

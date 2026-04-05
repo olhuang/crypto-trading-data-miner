@@ -628,6 +628,30 @@ Query params:
 Purpose:
 - trigger the current quality-suite job for one symbol/window
 
+### POST `/api/v1/quality/integrity`
+Purpose:
+- validate dataset integrity for one symbol/window and return a typed per-dataset report covering gaps, missing rows, duplicates, and corrupt/future-dated records
+
+Implementation note:
+- implemented in `src/api/app.py`
+- backed by the shared Phase 4 quality module in `src/jobs/data_quality.py`
+- default dataset selection follows the current historical backfill footprint:
+  - `_SPOT`: `bars_1m`
+  - `_PERP`: `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, `index_prices`
+- `raw_market_events` and `trades` can still be requested explicitly through `data_types`
+
+Request:
+```json
+{
+  "exchange_code": "binance",
+  "unified_symbol": "BTCUSDT_PERP",
+  "start_time": "2020-01-01T00:00:00Z",
+  "end_time": "2026-04-04T23:59:00Z",
+  "observed_at": "2026-04-05T00:00:00Z",
+  "persist_findings": true
+}
+```
+
 ### GET `/api/v1/quality/summary`
 Purpose:
 - return aggregated pass/fail counts for dashboard cards
@@ -677,6 +701,7 @@ Response fields:
 - [x] UI can inspect raw events and payloads
 - [x] UI can show replay readiness summary
 - [x] UI can inspect dataset-level sanity checks for funding/OI/mark/index through the existing quality endpoints
+- [x] API can return a typed dataset-integrity validation report for one symbol/window, including gaps, missing rows, duplicates, and corrupt/future-dated records
 - [x] UI can drive an internal monitoring console for Overview, Jobs, Quality, and Traceability using the existing implemented APIs
 
 ---
