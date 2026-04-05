@@ -366,6 +366,7 @@ Start collecting usable market data from the first exchange into the database.
 - [x] the bar backfill path now supports both Binance perp and spot historical bars
 - [x] scheduler-ready market snapshot remediation job now exists for manual/API-triggered funding/OI/mark/index catch-up planning
 - [x] scheduler refresh/remediation now also maintain retention-limited OI and Binance sentiment-ratio datasets through recent-history aligned refresh plus recent-30d continuity-aware remediation
+- [x] a built-in app scheduler toggle now exists in repo config/app startup so recurring refresh/remediation can be enabled from one place during local/dev runs
 - [x] runtime trade-stream processing exists under `src/runtime/`
 - [x] `/api/v1/ingestion/jobs/*`, `/api/v1/market/*`, and `/api/v1/streams/*` foundation endpoints now exist in the minimal API slice
 - [x] `GET /api/v1/ingestion/jobs` now supports recent jobs listing/filtering for monitoring

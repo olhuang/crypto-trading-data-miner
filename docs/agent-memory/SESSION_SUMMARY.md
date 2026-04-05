@@ -2,6 +2,7 @@
 
 ## Goal
 - stop retention-limited datasets from looking healthy immediately after manual re-grab and then drifting back into integrity failures
+- make recurring scheduler control visible and centrally switchable inside the repo
 - harden scheduled maintenance for:
   - `open_interest`
   - `global_long_short_account_ratios`
@@ -23,17 +24,31 @@
   - OI and sentiment repairs now run through day-sized history windows instead of a single long history request
 - updated `src/jobs/scheduler.py` so the Phase 3 refresh schedule explicitly includes sentiment-ratio datasets and enables the new retention-history refresh mode
 - extended the refresh API request model in `src/api/app.py` so the new scheduler/runtime behavior is represented in the typed contract
+- added a built-in app scheduler bootstrap under `src/services/builtin_scheduler.py`, wired into the FastAPI lifespan, so recurring refresh/remediation can now be turned on/off from one config location instead of relying on an unseen external process
+- added unified settings in `src/config.py` and `.env.example`:
+  - `ENABLE_BUILTIN_SCHEDULER`
+  - `BUILTIN_SCHEDULER_JOB_GROUPS`
+  - `BUILTIN_SCHEDULER_EXCHANGE_CODE`
+  - `BUILTIN_SCHEDULER_SYMBOL`
+  - `BUILTIN_SCHEDULER_UNIFIED_SYMBOL`
+- updated `README.md` so the built-in scheduler switch location and target configuration are documented
 - added regression coverage in `tests/test_phase3_ingestion.py` for:
   - recent-history retention refresh writing canonical OI/sentiment rows
   - retention-limited remediation planning using the 30-day floor instead of the stale 6h/24h freshness lookback
   - phase-3 scheduler refresh definitions carrying the new sentiment/retention flags
+- added `tests/test_builtin_scheduler.py` to lock down group selection and app-lifespan start/stop behavior
 
 ## Files Changed
 - `src/jobs/refresh_market_snapshots.py`
 - `src/jobs/remediate_market_snapshots.py`
 - `src/jobs/scheduler.py`
 - `src/api/app.py`
+- `src/config.py`
+- `src/services/builtin_scheduler.py`
 - `tests/test_phase3_ingestion.py`
+- `tests/test_builtin_scheduler.py`
+- `.env.example`
+- `README.md`
 - `docs/agent-memory/HANDOFF.md`
 - `docs/agent-memory/SESSION_SUMMARY.md`
 - `docs/agent-memory/TASK_BOARD.md`
@@ -43,9 +58,12 @@
 - retention-limited datasets should be maintained as canonical recent-history series, not merely as freshness snapshots
 - scheduler refresh is now allowed to write recent aligned history for OI/sentiment datasets because that is less harmful than repeatedly producing off-grid OI rows plus empty sentiment maintenance
 - scheduler remediation should plan against the recent 30-day integrity profile for retention-limited datasets, even if that means ignoring the shorter generic `lookback_hours` freshness horizon
+- built-in recurring job execution should be explicitly opt-in and centrally controlled through config, not implicitly inferred from hidden local processes
 
 ## Verification
 - `python -m py_compile src/jobs/refresh_market_snapshots.py src/jobs/remediate_market_snapshots.py src/jobs/scheduler.py src/api/app.py tests/test_phase3_ingestion.py`
+- `python -m py_compile src/config.py src/services/builtin_scheduler.py src/api/app.py tests/test_builtin_scheduler.py`
+- `python -m unittest tests.test_builtin_scheduler -v`
 - `python -m unittest tests.test_phase3_ingestion -v`
 - `python -m unittest tests.test_phase4_quality -v`
 - `python -m unittest discover -s tests -v`
@@ -55,6 +73,7 @@
 - the recent-history scheduler refresh window is intentionally bounded; if Binance skips a bucket for longer than that small refresh window, remediation is still responsible for healing it
 - old pre-retention local rows can still exist from manual experimentation until operators cleanup/re-grab those tables
 - `open_interest` still conceptually mixes snapshot and history semantics in the REST client layer; the current fix prevents scheduler drift, but a future refactor could separate the two more cleanly
+- the built-in scheduler currently supports the repo's existing `interval:*s` triggers plus the simple hourly `cron:0 * * * *` shape already present in the schedule plan; more complex cron expressions would need explicit extension later
 
 ## Next
 - continue the Phase 5 replay/debug-trace investigation linkage now that sentiment-aware traces persist compact market context snapshots

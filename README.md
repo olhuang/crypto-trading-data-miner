@@ -152,6 +152,13 @@ Current local remediation behavior:
 - when `APP_ENV=local` and `ENABLE_STARTUP_GAP_REMEDIATION=true`, app startup can run a one-time recent bars gap detection/remediation pass
 - this is intended for local/dev only and is not the production remediation model
 
+Current built-in scheduler behavior:
+- app-local recurring scheduler jobs are controlled from one place through `.env` / `src/config.py`
+- `ENABLE_BUILTIN_SCHEDULER=true` turns the built-in scheduler on
+- `BUILTIN_SCHEDULER_JOB_GROUPS=phase3,phase4` chooses which registered job groups run
+- `BUILTIN_SCHEDULER_EXCHANGE_CODE`, `BUILTIN_SCHEDULER_SYMBOL`, and `BUILTIN_SCHEDULER_UNIFIED_SYMBOL` define the market-snapshot target used by the built-in scheduler
+- the current registered recurring jobs are defined in `src/jobs/scheduler.py`
+
 Current monitoring UI behavior:
 - `/monitoring` provides a lightweight internal console for Overview, Backtests, Jobs, Quality, and Traceability views
 - it is intentionally an internal monitoring/diagnostic UI, not the full long-term frontend architecture

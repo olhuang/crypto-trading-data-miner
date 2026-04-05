@@ -27,6 +27,7 @@ from jobs.remediate_market_snapshots import run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
 from services.btc_backfill_control import load_binance_btc_backfill_status, trigger_binance_btc_incremental_backfill
+from services.builtin_scheduler import start_builtin_scheduler
 from services.integrity_repair_control import repair_bars_integrity_windows
 from services.startup_remediation import run_startup_gap_remediation
 from services.traceability import get_raw_event_detail, normalized_links_for_raw_event, replay_readiness_summary
@@ -1276,11 +1277,14 @@ def _build_backtest_debug_trace_resource(record: dict[str, Any]) -> BacktestDebu
 def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        if settings.app_env != "local" or not settings.enable_startup_gap_remediation:
+        scheduler_handle = start_builtin_scheduler()
+        try:
+            if settings.app_env == "local" and settings.enable_startup_gap_remediation:
+                run_startup_gap_remediation()
             yield
-            return
-        run_startup_gap_remediation()
-        yield
+        finally:
+            if scheduler_handle is not None:
+                await scheduler_handle.stop()
 
     app = FastAPI(title="Crypto Trading Data Miner API", version="0.1.0", lifespan=lifespan)
     monitoring_dir = Path(__file__).resolve().parents[2] / "frontend" / "monitoring"

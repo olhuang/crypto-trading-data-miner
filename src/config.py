@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     app_debug: bool = False
     enable_local_auth_bypass: bool = True
+    enable_builtin_scheduler: bool = False
+    builtin_scheduler_job_groups: str = "phase3,phase4"
+    builtin_scheduler_exchange_code: str = "binance"
+    builtin_scheduler_symbol: str = "BTCUSDT"
+    builtin_scheduler_unified_symbol: str = "BTCUSDT_PERP"
     enable_startup_gap_remediation: bool = False
     startup_gap_remediation_exchange_code: str = "binance"
     startup_gap_remediation_symbols: str = "BTCUSDT_PERP"
