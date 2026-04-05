@@ -18,6 +18,7 @@ This file is intended to be used together with:
 - `docs/ui-spec.md`
 - `docs/ui-api-spec.md`
 - `docs/frontend-keep-evolve-replace-strategy.md`
+- `docs/quality-integrity-ui-plan.md`
 - `docs/phase-1-checklist.md`
 - `docs/phases-2-to-9-checklists.md`
 
@@ -370,6 +371,7 @@ Required sections:
 - [ ] duplicate summary
 - [ ] gap summary by data type
 - [ ] recent checks table
+- [ ] integrity workspace entry point
 
 ### Page 4.2: Data Gaps Explorer
 Required sections:
@@ -392,12 +394,32 @@ Required sections:
 - [ ] known gaps panel
 - [ ] reprocessing notes section
 
+### Page 4.5: Integrity Validation
+Required sections:
+- [ ] explicit symbol/window validation form
+- [ ] quick range helpers
+- [ ] persist findings control
+- [ ] dataset summary table
+- [ ] selected dataset integrity detail
+- [ ] raw validation JSON detail
+
+### Page 4.6: BTC Backfill Status
+Required sections:
+- [ ] current mode/state summary
+- [ ] task progress summary
+- [ ] per-dataset progress list
+- [ ] coverage summary
+- [ ] last-result panel
+
 ## Required Components
 - [ ] quality summary cards
 - [ ] data gaps table
 - [ ] JSON payload viewer
 - [ ] raw-to-normalized linkage panel
 - [ ] replay readiness checklist block
+- [ ] integrity validation form
+- [ ] dataset integrity summary table
+- [ ] backfill status summary block
 
 ## Required User Events
 - [ ] user filters quality checks by severity/status
@@ -405,21 +427,29 @@ Required sections:
 - [ ] user opens raw payload JSON
 - [ ] user inspects normalized links from raw event
 - [ ] user reviews replay readiness summary
+- [ ] user validates one symbol/window for integrity from UI
+- [ ] user uses quick ranges to set the validation window
+- [ ] user inspects one dataset's integrity findings
+- [ ] user inspects current BTC backfill status from UI
 
 ## Data Dependencies
 - `/api/v1/quality/checks`
 - `/api/v1/quality/summary`
 - `/api/v1/quality/gaps`
+- `/api/v1/quality/integrity`
 - `/api/v1/market/raw-events`
 - `/api/v1/market/raw-events/{raw_event_id}`
 - `/api/v1/market/raw-events/{raw_event_id}/normalized-links`
 - `/api/v1/replay/readiness`
+- future read-only status endpoint for BTC backfill progress/coverage
 
 ## Acceptance Checks
 - [ ] Data Quality Dashboard shows pass/fail summaries
 - [ ] Data Gaps Explorer lists open gaps when present
 - [ ] Raw Event Explorer displays payload JSON correctly
 - [ ] replay readiness summary is visible without reading docs directly
+- [ ] Integrity Validation can validate one bounded symbol/window from UI
+- [ ] BTC backfill status can be inspected from UI without reading the status file manually
 
 ## Current Implementation Note
 - `/monitoring` currently satisfies the first operational slice for:
@@ -427,6 +457,7 @@ Required sections:
   - recent gaps inspection
   - raw-event detail inspection
   - raw-to-normalized traceability inspection
+- a dedicated plan now exists for adding integrity validation and BTC backfill status to the current Quality workspace in `docs/quality-integrity-ui-plan.md`
 - it does not yet implement the full long-term product UI/component set described for Phase 4
 
 ## Handoff Criteria to Phase 5 UI

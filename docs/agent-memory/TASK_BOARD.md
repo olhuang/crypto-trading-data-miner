@@ -13,6 +13,7 @@
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - decide whether the new dataset-integrity validation flow should stay CLI/API-first for now or get a `/monitoring` quality surface next
+- plan the `/monitoring` Quality workspace evolution for bounded integrity validation and BTC backfill status
 
 ## Blocked
 - none currently recorded
@@ -25,8 +26,10 @@
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
 - expose dataset-integrity validation and/or BTC backfill status inside `/monitoring` if the data-quality line becomes the next active slice
+- if the data-quality UI line starts next, begin `UI Slice 4A: Integrity Form + Result Summary` from `docs/quality-integrity-ui-plan.md`
 
 ## Recently Done
+- added `docs/quality-integrity-ui-plan.md` to define how bounded integrity validation and BTC backfill status should land inside the current `/monitoring` Quality workspace
 - added typed dataset-integrity validation for `gap / duplicate / missing / corrupt` checks, plus persisted integrity findings into `ops.data_quality_checks` and `ops.data_gaps`
 - added `POST /api/v1/quality/integrity` plus local `scripts/validate_dataset_integrity.py` and `scripts/validate_dataset_integrity.ps1` entrypoints
 - tightened Phase 4 quality tests so integrity fixtures clean up after themselves and no longer leave future-dated contamination behind in the local DB

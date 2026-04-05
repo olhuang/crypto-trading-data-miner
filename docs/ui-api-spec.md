@@ -639,6 +639,9 @@ Implementation note:
   - `_SPOT`: `bars_1m`
   - `_PERP`: `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, `index_prices`
 - `raw_market_events` and `trades` can still be requested explicitly through `data_types`
+- UI planning note:
+  - the current `/monitoring` Quality workspace should expose this endpoint as an explicit bounded-window validation surface with quick-range helpers
+  - see `docs/quality-integrity-ui-plan.md`
 
 Request:
 ```json
@@ -694,6 +697,14 @@ Response fields:
 - known_gaps
 - retention_policy
 - replay_ready_datasets
+
+### GET `/api/v1/quality/backfill-status/binance-btc`
+Purpose:
+- future read-only status endpoint for the local BTC bootstrap/incremental workflow so `/monitoring` can show backfill progress/coverage without reading the status file manually
+
+Planning note:
+- this endpoint is not implemented yet
+- see `docs/quality-integrity-ui-plan.md`
 
 ## Phase 4 Acceptance via UI/API
 - [x] UI can show aggregated quality results

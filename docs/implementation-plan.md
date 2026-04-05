@@ -54,6 +54,7 @@ The repository already has a strong design foundation and is now design-complete
 - `docs/backtest-and-replay-diagnostics-spec.md` now freezes the intended plan for run reporting, debug traces, replay diagnostics, and UI inspection needs
 - `docs/frontend-keep-evolve-replace-strategy.md` now freezes the intended three-part frontend strategy: keep the current internal `/monitoring` console, evolve its near-term usability, and replace the long-term product frontend through the planned route-based foundation
 - `docs/frontend-ui-usability-improvement-plan.md` now tracks how the current internal `/monitoring` console should be cleaned up into a clearer research workbench without mixing that effort into unrelated backend slices
+- `docs/quality-integrity-ui-plan.md` now tracks how dataset-integrity validation and BTC backfill status should be surfaced inside the current `/monitoring` Quality workspace
 - the current internal `/monitoring` Backtests launch flow now includes the first usability-cleanup slice: visible labels, grouped sections, preset helpers, better boolean controls, and summary-first run orientation
 - `docs/debug-trace-rollout-plan.md` now tracks the concrete staged rollout for Level 1 / Level 2 / Level 3 debug-trace work and the next recommended resume slice
 - `docs/backtest-risk-guardrails-spec.md` now freezes the intended shared pre-trade guardrail model for Phase 5 backtests and later paper/live reuse

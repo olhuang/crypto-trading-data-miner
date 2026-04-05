@@ -91,8 +91,9 @@ Read in this order:
 19. `docs/debug-trace-rollout-plan.md`
 20. `docs/frontend-keep-evolve-replace-strategy.md`
 21. `docs/frontend-ui-usability-improvement-plan.md`
-22. `docs/pnl-and-accounting-spec.md`
-23. `docs/testing-strategy-spec.md`
+22. `docs/quality-integrity-ui-plan.md`
+23. `docs/pnl-and-accounting-spec.md`
+24. `docs/testing-strategy-spec.md`
 
 ## 3.3 For Data / Platform Engineers
 
@@ -117,6 +118,7 @@ Read in this order:
 6. `docs/frontend-foundation-spec.md`
 7. `docs/frontend-keep-evolve-replace-strategy.md`
 8. `docs/frontend-ui-usability-improvement-plan.md`
+9. `docs/quality-integrity-ui-plan.md`
 
 ## 3.5 For Operators / Trading Runtime Contributors
 
@@ -196,6 +198,7 @@ Read in this order:
 - `docs/debug-trace-rollout-plan.md`
 - `docs/frontend-keep-evolve-replace-strategy.md`
 - `docs/frontend-ui-usability-improvement-plan.md`
+- `docs/quality-integrity-ui-plan.md`
 - `docs/agent-memory/SESSION_START_PROMPT.md`
 - `docs/agent-memory/SESSION_STOP_CHECKLIST.md`
 - `docs/agent-memory/WORKFLOW_AUTOMATION_TEMPLATE.md`
@@ -213,6 +216,7 @@ Read in this order:
 - step-level debug trace phased rollout tracking: `docs/debug-trace-rollout-plan.md`
 - keep/evolve/replace role split between the current `/monitoring` console and the future primary frontend: `docs/frontend-keep-evolve-replace-strategy.md`
 - front-end usability cleanup and phased `/monitoring` workbench restructuring: `docs/frontend-ui-usability-improvement-plan.md`
+- Phase 4 integrity-validation and BTC backfill-status UX inside the current `Quality` workspace: `docs/quality-integrity-ui-plan.md`
 - reusable session start/stop and CLI/VS Code memory-workflow templates: `docs/agent-memory/*`
 
 ---
@@ -270,6 +274,7 @@ Read in this order:
 - `docs/frontend-foundation-spec.md`
 - `docs/frontend-keep-evolve-replace-strategy.md`
 - `docs/frontend-ui-usability-improvement-plan.md`
+- `docs/quality-integrity-ui-plan.md`
 
 ### Source of Truth
 - UI intent and phase mapping: `docs/ui-spec.md`
@@ -280,6 +285,7 @@ Read in this order:
 - first frontend slice: `docs/frontend-foundation-spec.md`
 - keep/evolve/replace transition strategy for current `/monitoring` versus future frontend foundation: `docs/frontend-keep-evolve-replace-strategy.md`
 - current `/monitoring` usability cleanup and phased research-workbench restructuring: `docs/frontend-ui-usability-improvement-plan.md`
+- current `/monitoring` Quality-workspace evolution for integrity validation and BTC backfill status: `docs/quality-integrity-ui-plan.md`
 
 ---
 

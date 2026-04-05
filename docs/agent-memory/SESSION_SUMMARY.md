@@ -1,41 +1,40 @@
 # Session Summary
 
 ## Goal
-- add a usable dataset-integrity validation workflow so local market-data coverage can be checked for gap / duplicate / missing / corrupt issues without manual SQL digging
+- plan how dataset-integrity validation and BTC backfill status should be surfaced inside the current `/monitoring` Quality workspace
 
 ## Done
-- added a typed Phase 4 dataset-integrity validator that reports per-dataset `gap / duplicate / missing / corrupt` findings for `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, `index_prices`, and optional `trades` / `raw_market_events`
-- added `POST /api/v1/quality/integrity` with typed request/response resources so integrity checks can be invoked without ad hoc SQL
-- added `scripts/validate_dataset_integrity.py` and `scripts/validate_dataset_integrity.ps1` for local CLI/PowerShell validation
-- made the integrity validator optionally persist findings into `ops.data_quality_checks` and interval-gap segments into `ops.data_gaps`
-- aligned the default integrity dataset selection with the BTC backfill footprint: spot defaults to `bars_1m`; perp defaults to `bars_1m + funding/open_interest/mark/index`
-- tightened Phase 4 tests so integrity fixtures clean themselves up and local test runs stop leaving future-dated contamination behind
-- verified the new workflow with `py_compile`, targeted Phase 4 unit tests, full-unit discovery, and a PowerShell wrapper smoke check
+- reviewed the current Quality view, existing Phase 4 APIs, and current frontend evolve strategy
+- added `docs/quality-integrity-ui-plan.md` as the dedicated plan for bounded integrity validation, quick ranges, dataset summary/detail, and future BTC backfill status inside `/monitoring`
+- wired the new plan into:
+  - `docs/spec-index.md`
+  - `docs/implementation-plan.md`
+  - `docs/ui-api-spec.md`
+  - `docs/ui-phase-checklists.md`
+- defined the recommended phased rollout:
+  - `UI Slice 4A: Integrity Form + Result Summary`
+  - `UI Slice 4B: Dataset Detail Drill-Down`
+  - `UI Slice 4C: BTC Backfill Status`
+  - `UI Slice 4D: Quality Workspace Restructure`
 
 ## Files Changed
-- `docs/agent-memory/PROJECT_STATE.md`
-- `docs/agent-memory/TASK_BOARD.md`
-- `docs/agent-memory/HANDOFF.md`
-- `docs/agent-memory/SESSION_SUMMARY.md`
-- `docs/api-resource-contracts.md`
-- `docs/ui-api-spec.md`
+- `docs/quality-integrity-ui-plan.md`
+- `docs/spec-index.md`
 - `docs/implementation-plan.md`
-- `docs/phases-2-to-9-checklists.md`
-- `README.md`
-- `src/api/app.py`
-- `src/jobs/data_quality.py`
-- `tests/test_phase4_quality.py`
-- `scripts/validate_dataset_integrity.py`
-- `scripts/validate_dataset_integrity.ps1`
+- `docs/ui-api-spec.md`
+- `docs/ui-phase-checklists.md`
+- `docs/agent-memory/HANDOFF.md`
+- `docs/agent-memory/TASK_BOARD.md`
+- `docs/agent-memory/SESSION_SUMMARY.md`
 
 ## Decisions
-- keep dataset-integrity validation typed and dataset-aware instead of falling back to one generic row-count check
-- align default integrity checks to the actual backfill footprint so spot/perp operators get useful defaults without validating unsupported datasets every time
+- keep integrity validation inside the existing `Quality` page instead of creating a new top-level nav item
+- require or derive an explicit bounded time window for integrity checks, while adding quick ranges for operator convenience
+- treat BTC backfill status as a companion quality/coverage surface, not as a parallel workflow page
 
 ## Risks / Unknowns
-- the new integrity workflow is API/CLI-first; `/monitoring` does not yet surface integrity results
-- interval-based gap detection is strongest for time-series datasets; `trades` and `raw_market_events` remain opt-in and are better suited to duplicate/corrupt checks than cadence-gap expectations
-- open-interest history remains availability-limited on the Binance side, so old windows can still legitimately report no coverage
+- the planning is now clear, but the actual `/monitoring` implementation has not started yet
+- the future BTC backfill status panel still needs a dedicated read-only API endpoint before the UI can stop depending on local file inspection
 
 ## Next
-- if the data-quality line continues next, add a `/monitoring` surface for BTC backfill status and dataset-integrity validation; otherwise resume `UI Phase B: Backtest Workspace Restructure`
+- if the data-quality UI line remains active, begin `UI Slice 4A: Integrity Form + Result Summary`

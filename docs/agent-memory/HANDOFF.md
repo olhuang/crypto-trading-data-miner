@@ -28,6 +28,7 @@
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 - `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
 - `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
+- `docs/quality-integrity-ui-plan.md` now exists as the dedicated resume document for surfacing bounded dataset-integrity validation and BTC backfill status inside the current `/monitoring` Quality workspace
 - the current `/monitoring` Backtests launch flow now uses visible labels, grouped sections, preset helpers, checkbox/select controls, and a summary-first selected-run panel instead of relying as heavily on placeholder-only inputs and raw JSON first
 - the current `/monitoring` Backtests launch flow now also shows an honest launch-status indicator with disabled form state, staged progress, and automatic run selection after a successful launch
 - the current `/monitoring` Backtests launch flow now keeps `Available Assumption Bundles` and `Available Risk Policies` in collapsed details panels by default to reduce visual clutter
@@ -56,6 +57,7 @@
 - replay investigation notes and unified annotation service remain future work
 - the actual Binance BTC long-history pull still has to be run on the local machine outside the harness
 - the new dataset-integrity workflow is not yet surfaced inside `/monitoring`, so it currently remains API/CLI-first
+- the quality-side UI direction is now explicit: keep integrity validation bounded by date window, add quick-range helpers, and stage BTC backfill status as a companion quality surface instead of a separate top-level page
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -74,6 +76,7 @@
 - `docs/debug-trace-rollout-plan.md`
 - `docs/frontend-ui-usability-improvement-plan.md`
 - `docs/frontend-keep-evolve-replace-strategy.md`
+- `docs/quality-integrity-ui-plan.md`
 - `db/init/009_backtest_debug_traces.sql`
 - `db/init/010_backtest_debug_trace_level2.sql`
 - `src/backtest/traces.py`
@@ -98,4 +101,4 @@
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- if the data-quality line stays active, expose BTC backfill status and dataset-integrity validation in `/monitoring`; otherwise return to the UI line at `UI Phase B: Backtest Workspace Restructure`
+- if the data-quality line stays active, begin `UI Slice 4A: Integrity Form + Result Summary` from `docs/quality-integrity-ui-plan.md`; otherwise return to the UI line at `UI Phase B: Backtest Workspace Restructure`
