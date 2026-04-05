@@ -116,6 +116,8 @@
 - `tests/test_phase3_ingestion.py` historical snapshot-refresh tests were confirmed as the source of the recurring `2024-04-02T12:30/12:35Z` fixture contamination in `open_interest` and the Binance futures sentiment-ratio tables
 - those Phase 3 ingestion tests now register explicit cleanup for the exact historical fixture window, so future local test runs no longer leave `open_interest` / `global_long_short_account_ratios` / `top_trader_long_short_account_ratios` / `top_trader_long_short_position_ratios` / `taker_long_short_ratios` residue behind
 - the current local DB has already had that `2024-04-02T12:30/12:35Z` fixture window cleaned out for the affected BTC perp OI/sentiment tables
+- dataset-integrity reporting for retention-limited datasets now distinguishes between the selected-window first row and the first row actually used for continuity checks; `available_from` now aligns to the integrity profile window instead of surfacing stale pre-retention fixture rows
+- the dataset-integrity API now also exposes `profile_window_start`, `selected_window_available_from`, and `selected_window_available_to`, and `/monitoring -> Quality` labels `available_from` as `First Record Used For Integrity` to reduce confusion around OI/sentiment continuity
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed

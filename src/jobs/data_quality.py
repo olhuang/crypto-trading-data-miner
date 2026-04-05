@@ -40,9 +40,12 @@ class DatasetIntegrityDatasetReport:
     row_count: int
     expected_interval_seconds: int | None
     expected_points: int | None
+    profile_window_start: datetime | None
     available_from: datetime | None
     available_to: datetime | None
     safe_available_to: datetime | None
+    selected_window_available_from: datetime | None
+    selected_window_available_to: datetime | None
     missing_count: int
     coverage_shortfall_count: int
     internal_missing_count: int
@@ -798,8 +801,10 @@ def validate_dataset_integrity(
                 period_code=period_code,
             )
             row_count = int(window_stats.get("row_count") or 0)
-            available_from = window_stats.get("available_from")
-            available_to = window_stats.get("available_to")
+            selected_window_available_from = window_stats.get("available_from")
+            selected_window_available_to = window_stats.get("available_to")
+            available_from = selected_window_available_from
+            available_to = selected_window_available_to
             timestamps = []
             expected_points: int | None = None
             missing_count = 0
@@ -807,6 +812,7 @@ def validate_dataset_integrity(
             internal_missing_count = 0
             tail_missing_count = 0
             gap_segments: list[dict[str, Any]] = []
+            profile_start_time: datetime | None = None
             if interval is not None:
                 timestamps = _query_dataset_timestamps(
                     connection,
@@ -844,6 +850,7 @@ def validate_dataset_integrity(
                 internal_missing_count = coverage_profile.internal_missing_count
                 tail_missing_count = coverage_profile.tail_missing_count
                 gap_segments = coverage_profile.internal_gap_segments
+                available_from = safe_timestamps[0] if safe_timestamps else None
             elif row_count == 0:
                 missing_count = 1
 
@@ -882,8 +889,8 @@ def validate_dataset_integrity(
             )
             total_corrupt_count = corrupt_count + future_row_count
             safe_available_to = available_to
-            if interval is not None and safe_timestamps:
-                safe_available_to = safe_timestamps[-1]
+            if interval is not None:
+                safe_available_to = safe_timestamps[-1] if safe_timestamps else None
             elif future_row_count > 0:
                 safe_available_to_row = connection.exec_driver_sql(
                     (
@@ -1027,9 +1034,12 @@ def validate_dataset_integrity(
                 row_count=row_count,
                 expected_interval_seconds=int(interval.total_seconds()) if interval is not None else None,
                 expected_points=expected_points,
+                profile_window_start=profile_start_time,
                 available_from=available_from,
                 available_to=available_to,
                 safe_available_to=safe_available_to,
+                selected_window_available_from=selected_window_available_from,
+                selected_window_available_to=selected_window_available_to,
                 missing_count=missing_count,
                 coverage_shortfall_count=coverage_shortfall_count,
                 internal_missing_count=internal_missing_count,

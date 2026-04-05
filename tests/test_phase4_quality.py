@@ -1398,6 +1398,9 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
         self.assertEqual(report.internal_missing_count, 0)
         self.assertEqual(report.coverage_shortfall_count, 0)
         self.assertGreater(report.tail_missing_count, 0)
+        self.assertEqual(report.profile_window_start, recent_start)
+        self.assertEqual(report.available_from, recent_start)
+        self.assertEqual(report.selected_window_available_from, old_time)
         self.assertEqual(report.status, "warning")
 
     def test_sentiment_ratio_integrity_uses_recent_retention_window_and_period_filter(self) -> None:
@@ -1467,6 +1470,9 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
         self.assertEqual(report.internal_missing_count, 0)
         self.assertEqual(report.coverage_shortfall_count, 0)
         self.assertGreater(report.tail_missing_count, 0)
+        self.assertEqual(report.profile_window_start, recent_start)
+        self.assertEqual(report.available_from, recent_start)
+        self.assertEqual(report.selected_window_available_from, old_time)
         self.assertEqual(report.status, "warning")
 
 

@@ -299,9 +299,12 @@ class DatasetIntegrityDatasetResource(BaseModel):
     row_count: int
     expected_interval_seconds: int | None = None
     expected_points: int | None = None
+    profile_window_start: str | None = None
     available_from: str | None = None
     available_to: str | None = None
     safe_available_to: str | None = None
+    selected_window_available_from: str | None = None
+    selected_window_available_to: str | None = None
     missing_count: int
     coverage_shortfall_count: int
     internal_missing_count: int
@@ -1583,9 +1586,16 @@ def create_app() -> FastAPI:
                         row_count=dataset.row_count,
                         expected_interval_seconds=dataset.expected_interval_seconds,
                         expected_points=dataset.expected_points,
+                        profile_window_start=dataset.profile_window_start.isoformat() if dataset.profile_window_start else None,
                         available_from=dataset.available_from.isoformat() if dataset.available_from else None,
                         available_to=dataset.available_to.isoformat() if dataset.available_to else None,
                         safe_available_to=dataset.safe_available_to.isoformat() if dataset.safe_available_to else None,
+                        selected_window_available_from=(
+                            dataset.selected_window_available_from.isoformat() if dataset.selected_window_available_from else None
+                        ),
+                        selected_window_available_to=(
+                            dataset.selected_window_available_to.isoformat() if dataset.selected_window_available_to else None
+                        ),
                         missing_count=dataset.missing_count,
                         coverage_shortfall_count=dataset.coverage_shortfall_count,
                         internal_missing_count=dataset.internal_missing_count,
