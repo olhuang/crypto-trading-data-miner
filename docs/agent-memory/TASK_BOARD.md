@@ -40,6 +40,8 @@
 - fixed the `bars_1m` future-row repair edge case so Quality finding actions can now derive repair windows from `future_examples` and clean those exact future minutes instead of failing with `no repair windows could be derived`
 - aligned the UI/API/script bars-repair flow so future-only findings now render as `Repair Future Row` and the shared repair service deletes future-dated bars while still using bounded backfill for historical corrupt/gap windows
 - widened finding-action eligibility again so non-bars `corrupt` findings on full-history datasets expose `Repair Corrupt via Incremental`, covering `mark_prices / index_prices / funding_rates`
+- traced the remaining `BTCUSDT_PERP bars_1m` future-row residue at `2036-01-04T23:59:00Z` to `tests/test_startup_remediation.py`, where the remediation lookback reached into the prior day but cleanup did not
+- fixed `tests/test_startup_remediation.py` so setup/teardown now delete the full remediation lookback window, and verified that neither the single test nor the full `144`-test regression suite reintroduces that future bar
 - added a first finding-aware repair flow inside `/monitoring -> Quality`, so `Selected Dataset Integrity -> Findings` can now trigger bounded `bars_1m` repair and dataset-scoped incremental backfill directly from the UI
 - expanded the finding-aware repair flow so supported non-bars `gap` findings can trigger incremental repair and non-retention-limited `coverage` findings can trigger coverage backfill from the same findings table
 - tightened the finding-action eligibility rules so supported `mark/index/sentiment` gap findings render their repair button more reliably while retention-limited coverage remains non-actionable

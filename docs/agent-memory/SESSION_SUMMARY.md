@@ -74,6 +74,12 @@
   - `tests/test_repair_bars_integrity_windows.py` now proves auto-detect includes `future_examples`
   - new `tests/test_integrity_repair_control.py` proves future windows are cleaned through delete flow while historical windows still use bounded backfill
 - reran targeted repair/quality tests plus a full suite pass: `python -m unittest discover -s tests -v` -> `144 tests`, `OK`
+- traced the still-recurring `BTCUSDT_PERP bars_1m` future row at `2036-01-04T23:59:00Z` to `tests/test_startup_remediation.py`: with `observed_at=2036-01-05T00:02:00Z` and `lookback_hours=0.05`, the remediation window starts at `2036-01-04T23:59:00Z`, but the test cleanup only deleted `2036-01-05T00:00:00Z -> 00:02:00Z`
+- updated `tests/test_startup_remediation.py` so its setup/teardown delete the full remediation lookback window, matching the actual bars that can be backfilled by the test
+- verified the fix by:
+  - running `python -m unittest tests.test_startup_remediation -v`
+  - confirming `md.bars_1m` has `0` rows at `2036-01-04T23:59:00Z` afterward
+  - rerunning `python -m unittest discover -s tests -v` (`144 tests`, `OK`) and confirming the future row still remains absent
 
 ## Files Changed
 - `frontend/monitoring/app.js`

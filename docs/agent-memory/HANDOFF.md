@@ -70,6 +70,9 @@
 - `bars_1m` future-row repair no longer dead-ends on corrupt-only assumptions: the UI now derives repair windows from `future_examples`, labels those findings as `Repair Future Row` when appropriate, and the backend deletes the exact future minute instead of attempting a meaningless future backfill
 - `scripts/repair_bars_integrity_windows.py` now routes through the shared repair service, so auto-detected future-dated bars are handled the same way as the UI/API repair path
 - non-bars `corrupt` findings for full-history datasets now render a repair action too, so `mark_prices / index_prices / funding_rates` can trigger dataset-scoped incremental repair from the Findings table instead of only showing actions for `gap/tail/coverage`
+- the recurring `BTCUSDT_PERP bars_1m` future row at `2036-01-04T23:59:00Z` was traced to `tests/test_startup_remediation.py`: the test's remediation lookback reached back to `23:59`, but its cleanup only deleted `00:00 -> 00:02`
+- `tests/test_startup_remediation.py` now cleans the full remediation lookback window (`observed_at - lookback_hours -> observed_at`), so running that test or the full regression suite no longer leaves the `2036-01-04T23:59:00Z` residue behind
+- a post-fix targeted `tests.test_startup_remediation` run and a full `python -m unittest discover -s tests -v` run both leave `md.bars_1m` clean at `2036-01-04T23:59:00Z`
 - local `BTCUSDT_PERP` sentiment-ratio tables were confirmed to contain old `2024-04-02` test-fixture residue plus a recent real block; the fixture residue was operator-cleaned from the local DB before re-grab
 - a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run

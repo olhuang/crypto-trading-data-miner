@@ -63,6 +63,8 @@ class StartupRemediationTests(unittest.TestCase):
         start_time = datetime(2036, 1, 5, 0, 0, tzinfo=timezone.utc)
         gap_time = start_time + timedelta(minutes=1)
         end_time = start_time + timedelta(minutes=2)
+        lookback_hours = 0.05
+        remediation_window_start = end_time - timedelta(hours=lookback_hours)
 
         try:
             with transaction_scope() as connection:
@@ -73,13 +75,13 @@ class StartupRemediationTests(unittest.TestCase):
                         select instrument.instrument_id
                         from ref.instruments instrument
                         join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
                         limit 1
                     )
                       and data_type = 'bars_1m'
                       and gap_start between %s and %s
                     """,
-                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                    ("binance", "BTCUSDT_PERP", remediation_window_start, end_time),
                 )
                 connection.exec_driver_sql(
                     """
@@ -88,12 +90,12 @@ class StartupRemediationTests(unittest.TestCase):
                         select instrument.instrument_id
                         from ref.instruments instrument
                         join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
                         limit 1
                     )
                       and bar_time between %s and %s
                     """,
-                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                    ("binance", "BTCUSDT_PERP", remediation_window_start, end_time),
                 )
 
                 BarRepository().upsert(
@@ -137,7 +139,7 @@ class StartupRemediationTests(unittest.TestCase):
             result = remediation_module.run_startup_gap_remediation(
                 exchange_code="binance",
                 unified_symbols=["BTCUSDT_PERP"],
-                lookback_hours=0.05,
+                lookback_hours=lookback_hours,
                 client=client,
                 observed_at=end_time,
             )
@@ -197,13 +199,13 @@ class StartupRemediationTests(unittest.TestCase):
                         select instrument.instrument_id
                         from ref.instruments instrument
                         join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
                         limit 1
                     )
                       and data_type = 'bars_1m'
                       and gap_start between %s and %s
                     """,
-                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                    ("binance", "BTCUSDT_PERP", remediation_window_start, end_time),
                 )
                 connection.exec_driver_sql(
                     """
@@ -212,12 +214,12 @@ class StartupRemediationTests(unittest.TestCase):
                         select instrument.instrument_id
                         from ref.instruments instrument
                         join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
                         limit 1
                     )
                       and bar_time between %s and %s
                     """,
-                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                    ("binance", "BTCUSDT_PERP", remediation_window_start, end_time),
                 )
 
     def test_startup_hook_only_runs_when_local_flag_is_enabled(self) -> None:
