@@ -16,6 +16,10 @@
 - fixed the REST premium-index normalization bug so `mark_prices / index_prices` snapshot writes now use Binance payload event time instead of local `observed_at`, preventing new microsecond poll timestamps from contaminating the historical series
 - added a regression test proving snapshot refresh writes `mark/index` rows at the exchange payload timestamp
 - updated `docs/quality-integrity-ui-plan.md` so it now reflects that `UI Slice 4A` is landed and the next likely slice is `UI Slice 4C`
+- added `scripts/cleanup_offgrid_mark_index_rows.py` to remove legacy off-grid `mark_prices / index_prices` rows whose timestamps are not aligned to minute boundaries
+- ran the cleanup for `BTCUSDT_PERP`, deleting 67 `mark_prices` rows and 67 `index_prices` rows from the local DB
+- verified the cleanup with a dry-run showing no remaining off-grid `mark/index` rows for `BTCUSDT_PERP`
+- confirmed the cleanup materially improved integrity diagnostics: `mark/index` gap noise dropped from 30 segments each to 3 segments each, so the remaining failures now read as coverage shortfall plus a real missing block instead of timestamp contamination
 
 ## Files Changed
 - `frontend/monitoring/index.html`
@@ -25,6 +29,7 @@
 - `docs/agent-memory/HANDOFF.md`
 - `docs/agent-memory/TASK_BOARD.md`
 - `docs/agent-memory/SESSION_SUMMARY.md`
+- `scripts/cleanup_offgrid_mark_index_rows.py`
 
 ## Decisions
 - keep integrity validation inside the existing `Quality` page instead of creating a new top-level nav item
@@ -35,8 +40,11 @@
 ## Risks / Unknowns
 - the new integrity UI has only been syntax-checked, not browser e2e tested in this harness
 - the future BTC backfill status panel still needs a dedicated read-only API endpoint before the UI can stop depending on local file inspection
-- the current mark/index integrity failures still mix existing DB coverage gaps with legacy off-grid snapshot contamination from before the timestamp fix, so code is corrected but historical data still needs remediation/backfill
+- the off-grid `mark/index` contamination has now been cleaned for `BTCUSDT_PERP`, but the integrity view still reflects real coverage shortfall and at least one larger missing block around `2026-04-03T08:39Z -> 2026-04-04T13:27Z`
+- `bars_1m` still has one genuinely corrupt candle (`close > high`) plus a 5-minute tail shortfall at the end of the selected day window
+- `funding_rates` and `open_interest` still fail broad windows mainly because the requested validation window starts earlier than the current local coverage
 
 ## Next
 - if the data-quality UI line remains active, build `UI Slice 4C: BTC Backfill Status Panel`
 - optional follow-up before that: polish the selected dataset detail toward the fuller `UI Slice 4B` presentation
+- if data remediation stays active, investigate the remaining true `mark/index` coverage gap after the off-grid cleanup rather than the already-fixed timestamp pollution

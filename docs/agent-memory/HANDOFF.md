@@ -55,6 +55,11 @@
 - BTC `open_interest` incremental catch-up now always re-fetches the currently available 30-day window, so recent-tail gaps can be repaired instead of only appending after the latest stored timestamp
 - REST `premiumIndex` normalization now uses Binance payload event time for `mark_prices / index_prices` snapshot writes, preventing new microsecond poll timestamps from contaminating the historical minute series
 - `docs/quality-integrity-ui-plan.md` now reflects that `UI Slice 4A` is complete and points the next likely resume slice toward `UI Slice 4C: BTC Backfill Status Panel`
+- a reusable cleanup tool now exists at `scripts/cleanup_offgrid_mark_index_rows.py` for deleting legacy off-grid `mark_prices / index_prices` rows that were previously written with non-minute timestamps
+- the local `BTCUSDT_PERP` `mark_prices / index_prices` series has already been remediated with that tool, deleting 67 off-grid rows from each table
+- after the cleanup, a dry-run confirms there are no remaining off-grid `mark/index` rows for `BTCUSDT_PERP`
+- the cleanup materially reduced integrity noise for `mark/index`: gap segments dropped from 30 to 3 per dataset, so the remaining failures now point to real coverage shortfall and at least one larger missing range instead of timestamp contamination
+- the remaining `bars_1m` integrity issue is now clearly a separate problem: one corrupt candle (`close > high`) plus a 5-minute tail shortfall at the end of the selected day window
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -67,7 +72,8 @@
 - the quality-side UI direction is now explicit: keep integrity validation bounded by date window, add quick-range helpers, and stage BTC backfill status as a companion quality surface instead of a separate top-level page
 - the Quality page still does not surface BTC backfill status, so operators still need the local status file or PowerShell wrapper for that workflow
 - the new integrity UI has not yet been browser e2e tested in this harness
-- current `mark_prices / index_prices` integrity failures still include historical coverage shortfall and legacy off-grid rows written before the snapshot timestamp fix, so the code path is corrected but existing local data still needs remediation/backfill
+- current `mark_prices / index_prices` integrity failures no longer look dominated by timestamp contamination; the remaining problem is historical coverage shortfall plus a real missing block after `2026-04-03T08:39Z`
+- `bars_1m` still contains a real corrupt row and a small tail gap, so integrity work is not finished even after the `mark/index` cleanup
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -104,6 +110,7 @@
 - `scripts/binance_btc_history_backfill.py`
 - `scripts/binance_btc_history_backfill.ps1`
 - `scripts/cleanup_future_dated_binance_market_data.py`
+- `scripts/cleanup_offgrid_mark_index_rows.py`
 - `scripts/validate_dataset_integrity.py`
 - `scripts/validate_dataset_integrity.ps1`
 - `src/jobs/data_quality.py`
@@ -111,4 +118,4 @@
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- if the data-quality line stays active, begin `UI Slice 4C: BTC Backfill Status Panel` from `docs/quality-integrity-ui-plan.md`; otherwise return to the UI line at `UI Phase B: Backtest Workspace Restructure`
+- if the data-quality line stays active, either begin `UI Slice 4C: BTC Backfill Status Panel` from `docs/quality-integrity-ui-plan.md` or investigate the remaining true `mark/index` coverage gap now that off-grid contamination has been removed
