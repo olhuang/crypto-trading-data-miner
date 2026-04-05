@@ -489,14 +489,18 @@ def planned_gap_windows(
     if aligned_end < aligned_start:
         return []
 
+    bucket_expr = bucket_expression_sql(spec.time_column, interval_seconds)
+    time_range_expression = spec.time_column
+    if not strict_alignment_required(spec):
+        time_range_expression = bucket_expr
+
     where_clauses = [
         "instrument_id = :instrument_id",
-        f"{spec.time_column} between :start_time and :end_time",
+        f"{time_range_expression} between :start_time and :end_time",
     ]
     if strict_alignment_required(spec):
         where_clauses.append(aligned_checkpoint_condition_sql(spec.time_column, interval_seconds))
 
-    bucket_expr = bucket_expression_sql(spec.time_column, interval_seconds)
     where_sql = " and ".join(where_clauses)
     rows = connection.execute(
         text(
@@ -753,6 +757,13 @@ def open_interest_available_from() -> datetime:
     return floor.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def funding_fetch_window(start_time: datetime, end_time: datetime) -> tuple[datetime, datetime]:
+    interval = timedelta(hours=8)
+    if end_time <= start_time:
+        return start_time, end_time + interval
+    return start_time, end_time + interval
+
+
 def run_open_interest_history_window(
     *,
     symbol: str,
@@ -944,13 +955,14 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
         }
 
     if task.task_kind == "funding_rates":
+        fetch_start_time, fetch_end_time = funding_fetch_window(task.start_time, task.end_time)
         result = run_market_snapshot_refresh(
             symbol=task.symbol,
             unified_symbol=task.unified_symbol,
             requested_by=requested_by,
             exchange_code="binance",
-            funding_start_time=task.start_time,
-            funding_end_time=task.end_time,
+            funding_start_time=fetch_start_time,
+            funding_end_time=fetch_end_time,
             include_funding=True,
             include_open_interest=False,
             include_mark_price=False,
@@ -965,6 +977,8 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "ingestion_job_id": result.ingestion_job_id,
             "window_start": task.start_time.isoformat(),
             "window_end": task.end_time.isoformat(),
+            "fetch_window_start": fetch_start_time.isoformat(),
+            "fetch_window_end": fetch_end_time.isoformat(),
         }
 
     if task.task_kind == "open_interest":

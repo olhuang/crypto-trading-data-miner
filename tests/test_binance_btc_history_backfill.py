@@ -234,6 +234,119 @@ class BinanceBtcHistoryBackfillTests(unittest.TestCase):
                     },
                 )
 
+    def test_planned_gap_windows_ignore_offgrid_funding_bucket_at_window_end(self) -> None:
+        start_time = datetime(2036, 1, 1, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2036, 1, 1, 8, 0, tzinfo=timezone.utc)
+        first_time = datetime(2036, 1, 1, 0, 0, 0, 1000, tzinfo=timezone.utc)
+        second_time = datetime(2036, 1, 1, 8, 0, 0, 8000, tzinfo=timezone.utc)
+        spec = binance_btc_history_backfill.DatasetSpec(
+            dataset_key="btc_perp_funding_rates",
+            label="BTCUSDT_PERP funding_rates",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="funding_rates",
+            table_name="md.funding_rates",
+            time_column="funding_time",
+        )
+
+        with transaction_scope() as connection:
+            instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
+            connection.execute(
+                text(
+                    """
+                    insert into md.funding_rates (
+                        instrument_id,
+                        funding_time,
+                        funding_rate,
+                        mark_price,
+                        index_price
+                    ) values
+                        (:instrument_id, :first_time, '0.0001', '100', '100'),
+                        (:instrument_id, :second_time, '0.0002', '101', '101')
+                    on conflict (instrument_id, funding_time) do update
+                    set funding_rate = excluded.funding_rate,
+                        mark_price = excluded.mark_price,
+                        index_price = excluded.index_price
+                    """
+                ),
+                {
+                    "instrument_id": instrument_id,
+                    "first_time": first_time,
+                    "second_time": second_time,
+                },
+            )
+
+        try:
+            with connection_scope() as connection:
+                windows = binance_btc_history_backfill.planned_gap_windows(
+                    connection,
+                    spec=spec,
+                    exchange_code="binance",
+                    start_time=start_time,
+                    end_time=end_time,
+                )
+
+            self.assertEqual(windows, [])
+        finally:
+            with transaction_scope() as connection:
+                instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
+                connection.execute(
+                    text(
+                        """
+                        delete from md.funding_rates
+                        where instrument_id = :instrument_id
+                          and funding_time in (:first_time, :second_time)
+                        """
+                    ),
+                    {
+                        "instrument_id": instrument_id,
+                        "first_time": first_time,
+                        "second_time": second_time,
+                    },
+                )
+
+    def test_execute_task_expands_funding_fetch_window(self) -> None:
+        original_refresh = binance_btc_history_backfill.run_market_snapshot_refresh
+        calls: list[tuple[datetime, datetime]] = []
+
+        def fake_refresh(**kwargs):
+            calls.append((kwargs["funding_start_time"], kwargs["funding_end_time"]))
+            return SimpleNamespace(
+                status="succeeded",
+                records_written=1,
+                history_rows_written=0,
+                ingestion_job_id=1,
+            )
+
+        task = binance_btc_history_backfill.ChunkTask(
+            dataset_key="btc_perp_funding_rates",
+            label="BTCUSDT_PERP funding_rates",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="funding_rates",
+            chunk_index=1,
+            chunk_total=1,
+            start_time=datetime(2036, 1, 1, 8, 0, tzinfo=timezone.utc),
+            end_time=datetime(2036, 1, 1, 8, 0, tzinfo=timezone.utc),
+        )
+
+        try:
+            binance_btc_history_backfill.run_market_snapshot_refresh = fake_refresh
+            result = binance_btc_history_backfill.execute_task(task, requested_by="test")
+        finally:
+            binance_btc_history_backfill.run_market_snapshot_refresh = original_refresh
+
+        self.assertEqual(
+            calls,
+            [
+                (
+                    datetime(2036, 1, 1, 8, 0, tzinfo=timezone.utc),
+                    datetime(2036, 1, 1, 16, 0, tzinfo=timezone.utc),
+                )
+            ],
+        )
+        self.assertEqual(result["rows_written"], 1)
+
     def test_filter_incremental_dataset_specs_supports_aliases(self) -> None:
         dataset_specs = binance_btc_history_backfill.build_incremental_dataset_specs()
 
