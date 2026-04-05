@@ -1134,6 +1134,16 @@ function buildBarsRepairWindowsFromFinding(finding) {
         end_time: appendUtcMinuteBoundary(example.ts, "end"),
       });
     });
+    (finding.detail_json?.future_examples || []).forEach((example, index) => {
+      if (!example.ts) {
+        return;
+      }
+      windows.push({
+        label: `future_${index + 1}`,
+        start_time: appendUtcMinuteBoundary(example.ts, "start"),
+        end_time: appendUtcMinuteBoundary(example.ts, "end"),
+      });
+    });
   }
 
   return mergeIntegrityRepairWindows(windows);
@@ -1215,8 +1225,18 @@ function isRetentionLimitedIntegrityDataset(dataType) {
 
 function buildIntegrityFindingAction(dataset, finding) {
   if (dataset?.data_type === "bars_1m" && finding?.status === "fail" && ["gap", "corrupt"].includes(finding?.category)) {
+    let label = finding.category === "gap" ? "Repair Gap" : "Repair Corrupt";
+    if (finding.category === "corrupt") {
+      const corruptCount = Number(finding.detail_json?.corrupt_examples?.length || 0);
+      const futureCount = Number(finding.detail_json?.future_examples?.length || 0);
+      if (futureCount > 0 && corruptCount === 0) {
+        label = "Repair Future Row";
+      } else if (futureCount > 0) {
+        label = "Repair Corrupt/Future";
+      }
+    }
     return {
-      label: finding.category === "gap" ? "Repair Gap" : "Repair Corrupt",
+      label,
       execute: () => executeBarsIntegrityRepair(dataset, finding),
     };
   }
@@ -1269,7 +1289,7 @@ async function executeBarsIntegrityRepair(dataset, finding) {
     setIntegrityRepairStatus({
       phase: "repairing",
       title: "Repairing Bars Finding",
-      detail: `Re-fetching ${windows.length} bounded bar window(s) for ${unifiedSymbol}.`,
+      detail: `Applying ${windows.length} bounded repair window(s) for ${unifiedSymbol}.`,
       progress: 46,
       stateClass: "is-running",
     });
@@ -1278,7 +1298,7 @@ async function executeBarsIntegrityRepair(dataset, finding) {
     setIntegrityRepairStatus({
       phase: "refreshing",
       title: "Refreshing Integrity Result",
-      detail: `Repair wrote ${formatValue(result.total_rows_written)} rows. Re-running integrity validation now.`,
+      detail: `Repair affected ${formatValue(result.total_rows_written)} row(s). Re-running integrity validation now.`,
       progress: 82,
       stateClass: "is-running",
     });

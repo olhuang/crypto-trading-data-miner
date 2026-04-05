@@ -37,6 +37,8 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- fixed the `bars_1m` future-row repair edge case so Quality finding actions can now derive repair windows from `future_examples` and clean those exact future minutes instead of failing with `no repair windows could be derived`
+- aligned the UI/API/script bars-repair flow so future-only findings now render as `Repair Future Row` and the shared repair service deletes future-dated bars while still using bounded backfill for historical corrupt/gap windows
 - added a first finding-aware repair flow inside `/monitoring -> Quality`, so `Selected Dataset Integrity -> Findings` can now trigger bounded `bars_1m` repair and dataset-scoped incremental backfill directly from the UI
 - expanded the finding-aware repair flow so supported non-bars `gap` findings can trigger incremental repair and non-retention-limited `coverage` findings can trigger coverage backfill from the same findings table
 - tightened the finding-action eligibility rules so supported `mark/index/sentiment` gap findings render their repair button more reliably while retention-limited coverage remains non-actionable

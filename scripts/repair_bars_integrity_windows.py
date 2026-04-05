@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -14,8 +13,8 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from jobs.backfill_bars import run_bar_backfill
 from jobs.data_quality import validate_dataset_integrity
+from services.integrity_repair_control import repair_bars_integrity_windows as execute_bars_integrity_windows
 
 
 UTC = timezone.utc
@@ -127,6 +126,15 @@ def _build_detected_windows(validation_result: Any) -> list[dict[str, str]]:
                         "sources": [f"corrupt:{example['ts']}"],
                     }
                 )
+            for example in finding.detail_json.get("future_examples", []):
+                start_time, end_time = _minute_window(parse_utc_timestamp(example["ts"]))
+                candidate_windows.append(
+                    {
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "sources": [f"future:{example['ts']}"],
+                    }
+                )
 
     rendered: list[dict[str, str]] = []
     for index, window in enumerate(_merge_windows(candidate_windows), start=1):
@@ -206,24 +214,21 @@ def main() -> int:
         print("No repair windows detected. Nothing to backfill.")
         return 0
 
-    results = []
-    for window in windows:
-        start_time = parse_utc_timestamp(window["start_time"])
-        end_time = parse_utc_timestamp(window["end_time"])
-        result = run_bar_backfill(
-            symbol=args.symbol,
-            unified_symbol=args.unified_symbol,
-            interval=args.interval,
-            start_time=start_time,
-            end_time=end_time,
-            requested_by=args.requested_by,
-            exchange_code="binance",
-        )
-        payload = asdict(result)
-        payload["label"] = window["label"]
-        payload["start_time"] = start_time.isoformat()
-        payload["end_time"] = end_time.isoformat()
-        results.append(payload)
+    results = execute_bars_integrity_windows(
+        symbol=args.symbol,
+        unified_symbol=args.unified_symbol,
+        interval=args.interval,
+        windows=[
+            {
+                "label": window["label"],
+                "start_time": parse_utc_timestamp(window["start_time"]),
+                "end_time": parse_utc_timestamp(window["end_time"]),
+            }
+            for window in windows
+        ],
+        requested_by=args.requested_by,
+        exchange_code="binance",
+    )
 
     print("")
     print("Repair results:")

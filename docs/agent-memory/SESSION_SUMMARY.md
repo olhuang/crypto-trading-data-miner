@@ -12,6 +12,7 @@
   - `top_trader_long_short_position_ratios`
   - `taker_long_short_ratios`
 - stop regression unit tests from polluting local live-market tables and reopening Binance BTC integrity failures
+- fix the remaining `bars_1m` repair edge case where future-dated rows surfaced under the `corrupt` finding category but the repair flow could not derive or apply the right cleanup
 
 ## Done
 - traced the `/monitoring -> Backtests` sentiment launch failure to a missing DB seed for `btc_sentiment_momentum@v1.0.0`; the strategy existed in the in-memory registry but not in `strategy.strategies` / `strategy.strategy_versions`
@@ -62,6 +63,16 @@
   - retention-limited remediation planning using the 30-day floor instead of the stale 6h/24h freshness lookback
   - phase-3 scheduler refresh definitions carrying the new sentiment/retention flags
 - added `tests/test_builtin_scheduler.py` to lock down group selection and app-lifespan start/stop behavior
+- fixed the `bars_1m` finding-repair edge case for future-dated rows:
+  - `frontend/monitoring/app.js` now derives bounded repair windows from both `corrupt_examples` and `future_examples`
+  - the Quality UI now labels future-only cases as `Repair Future Row`
+  - repair progress copy now uses neutral `affected row(s)` wording instead of assuming every repair is a re-fetch write
+- updated `src/services/integrity_repair_control.py` so future-dated `bars_1m` windows are repaired by deleting the exact future rows instead of calling Binance backfill on impossible future timestamps
+- updated `scripts/repair_bars_integrity_windows.py` to reuse the shared repair service, keeping script/UI/API behavior aligned for future-row cleanup
+- added regression coverage:
+  - `tests/test_repair_bars_integrity_windows.py` now proves auto-detect includes `future_examples`
+  - new `tests/test_integrity_repair_control.py` proves future windows are cleaned through delete flow while historical windows still use bounded backfill
+- reran targeted repair/quality tests plus a full suite pass: `python -m unittest discover -s tests -v` -> `144 tests`, `OK`
 
 ## Files Changed
 - `frontend/monitoring/app.js`
@@ -83,6 +94,10 @@
 - `tests/test_startup_remediation.py`
 - `tests/test_api_models.py`
 - `tests/test_builtin_scheduler.py`
+- `src/services/integrity_repair_control.py`
+- `scripts/repair_bars_integrity_windows.py`
+- `tests/test_repair_bars_integrity_windows.py`
+- `tests/test_integrity_repair_control.py`
 - `.env.example`
 - `README.md`
 - `docs/agent-memory/HANDOFF.md`

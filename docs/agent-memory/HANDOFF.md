@@ -67,6 +67,8 @@
 - a full `python -m unittest discover -s tests -v` run now passes (`142 tests`) after these isolation fixes
 - post-run local DB spot checks show the old `2024-04-02T12:30/12:35Z` OI/sentiment fixture rows are no longer reintroduced by a full regression run
 - one pre-existing local residue still remains from older regression runs: the `BTCUSDT_PERP bars_1m` corrupt candle at `2026-04-02T12:34:00Z` still exists in the DB after the suite, but it was not recreated by the fixed regression run
+- `bars_1m` future-row repair no longer dead-ends on corrupt-only assumptions: the UI now derives repair windows from `future_examples`, labels those findings as `Repair Future Row` when appropriate, and the backend deletes the exact future minute instead of attempting a meaningless future backfill
+- `scripts/repair_bars_integrity_windows.py` now routes through the shared repair service, so auto-detected future-dated bars are handled the same way as the UI/API repair path
 - local `BTCUSDT_PERP` sentiment-ratio tables were confirmed to contain old `2024-04-02` test-fixture residue plus a recent real block; the fixture residue was operator-cleaned from the local DB before re-grab
 - a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run

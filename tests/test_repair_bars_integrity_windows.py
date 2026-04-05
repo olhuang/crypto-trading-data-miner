@@ -215,6 +215,84 @@ class RepairBarsIntegrityWindowsTests(unittest.TestCase):
         self.assertIn("gap:2026-04-01T00:00:00+00:00->2026-04-01T00:00:00+00:00", windows[0]["source_summary"])
         self.assertIn("corrupt:2026-04-01T00:00:15+00:00", windows[0]["source_summary"])
 
+    def test_build_detected_windows_includes_future_windows(self) -> None:
+        validation_result = DatasetIntegrityValidationResult(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2026, 4, 5, 23, 59, 59, tzinfo=timezone.utc),
+            observed_at=datetime(2026, 4, 5, 14, 6, tzinfo=timezone.utc),
+            persisted_checks_written=0,
+            persisted_gaps_written=0,
+            summary=DatasetIntegritySummary(
+                dataset_count=1,
+                passed_datasets=0,
+                warning_datasets=0,
+                failed_datasets=1,
+                total_gap_count=0,
+                total_missing_count=1,
+                total_coverage_shortfall_count=0,
+                total_internal_missing_count=0,
+                total_tail_missing_count=0,
+                total_duplicate_count=0,
+                total_corrupt_count=1,
+                total_future_row_count=1,
+            ),
+            datasets=[
+                DatasetIntegrityDatasetReport(
+                    data_type="bars_1m",
+                    status="fail",
+                    row_count=0,
+                    expected_interval_seconds=60,
+                    expected_points=0,
+                    profile_window_start=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    available_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    available_to=datetime(2026, 4, 5, 14, 6, tzinfo=timezone.utc),
+                    safe_available_to=datetime(2026, 4, 5, 14, 6, tzinfo=timezone.utc),
+                    selected_window_available_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                    selected_window_available_to=datetime(2026, 4, 5, 14, 6, tzinfo=timezone.utc),
+                    missing_count=1,
+                    coverage_shortfall_count=0,
+                    internal_missing_count=0,
+                    tail_missing_count=0,
+                    gap_count=0,
+                    duplicate_count=0,
+                    corrupt_count=1,
+                    future_row_count=1,
+                    findings=[
+                        DatasetIntegrityFinding(
+                            category="corrupt",
+                            severity="error",
+                            status="fail",
+                            message="corrupt or future-dated",
+                            related_count=1,
+                            detail_json={
+                                "corrupt_examples": [],
+                                "future_examples": [
+                                    {"ts": "2036-01-04T23:59:00+00:00"}
+                                ],
+                                "future_row_count": 1,
+                            },
+                        )
+                    ],
+                )
+            ],
+        )
+
+        windows = repair_bars_integrity_windows._build_detected_windows(validation_result)
+
+        self.assertEqual(
+            windows,
+            [
+                {
+                    "label": "auto_detected_window_1",
+                    "start_time": "2036-01-04T23:59:00+00:00",
+                    "end_time": "2036-01-04T23:59:59+00:00",
+                    "source_summary": "future:2036-01-04T23:59:00+00:00",
+                }
+            ],
+        )
+
     def test_build_windows_defaults_to_auto_detect_for_spot_symbol(self) -> None:
         validation_result = DatasetIntegrityValidationResult(
             exchange_code="binance",
