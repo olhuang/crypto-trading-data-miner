@@ -24,7 +24,6 @@
 - connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
-- expose the new sentiment-aware strategy/bundle cleanly in `/monitoring -> Backtests`
 - decide whether the next sentiment-ratio follow-up is trace/diagnostics context visibility or broader feature-pipeline formalization
 
 ## Recently Done
@@ -52,6 +51,7 @@
 - added the first Phase 5 sentiment-ratio research-consumption slice by surfacing perp market context into strategy evaluations through `bars_perp_context_v1`
 - seeded `btc_sentiment_momentum@v1.0.0` plus `baseline_perp_sentiment_research@v1`
 - added Phase 5 regression coverage proving a runner can trigger a trade from persisted Binance sentiment-ratio context
+- updated `/monitoring -> Backtests` so operators can actually launch the sentiment-aware research path through a `Sentiment Perp` preset, strategy selector, threshold fields, and bundle guidance
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

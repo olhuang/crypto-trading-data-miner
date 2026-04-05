@@ -91,6 +91,7 @@
 - a new named assumption bundle now exists at `baseline_perp_sentiment_research@v1`, keeping the baseline perp execution assumptions while turning on `bars_perp_context_v1`
 - the Phase 5 runner now loads prior-row plus in-window perp context series for funding rate, open interest, mark price, index price, global account ratio, top-trader account ratio, top-trader position ratio, and taker ratio, then passes the latest as-of snapshot into each strategy evaluation
 - targeted Phase 5 regression coverage now proves the seeded strategy registry exposes `btc_sentiment_momentum`, the new assumption bundle resolves correctly, and a runner can trigger a trade from persisted sentiment-ratio context
+- the `/monitoring -> Backtests` launch form now exposes the seeded sentiment-aware research path directly through a `Sentiment Perp` preset, a real strategy selector, threshold inputs, and clearer assumption-bundle guidance
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -108,7 +109,6 @@
 - the actual bounded `bars_1m` refill for the corrupt-minute and tail-gap windows still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 - the harness still cannot execute the actual Binance repair/refill calls end-to-end because outbound network access is blocked here; only the operator machine can run the bounded repair scripts and incremental catch-up
 - the new UI-triggered incremental path is intentionally local-operator oriented; it currently launches a detached local process and does not yet integrate with the broader generic job orchestration spec
-- the current Backtests launch form still assumes the original `btc_momentum` parameter set; it does not yet expose the new sentiment-aware thresholds or make the new research bundle especially discoverable
 - the current backtest diagnostics/trace surfaces do not yet show the strategy market context that drove a sentiment-aware decision, so debugging remains signal/decision-centric rather than feature-context-centric
 
 ## Files To Inspect Next
@@ -177,4 +177,4 @@
 ## Recommended Next Action
 - if the data-quality UI line stays active, the next most natural slice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` Quality workspace restructure now that `UI Slice 4C` has landed
 - if the data-maintenance line stays active, use the new `/monitoring -> Quality` backfill panel or `scripts/binance_btc_history_backfill.ps1 -Mode incremental` to refresh the BTC tail, then re-run integrity validation to watch the warning-only tail counts shrink
-- if the sentiment-ratio line stays active, the next most natural slice is to expose `btc_sentiment_momentum` and `baseline_perp_sentiment_research` cleanly in `/monitoring -> Backtests`, then consider trace/diagnostics surfacing for strategy market context
+- if the sentiment-ratio line stays active, the next most natural slice is to surface strategy market context inside diagnostics/trace inspection, then consider broader feature-pipeline formalization

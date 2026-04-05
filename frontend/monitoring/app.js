@@ -32,6 +32,8 @@ const BACKTEST_LAUNCH_PRESETS = {
   baseline_perp: {
     label: "Baseline Perp",
     values: {
+      strategy_code: "btc_momentum",
+      strategy_version: "v1.0.0",
       unified_symbol: "BTCUSDT_PERP",
       assumption_bundle_code: "baseline_perp_research",
       assumption_bundle_version: "v1",
@@ -45,9 +47,31 @@ const BACKTEST_LAUNCH_PRESETS = {
       allow_reduce_only_when_blocked: true,
     },
   },
+  sentiment_perp: {
+    label: "Sentiment Perp",
+    values: {
+      strategy_code: "btc_sentiment_momentum",
+      strategy_version: "v1.0.0",
+      unified_symbol: "BTCUSDT_PERP",
+      assumption_bundle_code: "baseline_perp_sentiment_research",
+      assumption_bundle_version: "v1",
+      risk_policy_code: "perp_medium_v1",
+      short_window: "5",
+      long_window: "20",
+      target_qty: "0.05",
+      allow_short: "false",
+      max_global_long_short_ratio: "2.25",
+      min_taker_buy_sell_ratio: "0.95",
+      persist_debug_traces: true,
+      enforce_spot_cash_check: true,
+      allow_reduce_only_when_blocked: true,
+    },
+  },
   baseline_spot: {
     label: "Baseline Spot",
     values: {
+      strategy_code: "btc_momentum",
+      strategy_version: "v1.0.0",
       unified_symbol: "BTCUSDT_SPOT",
       assumption_bundle_code: "baseline_spot_research",
       assumption_bundle_version: "v1",
@@ -64,6 +88,8 @@ const BACKTEST_LAUNCH_PRESETS = {
   aggressive_perp: {
     label: "Aggressive Perp",
     values: {
+      strategy_code: "btc_momentum",
+      strategy_version: "v1.0.0",
       unified_symbol: "BTCUSDT_PERP",
       assumption_bundle_code: "aggressive_perp_execution",
       assumption_bundle_version: "v1",
@@ -76,6 +102,23 @@ const BACKTEST_LAUNCH_PRESETS = {
       enforce_spot_cash_check: true,
       allow_reduce_only_when_blocked: true,
     },
+  },
+};
+
+const BACKTEST_STRATEGY_CONFIGS = {
+  btc_momentum: {
+    title: "Bars-Only Momentum",
+    detail: "Uses moving-average crossover on minute bars only.",
+    hint: "Works naturally with `baseline_perp_research` or `baseline_spot_research`.",
+    showSentimentThresholds: false,
+  },
+  btc_sentiment_momentum: {
+    title: "Sentiment-Aware Momentum",
+    detail:
+      "Uses the same moving-average baseline, but only allows long entries when crowding and taker-flow context stay within configured thresholds.",
+    hint:
+      "Best paired with `baseline_perp_sentiment_research`, which turns on `bars_perp_context_v1` so the runner loads funding, OI, mark/index, and the Binance sentiment ratios.",
+    showSentimentThresholds: true,
   },
 };
 
@@ -411,8 +454,18 @@ function renderBacktestRunStructuredDetails(detail) {
       target_qty: "Target Quantity",
       allow_short: "Allow Short",
       target_notional: "Target Notional",
+      max_global_long_short_ratio: "Max Global Long/Short Ratio",
+      min_taker_buy_sell_ratio: "Min Taker Buy/Sell Ratio",
     },
-    ["short_window", "long_window", "target_qty", "target_notional", "allow_short"]
+    [
+      "short_window",
+      "long_window",
+      "target_qty",
+      "target_notional",
+      "allow_short",
+      "max_global_long_short_ratio",
+      "min_taker_buy_sell_ratio",
+    ]
   );
 
   const executionItems = buildPropertyItemsFromObject(
@@ -739,6 +792,7 @@ function applyBacktestPreset(presetKey) {
     const control = form.elements.namedItem(fieldName);
     setFormControlValue(control, value);
   });
+  updateBacktestStrategyFields();
 
   renderJson("backtest-launch-result", {
     preset_applied: preset.label,
@@ -752,6 +806,34 @@ function bindBacktestPresetButtons() {
       applyBacktestPreset(button.dataset.backtestPreset);
     });
   });
+}
+
+function updateBacktestStrategyFields() {
+  const form = document.getElementById("backtest-launch-form");
+  if (!form) {
+    return;
+  }
+  const strategyCode = String(form.elements.namedItem("strategy_code")?.value || "btc_momentum").trim();
+  const config = BACKTEST_STRATEGY_CONFIGS[strategyCode] || BACKTEST_STRATEGY_CONFIGS.btc_momentum;
+  setText("backtest-strategy-variant-title", config.title);
+  setText("backtest-strategy-variant-detail", config.detail);
+  setText("backtest-strategy-variant-hint", config.hint);
+
+  const sentimentPanel = document.getElementById("backtest-sentiment-params");
+  if (sentimentPanel) {
+    sentimentPanel.hidden = !config.showSentimentThresholds;
+  }
+}
+
+function initializeBacktestLaunchControls() {
+  const form = document.getElementById("backtest-launch-form");
+  if (!form) {
+    return;
+  }
+  form.elements.namedItem("strategy_code")?.addEventListener("change", () => {
+    updateBacktestStrategyFields();
+  });
+  updateBacktestStrategyFields();
 }
 
 function formatUtcDateInput(date) {
@@ -2252,6 +2334,7 @@ async function loadBacktestRiskPolicies() {
 async function launchBacktest(formValues) {
   const riskPolicy = {};
   const riskOverrides = {};
+  const strategyCode = String(formValues.strategy_code || "").trim() || "btc_momentum";
   const riskPolicyCode = String(formValues.risk_policy_code || "").trim();
   if (riskPolicyCode) {
     riskPolicy.policy_code = riskPolicyCode;
@@ -2279,13 +2362,30 @@ async function launchBacktest(formValues) {
     }
   });
 
+  const strategyParams = {
+    short_window: Number(formValues.short_window || 5),
+    long_window: Number(formValues.long_window || 20),
+    target_qty: formValues.target_qty || "1",
+    allow_short: parseBooleanInput(formValues.allow_short),
+  };
+  if (strategyCode === "btc_sentiment_momentum") {
+    const maxGlobalLongShortRatio = String(formValues.max_global_long_short_ratio || "").trim();
+    const minTakerBuySellRatio = String(formValues.min_taker_buy_sell_ratio || "").trim();
+    if (maxGlobalLongShortRatio !== "") {
+      strategyParams.max_global_long_short_ratio = maxGlobalLongShortRatio;
+    }
+    if (minTakerBuySellRatio !== "") {
+      strategyParams.min_taker_buy_sell_ratio = minTakerBuySellRatio;
+    }
+  }
+
   const payload = {
     run_name: formValues.run_name,
     session: {
-      session_code: `${formValues.strategy_code}_${Date.now()}`,
+      session_code: `${strategyCode}_${Date.now()}`,
       environment: "backtest",
       account_code: formValues.account_code || "paper_main",
-      strategy_code: formValues.strategy_code,
+      strategy_code: strategyCode,
       strategy_version: formValues.strategy_version,
       exchange_code: formValues.exchange_code || "binance",
       trading_timezone: formValues.trading_timezone || "UTC",
@@ -2296,12 +2396,7 @@ async function launchBacktest(formValues) {
     initial_cash: formValues.initial_cash || "100000",
     assumption_bundle_code: formValues.assumption_bundle_code || null,
     assumption_bundle_version: formValues.assumption_bundle_version || null,
-    strategy_params: {
-      short_window: Number(formValues.short_window || 5),
-      long_window: Number(formValues.long_window || 20),
-      target_qty: formValues.target_qty || "1",
-      allow_short: parseBooleanInput(formValues.allow_short),
-    },
+    strategy_params: strategyParams,
     persist_signals: true,
     persist_debug_traces: parseBooleanInput(formValues.persist_debug_traces),
   };
@@ -2556,6 +2651,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-compare-note-form", saveCompareReviewNote);
   bindForm("backtest-trace-filter-form", loadBacktestDebugTraces);
   bindBacktestPresetButtons();
+  initializeBacktestLaunchControls();
   bindIntegrityQuickRangeButtons();
   initializeIntegrityValidationControls();
   document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {

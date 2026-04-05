@@ -368,6 +368,30 @@ select {
   background: var(--surface);
 }
 
+.strategy-variant-panel {
+  margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: #fbfaf6;
+}
+
+.strategy-variant-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.strategy-variant-detail {
+  margin: 0 0 0.3rem;
+  color: var(--muted);
+}
+
+.strategy-variant-grid {
+  margin-top: 0.75rem;
+}
+
 .checkbox-field {
   display: flex;
   gap: 0.75rem;

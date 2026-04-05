@@ -100,6 +100,7 @@
               </div>
               <div class="preset-row">
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="baseline_perp">Baseline Perp</button>
+                <button type="button" class="secondary-button preset-button" data-backtest-preset="sentiment_perp">Sentiment Perp</button>
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="baseline_spot">Baseline Spot</button>
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="aggressive_perp">Aggressive Perp</button>
               </div>
@@ -120,7 +121,10 @@
                     </label>
                     <label class="field">
                       <span class="field-label">Strategy Code</span>
-                      <input name="strategy_code" value="btc_momentum" />
+                      <select name="strategy_code">
+                        <option value="btc_momentum" selected>btc_momentum</option>
+                        <option value="btc_sentiment_momentum">btc_sentiment_momentum</option>
+                      </select>
                     </label>
                     <label class="field">
                       <span class="field-label">Strategy Version</span>
@@ -171,7 +175,7 @@
                     <label class="field">
                       <span class="field-label">Assumption Bundle Code</span>
                       <input name="assumption_bundle_code" list="backtest-assumption-bundle-options" />
-                      <span class="field-help">Optional. Start from a named bundle and still keep values editable.</span>
+                      <span class="field-help">Optional. For `btc_sentiment_momentum`, start with `baseline_perp_sentiment_research` so the runner loads perp context and sentiment ratios.</span>
                     </label>
                     <label class="field">
                       <span class="field-label">Assumption Bundle Version</span>
@@ -184,7 +188,12 @@
                 <section class="form-section">
                   <div class="form-section-header">
                     <h4>Strategy Parameters</h4>
-                    <p>Common knobs for the current example strategy.</p>
+                    <p>Base knobs shared by the seeded example strategies, plus optional sentiment thresholds when you choose the sentiment-aware variant.</p>
+                  </div>
+                  <div class="strategy-variant-panel" id="backtest-strategy-variant-panel">
+                    <p class="strategy-variant-title" id="backtest-strategy-variant-title">Bars-Only Momentum</p>
+                    <p class="strategy-variant-detail" id="backtest-strategy-variant-detail">Uses moving-average crossover on minute bars only.</p>
+                    <p class="field-help" id="backtest-strategy-variant-hint">Works naturally with `baseline_perp_research` or `baseline_spot_research`.</p>
                   </div>
                   <div class="form-grid">
                     <label class="field">
@@ -205,6 +214,18 @@
                         <option value="false" selected>No</option>
                         <option value="true">Yes</option>
                       </select>
+                    </label>
+                  </div>
+                  <div id="backtest-sentiment-params" class="form-grid strategy-variant-grid" hidden>
+                    <label class="field">
+                      <span class="field-label">Max Global Long/Short Ratio</span>
+                      <input name="max_global_long_short_ratio" value="2.25" />
+                      <span class="field-help">Blocks long entries when crowding is above this threshold.</span>
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Min Taker Buy/Sell Ratio</span>
+                      <input name="min_taker_buy_sell_ratio" value="0.95" />
+                      <span class="field-help">Requires taker flow support before allowing long entries.</span>
                     </label>
                   </div>
                 </section>
