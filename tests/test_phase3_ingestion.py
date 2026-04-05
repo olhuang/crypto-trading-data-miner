@@ -172,6 +172,92 @@ class Phase3IngestionTests(unittest.TestCase):
                     },
                 ],
             )
+        if url.endswith("/futures/data/globalLongShortAccountRatio"):
+            if params and params.get("startTime") == 1712061300001:
+                return JsonHttpResponse(200, [])
+            return JsonHttpResponse(
+                200,
+                [
+                    {
+                        "symbol": "BTCUSDT",
+                        "longShortRatio": "1.2222",
+                        "longAccount": "0.55",
+                        "shortAccount": "0.45",
+                        "timestamp": 1712061000000,
+                    },
+                    {
+                        "symbol": "BTCUSDT",
+                        "longShortRatio": "1.1050",
+                        "longAccount": "0.525",
+                        "shortAccount": "0.475",
+                        "timestamp": 1712061300000,
+                    },
+                ],
+            )
+        if url.endswith("/futures/data/topLongShortAccountRatio"):
+            if params and params.get("startTime") == 1712061300001:
+                return JsonHttpResponse(200, [])
+            return JsonHttpResponse(
+                200,
+                [
+                    {
+                        "symbol": "BTCUSDT",
+                        "longShortRatio": "1.45",
+                        "longAccount": "0.592",
+                        "shortAccount": "0.408",
+                        "timestamp": 1712061000000,
+                    },
+                    {
+                        "symbol": "BTCUSDT",
+                        "longShortRatio": "1.41",
+                        "longAccount": "0.585",
+                        "shortAccount": "0.415",
+                        "timestamp": 1712061300000,
+                    },
+                ],
+            )
+        if url.endswith("/futures/data/topLongShortPositionRatio"):
+            if params and params.get("startTime") == 1712061300001:
+                return JsonHttpResponse(200, [])
+            return JsonHttpResponse(
+                200,
+                [
+                    {
+                        "symbol": "BTCUSDT",
+                        "longShortRatio": "1.72",
+                        "longAccount": "0.632",
+                        "shortAccount": "0.368",
+                        "timestamp": 1712061000000,
+                    },
+                    {
+                        "symbol": "BTCUSDT",
+                        "longShortRatio": "1.69",
+                        "longAccount": "0.628",
+                        "shortAccount": "0.372",
+                        "timestamp": 1712061300000,
+                    },
+                ],
+            )
+        if url.endswith("/futures/data/takerlongshortRatio"):
+            if params and params.get("startTime") == 1712061300001:
+                return JsonHttpResponse(200, [])
+            return JsonHttpResponse(
+                200,
+                [
+                    {
+                        "buySellRatio": "1.33",
+                        "buyVol": "1234.5",
+                        "sellVol": "928.2",
+                        "timestamp": 1712061000000,
+                    },
+                    {
+                        "buySellRatio": "0.97",
+                        "buyVol": "990.0",
+                        "sellVol": "1020.1",
+                        "timestamp": 1712061300000,
+                    },
+                ],
+            )
         if url.endswith("/fapi/v1/premiumIndex"):
             return JsonHttpResponse(
                 200,
@@ -440,6 +526,75 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(oi_count, 2)
         self.assertEqual(mark_count, 2)
         self.assertEqual(index_count, 2)
+
+    def test_sentiment_ratio_history_fetch_and_normalize(self) -> None:
+        client = self._client()
+        start_time = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
+        end_time = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
+
+        global_rows = client.fetch_global_long_short_account_ratio_history(
+            "BTCUSDT",
+            period="5m",
+            start_time=start_time,
+            end_time=end_time,
+        )
+        top_account_rows = client.fetch_top_trader_long_short_account_ratio_history(
+            "BTCUSDT",
+            period="5m",
+            start_time=start_time,
+            end_time=end_time,
+        )
+        top_position_rows = client.fetch_top_trader_long_short_position_ratio_history(
+            "BTCUSDT",
+            period="5m",
+            start_time=start_time,
+            end_time=end_time,
+        )
+        taker_rows = client.fetch_taker_long_short_ratio_history(
+            "BTCUSDT",
+            period="5m",
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        self.assertEqual(len(global_rows), 2)
+        self.assertEqual(len(top_account_rows), 2)
+        self.assertEqual(len(top_position_rows), 2)
+        self.assertEqual(len(taker_rows), 2)
+
+        global_events = client.normalize_global_long_short_account_ratios(
+            "BTCUSDT",
+            global_rows,
+            period="5m",
+            unified_symbol="BTCUSDT_PERP",
+        )
+        top_account_events = client.normalize_top_trader_long_short_account_ratios(
+            "BTCUSDT",
+            top_account_rows,
+            period="5m",
+            unified_symbol="BTCUSDT_PERP",
+        )
+        top_position_events = client.normalize_top_trader_long_short_position_ratios(
+            "BTCUSDT",
+            top_position_rows,
+            period="5m",
+            unified_symbol="BTCUSDT_PERP",
+        )
+        taker_events = client.normalize_taker_long_short_ratios(
+            "BTCUSDT",
+            taker_rows,
+            period="5m",
+            unified_symbol="BTCUSDT_PERP",
+        )
+
+        self.assertEqual(global_events[0].period_code, "5m")
+        self.assertEqual(str(global_events[0].long_short_ratio), "1.2222")
+        self.assertEqual(str(global_events[0].long_account_ratio), "0.55")
+        self.assertEqual(str(top_account_events[0].long_short_ratio), "1.45")
+        self.assertEqual(str(top_position_events[0].long_short_ratio), "1.72")
+        self.assertEqual(str(taker_events[0].buy_sell_ratio), "1.33")
+        self.assertEqual(str(taker_events[0].buy_vol), "1234.5")
+        self.assertEqual(str(taker_events[0].sell_vol), "928.2")
 
     def test_spot_bar_backfill_uses_spot_klines_endpoint(self) -> None:
         client = self._client()

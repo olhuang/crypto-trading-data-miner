@@ -69,6 +69,42 @@ class FundingRateEvent(MarketEventBase):
     index_price: Decimal | None = None
 
 
+class GlobalLongShortAccountRatioEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
+    period_code: str
+    long_short_ratio: Decimal
+    long_account_ratio: Decimal | None = None
+    short_account_ratio: Decimal | None = None
+
+
+class TopTraderLongShortAccountRatioEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
+    period_code: str
+    long_short_ratio: Decimal
+    long_account_ratio: Decimal | None = None
+    short_account_ratio: Decimal | None = None
+
+
+class TopTraderLongShortPositionRatioEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
+    period_code: str
+    long_short_ratio: Decimal
+    long_account_ratio: Decimal | None = None
+    short_account_ratio: Decimal | None = None
+
+
+class TakerLongShortRatioEvent(MarketEventBase):
+    ingest_time: datetime
+    event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")
+    period_code: str
+    buy_sell_ratio: Decimal
+    buy_vol: Decimal | None = None
+    sell_vol: Decimal | None = None
+
+
 class OpenInterestEvent(MarketEventBase):
     ingest_time: datetime
     event_time: datetime = Field(validation_alias="ts", serialization_alias="event_time")

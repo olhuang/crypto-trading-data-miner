@@ -8,6 +8,7 @@ from sqlalchemy.engine import Connection
 from models.market import (
     BarEvent,
     FundingRateEvent,
+    GlobalLongShortAccountRatioEvent,
     IndexPriceEvent,
     LiquidationEvent,
     MarkPriceEvent,
@@ -15,6 +16,9 @@ from models.market import (
     OrderBookDeltaEvent,
     OrderBookSnapshotEvent,
     RawMarketEvent,
+    TakerLongShortRatioEvent,
+    TopTraderLongShortAccountRatioEvent,
+    TopTraderLongShortPositionRatioEvent,
     TradeEvent,
 )
 from storage.lookups import resolve_exchange_id, resolve_instrument_id
@@ -212,6 +216,178 @@ class FundingRateRepository:
                 "funding_rate": event.funding_rate,
                 "mark_price": event.mark_price,
                 "index_price": event.index_price,
+            },
+        )
+
+
+class GlobalLongShortAccountRatioRepository:
+    def upsert(self, connection: Connection, event: GlobalLongShortAccountRatioEvent) -> None:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        connection.execute(
+            text(
+                """
+                insert into md.global_long_short_account_ratios (
+                    instrument_id,
+                    ts,
+                    period_code,
+                    long_short_ratio,
+                    long_account_ratio,
+                    short_account_ratio,
+                    ingest_time
+                ) values (
+                    :instrument_id,
+                    :ts,
+                    :period_code,
+                    :long_short_ratio,
+                    :long_account_ratio,
+                    :short_account_ratio,
+                    :ingest_time
+                )
+                on conflict (instrument_id, ts, period_code) do update
+                set
+                    long_short_ratio = excluded.long_short_ratio,
+                    long_account_ratio = excluded.long_account_ratio,
+                    short_account_ratio = excluded.short_account_ratio,
+                    ingest_time = excluded.ingest_time
+                """
+            ),
+            {
+                "instrument_id": instrument_id,
+                "ts": event.event_time,
+                "period_code": event.period_code,
+                "long_short_ratio": event.long_short_ratio,
+                "long_account_ratio": event.long_account_ratio,
+                "short_account_ratio": event.short_account_ratio,
+                "ingest_time": event.ingest_time,
+            },
+        )
+
+
+class TopTraderLongShortAccountRatioRepository:
+    def upsert(self, connection: Connection, event: TopTraderLongShortAccountRatioEvent) -> None:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        connection.execute(
+            text(
+                """
+                insert into md.top_trader_long_short_account_ratios (
+                    instrument_id,
+                    ts,
+                    period_code,
+                    long_short_ratio,
+                    long_account_ratio,
+                    short_account_ratio,
+                    ingest_time
+                ) values (
+                    :instrument_id,
+                    :ts,
+                    :period_code,
+                    :long_short_ratio,
+                    :long_account_ratio,
+                    :short_account_ratio,
+                    :ingest_time
+                )
+                on conflict (instrument_id, ts, period_code) do update
+                set
+                    long_short_ratio = excluded.long_short_ratio,
+                    long_account_ratio = excluded.long_account_ratio,
+                    short_account_ratio = excluded.short_account_ratio,
+                    ingest_time = excluded.ingest_time
+                """
+            ),
+            {
+                "instrument_id": instrument_id,
+                "ts": event.event_time,
+                "period_code": event.period_code,
+                "long_short_ratio": event.long_short_ratio,
+                "long_account_ratio": event.long_account_ratio,
+                "short_account_ratio": event.short_account_ratio,
+                "ingest_time": event.ingest_time,
+            },
+        )
+
+
+class TopTraderLongShortPositionRatioRepository:
+    def upsert(self, connection: Connection, event: TopTraderLongShortPositionRatioEvent) -> None:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        connection.execute(
+            text(
+                """
+                insert into md.top_trader_long_short_position_ratios (
+                    instrument_id,
+                    ts,
+                    period_code,
+                    long_short_ratio,
+                    long_account_ratio,
+                    short_account_ratio,
+                    ingest_time
+                ) values (
+                    :instrument_id,
+                    :ts,
+                    :period_code,
+                    :long_short_ratio,
+                    :long_account_ratio,
+                    :short_account_ratio,
+                    :ingest_time
+                )
+                on conflict (instrument_id, ts, period_code) do update
+                set
+                    long_short_ratio = excluded.long_short_ratio,
+                    long_account_ratio = excluded.long_account_ratio,
+                    short_account_ratio = excluded.short_account_ratio,
+                    ingest_time = excluded.ingest_time
+                """
+            ),
+            {
+                "instrument_id": instrument_id,
+                "ts": event.event_time,
+                "period_code": event.period_code,
+                "long_short_ratio": event.long_short_ratio,
+                "long_account_ratio": event.long_account_ratio,
+                "short_account_ratio": event.short_account_ratio,
+                "ingest_time": event.ingest_time,
+            },
+        )
+
+
+class TakerLongShortRatioRepository:
+    def upsert(self, connection: Connection, event: TakerLongShortRatioEvent) -> None:
+        instrument_id = resolve_instrument_id(connection, event.exchange_code, event.unified_symbol)
+        connection.execute(
+            text(
+                """
+                insert into md.taker_long_short_ratios (
+                    instrument_id,
+                    ts,
+                    period_code,
+                    buy_sell_ratio,
+                    buy_vol,
+                    sell_vol,
+                    ingest_time
+                ) values (
+                    :instrument_id,
+                    :ts,
+                    :period_code,
+                    :buy_sell_ratio,
+                    :buy_vol,
+                    :sell_vol,
+                    :ingest_time
+                )
+                on conflict (instrument_id, ts, period_code) do update
+                set
+                    buy_sell_ratio = excluded.buy_sell_ratio,
+                    buy_vol = excluded.buy_vol,
+                    sell_vol = excluded.sell_vol,
+                    ingest_time = excluded.ingest_time
+                """
+            ),
+            {
+                "instrument_id": instrument_id,
+                "ts": event.event_time,
+                "period_code": event.period_code,
+                "buy_sell_ratio": event.buy_sell_ratio,
+                "buy_vol": event.buy_vol,
+                "sell_vol": event.sell_vol,
+                "ingest_time": event.ingest_time,
             },
         )
 

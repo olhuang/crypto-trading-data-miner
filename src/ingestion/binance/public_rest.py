@@ -9,10 +9,14 @@ from ingestion.base import JsonHttpClient
 from models.market import (
     BarEvent,
     FundingRateEvent,
+    GlobalLongShortAccountRatioEvent,
     IndexPriceEvent,
     InstrumentMetadata,
     MarkPriceEvent,
     OpenInterestEvent,
+    TakerLongShortRatioEvent,
+    TopTraderLongShortAccountRatioEvent,
+    TopTraderLongShortPositionRatioEvent,
 )
 
 
@@ -193,6 +197,123 @@ class BinancePublicRestClient:
                 break
             next_start_ms = int(page[-1]["timestamp"]) + 1
         return rows
+
+    def _fetch_futures_data_series(
+        self,
+        endpoint_path: str,
+        symbol: str,
+        *,
+        period: str,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        base_url = f"{self.futures_base_url}{endpoint_path}"
+        if start_time is None or end_time is None:
+            params = {
+                "symbol": symbol,
+                "period": period,
+                "startTime": int(start_time.timestamp() * 1000) if start_time else None,
+                "endTime": int(end_time.timestamp() * 1000) if end_time else None,
+                "limit": limit,
+            }
+            return list(self.http.get_json(base_url, params))
+
+        rows: list[dict[str, Any]] = []
+        next_start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
+        while next_start_ms <= end_ms:
+            page = list(
+                self.http.get_json(
+                    base_url,
+                    {
+                        "symbol": symbol,
+                        "period": period,
+                        "startTime": next_start_ms,
+                        "endTime": end_ms,
+                        "limit": limit,
+                    },
+                )
+            )
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < limit:
+                break
+            next_start_ms = int(page[-1]["timestamp"]) + 1
+        return rows
+
+    def fetch_global_long_short_account_ratio_history(
+        self,
+        symbol: str,
+        *,
+        period: str = "5m",
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_futures_data_series(
+            "/futures/data/globalLongShortAccountRatio",
+            symbol,
+            period=period,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    def fetch_top_trader_long_short_account_ratio_history(
+        self,
+        symbol: str,
+        *,
+        period: str = "5m",
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_futures_data_series(
+            "/futures/data/topLongShortAccountRatio",
+            symbol,
+            period=period,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    def fetch_top_trader_long_short_position_ratio_history(
+        self,
+        symbol: str,
+        *,
+        period: str = "5m",
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_futures_data_series(
+            "/futures/data/topLongShortPositionRatio",
+            symbol,
+            period=period,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
+
+    def fetch_taker_long_short_ratio_history(
+        self,
+        symbol: str,
+        *,
+        period: str = "5m",
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        limit: int = 500,
+    ) -> list[dict[str, Any]]:
+        return self._fetch_futures_data_series(
+            "/futures/data/takerlongshortRatio",
+            symbol,
+            period=period,
+            start_time=start_time,
+            end_time=end_time,
+            limit=limit,
+        )
 
     def fetch_premium_index(self, symbol: str) -> dict[str, Any]:
         return self.http.get_json(f"{self.futures_base_url}/fapi/v1/premiumIndex", {"symbol": symbol})
@@ -429,6 +550,106 @@ class BinancePublicRestClient:
                 event_time=_utc_from_millis(row["timestamp"]),
                 ingest_time=datetime.now(timezone.utc),
                 open_interest=Decimal(str(row["sumOpenInterest"])),
+                payload_json=row,
+            )
+            for row in rows
+        ]
+
+    def normalize_global_long_short_account_ratios(
+        self,
+        symbol: str,
+        rows: Iterable[dict[str, Any]],
+        *,
+        period: str,
+        unified_symbol: str | None = None,
+    ) -> list[GlobalLongShortAccountRatioEvent]:
+        normalized_symbol = unified_symbol or f"{symbol}_PERP"
+        ingest_time = datetime.now(timezone.utc)
+        return [
+            GlobalLongShortAccountRatioEvent(
+                exchange_code="binance",
+                unified_symbol=normalized_symbol,
+                event_time=_utc_from_millis(row["timestamp"]),
+                ingest_time=ingest_time,
+                period_code=period,
+                long_short_ratio=Decimal(str(row["longShortRatio"])),
+                long_account_ratio=_decimal_or_none(row.get("longAccount")),
+                short_account_ratio=_decimal_or_none(row.get("shortAccount")),
+                payload_json=row,
+            )
+            for row in rows
+        ]
+
+    def normalize_top_trader_long_short_account_ratios(
+        self,
+        symbol: str,
+        rows: Iterable[dict[str, Any]],
+        *,
+        period: str,
+        unified_symbol: str | None = None,
+    ) -> list[TopTraderLongShortAccountRatioEvent]:
+        normalized_symbol = unified_symbol or f"{symbol}_PERP"
+        ingest_time = datetime.now(timezone.utc)
+        return [
+            TopTraderLongShortAccountRatioEvent(
+                exchange_code="binance",
+                unified_symbol=normalized_symbol,
+                event_time=_utc_from_millis(row["timestamp"]),
+                ingest_time=ingest_time,
+                period_code=period,
+                long_short_ratio=Decimal(str(row["longShortRatio"])),
+                long_account_ratio=_decimal_or_none(row.get("longAccount")),
+                short_account_ratio=_decimal_or_none(row.get("shortAccount")),
+                payload_json=row,
+            )
+            for row in rows
+        ]
+
+    def normalize_top_trader_long_short_position_ratios(
+        self,
+        symbol: str,
+        rows: Iterable[dict[str, Any]],
+        *,
+        period: str,
+        unified_symbol: str | None = None,
+    ) -> list[TopTraderLongShortPositionRatioEvent]:
+        normalized_symbol = unified_symbol or f"{symbol}_PERP"
+        ingest_time = datetime.now(timezone.utc)
+        return [
+            TopTraderLongShortPositionRatioEvent(
+                exchange_code="binance",
+                unified_symbol=normalized_symbol,
+                event_time=_utc_from_millis(row["timestamp"]),
+                ingest_time=ingest_time,
+                period_code=period,
+                long_short_ratio=Decimal(str(row["longShortRatio"])),
+                long_account_ratio=_decimal_or_none(row.get("longAccount")),
+                short_account_ratio=_decimal_or_none(row.get("shortAccount")),
+                payload_json=row,
+            )
+            for row in rows
+        ]
+
+    def normalize_taker_long_short_ratios(
+        self,
+        symbol: str,
+        rows: Iterable[dict[str, Any]],
+        *,
+        period: str,
+        unified_symbol: str | None = None,
+    ) -> list[TakerLongShortRatioEvent]:
+        normalized_symbol = unified_symbol or f"{symbol}_PERP"
+        ingest_time = datetime.now(timezone.utc)
+        return [
+            TakerLongShortRatioEvent(
+                exchange_code="binance",
+                unified_symbol=normalized_symbol,
+                event_time=_utc_from_millis(row["timestamp"]),
+                ingest_time=ingest_time,
+                period_code=period,
+                buy_sell_ratio=Decimal(str(row["buySellRatio"])),
+                buy_vol=_decimal_or_none(row.get("buyVol")),
+                sell_vol=_decimal_or_none(row.get("sellVol")),
                 payload_json=row,
             )
             for row in rows
