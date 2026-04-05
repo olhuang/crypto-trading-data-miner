@@ -13,6 +13,7 @@
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - keep the new `/monitoring` integrity-validation surface aligned to the broader Quality workspace plan while deciding whether the next follow-up is dataset-detail polish or BTC backfill status
+- finish the remaining BTC perp `bars_1m` integrity remediation now that the earlier `mark/index` gap and fixture-contamination sources are understood
 
 ## Blocked
 - none currently recorded
@@ -26,6 +27,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 - expose dataset-integrity validation and/or BTC backfill status inside `/monitoring` if the data-quality line becomes the next active slice
 - continue the Quality workspace from `docs/quality-integrity-ui-plan.md`, most likely with `UI Slice 4C: BTC Backfill Status Panel`
+- run the bounded BTC perp bar repair tool locally and then re-run integrity validation to verify the corrupt-minute and tail-gap windows are gone
 
 ## Recently Done
 - added `docs/quality-integrity-ui-plan.md` to define how bounded integrity validation and BTC backfill status should land inside the current `/monitoring` Quality workspace
@@ -36,6 +38,10 @@
 - added and used a reusable cleanup tool for future-dated local Binance BTC market-data contamination, restoring the raw DB coverage horizon to real timestamps
 - added and used a reusable cleanup tool for legacy off-grid `mark_prices / index_prices` rows, removing 67 polluted rows from each BTC perp dataset and making integrity results interpretable again
 - investigated the remaining BTC perp `mark/index` integrity gap, confirmed it was caused by earlier off-grid checkpoint pollution, and added a bounded repair tool plus minute-series checkpoint hardening to prevent recurrence
+- investigated the remaining BTC perp `bars_1m` integrity failure, traced it to one corrupt candle plus tail-gap windows, and confirmed the repo-side contamination source was `tests/test_startup_remediation.py`
+- fixed `tests/test_startup_remediation.py` so its inserted BTC perp fixture bars now clean themselves up instead of persisting in the local DB
+- added and used `scripts/cleanup_startup_remediation_fixture_bars.py`, removing 24 contaminated `BTCUSDT_PERP bars_1m` rows from the local DB
+- added bounded repair tooling at `scripts/repair_bars_integrity_windows.py` and `scripts/repair_bars_integrity_windows.ps1` so the corrupt-minute and tail-gap windows can be re-fetched locally without a full backfill
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

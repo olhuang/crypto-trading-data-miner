@@ -65,6 +65,11 @@
 - `scripts/binance_btc_history_backfill.py` now hardens minute-series checkpoints through `checkpoint_available_to`, so `bars_1m`, `mark_prices`, and `index_prices` no longer trust off-grid latest rows when planning incremental catch-up
 - a bounded repair entrypoint now exists at `scripts/repair_mark_index_gap.py` plus `scripts/repair_mark_index_gap.ps1` for re-fetching the known BTC perp `mark/index` gap window locally
 - a regression test now exists in `tests/test_binance_btc_history_backfill.py` to prove off-grid `mark_prices` rows do not dominate the minute-series incremental checkpoint
+- the remaining `BTCUSDT_PERP bars_1m` integrity failure has now been traced to two concrete issues: one corrupt candle (`close > high`) plus known tail-gap windows near the latest coverage boundary
+- `tests/test_startup_remediation.py` had been polluting the local DB with fixed BTC perp fixture bars; that test now self-cleans its inserted rows and no longer leaves persistent contamination behind
+- a reusable cleanup tool now exists at `scripts/cleanup_startup_remediation_fixture_bars.py`, and it has already been used locally to delete 24 contaminated `BTCUSDT_PERP bars_1m` fixture rows
+- bounded local repair tooling now also exists for the remaining BTC perp bar issues at `scripts/repair_bars_integrity_windows.py` plus `scripts/repair_bars_integrity_windows.ps1`
+- the new bars cleanup/repair tooling has been syntax-checked and covered by both targeted and full unit-test runs (`107 tests` passed)
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -80,6 +85,7 @@
 - current `mark_prices / index_prices` integrity failures no longer look dominated by timestamp contamination; the remaining problem is historical coverage shortfall plus a real missing block after `2026-04-03T08:39Z`
 - `bars_1m` still contains a real corrupt row and a small tail gap, so integrity work is not finished even after the `mark/index` cleanup
 - the actual bounded `mark/index` gap refill still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
+- the actual bounded `bars_1m` refill for the corrupt-minute and tail-gap windows still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -119,6 +125,10 @@
 - `scripts/cleanup_offgrid_mark_index_rows.py`
 - `scripts/repair_mark_index_gap.py`
 - `scripts/repair_mark_index_gap.ps1`
+- `scripts/cleanup_startup_remediation_fixture_bars.py`
+- `scripts/repair_bars_integrity_windows.py`
+- `scripts/repair_bars_integrity_windows.ps1`
+- `tests/test_startup_remediation.py`
 - `scripts/validate_dataset_integrity.py`
 - `scripts/validate_dataset_integrity.ps1`
 - `tests/test_binance_btc_history_backfill.py`
@@ -127,4 +137,4 @@
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- if the data-quality line stays active, first run `scripts/repair_mark_index_gap.ps1` locally and re-run integrity validation; after the gap is confirmed fixed, either continue to `UI Slice 4C: BTC Backfill Status Panel` or move to the remaining `bars_1m` corrupt-row investigation
+- if the data-quality line stays active, first run `scripts/repair_bars_integrity_windows.ps1` locally and re-run BTC perp integrity validation; after the corrupt-minute/tail-gap repair is confirmed, either continue to `UI Slice 4C: BTC Backfill Status Panel` or move to coverage-policy cleanup for `funding_rates / open_interest / mark / index`

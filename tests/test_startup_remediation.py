@@ -64,129 +64,161 @@ class StartupRemediationTests(unittest.TestCase):
         gap_time = start_time + timedelta(minutes=1)
         end_time = start_time + timedelta(minutes=2)
 
-        with transaction_scope() as connection:
-            connection.exec_driver_sql(
-                """
-                delete from ops.data_gaps
-                where instrument_id = (
-                    select instrument.instrument_id
-                    from ref.instruments instrument
-                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
-                    limit 1
+        try:
+            with transaction_scope() as connection:
+                connection.exec_driver_sql(
+                    """
+                    delete from ops.data_gaps
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                        limit 1
+                    )
+                      and data_type = 'bars_1m'
+                      and gap_start between %s and %s
+                    """,
+                    ("binance", "BTCUSDT_PERP", start_time, end_time),
                 )
-                  and data_type = 'bars_1m'
-                  and gap_start between %s and %s
-                """,
-                ("binance", "BTCUSDT_PERP", start_time, end_time),
-            )
-            connection.exec_driver_sql(
-                """
-                delete from md.bars_1m
-                where instrument_id = (
-                    select instrument.instrument_id
-                    from ref.instruments instrument
-                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
-                    limit 1
+                connection.exec_driver_sql(
+                    """
+                    delete from md.bars_1m
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                        limit 1
+                    )
+                      and bar_time between %s and %s
+                    """,
+                    ("binance", "BTCUSDT_PERP", start_time, end_time),
                 )
-                  and bar_time between %s and %s
-                """,
-                ("binance", "BTCUSDT_PERP", start_time, end_time),
-            )
 
-            BarRepository().upsert(
-                connection,
-                BarEvent(
-                    exchange_code="binance",
-                    unified_symbol="BTCUSDT_PERP",
-                    ingest_time=start_time,
-                    bar_interval="1m",
-                    bar_time=start_time,
-                    event_time=start_time,
-                    open="84000.00",
-                    high="84020.00",
-                    low="83980.00",
-                    close="84010.00",
-                    volume="10.0",
-                    quote_volume="840100.0",
-                    trade_count=100,
-                ),
-            )
-            BarRepository().upsert(
-                connection,
-                BarEvent(
-                    exchange_code="binance",
-                    unified_symbol="BTCUSDT_PERP",
-                    ingest_time=end_time,
-                    bar_interval="1m",
-                    bar_time=end_time,
-                    event_time=end_time,
-                    open="84010.00",
-                    high="84040.00",
-                    low="84005.00",
-                    close="84030.00",
-                    volume="12.0",
-                    quote_volume="1008360.0",
-                    trade_count=120,
-                ),
-            )
+                BarRepository().upsert(
+                    connection,
+                    BarEvent(
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        ingest_time=start_time,
+                        bar_interval="1m",
+                        bar_time=start_time,
+                        event_time=start_time,
+                        open="84000.00",
+                        high="84020.00",
+                        low="83980.00",
+                        close="84010.00",
+                        volume="10.0",
+                        quote_volume="840100.0",
+                        trade_count=100,
+                    ),
+                )
+                BarRepository().upsert(
+                    connection,
+                    BarEvent(
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        ingest_time=end_time,
+                        bar_interval="1m",
+                        bar_time=end_time,
+                        event_time=end_time,
+                        open="84010.00",
+                        high="84040.00",
+                        low="84005.00",
+                        close="84030.00",
+                        volume="12.0",
+                        quote_volume="1008360.0",
+                        trade_count=120,
+                    ),
+                )
 
-        client = BinancePublicRestClient(http_client=JsonHttpClient(self._transport))
-        result = remediation_module.run_startup_gap_remediation(
-            exchange_code="binance",
-            unified_symbols=["BTCUSDT_PERP"],
-            lookback_hours=0.05,
-            client=client,
-            observed_at=end_time,
-        )
-
-        self.assertEqual(result.symbols_checked, 1)
-        self.assertGreaterEqual(result.gaps_detected, 1)
-        self.assertGreaterEqual(result.gaps_resolved, 1)
-        self.assertGreaterEqual(result.backfill_runs, 1)
-
-        with connection_scope() as connection:
-            backfilled_count = connection.exec_driver_sql(
-                """
-                select count(*)
-                from md.bars_1m bar
-                join ref.instruments instrument on instrument.instrument_id = bar.instrument_id
-                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                where instrument.unified_symbol = %s
-                  and exchange.exchange_code = %s
-                  and bar.bar_time = %s
-                """,
-                ("BTCUSDT_PERP", "binance", gap_time),
-            ).scalar_one()
-            open_gaps = DataGapRepository().list_recent(
-                connection,
-                data_type="bars_1m",
-                status="open",
+            client = BinancePublicRestClient(http_client=JsonHttpClient(self._transport))
+            result = remediation_module.run_startup_gap_remediation(
                 exchange_code="binance",
-                unified_symbol="BTCUSDT_PERP",
-                limit=200,
+                unified_symbols=["BTCUSDT_PERP"],
+                lookback_hours=0.05,
+                client=client,
+                observed_at=end_time,
             )
-            resolved_gaps = connection.exec_driver_sql(
-                """
-                select count(*)
-                from ops.data_gaps gap
-                join ref.instruments instrument on instrument.instrument_id = gap.instrument_id
-                join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
-                where exchange.exchange_code = %s
-                  and instrument.unified_symbol = %s
-                  and gap.gap_start = %s
-                  and gap.status = 'resolved'
-                """,
-                ("binance", "BTCUSDT_PERP", gap_time),
-            ).scalar_one()
-            target_open_gaps = [
-                gap for gap in open_gaps if gap["gap_start"] == gap_time
-            ]
 
-            self.assertEqual(backfilled_count, 1)
-            self.assertEqual(len(target_open_gaps), 0)
-            self.assertGreaterEqual(resolved_gaps, 1)
+            self.assertEqual(result.symbols_checked, 1)
+            self.assertGreaterEqual(result.gaps_detected, 1)
+            self.assertGreaterEqual(result.gaps_resolved, 1)
+            self.assertGreaterEqual(result.backfill_runs, 1)
+
+            with connection_scope() as connection:
+                backfilled_count = connection.exec_driver_sql(
+                    """
+                    select count(*)
+                    from md.bars_1m bar
+                    join ref.instruments instrument on instrument.instrument_id = bar.instrument_id
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where instrument.unified_symbol = %s
+                      and exchange.exchange_code = %s
+                      and bar.bar_time = %s
+                    """,
+                    ("BTCUSDT_PERP", "binance", gap_time),
+                ).scalar_one()
+                open_gaps = DataGapRepository().list_recent(
+                    connection,
+                    data_type="bars_1m",
+                    status="open",
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    limit=200,
+                )
+                resolved_gaps = connection.exec_driver_sql(
+                    """
+                    select count(*)
+                    from ops.data_gaps gap
+                    join ref.instruments instrument on instrument.instrument_id = gap.instrument_id
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s
+                      and instrument.unified_symbol = %s
+                      and gap.gap_start = %s
+                      and gap.status = 'resolved'
+                    """,
+                    ("binance", "BTCUSDT_PERP", gap_time),
+                ).scalar_one()
+                target_open_gaps = [
+                    gap for gap in open_gaps if gap["gap_start"] == gap_time
+                ]
+
+                self.assertEqual(backfilled_count, 1)
+                self.assertEqual(len(target_open_gaps), 0)
+                self.assertGreaterEqual(resolved_gaps, 1)
+        finally:
+            with transaction_scope() as connection:
+                connection.exec_driver_sql(
+                    """
+                    delete from ops.data_gaps
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                        limit 1
+                    )
+                      and data_type = 'bars_1m'
+                      and gap_start between %s and %s
+                    """,
+                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                )
+                connection.exec_driver_sql(
+                    """
+                    delete from md.bars_1m
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                        limit 1
+                    )
+                      and bar_time between %s and %s
+                    """,
+                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                )
 
     def test_startup_hook_only_runs_when_local_flag_is_enabled(self) -> None:
         original_runner = app_module.run_startup_gap_remediation

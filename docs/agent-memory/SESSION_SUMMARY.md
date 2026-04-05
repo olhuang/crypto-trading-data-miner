@@ -25,6 +25,13 @@
 - hardened `scripts/binance_btc_history_backfill.py` so minute-series datasets now expose and use `checkpoint_available_to` from aligned timestamps rather than trusting any off-grid latest row
 - added `scripts/repair_mark_index_gap.py` and `scripts/repair_mark_index_gap.ps1` so the known BTC perp `mark/index` gap can be repaired locally with one bounded refresh command
 - added a regression test proving off-grid `mark_prices` rows no longer dominate minute-series incremental checkpoint planning
+- investigated the remaining `BTCUSDT_PERP bars_1m` integrity failure and confirmed it breaks into two issues: one genuinely corrupt candle (`close > high`) and tail gaps around the latest local coverage
+- traced the repeated `bars_1m` contamination to `tests/test_startup_remediation.py`, where fixed remediation fixture bars were being inserted into the local DB without cleanup after the test finished
+- updated `tests/test_startup_remediation.py` so the fixture inserts now clean themselves up in a `finally` block, preventing future test runs from polluting local Binance BTC market data
+- added `scripts/cleanup_startup_remediation_fixture_bars.py` to remove already-persisted startup-remediation fixture bars from the local DB, and used it to delete 24 contaminated `BTCUSDT_PERP bars_1m` rows
+- added `scripts/repair_bars_integrity_windows.py` and `scripts/repair_bars_integrity_windows.ps1` so the known corrupt-minute and tail-gap windows can be re-fetched locally as a bounded repair instead of re-running a full history backfill
+- verified the new cleanup and repair tools with `py_compile`, targeted dry-runs, `tests.test_startup_remediation`, and the full `unittest discover` suite (`107 tests`)
+- attempted the actual bounded bar repair, but the current harness still cannot reach Binance because outbound network access remains blocked here; the repair tooling is ready for local execution outside the sandbox
 
 ## Files Changed
 - `frontend/monitoring/index.html`
@@ -39,6 +46,10 @@
 - `scripts/repair_mark_index_gap.py`
 - `scripts/repair_mark_index_gap.ps1`
 - `tests/test_binance_btc_history_backfill.py`
+- `tests/test_startup_remediation.py`
+- `scripts/cleanup_startup_remediation_fixture_bars.py`
+- `scripts/repair_bars_integrity_windows.py`
+- `scripts/repair_bars_integrity_windows.ps1`
 
 ## Decisions
 - keep integrity validation inside the existing `Quality` page instead of creating a new top-level nav item
@@ -53,8 +64,11 @@
 - `bars_1m` still has one genuinely corrupt candle (`close > high`) plus a 5-minute tail shortfall at the end of the selected day window
 - `funding_rates` and `open_interest` still fail broad windows mainly because the requested validation window starts earlier than the current local coverage
 - the new repair tool and checkpoint hardening are implemented and tested locally, but the actual bounded `mark/index` refill still has to be executed on the local machine because the current harness cannot call Binance directly
+- the repo-side source of `bars_1m` fixture contamination is fixed, but the actual Binance refill for the corrupt minute and tail-gap windows still must be run locally because the harness cannot perform outbound market-data fetches
+- `BTCUSDT_PERP bars_1m` should be re-validated after running `scripts/repair_bars_integrity_windows.ps1`; until then, integrity will still show the known corrupt candle and tail gaps
 
 ## Next
 - if the data-quality UI line remains active, build `UI Slice 4C: BTC Backfill Status Panel`
 - optional follow-up before that: polish the selected dataset detail toward the fuller `UI Slice 4B` presentation
 - if data remediation stays active, run `scripts/repair_mark_index_gap.ps1` locally and then re-run integrity validation to confirm the bounded BTC perp `mark/index` gap is gone
+- run `scripts/repair_bars_integrity_windows.ps1` locally, then re-run BTC perp integrity validation to confirm the corrupt `bars_1m` candle and tail-gap windows are repaired
