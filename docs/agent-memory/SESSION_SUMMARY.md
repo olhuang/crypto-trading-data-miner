@@ -11,6 +11,7 @@
   - `top_trader_long_short_account_ratios`
   - `top_trader_long_short_position_ratios`
   - `taker_long_short_ratios`
+- stop regression unit tests from polluting local live-market tables and reopening Binance BTC integrity failures
 
 ## Done
 - traced the `/monitoring -> Backtests` sentiment launch failure to a missing DB seed for `btc_sentiment_momentum@v1.0.0`; the strategy existed in the in-memory registry but not in `strategy.strategies` / `strategy.strategy_versions`
@@ -46,6 +47,15 @@
   - `BUILTIN_SCHEDULER_EXCHANGE_CODE`
   - `BUILTIN_SCHEDULER_SYMBOL`
   - `BUILTIN_SCHEDULER_UNIFIED_SYMBOL`
+- reviewed the full `tests/` suite for DB pollution and confirmed the biggest regression source was the test suite itself, not just runtime maintenance
+- converted the four DB-writing integration tests in `tests/test_phase2_repositories.py` to explicit connection transactions with rollback, so they no longer persist live-looking `2026-04-02` market/orderbook/mark/index/trade rows or account/ops side effects
+- moved the DB-writing phase-3 ingestion integration windows in `tests/test_phase3_ingestion.py` out of the live 2026 range and expanded cleanup to cover `bars_1m` and `funding_rates` in addition to OI/mark/index/sentiment tables
+- moved the DB-writing phase-5 market-context tests in `tests/test_phase5_foundation.py` to pre-history 2010 windows so latest-as-of context loading cannot latch onto live 2026 sentiment rows
+- changed `tests/test_startup_remediation.py` to use a fixed future window instead of `datetime.now()`, so its setup/cleanup no longer risks deleting currently maintained local bars
+- changed the two `ops.ingestion_jobs` endpoint tests in `tests/test_api_models.py` to clean up their committed rows immediately after assertions
+- reran targeted regressions across the touched files, then reran the full suite: `python -m unittest discover -s tests -v` -> `142 tests`, `OK`
+- verified by direct DB query after the full regression run that the old `2024-04-02T12:30/12:35Z` OI / sentiment fixture rows were not reintroduced
+- verified by direct DB query that the pre-existing corrupt `BTCUSDT_PERP bars_1m` row at `2026-04-02T12:34:00Z` still exists locally; it is now treated as historical residue from older test runs and still needs one-time remediation outside the test-suite fix
 - updated `README.md` so the built-in scheduler switch location and target configuration are documented
 - added regression coverage in `tests/test_phase3_ingestion.py` for:
   - recent-history retention refresh writing canonical OI/sentiment rows
@@ -67,7 +77,11 @@
 - `src/api/app.py`
 - `src/config.py`
 - `src/services/builtin_scheduler.py`
+- `tests/test_phase2_repositories.py`
 - `tests/test_phase3_ingestion.py`
+- `tests/test_phase5_foundation.py`
+- `tests/test_startup_remediation.py`
+- `tests/test_api_models.py`
 - `tests/test_builtin_scheduler.py`
 - `.env.example`
 - `README.md`

@@ -33,7 +33,7 @@ from models.market import (
     TradeEvent,
 )
 from models.risk import RiskEvent, RiskLimit
-from storage.db import connection_scope, run_with_retry, transaction_scope
+from storage.db import connection_scope, get_engine, run_with_retry, transaction_scope
 from storage.lookups import (
     LookupResolutionError,
     resolve_account_id,
@@ -94,12 +94,12 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
 
     def test_market_repositories_are_idempotent_and_instrument_resolution_works(self) -> None:
         run_id = uuid4().hex[:10]
-        bar_time = datetime(2026, 4, 2, 12, 34, tzinfo=timezone.utc)
+        bar_time = datetime(2036, 4, 2, 12, 34, tzinfo=timezone.utc)
 
         bar_event = BarEvent(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            ingest_time=datetime(2026, 4, 2, 12, 35, 0, 100000, tzinfo=timezone.utc),
+            ingest_time=datetime(2036, 4, 2, 12, 35, 0, 100000, tzinfo=timezone.utc),
             bar_interval="1m",
             bar_time=bar_time,
             open=Decimal("84210.10"),
@@ -109,7 +109,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             volume=Decimal("152.2301"),
             quote_volume=Decimal("12824611.91"),
             trade_count=1289,
-            event_time=datetime(2026, 4, 2, 12, 34, 59, 999000, tzinfo=timezone.utc),
+            event_time=datetime(2036, 4, 2, 12, 34, 59, 999000, tzinfo=timezone.utc),
         )
         updated_bar_event = bar_event.model_copy(update={"close": Decimal("84260.12")})
 
@@ -117,15 +117,17 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
             exchange_trade_id=f"repo_trade_{run_id}",
-            event_time=datetime(2026, 4, 2, 12, 34, 56, 789000, tzinfo=timezone.utc),
-            ingest_time=datetime(2026, 4, 2, 12, 34, 56, 900000, tzinfo=timezone.utc),
+            event_time=datetime(2036, 4, 2, 12, 34, 56, 789000, tzinfo=timezone.utc),
+            ingest_time=datetime(2036, 4, 2, 12, 34, 56, 900000, tzinfo=timezone.utc),
             price=Decimal("84250.12"),
             qty=Decimal("0.015"),
             aggressor_side="buy",
         )
         updated_trade_event = trade_event.model_copy(update={"qty": Decimal("0.025")})
 
-        with transaction_scope() as connection:
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
             instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
             bar_repo = BarRepository()
             trade_repo = TradeRepository()
@@ -135,7 +137,6 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             trade_repo.upsert(connection, trade_event)
             trade_repo.upsert(connection, updated_trade_event)
 
-        with connection_scope() as connection:
             resolved_again = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
             self.assertEqual(resolved_again, instrument_id)
 
@@ -162,9 +163,13 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             ).first()
             self.assertEqual(trade_row[0], 1)
             self.assertEqual(trade_row[1], Decimal("0.025000000000"))
+        finally:
+            transaction.rollback()
+            connection.close()
 
     def test_execution_repositories_persist_order_fill_position_and_balance(self) -> None:
         run_id = uuid4().hex[:10]
+        base_time = datetime(2036, 4, 2, 12, 34, tzinfo=timezone.utc)
         account_code = f"phase2_test_{run_id}"
         client_order_id = f"phase2_order_{run_id}"
         fill_trade_id = f"phase2_fill_{run_id}"
@@ -192,7 +197,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             order_id="0",
             client_order_id=client_order_id,
             event_type="acknowledged",
-            event_time=datetime(2026, 4, 2, 12, 34, 1, 100000, tzinfo=timezone.utc),
+            event_time=base_time.replace(second=1, microsecond=100000),
             status_before="new",
             status_after="acknowledged",
             detail={"raw_status": "NEW"},
@@ -202,7 +207,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             exchange_trade_id=fill_trade_id,
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            fill_time=datetime(2026, 4, 2, 12, 34, 2, 120000, tzinfo=timezone.utc),
+            fill_time=base_time.replace(second=2, microsecond=120000),
             price=Decimal("84240.00"),
             qty=Decimal("0.2500"),
             notional=Decimal("21060.00"),
@@ -215,7 +220,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             account_code=account_code,
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            snapshot_time=datetime(2026, 4, 2, 12, 35, 0, tzinfo=timezone.utc),
+            snapshot_time=base_time.replace(minute=35, second=0, microsecond=0),
             position_qty=Decimal("0.2500"),
             avg_entry_price=Decimal("84240.00"),
             mark_price=Decimal("84244.18"),
@@ -226,14 +231,16 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             environment="paper",
             account_code=account_code,
             asset="USDT",
-            snapshot_time=datetime(2026, 4, 2, 12, 35, 0, tzinfo=timezone.utc),
+            snapshot_time=base_time.replace(minute=35, second=0, microsecond=0),
             wallet_balance=Decimal("100000.00"),
             available_balance=Decimal("78935.7880"),
             margin_balance=Decimal("100001.0450"),
             equity=Decimal("100001.0450"),
         )
 
-        with transaction_scope() as connection:
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
             account_repo = AccountRepository()
             order_repo = OrderRepository()
             order_event_repo = OrderEventRepository()
@@ -254,7 +261,6 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             position_repo.insert_snapshot(connection, position_snapshot)
             balance_repo.upsert_snapshot(connection, balance_snapshot)
 
-        with connection_scope() as connection:
             resolved_account_id = resolve_account_id(connection, account_code)
             instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
 
@@ -303,9 +309,13 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             self.assertEqual(balance_count, 1)
             self.assertGreater(order_event_id, 0)
             self.assertGreater(fill_id, 0)
+        finally:
+            transaction.rollback()
+            connection.close()
 
     def test_duplicate_fill_handling_is_idempotent_for_same_order_and_exchange_trade_id(self) -> None:
         run_id = uuid4().hex[:10]
+        fill_time = datetime(2036, 4, 2, 12, 34, 2, 120000, tzinfo=timezone.utc)
         account_code = f"phase2_fill_dedup_{run_id}"
         client_order_id = f"phase2_fill_order_{run_id}"
         fill_trade_id = f"phase2_fill_trade_{run_id}"
@@ -334,7 +344,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             exchange_trade_id=fill_trade_id,
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            fill_time=datetime(2026, 4, 2, 12, 34, 2, 120000, tzinfo=timezone.utc),
+            fill_time=fill_time,
             price=Decimal("84240.00"),
             qty=Decimal("0.2500"),
             notional=Decimal("21060.00"),
@@ -349,7 +359,9 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             }
         )
 
-        with transaction_scope() as connection:
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
             account_repo = AccountRepository()
             order_repo = OrderRepository()
             fill_repo = FillRepository()
@@ -363,7 +375,6 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             first_fill_id = fill_repo.insert(connection, first_fill)
             second_fill_id = fill_repo.insert(connection, updated_fill)
 
-        with connection_scope() as connection:
             row = connection.exec_driver_sql(
                 """
                 select count(*), max(qty), max(notional)
@@ -378,16 +389,20 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             self.assertEqual(row[0], 1)
             self.assertEqual(row[1], Decimal("0.300000000000"))
             self.assertEqual(row[2], Decimal("25272.000000000000"))
+        finally:
+            transaction.rollback()
+            connection.close()
 
     def test_reference_market_risk_and_ops_repositories_cover_remaining_phase2_entities(self) -> None:
         run_id = uuid4().hex[:10]
+        base_time = datetime(2036, 4, 2, 12, 34, tzinfo=timezone.utc)
         account_code = f"phase2_risk_ops_{run_id}"
 
         snapshot_event = OrderBookSnapshotEvent(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            snapshot_time=datetime(2026, 4, 2, 12, 34, 0, tzinfo=timezone.utc),
-            ingest_time=datetime(2026, 4, 2, 12, 34, 0, 100000, tzinfo=timezone.utc),
+            snapshot_time=base_time.replace(second=0, microsecond=0),
+            ingest_time=base_time.replace(second=0, microsecond=100000),
             depth_levels=2,
             bids=[(Decimal("84250.10"), Decimal("3.12"))],
             asks=[(Decimal("84250.20"), Decimal("2.65"))],
@@ -397,8 +412,8 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
         delta_event = OrderBookDeltaEvent(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            event_time=datetime(2026, 4, 2, 12, 34, 1, 250000, tzinfo=timezone.utc),
-            ingest_time=datetime(2026, 4, 2, 12, 34, 1, 320000, tzinfo=timezone.utc),
+            event_time=base_time.replace(second=1, microsecond=250000),
+            ingest_time=base_time.replace(second=1, microsecond=320000),
             first_update_id=10001,
             final_update_id=10005,
             bids=[(Decimal("84250.10"), Decimal("0"))],
@@ -409,16 +424,16 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
         mark_event = MarkPriceEvent(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            event_time=datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc),
-            ingest_time=datetime(2026, 4, 2, 12, 34, 2, 100000, tzinfo=timezone.utc),
+            event_time=base_time.replace(second=2, microsecond=0),
+            ingest_time=base_time.replace(second=2, microsecond=100000),
             mark_price=Decimal("84244.18"),
             funding_basis_bps=Decimal("0.82"),
         )
         index_event = IndexPriceEvent(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            event_time=datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc),
-            ingest_time=datetime(2026, 4, 2, 12, 34, 2, 100000, tzinfo=timezone.utc),
+            event_time=base_time.replace(second=2, microsecond=0),
+            ingest_time=base_time.replace(second=2, microsecond=100000),
             index_price=Decimal("84240.01"),
         )
         raw_event = RawMarketEvent(
@@ -426,8 +441,8 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             unified_symbol="BTCUSDT_PERP",
             channel="depth",
             event_type="depth_update",
-            event_time=datetime(2026, 4, 2, 12, 34, 1, 250000, tzinfo=timezone.utc),
-            ingest_time=datetime(2026, 4, 2, 12, 34, 1, 320000, tzinfo=timezone.utc),
+            event_time=base_time.replace(second=1, microsecond=250000),
+            ingest_time=base_time.replace(second=1, microsecond=320000),
             source_message_id=f"u_{run_id}",
             payload_json={"u": 10005, "pu": 10000},
         )
@@ -435,7 +450,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             environment="paper",
             account_code=account_code,
             asset="USDT",
-            event_time=datetime(2026, 4, 2, 8, 0, 1, tzinfo=timezone.utc),
+            event_time=base_time.replace(hour=8, minute=0, second=1, microsecond=0),
             ledger_type="funding_payment",
             amount=Decimal("-12.45"),
             balance_after=Decimal("100120.55"),
@@ -449,7 +464,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             account_code=account_code,
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            funding_time=datetime(2026, 4, 2, 8, 0, 0, tzinfo=timezone.utc),
+            funding_time=base_time.replace(hour=8, minute=0, second=0, microsecond=0),
             position_qty=Decimal("0.5000"),
             funding_rate=Decimal("0.00010000"),
             funding_payment=Decimal("-4.21"),
@@ -468,7 +483,7 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             account_code=account_code,
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            event_time=datetime(2026, 4, 2, 12, 40, 0, tzinfo=timezone.utc),
+            event_time=base_time.replace(minute=40, second=0, microsecond=0),
             event_type="pre_trade_check_blocked",
             severity="warning",
             decision="block",
@@ -489,11 +504,13 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             status="success",
             records_expected=1,
             records_written=1,
-            finished_at=datetime(2026, 4, 2, 12, 45, 0, tzinfo=timezone.utc),
+            finished_at=base_time.replace(minute=45, second=0, microsecond=0),
             metadata_json={"run_id": run_id},
         )
 
-        with transaction_scope() as connection:
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
             exchange_repo = ExchangeRepository()
             asset_repo = AssetRepository()
             account_repo = AccountRepository()
@@ -532,7 +549,6 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             log_id = system_log_repo.insert(connection, system_log)
             ingestion_job_id = ingestion_job_repo.insert(connection, ingestion_job)
 
-        with connection_scope() as connection:
             account_id = resolve_account_id(connection, account_code)
             instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
 
@@ -636,6 +652,9 @@ class Phase2RepositoryIntegrationTests(unittest.TestCase):
             self.assertEqual(risk_event_count, 1)
             self.assertEqual(log_count, 1)
             self.assertEqual(ingestion_job_count, 1)
+        finally:
+            transaction.rollback()
+            connection.close()
 
 
 if __name__ == "__main__":

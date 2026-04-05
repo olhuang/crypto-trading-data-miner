@@ -19,6 +19,7 @@
 - keep retention-limited OI/sentiment history fetches boundary-safe now that repeated re-grabs exposed recurring midnight bucket drops
 - keep recurring job control explicit and centralized now that the repo has a built-in scheduler toggle in config/app startup
 - keep the sentiment-aware Backtests launch path stable now that seeded registry strategies also need matching DB strategy/version rows
+- keep regression/unit-test DB isolation strict so local market-data integrity stays stable after full `tests/` runs
 
 ## Blocked
 - none currently recorded
@@ -33,6 +34,7 @@
 - connect the new debug-trace market-context evidence into replay investigation linkage and future compare/review note anchors
 - defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
 - optionally surface scheduler/remediation continuity reasons in Quality if operators need to distinguish freshness catch-up from true recent-window repair
+- operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
 - added a first finding-aware repair flow inside `/monitoring -> Quality`, so `Selected Dataset Integrity -> Findings` can now trigger bounded `bars_1m` repair and dataset-scoped incremental backfill directly from the UI
@@ -46,6 +48,13 @@
 - hardened retention-limited futures history fetches so `open_interest` and the four sentiment-ratio datasets request a one-period overlap and then post-filter back to the requested window, addressing the recurring midnight boundary gap behavior
 - aligned the phase-3 historical snapshot fixtures to 2026 request windows and added explicit boundary-spillover regression tests for sentiment-ratio and OI history fetches
 - fixed the sentiment-aware backtest launch path by seeding `btc_sentiment_momentum@v1.0.0` into the DB bootstrap, patching the local DB to match, and teaching the API/front-end to surface lookup/non-JSON failures more cleanly
+- reviewed the full regression suite for DB pollution and fixed the confirmed high-risk tests so they no longer write or clean up against live 2026 Binance BTC windows
+- `tests/test_phase2_repositories.py` now runs its DB-writing repository integration checks inside rollback transactions, eliminating the old corrupt `2026-04-02T12:34` bar reintroduction path
+- `tests/test_phase3_ingestion.py` now uses future fixture windows plus symbol-aware cleanup for the DB-writing integration cases, so full regressions no longer reinsert or delete live-window OI/sentiment/bars/funding rows
+- `tests/test_phase5_foundation.py` DB-writing market-context tests now run in pre-history windows to avoid latest-as-of context contamination from real local 2026 data
+- `tests/test_startup_remediation.py` no longer uses `datetime.now()` for its seeded gap window, preventing accidental deletion of currently maintained local bars during regression
+- `tests/test_api_models.py` now removes its committed `ops.ingestion_jobs` rows after endpoint assertions instead of leaving them behind
+- a full `python -m unittest discover -s tests -v` run now completes successfully (`142 tests`, `OK`) after the DB-isolation fixes
 - operator-cleaned the local `BTCUSDT_PERP` sentiment-ratio tables so re-grab starts from an empty state instead of mixing recent rows with old `2024-04-02` fixture residue
 - added a compact `market_context_json` field to persisted backtest debug traces, capturing the actual latest-as-of perp context seen by feature-aware strategies at each step
 - exposed that compact market-context snapshot through the debug-trace API and `/monitoring -> Backtests -> Selected Trace Detail`, so sentiment-aware runs are now explainable without digging back through market-data tables by hand

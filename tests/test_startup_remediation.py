@@ -60,7 +60,7 @@ class StartupRemediationTests(unittest.TestCase):
         settings.startup_gap_remediation_lookback_hours = self.original_lookback
 
     def test_run_startup_gap_remediation_backfills_and_resolves_gap(self) -> None:
-        start_time = datetime.now(timezone.utc).replace(second=0, microsecond=0) - timedelta(minutes=2)
+        start_time = datetime(2036, 1, 5, 0, 0, tzinfo=timezone.utc)
         gap_time = start_time + timedelta(minutes=1)
         end_time = start_time + timedelta(minutes=2)
 

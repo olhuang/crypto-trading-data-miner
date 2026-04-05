@@ -811,8 +811,8 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(result.fills[0].fill_price, bars[5].open + Decimal("0.0105"))
 
     def test_runner_load_and_run_surfaces_perp_market_context_to_strategy(self) -> None:
-        start_time = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
-        end_time = datetime(2026, 4, 1, 0, 5, tzinfo=timezone.utc)
+        start_time = datetime(2010, 1, 3, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2010, 1, 3, 0, 5, tzinfo=timezone.utc)
         self.addCleanup(
             _cleanup_strategy_market_context_window,
             start_time=start_time,
@@ -1811,8 +1811,8 @@ class Phase5FoundationTests(unittest.TestCase):
             connection.close()
 
     def test_load_run_and_persist_can_persist_market_context_snapshot(self) -> None:
-        start_time = datetime(2036, 1, 4, 0, 0, tzinfo=timezone.utc)
-        end_time = datetime(2036, 1, 4, 0, 5, tzinfo=timezone.utc)
+        start_time = datetime(2010, 1, 4, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2010, 1, 4, 0, 5, tzinfo=timezone.utc)
         self.addCleanup(
             _cleanup_strategy_market_context_window,
             start_time=start_time,

@@ -24,16 +24,23 @@ from storage.repositories.ops import IngestionJobRepository
 
 class Phase3IngestionTests(unittest.TestCase):
     @staticmethod
-    def _cleanup_market_snapshot_history_window(*, start_time: datetime, end_time: datetime) -> None:
+    def _cleanup_market_snapshot_history_window(
+        *,
+        unified_symbol: str,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> None:
         with transaction_scope() as connection:
-            for table_name in (
-                "md.open_interest",
-                "md.mark_prices",
-                "md.index_prices",
-                "md.global_long_short_account_ratios",
-                "md.top_trader_long_short_account_ratios",
-                "md.top_trader_long_short_position_ratios",
-                "md.taker_long_short_ratios",
+            for table_name, time_column in (
+                ("md.bars_1m", "bar_time"),
+                ("md.funding_rates", "funding_time"),
+                ("md.open_interest", "ts"),
+                ("md.mark_prices", "ts"),
+                ("md.index_prices", "ts"),
+                ("md.global_long_short_account_ratios", "ts"),
+                ("md.top_trader_long_short_account_ratios", "ts"),
+                ("md.top_trader_long_short_position_ratios", "ts"),
+                ("md.taker_long_short_ratios", "ts"),
             ):
                 connection.exec_driver_sql(
                     f"""
@@ -45,15 +52,15 @@ class Phase3IngestionTests(unittest.TestCase):
                         where exchange.exchange_code = %s and instrument.unified_symbol = %s
                         limit 1
                     )
-                      and ts between %s and %s
+                      and {time_column} between %s and %s
                     """,
-                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                    ("binance", unified_symbol, start_time, end_time),
                 )
 
     @staticmethod
     def _transport(url: str, params):
-        historical_fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
-        historical_fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
+        historical_fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
+        historical_fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
         historical_fixture_start_ms = int(historical_fixture_start.timestamp() * 1000)
         historical_fixture_end_ms = int(historical_fixture_end.timestamp() * 1000)
         if url.endswith("/fapi/v1/klines") and params and params.get("startTime") == 1712061300000:
@@ -296,7 +303,7 @@ class Phase3IngestionTests(unittest.TestCase):
                     "symbol": "BTCUSDT",
                     "markPrice": "84244.18",
                     "indexPrice": "84240.01",
-                    "time": int(datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc).timestamp() * 1000),
+                    "time": int(datetime(2036, 4, 2, 12, 34, 2, tzinfo=timezone.utc).timestamp() * 1000),
                 },
             )
         if url.endswith("/fapi/v1/markPriceKlines"):
@@ -359,7 +366,15 @@ class Phase3IngestionTests(unittest.TestCase):
         return BinancePublicRestClient(http_client=JsonHttpClient(self._transport))
 
     def test_instrument_sync_backfill_and_snapshot_refresh_persist_phase3_data(self) -> None:
-        premium_fixture_time = datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc)
+        fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
+        fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
+        premium_fixture_time = datetime(2036, 4, 2, 12, 34, 2, tzinfo=timezone.utc)
+        self.addCleanup(
+            self._cleanup_market_snapshot_history_window,
+            unified_symbol="BTCUSDT_PERP",
+            start_time=datetime(2036, 4, 2, 8, 0, tzinfo=timezone.utc),
+            end_time=fixture_end,
+        )
         client = self._client()
         sync_result = run_instrument_sync(client=client, requested_by="test-user")
         self.assertEqual(sync_result.status, "succeeded")
@@ -369,8 +384,8 @@ class Phase3IngestionTests(unittest.TestCase):
             symbol="BTCUSDT",
             unified_symbol="BTCUSDT_PERP",
             interval="1m",
-            start_time=datetime(2026, 4, 2, 12, 34, tzinfo=timezone.utc),
-            end_time=datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc),
+            start_time=datetime(2036, 4, 2, 12, 34, tzinfo=timezone.utc),
+            end_time=fixture_end,
             client=client,
             requested_by="test-user",
         )
@@ -382,8 +397,8 @@ class Phase3IngestionTests(unittest.TestCase):
             unified_symbol="BTCUSDT_PERP",
             client=client,
             requested_by="test-user",
-            funding_start_time=datetime(2026, 4, 2, 8, 0, tzinfo=timezone.utc),
-            funding_end_time=datetime(2026, 4, 2, 8, 1, tzinfo=timezone.utc),
+            funding_start_time=datetime(2036, 4, 2, 8, 0, tzinfo=timezone.utc),
+            funding_end_time=datetime(2036, 4, 2, 8, 1, tzinfo=timezone.utc),
         )
         self.assertEqual(refresh_result.status, "succeeded")
         self.assertEqual(refresh_result.records_written, 4)
@@ -507,10 +522,11 @@ class Phase3IngestionTests(unittest.TestCase):
             self.assertGreaterEqual(sync_job["metadata_json"]["summary"]["assets_touched"], 4)
 
     def test_market_snapshot_refresh_supports_historical_oi_mark_and_index_windows(self) -> None:
-        fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
-        fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
+        fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
+        fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
+            unified_symbol="BTCUSDT_PERP",
             start_time=fixture_start,
             end_time=fixture_end,
         )
@@ -520,10 +536,10 @@ class Phase3IngestionTests(unittest.TestCase):
             unified_symbol="BTCUSDT_PERP",
             client=client,
             requested_by="test-user",
-            funding_start_time=datetime(2026, 4, 2, 8, 0, tzinfo=timezone.utc),
-            funding_end_time=datetime(2026, 4, 2, 8, 1, tzinfo=timezone.utc),
-            history_start_time=datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc),
-            history_end_time=datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc),
+            funding_start_time=datetime(2036, 4, 2, 8, 0, tzinfo=timezone.utc),
+            funding_end_time=datetime(2036, 4, 2, 8, 1, tzinfo=timezone.utc),
+            history_start_time=datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc),
+            history_end_time=datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc),
         )
 
         self.assertEqual(result.status, "succeeded")
@@ -567,10 +583,11 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(index_count, 2)
 
     def test_market_snapshot_refresh_supports_historical_sentiment_ratio_windows(self) -> None:
-        fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
-        fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
+        fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
+        fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
+            unified_symbol="BTCUSDT_PERP",
             start_time=fixture_start,
             end_time=fixture_end,
         )
@@ -580,8 +597,8 @@ class Phase3IngestionTests(unittest.TestCase):
             unified_symbol="BTCUSDT_PERP",
             client=client,
             requested_by="test-user",
-            history_start_time=datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc),
-            history_end_time=datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc),
+            history_start_time=datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc),
+            history_end_time=datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc),
             sentiment_ratio_period="5m",
             include_funding=False,
             include_open_interest=False,
@@ -669,10 +686,11 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(taker_count, 2)
 
     def test_market_snapshot_refresh_recent_history_mode_persists_canonical_oi_and_sentiment_rows(self) -> None:
-        fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
-        fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
+        fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
+        fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
+            unified_symbol="BTCUSDT_PERP",
             start_time=fixture_start,
             end_time=fixture_end,
         )
@@ -727,8 +745,8 @@ class Phase3IngestionTests(unittest.TestCase):
 
     def test_sentiment_ratio_history_fetch_and_normalize(self) -> None:
         client = self._client()
-        start_time = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
-        end_time = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
+        start_time = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
+        end_time = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
 
         global_rows = client.fetch_global_long_short_account_ratio_history(
             "BTCUSDT",
@@ -871,6 +889,14 @@ class Phase3IngestionTests(unittest.TestCase):
         )
 
     def test_spot_bar_backfill_uses_spot_klines_endpoint(self) -> None:
+        fixture_start = datetime(2036, 4, 2, 12, 34, tzinfo=timezone.utc)
+        fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
+        self.addCleanup(
+            self._cleanup_market_snapshot_history_window,
+            unified_symbol="BTCUSDC_SPOT",
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
         client = self._client()
         run_instrument_sync(client=client, requested_by="test-user")
 
@@ -878,8 +904,8 @@ class Phase3IngestionTests(unittest.TestCase):
             symbol="BTCUSDC",
             unified_symbol="BTCUSDC_SPOT",
             interval="1m",
-            start_time=datetime(2026, 4, 2, 12, 34, tzinfo=timezone.utc),
-            end_time=datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc),
+            start_time=fixture_start,
+            end_time=fixture_end,
             client=client,
             requested_by="test-user",
         )

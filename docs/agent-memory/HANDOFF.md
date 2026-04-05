@@ -16,6 +16,7 @@
 - keep retention-limited OI/sentiment history fetches boundary-safe so repeated re-grabs stop dropping the same midnight buckets
 - keep recurring job control centralized now that the repo has a built-in scheduler bootstrap and a single config-driven on/off path
 - keep the Backtests launch flow resilient now that the sentiment-aware strategy path depends on seeded DB strategy-version rows and friendlier lookup error handling
+- keep regression tests from mutating live/local market-data windows now that multiple DB-writing test cases were found to overlap real 2026 Binance BTC data
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -52,6 +53,20 @@
 - phase-3 historical snapshot tests now use aligned 2026 fixture timestamps for OI / sentiment / premium-index history windows, so the new boundary filtering is tested against the actual requested window instead of mismatched 2024 fixture rows
 - the sentiment-aware backtest launch failure was traced to a missing seeded DB row for `btc_sentiment_momentum@v1.0.0`; a new migration now seeds that strategy/version pair, the local DB was patched to match, and the API now converts lookup misses into typed validation errors instead of raw 500s
 - the `/monitoring` fetch helpers now tolerate plain-text non-JSON error responses, so launch failures surface the real server message instead of `Unexpected token ... is not valid JSON`
+- the recurring "regression tests reintroduced BTC data gaps/corruption" issue was traced to DB-writing tests, not just runtime maintenance:
+  - `tests/test_phase2_repositories.py` was committing directly into `md.*` / `execution.*` / `ops.*` using live-looking `2026-04-02` timestamps with no cleanup
+  - `tests/test_phase3_ingestion.py` had phase-3 integration tests writing `BTCUSDT_PERP` / `BTCUSDC_SPOT` fixture data into real-looking 2026 windows and then cleaning those same windows
+  - `tests/test_phase5_foundation.py` had DB-writing market-context tests using real-looking 2026 windows, which let latest-as-of context see pre-existing live data
+  - `tests/test_startup_remediation.py` was using `datetime.now()` windows, so its cleanup could delete the current live 1m bars it was supposed to simulate
+  - `tests/test_api_models.py` was also leaving committed `ops.ingestion_jobs` rows behind
+- the high-risk DB-writing tests are now isolated:
+  - `tests/test_phase2_repositories.py` and the two ingestion-job API tests now verify writes inside explicit connection transactions that are rolled back (or are cleaned immediately after endpoint assertions)
+  - `tests/test_phase3_ingestion.py` now cleans `bars_1m` + `funding_rates` + retention-limited snapshot tables through a symbol-aware helper and uses future fixture windows for the integration tests that actually persist rows
+  - `tests/test_phase5_foundation.py` DB-writing market-context tests now use pre-history windows (`2010-01-*`) so latest-as-of loading cannot pick up live 2026 context
+  - `tests/test_startup_remediation.py` now uses a fixed future window instead of `datetime.now()`
+- a full `python -m unittest discover -s tests -v` run now passes (`142 tests`) after these isolation fixes
+- post-run local DB spot checks show the old `2024-04-02T12:30/12:35Z` OI/sentiment fixture rows are no longer reintroduced by a full regression run
+- one pre-existing local residue still remains from older regression runs: the `BTCUSDT_PERP bars_1m` corrupt candle at `2026-04-02T12:34:00Z` still exists in the DB after the suite, but it was not recreated by the fixed regression run
 - local `BTCUSDT_PERP` sentiment-ratio tables were confirmed to contain old `2024-04-02` test-fixture residue plus a recent real block; the fixture residue was operator-cleaned from the local DB before re-grab
 - a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run

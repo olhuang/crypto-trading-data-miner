@@ -263,72 +263,96 @@ class ModelsApiTests(unittest.TestCase):
             app_module.run_market_snapshot_remediation = original_remediation
 
     def test_job_detail_endpoint_exposes_summary_and_diffs(self) -> None:
-        with transaction_scope() as connection:
-            repo = IngestionJobRepository()
-            job_id = repo.create_job(
-                connection,
-                service_name="instrument_sync",
-                data_type="instrument_metadata",
-                status="running",
-                requested_by="u_123",
-                exchange_code="binance",
-                metadata_json={"job_type": "instrument_sync"},
-            )
-            repo.finish_job(
-                connection,
-                job_id,
-                status="succeeded",
-                finished_at="2026-04-02T12:00:03Z",
-                records_written=2,
-                metadata_json={
-                    "job_type": "instrument_sync",
-                    "summary": {"instruments_seen": 2, "instruments_inserted": 1, "instruments_updated": 1, "instruments_unchanged": 0},
-                    "diffs": [{"unified_symbol": "BTCUSDT_PERP", "change_type": "updated", "field_diffs": []}],
-                },
-            )
+        job_id = None
+        try:
+            with transaction_scope() as connection:
+                repo = IngestionJobRepository()
+                job_id = repo.create_job(
+                    connection,
+                    service_name="instrument_sync",
+                    data_type="instrument_metadata",
+                    status="running",
+                    requested_by="u_123",
+                    exchange_code="binance",
+                    metadata_json={"job_type": "instrument_sync"},
+                )
+                repo.finish_job(
+                    connection,
+                    job_id,
+                    status="succeeded",
+                    finished_at="2026-04-02T12:00:03Z",
+                    records_written=2,
+                    metadata_json={
+                        "job_type": "instrument_sync",
+                        "summary": {"instruments_seen": 2, "instruments_inserted": 1, "instruments_updated": 1, "instruments_unchanged": 0},
+                        "diffs": [{"unified_symbol": "BTCUSDT_PERP", "change_type": "updated", "field_diffs": []}],
+                    },
+                )
 
-        response = self.__class__.job_detail_endpoint(job_id)
+            response = self.__class__.job_detail_endpoint(job_id)
 
-        self.assertTrue(response.success)
-        self.assertEqual(response.data.job_id, job_id)
-        self.assertEqual(response.data.summary["instruments_seen"], 2)
-        self.assertEqual(response.data.diffs[0]["unified_symbol"], "BTCUSDT_PERP")
+            self.assertTrue(response.success)
+            self.assertEqual(response.data.job_id, job_id)
+            self.assertEqual(response.data.summary["instruments_seen"], 2)
+            self.assertEqual(response.data.diffs[0]["unified_symbol"], "BTCUSDT_PERP")
+        finally:
+            if job_id is not None:
+                with transaction_scope() as connection:
+                    connection.exec_driver_sql(
+                        "delete from ops.ingestion_jobs where ingestion_job_id = %s",
+                        (job_id,),
+                    )
 
     def test_jobs_list_endpoint_supports_filters(self) -> None:
-        with transaction_scope() as connection:
-            repo = IngestionJobRepository()
-            sync_job_id = repo.create_job(
-                connection,
-                service_name="instrument_sync",
-                data_type="instrument_metadata",
-                status="succeeded",
-                requested_by="u_123",
-                exchange_code="binance",
-                metadata_json={"job_type": "instrument_sync"},
-            )
-            remediation_job_id = repo.create_job(
-                connection,
-                service_name="market_snapshot_remediation",
-                data_type="funding_open_interest_mark_index",
+        sync_job_id = None
+        remediation_job_id = None
+        try:
+            with transaction_scope() as connection:
+                repo = IngestionJobRepository()
+                sync_job_id = repo.create_job(
+                    connection,
+                    service_name="instrument_sync",
+                    data_type="instrument_metadata",
+                    status="succeeded",
+                    requested_by="u_123",
+                    exchange_code="binance",
+                    metadata_json={"job_type": "instrument_sync"},
+                )
+                remediation_job_id = repo.create_job(
+                    connection,
+                    service_name="market_snapshot_remediation",
+                    data_type="funding_open_interest_mark_index",
+                    status="failed_terminal",
+                    requested_by="u_123",
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    metadata_json={"job_type": "market_snapshot_remediation"},
+                )
+
+            filtered_response = self.__class__.jobs_list_endpoint(
                 status="failed_terminal",
-                requested_by="u_123",
+                service_name="market_snapshot_remediation",
                 exchange_code="binance",
                 unified_symbol="BTCUSDT_PERP",
-                metadata_json={"job_type": "market_snapshot_remediation"},
+                limit=20,
             )
 
-        filtered_response = self.__class__.jobs_list_endpoint(
-            status="failed_terminal",
-            service_name="market_snapshot_remediation",
-            exchange_code="binance",
-            unified_symbol="BTCUSDT_PERP",
-            limit=20,
-        )
-
-        self.assertTrue(filtered_response.success)
-        returned_ids = {record["job_id"] for record in filtered_response.data.records}
-        self.assertIn(remediation_job_id, returned_ids)
-        self.assertNotIn(sync_job_id, returned_ids)
+            self.assertTrue(filtered_response.success)
+            returned_ids = {record["job_id"] for record in filtered_response.data.records}
+            self.assertIn(remediation_job_id, returned_ids)
+            self.assertNotIn(sync_job_id, returned_ids)
+        finally:
+            with transaction_scope() as connection:
+                if remediation_job_id is not None:
+                    connection.exec_driver_sql(
+                        "delete from ops.ingestion_jobs where ingestion_job_id = %s",
+                        (remediation_job_id,),
+                    )
+                if sync_job_id is not None:
+                    connection.exec_driver_sql(
+                        "delete from ops.ingestion_jobs where ingestion_job_id = %s",
+                        (sync_job_id,),
+                    )
 
     def test_backtest_diagnostics_endpoint_returns_typed_summary(self) -> None:
         original_projector = app_module.BacktestDiagnosticsProjector
