@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import calendar
 import json
+import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -276,7 +277,9 @@ def make_dataset_status(dataset_specs: list[DatasetSpec], tasks: list[ChunkTask]
 
 def write_status(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp_path = path.with_suffix(f"{path.suffix}.tmp")
+    temp_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    temp_path.replace(path)
 
 
 def aligned_checkpoint_condition_sql(time_column: str, interval_seconds: int) -> str:
@@ -506,12 +509,15 @@ def initial_status_payload(
     dataset_specs: list[DatasetSpec],
     tasks: list[ChunkTask],
     mode: str,
+    requested_by: str,
 ) -> dict[str, Any]:
     return {
         "state": "running",
         "mode": mode,
         "started_at": utc_now().isoformat(),
         "updated_at": utc_now().isoformat(),
+        "requested_by": requested_by,
+        "process_id": os.getpid(),
         "requested_window": {
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
@@ -880,6 +886,8 @@ def main() -> int:
         status_payload["error"] = None
         status_payload["resumed_at"] = utc_now().isoformat()
         status_payload["updated_at"] = utc_now().isoformat()
+        status_payload["requested_by"] = args.requested_by
+        status_payload["process_id"] = os.getpid()
         mode = str(status_payload.get("mode") or "bootstrap")
     else:
         if args.incremental:
@@ -896,6 +904,7 @@ def main() -> int:
             dataset_specs=dataset_specs,
             tasks=tasks,
             mode=mode,
+            requested_by=args.requested_by,
         )
         completed_tasks = 0
     write_status(status_path, status_payload)

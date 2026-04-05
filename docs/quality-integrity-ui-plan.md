@@ -243,12 +243,16 @@ The UI should show:
 - last result
 - coverage summary
 
-For BTC-specific local tooling, the UI can start with:
-- a read-only status view
+For BTC-specific local tooling, the current UI can now support:
+- a status view
+- manual refresh
+- an incremental backfill trigger
+- status refresh polling while the run is active
 
 Later it may add:
-- a launch button for local wrappers
-- status refresh polling
+- richer job drill-down
+- generic multi-symbol controls
+- stronger orchestration / cancellation semantics
 
 ---
 
@@ -260,19 +264,25 @@ Later it may add:
 - `GET /api/v1/quality/summary`
 - `GET /api/v1/quality/gaps`
 - `POST /api/v1/quality/integrity`
-
-## Future API Recommended
-
-For backfill status, add a lightweight read endpoint such as:
 - `GET /api/v1/quality/backfill-status/binance-btc`
+- `POST /api/v1/quality/backfill-jobs/binance-btc/incremental`
 
-Recommended response shape:
-- current status-file state
-- per-dataset progress
-- coverage summary
-- last result
+## Current BTC Backfill API Shape
 
-This should be read-only.
+The current Quality workspace now uses:
+- `GET /api/v1/quality/backfill-status/binance-btc`
+- `POST /api/v1/quality/backfill-jobs/binance-btc/incremental`
+
+Current response/behavior:
+- read the current local BTC backfill status artifact through the API
+- show per-dataset progress, coverage summary, and last result
+- allow the operator to trigger one incremental catch-up run from the UI
+- avoid duplicate triggers by returning `already_running` when an active process is already present
+
+Still intentionally deferred:
+- generic job orchestration
+- in-UI cancel/retry semantics
+- non-BTC symbol selection
 
 ---
 
@@ -308,13 +318,19 @@ Acceptance:
 
 ## UI Slice 4C: BTC Backfill Status Panel
 
+Status:
+- completed
+
 Scope:
 - show current BTC bootstrap/incremental status
 - show dataset chunk progress
 - show latest coverage summary
+- allow an operator to trigger one incremental BTC backfill run
+- auto-refresh while a backfill process is active
 
 Acceptance:
 - operator can see current backfill state without opening the status file manually
+- operator can trigger an incremental BTC catch-up run from `/monitoring -> Quality`
 
 ## UI Slice 4D: Quality Workspace Restructure
 
@@ -349,8 +365,8 @@ This slice is now landed in `/monitoring` and should be treated as the baseline 
 - product-grade charts
 
 ### Next Recommended Slice
-- `UI Slice 4C: BTC Backfill Status Panel`
 - optional follow-up: polish the current selected-dataset detail into the fuller `UI Slice 4B` presentation
+- or move to `UI Slice 4D` if stronger segmented Quality navigation becomes the next pain point
 
 ---
 
@@ -385,4 +401,4 @@ The best short-term UX is:
 The immediate next move should be:
 - add `Integrity` to the current Quality page
 - let operators validate a bounded window directly from UI
-- then add BTC backfill status as a companion quality/coverage surface
+- keep BTC backfill status as a companion quality/coverage surface and refine the selected-dataset detail or broader Quality workspace structure next

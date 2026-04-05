@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi.routing import APIRoute
@@ -13,7 +14,7 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from api.app import DatasetIntegrityValidationRequest, Phase4QualityRunRequest, create_app
+from api.app import BtcBackfillTriggerRequest, DatasetIntegrityValidationRequest, Phase4QualityRunRequest, create_app
 from jobs.data_quality import run_bar_gap_checks, run_freshness_checks, run_phase4_quality_suite, validate_dataset_integrity
 from models.market import (
     BarEvent,
@@ -1215,6 +1216,79 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
         self.assertEqual(report.gap_count, 0)
         self.assertEqual(result.summary.warning_datasets, 1)
         self.assertEqual(result.summary.failed_datasets, 0)
+
+
+class BtcBackfillControlEndpointTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.app = create_app()
+        cls.status_endpoint = _resolve_route(cls.app, "/api/v1/quality/backfill-status/binance-btc", "GET")
+        cls.trigger_endpoint = _resolve_route(cls.app, "/api/v1/quality/backfill-jobs/binance-btc/incremental", "POST")
+
+    def test_backfill_status_endpoint_returns_typed_payload(self) -> None:
+        with patch(
+            "api.app.load_binance_btc_backfill_status",
+            return_value={
+                "state": "running",
+                "mode": "incremental",
+                "started_at": "2026-04-05T10:00:00+00:00",
+                "updated_at": "2026-04-05T10:01:00+00:00",
+                "requested_by": "tester",
+                "process_id": 4242,
+                "process_alive": True,
+                "status_file": "tmp/status.json",
+                "log_file": "tmp/backfill.log",
+                "requested_window": {"start_time": "2026-03-01T00:00:00+00:00", "end_time": "2026-04-05T10:00:00+00:00"},
+                "overall": {"tasks_total": 6, "tasks_completed": 2, "progress_pct": 33.33},
+                "datasets": {
+                    "btc_spot_bars_1m": {
+                        "dataset_key": "btc_spot_bars_1m",
+                        "label": "BTCUSDT_SPOT bars_1m",
+                        "unified_symbol": "BTCUSDT_SPOT",
+                        "chunk_total": 1,
+                        "chunks_completed": 1,
+                        "rows_written": 493,
+                        "first_nonzero_window_start": "2026-04-04T15:41:00+00:00",
+                        "last_nonzero_window_end": "2026-04-04T23:54:40+00:00",
+                        "last_result": {"status": "succeeded", "rows_written": 493},
+                    }
+                },
+                "current_task": {"dataset_key": "btc_perp_bars_1m"},
+                "last_result": {"dataset_key": "btc_spot_bars_1m", "status": "succeeded"},
+                "coverage_summary": {"BTCUSDT_SPOT": {"bars_1m": {"safe_available_to": "2026-04-04T23:54:00+00:00"}}},
+                "error": None,
+            },
+        ):
+            response = self.__class__.status_endpoint()
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.state, "running")
+        self.assertEqual(response.data.mode, "incremental")
+        self.assertEqual(response.data.overall.tasks_total, 6)
+        self.assertEqual(len(response.data.datasets), 1)
+        self.assertEqual(response.data.datasets[0].dataset_key, "btc_spot_bars_1m")
+        self.assertTrue(response.data.process_alive)
+
+    def test_backfill_trigger_endpoint_returns_action_payload(self) -> None:
+        with patch(
+            "api.app.trigger_binance_btc_incremental_backfill",
+            return_value={
+                "job_id": 5150,
+                "status": "started",
+                "already_running": False,
+                "status_file": "tmp/status.json",
+                "log_file": "tmp/backfill.log",
+                "process_alive": True,
+                "started_at": "2026-04-05T10:02:00+00:00",
+            },
+        ):
+            response = self.__class__.trigger_endpoint(BtcBackfillTriggerRequest())
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.job_id, 5150)
+        self.assertEqual(response.data.status, "started")
+        self.assertFalse(response.data.already_running)
+        self.assertTrue(response.data.process_alive)
 
 
 if __name__ == "__main__":

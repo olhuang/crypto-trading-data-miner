@@ -9,6 +9,9 @@ const state = {
   selectedCompareNoteId: null,
   currentIntegrityResult: null,
   selectedIntegrityDataType: null,
+  currentBtcBackfillStatus: null,
+  selectedBtcBackfillDatasetKey: null,
+  btcBackfillStatusPollHandle: null,
 };
 
 const INTEGRITY_DATASET_FIELDS = [
@@ -1080,6 +1083,297 @@ function renderIntegrityValidationResult(result) {
   renderIntegrityDatasetDetail(selectedDataset);
 }
 
+function clearBtcBackfillStatusPoll() {
+  if (state.btcBackfillStatusPollHandle) {
+    window.clearTimeout(state.btcBackfillStatusPollHandle);
+    state.btcBackfillStatusPollHandle = null;
+  }
+}
+
+function scheduleBtcBackfillStatusPoll(delayMs = 5000) {
+  clearBtcBackfillStatusPoll();
+  state.btcBackfillStatusPollHandle = window.setTimeout(() => {
+    loadBtcBackfillStatus({ silent: true }).catch((error) => {
+      setBtcBackfillActionStatus({
+        phase: "error",
+        title: "Status Refresh Failed",
+        detail: error.message || "Could not refresh BTC backfill status.",
+        progress: 100,
+        stateClass: "is-error",
+      });
+    });
+  }, delayMs);
+}
+
+function setBtcBackfillActionBusy(isBusy) {
+  const controls = document.querySelectorAll("[data-btc-backfill-action]");
+  controls.forEach((button) => {
+    button.disabled = isBusy;
+  });
+}
+
+function setBtcBackfillActionStatus({ phase, title, detail, progress, stateClass }) {
+  const container = document.getElementById("btc-backfill-action-status");
+  const titleNode = document.getElementById("btc-backfill-action-status-title");
+  const phaseNode = document.getElementById("btc-backfill-action-status-phase");
+  const detailNode = document.getElementById("btc-backfill-action-status-detail");
+  const progressNode = document.getElementById("btc-backfill-action-progress");
+  if (!container || !titleNode || !phaseNode || !detailNode || !progressNode) {
+    return;
+  }
+
+  container.classList.remove("is-running", "is-complete", "is-error");
+  if (stateClass) {
+    container.classList.add(stateClass);
+  }
+  titleNode.textContent = title;
+  phaseNode.textContent = phase;
+  detailNode.textContent = detail;
+  progressNode.style.width = `${Math.max(0, Math.min(100, progress || 0))}%`;
+}
+
+function renderBtcBackfillSummaryCards(status) {
+  const container = document.getElementById("btc-backfill-summary");
+  if (!container) {
+    return;
+  }
+  if (!status) {
+    container.innerHTML = '<div class="summary-empty">No BTC backfill status has been loaded yet.</div>';
+    return;
+  }
+
+  const summaryItems = [
+    {
+      label: "State / Mode",
+      value: `${formatValue(status.state)} / ${formatValue(status.mode)}`,
+      detail: status.updated_at ? `Updated ${status.updated_at}` : "No backfill run recorded yet.",
+    },
+    {
+      label: "Progress",
+      value: `${formatValue(status.overall?.tasks_completed)} / ${formatValue(status.overall?.tasks_total)}`,
+      detail: `${formatValue(status.overall?.progress_pct)}% complete`,
+    },
+    {
+      label: "Process",
+      value: status.process_id ? `PID ${status.process_id}` : "No active process",
+      detail: `alive=${formatValue(status.process_alive)} | requested_by=${formatValue(status.requested_by)}`,
+    },
+    {
+      label: "Last Result",
+      value: status.last_result?.dataset_key || status.last_result?.dataset || "—",
+      detail: `status=${formatValue(status.last_result?.status)} | rows=${formatValue(status.last_result?.rows_written)}`,
+    },
+  ];
+
+  container.innerHTML = "";
+  summaryItems.forEach((item) => {
+    const card = document.createElement("article");
+    card.className = "summary-card";
+
+    const label = document.createElement("p");
+    label.className = "summary-label";
+    label.textContent = item.label;
+
+    const value = document.createElement("h4");
+    value.textContent = item.value;
+
+    const detail = document.createElement("p");
+    detail.className = "summary-detail";
+    detail.textContent = item.detail;
+
+    card.appendChild(label);
+    card.appendChild(value);
+    card.appendChild(detail);
+    container.appendChild(card);
+  });
+}
+
+function renderBtcBackfillDatasetDetail(dataset) {
+  if (!dataset) {
+    renderPropertyGrid(
+      "btc-backfill-dataset-summary",
+      [],
+      "Select a dataset row after loading BTC backfill status."
+    );
+    renderJson("btc-backfill-dataset-raw", {
+      message: "Dataset-level backfill detail will appear here.",
+    });
+    return;
+  }
+
+  const items = buildPropertyItemsFromObject(
+    {
+      dataset_key: dataset.dataset_key,
+      label: dataset.label,
+      unified_symbol: dataset.unified_symbol,
+      chunk_total: dataset.chunk_total,
+      chunks_completed: dataset.chunks_completed,
+      rows_written: dataset.rows_written,
+      first_nonzero_window_start: dataset.first_nonzero_window_start,
+      last_nonzero_window_end: dataset.last_nonzero_window_end,
+    },
+    {
+      dataset_key: "Dataset Key",
+      label: "Label",
+      unified_symbol: "Unified Symbol",
+      chunk_total: "Chunk Total",
+      chunks_completed: "Chunks Completed",
+      rows_written: "Rows Written",
+      first_nonzero_window_start: "First Nonzero Window Start",
+      last_nonzero_window_end: "Last Nonzero Window End",
+    },
+    [
+      "dataset_key",
+      "label",
+      "unified_symbol",
+      "chunk_total",
+      "chunks_completed",
+      "rows_written",
+      "first_nonzero_window_start",
+      "last_nonzero_window_end",
+    ],
+    { excludeEmpty: false }
+  );
+  renderPropertyGrid(
+    "btc-backfill-dataset-summary",
+    items,
+    "Dataset-level backfill detail will appear here."
+  );
+  renderJson("btc-backfill-dataset-raw", dataset);
+}
+
+function renderBtcBackfillStatus(status) {
+  state.currentBtcBackfillStatus = status || null;
+  const datasets = Array.isArray(status?.datasets) ? status.datasets : [];
+  state.selectedBtcBackfillDatasetKey =
+    datasets.find((dataset) => dataset.dataset_key === state.selectedBtcBackfillDatasetKey)?.dataset_key ||
+    datasets[0]?.dataset_key ||
+    null;
+
+  renderBtcBackfillSummaryCards(status);
+  renderJson("btc-backfill-status-raw", status || { message: "Backfill status will appear here." });
+  setText(
+    "btc-backfill-context",
+    status
+      ? `state=${status.state} | mode=${formatValue(status.mode)} | progress=${formatValue(status.overall?.tasks_completed)}/${formatValue(status.overall?.tasks_total)} | updated=${formatValue(status.updated_at)}`
+      : "Load BTC backfill status to inspect the latest incremental/bootstrap progress."
+  );
+
+  renderTable(
+    "btc-backfill-datasets-table",
+    [
+      { key: "dataset_key", label: "Dataset" },
+      { key: "label", label: "Label" },
+      { key: "chunks_completed", label: "Done" },
+      { key: "chunk_total", label: "Total" },
+      { key: "rows_written", label: "Rows" },
+      { key: "last_nonzero_window_end", label: "Last Nonzero Window End" },
+    ],
+    datasets,
+    (record) => {
+      state.selectedBtcBackfillDatasetKey = record.dataset_key;
+      renderBtcBackfillDatasetDetail(record);
+    }
+  );
+
+  const selectedDataset =
+    datasets.find((dataset) => dataset.dataset_key === state.selectedBtcBackfillDatasetKey) ||
+    datasets[0] ||
+    null;
+  renderBtcBackfillDatasetDetail(selectedDataset);
+
+  if (status?.state === "running") {
+    setBtcBackfillActionStatus({
+      phase: "running",
+      title: "Backfill Running",
+      detail: "A BTC backfill process is active; the Quality workspace will keep polling for updates.",
+      progress: Number(status.overall?.progress_pct || 0),
+      stateClass: "is-running",
+    });
+  } else if (status?.state === "not_started") {
+    setBtcBackfillActionStatus({
+      phase: "idle",
+      title: "Backfill Status Idle",
+      detail: "No BTC backfill run has been triggered yet from this workspace.",
+      progress: 0,
+      stateClass: "",
+    });
+  }
+
+  if (status?.state === "running") {
+    scheduleBtcBackfillStatusPoll();
+  } else {
+    clearBtcBackfillStatusPoll();
+  }
+}
+
+async function loadBtcBackfillStatus({ silent = false } = {}) {
+  const status = await fetchEnvelope("/api/v1/quality/backfill-status/binance-btc");
+  renderBtcBackfillStatus(status);
+
+  if (!silent) {
+    setBtcBackfillActionStatus({
+      phase: status.state === "running" ? "running" : "idle",
+      title: status.state === "running" ? "Backfill Running" : "Backfill Status Loaded",
+      detail:
+        status.state === "running"
+          ? "A BTC backfill process is currently active; status will auto-refresh."
+          : "The latest BTC backfill status has been loaded into the Quality workspace.",
+      progress: status.state === "running" ? Number(status.overall?.progress_pct || 0) : 100,
+      stateClass: status.state === "running" ? "is-running" : "is-complete",
+    });
+  }
+}
+
+async function triggerBtcIncrementalBackfill() {
+  setBtcBackfillActionBusy(true);
+  setBtcBackfillActionStatus({
+    phase: "submitting",
+    title: "Submitting Incremental Backfill",
+    detail: "Requesting a detached BTC incremental catch-up run from the Quality API.",
+    progress: 18,
+    stateClass: "is-running",
+  });
+
+  try {
+    const result = await sendEnvelope("/api/v1/quality/backfill-jobs/binance-btc/incremental", "POST", {});
+    renderJson("btc-backfill-trigger-result", result);
+
+    setBtcBackfillActionStatus({
+      phase: result.already_running ? "running" : "started",
+      title: result.already_running ? "Backfill Already Running" : "Incremental Backfill Started",
+      detail: result.already_running
+        ? "Another BTC backfill process is already active; loading the current status instead of starting a duplicate run."
+        : `Detached process ${formatValue(result.job_id)} started; loading the latest backfill status now.`,
+      progress: result.already_running ? 55 : 42,
+      stateClass: "is-running",
+    });
+
+    await loadBtcBackfillStatus({ silent: true });
+
+    setBtcBackfillActionStatus({
+      phase: "monitoring",
+      title: "Monitoring Backfill Status",
+      detail: "The Quality workspace will keep polling the BTC backfill status while it remains running.",
+      progress: state.currentBtcBackfillStatus?.state === "running"
+        ? Number(state.currentBtcBackfillStatus?.overall?.progress_pct || 0)
+        : 100,
+      stateClass: state.currentBtcBackfillStatus?.state === "running" ? "is-running" : "is-complete",
+    });
+  } catch (error) {
+    setBtcBackfillActionStatus({
+      phase: "error",
+      title: "Backfill Trigger Failed",
+      detail: error.message || "The BTC incremental backfill could not be started.",
+      progress: 100,
+      stateClass: "is-error",
+    });
+    throw error;
+  } finally {
+    setBtcBackfillActionBusy(false);
+  }
+}
+
 async function runIntegrityValidation(form) {
   const formData = new FormData(form);
   const useSymbolDefaults = form.elements.namedItem("use_symbol_defaults")?.checked !== false;
@@ -2131,9 +2425,10 @@ async function saveCompareReviewNote(formValues) {
 }
 
 async function loadQuality(filters = {}) {
-  const [checks, gaps] = await Promise.all([
+  const [checks, gaps, backfillStatus] = await Promise.all([
     fetchEnvelope("/api/v1/quality/checks", { limit: 30, latest_only: "true", ...filters }),
     fetchEnvelope("/api/v1/quality/gaps", { limit: 30, status: "open", unified_symbol: filters.unified_symbol }),
+    fetchEnvelope("/api/v1/quality/backfill-status/binance-btc"),
   ]);
 
   renderTable(
@@ -2161,6 +2456,8 @@ async function loadQuality(filters = {}) {
     ],
     gaps.records
   );
+
+  renderBtcBackfillStatus(backfillStatus);
 }
 
 async function loadTraceability(filters = {}) {
@@ -2208,6 +2505,9 @@ async function refreshCurrentView() {
 }
 
 function activateView(viewName) {
+  if (viewName !== "quality") {
+    clearBtcBackfillStatusPoll();
+  }
   document.querySelectorAll(".nav-link").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.view === viewName);
   });
@@ -2256,6 +2556,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeIntegrityValidationControls();
   document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {
     resetCompareNoteForm();
+  });
+  document.getElementById("btc-backfill-refresh")?.addEventListener("click", () => {
+    loadBtcBackfillStatus().catch((error) => window.alert(error.message));
+  });
+  document.getElementById("btc-backfill-run-incremental")?.addEventListener("click", () => {
+    triggerBtcIncrementalBackfill().catch((error) => window.alert(error.message));
+  });
+  window.addEventListener("beforeunload", () => {
+    clearBtcBackfillStatusPoll();
   });
 
   try {

@@ -677,6 +677,7 @@
             <div class="workspace-links">
               <a class="workspace-link" href="#quality-checks-workspace">Checks</a>
               <a class="workspace-link" href="#quality-gaps-workspace">Gaps</a>
+              <a class="workspace-link" href="#quality-backfill-workspace">Backfill Status</a>
               <a class="workspace-link" href="#quality-integrity-workspace">Integrity</a>
             </div>
           </div>
@@ -701,6 +702,69 @@
                 <p>Recent unresolved or historical gaps from ops.data_gaps</p>
               </div>
               <div id="quality-gaps" class="table-shell"></div>
+            </section>
+          </div>
+
+          <div class="workspace-section-header compact-header" id="quality-backfill-workspace">
+            <p class="eyebrow">Backfill Status</p>
+            <h3>Inspect the current BTC history catch-up state and trigger a new incremental maintenance run without leaving the Quality workspace.</h3>
+          </div>
+
+          <div class="grid split-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <h3>BTC Backfill Status</h3>
+                <p>Review the latest bootstrap/incremental progress before validating integrity or starting another local catch-up.</p>
+              </div>
+              <div class="preset-row">
+                <button type="button" class="secondary-button" id="btc-backfill-refresh" data-btc-backfill-action>Refresh Status</button>
+                <button type="button" class="secondary-button" id="btc-backfill-run-incremental" data-btc-backfill-action>Run Incremental Backfill</button>
+              </div>
+              <div id="btc-backfill-action-status" class="launch-status" aria-live="polite">
+                <div class="launch-status-header">
+                  <strong id="btc-backfill-action-status-title">Backfill Status Idle</strong>
+                  <span id="btc-backfill-action-status-phase" class="status-pill">idle</span>
+                </div>
+                <div class="progress-track" aria-hidden="true">
+                  <div id="btc-backfill-action-progress" class="progress-bar"></div>
+                </div>
+                <p id="btc-backfill-action-status-detail" class="card-detail">Load the current BTC backfill status or trigger a new incremental run.</p>
+              </div>
+              <p id="btc-backfill-context" class="card-detail">Load BTC backfill status to inspect the latest incremental/bootstrap progress.</p>
+              <div id="btc-backfill-summary" class="summary-cards">
+                <div class="summary-empty">No BTC backfill status has been loaded yet.</div>
+              </div>
+              <div class="panel-subsection">
+                <h4>Datasets</h4>
+                <div id="btc-backfill-datasets-table" class="table-shell"></div>
+              </div>
+              <details class="details-panel">
+                <summary>Raw BTC Backfill Status</summary>
+                <div class="details-panel-body">
+                  <div id="btc-backfill-status-raw" class="json-shell compact-shell">Backfill status payload will appear here.</div>
+                </div>
+              </details>
+              <details class="details-panel">
+                <summary>Last Trigger Result</summary>
+                <div class="details-panel-body">
+                  <div id="btc-backfill-trigger-result" class="json-shell compact-shell">Trigger responses will appear here.</div>
+                </div>
+              </details>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <h3>Selected Backfill Dataset</h3>
+                <p>Inspect one dataset's chunk progress and latest written window before jumping back to integrity validation.</p>
+              </div>
+              <div id="btc-backfill-dataset-summary" class="property-shell">
+                <div class="summary-empty">Select a dataset row after loading BTC backfill status.</div>
+              </div>
+              <details class="details-panel">
+                <summary>Selected Backfill Dataset Raw</summary>
+                <div class="details-panel-body">
+                  <div id="btc-backfill-dataset-raw" class="json-shell compact-shell">Dataset-level backfill detail will appear here.</div>
+                </div>
+              </details>
             </section>
           </div>
 

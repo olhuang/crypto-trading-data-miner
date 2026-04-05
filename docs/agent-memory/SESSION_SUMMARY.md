@@ -42,6 +42,11 @@
 - added a regression test proving the new `open_interest` history helper chunks a multi-day window into day-sized refresh calls
 - confirmed from a real local `debug_open_interest_history` run that Binance returns complete daily `open_interest` coverage from `2026-03-06T00:00:00Z` onward, so the earlier local `open_interest` coverage beginning at `2026-04-01T15:00:00Z` was a local catch-up issue rather than an exchange availability limit
 - refreshed the default bounded repair windows so `scripts/repair_bars_integrity_windows.py` now targets the currently remaining BTC perp bar issues (`2026-04-02T12:34`, `2026-04-05T01:55-01:57`, `2026-04-05T02:10-02:22`) and `scripts/repair_mark_index_gap.py` / `.ps1` now targets the latest midnight `mark/index` gap (`2026-04-04T23:55:00Z -> 2026-04-05T00:12:59Z`)
+- implemented `UI Slice 4C` inside `/monitoring -> Quality` so the console now exposes a BTC backfill status panel with dataset progress, raw status payload, selected dataset detail, and a `Run Incremental Backfill` action
+- added `GET /api/v1/quality/backfill-status/binance-btc` and `POST /api/v1/quality/backfill-jobs/binance-btc/incremental`
+- added `src/services/btc_backfill_control.py` so the API now owns status-file reads and detached incremental-trigger behavior instead of the UI needing to know script paths directly
+- hardened the local BTC status artifact for UI polling by making `scripts/binance_btc_history_backfill.py` write status updates atomically and include `process_id` / `requested_by`
+- added API regression tests covering the new BTC backfill status and trigger endpoints
 - confirmed the debug wrapper itself works, but the current harness still cannot execute the network call to Binance due outbound socket restrictions
 
 ## Files Changed
@@ -86,6 +91,8 @@
 - the new integrity semantics are in place, but the Quality workspace still does not surface BTC backfill status yet, so operators still need the local wrapper/status file for that part of the workflow
 - `open_interest` is now understood better: Binance does return the expected recent history, but the local dataset still needs the updated incremental path to keep that coverage filled consistently
 - the remaining true repair work is now concentrated in `bars_1m` (one corrupt candle plus two short internal gaps) and `mark/index` (one internal gap from `2026-04-04T23:55Z` through `2026-04-05T00:12Z`)
+- the bounded repairs have now been executed successfully: BTC perp integrity for `2026-03-06 -> 2026-04-05` shows `failed_datasets = 0`, `gap_count = 0`, `internal_missing_count = 0`, and `corrupt_count = 0`
+- all remaining BTC perp integrity warnings are now explainable as coverage/tail boundaries rather than true internal dataset failures
 
 ## Next
 - if the data-quality UI line remains active, build `UI Slice 4C: BTC Backfill Status Panel`
@@ -94,3 +101,4 @@
 - run `scripts/repair_bars_integrity_windows.ps1` locally, then re-run BTC perp integrity validation to confirm the corrupt `bars_1m` candle and tail-gap windows are repaired
 - if the UI line stays active after that, move to `UI Slice 4C: BTC Backfill Status Panel`
 - after the bounded repairs land cleanly, re-run `.\scripts\binance_btc_history_backfill.ps1 -Mode incremental` and then re-run BTC perp integrity validation for `2026-03-06 -> 2026-04-05` to confirm the local `open_interest` recent-tail is now being maintained with the hardened daily-window catch-up path
+- after the new Quality backfill panel lands, the next UI choice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` workspace restructuring

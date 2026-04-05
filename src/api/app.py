@@ -26,6 +26,7 @@ from jobs.data_quality import validate_dataset_integrity, run_phase4_quality_sui
 from jobs.remediate_market_snapshots import run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
+from services.btc_backfill_control import load_binance_btc_backfill_status, trigger_binance_btc_incremental_backfill
 from services.startup_remediation import run_startup_gap_remediation
 from services.traceability import get_raw_event_detail, normalized_links_for_raw_event, replay_readiness_summary
 from services.validate_and_store import (
@@ -113,6 +114,10 @@ class DatasetIntegrityValidationRequest(ApiRequestModel):
             if not self.data_types:
                 raise ValueError("data_types must not be empty when provided")
         return self
+
+
+class BtcBackfillTriggerRequest(ApiRequestModel):
+    status_file: str | None = None
 
 
 class BacktestCompareSetRequest(ApiRequestModel):
@@ -287,6 +292,53 @@ class DatasetIntegrityValidationResource(BaseModel):
     persisted_gaps_written: int
     summary: DatasetIntegritySummaryResource
     datasets: list[DatasetIntegrityDatasetResource]
+
+
+class BtcBackfillOverallResource(BaseModel):
+    tasks_total: int
+    tasks_completed: int
+    progress_pct: float
+
+
+class BtcBackfillDatasetStatusResource(BaseModel):
+    dataset_key: str
+    label: str
+    unified_symbol: str | None = None
+    chunk_total: int
+    chunks_completed: int
+    rows_written: int
+    first_nonzero_window_start: str | None = None
+    last_nonzero_window_end: str | None = None
+    last_result: dict[str, Any] | None = None
+
+
+class BtcBackfillStatusResource(BaseModel):
+    state: str
+    mode: str | None = None
+    started_at: str | None = None
+    updated_at: str | None = None
+    requested_by: str | None = None
+    process_id: int | None = None
+    process_alive: bool = False
+    status_file: str
+    log_file: str | None = None
+    requested_window: dict[str, Any] | None = None
+    overall: BtcBackfillOverallResource
+    datasets: list[BtcBackfillDatasetStatusResource]
+    current_task: dict[str, Any] | None = None
+    last_result: dict[str, Any] | None = None
+    coverage_summary: dict[str, Any] | None = None
+    error: Any = None
+
+
+class BtcBackfillTriggerResource(BaseModel):
+    job_id: int | None = None
+    status: str
+    already_running: bool = False
+    status_file: str
+    log_file: str | None = None
+    process_alive: bool | None = None
+    started_at: str | None = None
 
 
 class RawEventDetailResource(BaseModel):
@@ -876,6 +928,51 @@ def _build_annotation_resource(annotation_row: dict[str, Any]) -> ObjectAnnotati
     )
 
 
+def _build_btc_backfill_status_resource(payload: dict[str, Any]) -> BtcBackfillStatusResource:
+    overall = payload.get("overall") or {}
+    datasets_payload = payload.get("datasets") or {}
+    if isinstance(datasets_payload, dict):
+        dataset_rows = list(datasets_payload.values())
+    else:
+        dataset_rows = list(datasets_payload)
+    dataset_rows.sort(key=lambda row: (row.get("label") or row.get("dataset_key") or ""))
+    return BtcBackfillStatusResource(
+        state=str(payload.get("state") or "unknown"),
+        mode=payload.get("mode"),
+        started_at=payload.get("started_at"),
+        updated_at=payload.get("updated_at"),
+        requested_by=payload.get("requested_by"),
+        process_id=payload.get("process_id"),
+        process_alive=bool(payload.get("process_alive")),
+        status_file=str(payload.get("status_file") or ""),
+        log_file=payload.get("log_file"),
+        requested_window=dict(payload.get("requested_window") or {}) or None,
+        overall=BtcBackfillOverallResource(
+            tasks_total=int(overall.get("tasks_total") or 0),
+            tasks_completed=int(overall.get("tasks_completed") or 0),
+            progress_pct=float(overall.get("progress_pct") or 0.0),
+        ),
+        datasets=[
+            BtcBackfillDatasetStatusResource(
+                dataset_key=str(row.get("dataset_key") or ""),
+                label=str(row.get("label") or row.get("dataset_key") or ""),
+                unified_symbol=row.get("unified_symbol"),
+                chunk_total=int(row.get("chunk_total") or 0),
+                chunks_completed=int(row.get("chunks_completed") or 0),
+                rows_written=int(row.get("rows_written") or 0),
+                first_nonzero_window_start=row.get("first_nonzero_window_start"),
+                last_nonzero_window_end=row.get("last_nonzero_window_end"),
+                last_result=dict(row.get("last_result") or {}) or None,
+            )
+            for row in dataset_rows
+        ],
+        current_task=dict(payload.get("current_task") or {}) or None,
+        last_result=dict(payload.get("last_result") or {}) or None,
+        coverage_summary=dict(payload.get("coverage_summary") or {}) or None,
+        error=payload.get("error"),
+    )
+
+
 def _build_backtest_compare_resource(compare_set: BacktestCompareSet) -> BacktestCompareSetResource:
     return BacktestCompareSetResource(
         compare_set_id=compare_set.compare_set_id,
@@ -1432,6 +1529,42 @@ def create_app() -> FastAPI:
                     )
                     for dataset in result.datasets
                 ],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/quality/backfill-status/binance-btc")
+    def quality_binance_btc_backfill_status(
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BtcBackfillStatusResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        status_payload = load_binance_btc_backfill_status()
+        return SuccessEnvelope[BtcBackfillStatusResource](
+            data=_build_btc_backfill_status_resource(status_payload),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/quality/backfill-jobs/binance-btc/incremental")
+    def trigger_quality_binance_btc_incremental_backfill(
+        request: BtcBackfillTriggerRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BtcBackfillTriggerResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        if request.status_file is not None:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "VALIDATION_ERROR", "message": "status_file overrides are not supported from the API", "details": {}},
+            )
+        result = trigger_binance_btc_incremental_backfill(requested_by=actor.user_id)
+        return SuccessEnvelope[BtcBackfillTriggerResource](
+            data=BtcBackfillTriggerResource(
+                job_id=result.get("job_id"),
+                status=str(result.get("status") or "unknown"),
+                already_running=bool(result.get("already_running")),
+                status_file=str(result.get("status_file") or ""),
+                log_file=result.get("log_file"),
+                process_alive=result.get("process_alive"),
+                started_at=result.get("started_at"),
             ),
             meta=_meta(actor),
         )

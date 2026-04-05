@@ -700,11 +700,22 @@ Response fields:
 
 ### GET `/api/v1/quality/backfill-status/binance-btc`
 Purpose:
-- future read-only status endpoint for the local BTC bootstrap/incremental workflow so `/monitoring` can show backfill progress/coverage without reading the status file manually
+- read the current local BTC bootstrap/incremental status so `/monitoring` can show progress and coverage without reading the status file manually
 
-Planning note:
-- this endpoint is not implemented yet
-- see `docs/quality-integrity-ui-plan.md`
+Response fields include:
+- current status-file state
+- process metadata
+- per-dataset chunk progress
+- latest coverage summary
+- last result / current task
+
+### POST `/api/v1/quality/backfill-jobs/binance-btc/incremental`
+Purpose:
+- trigger one detached local BTC incremental catch-up run from `/monitoring -> Quality`
+
+Behavior:
+- returns `already_running=true` when an active BTC backfill process already exists
+- otherwise starts a detached local process that runs `scripts/binance_btc_history_backfill.py --incremental`
 
 ## Phase 4 Acceptance via UI/API
 - [x] UI can show aggregated quality results
@@ -713,6 +724,7 @@ Planning note:
 - [x] UI can show replay readiness summary
 - [x] UI can inspect dataset-level sanity checks for funding/OI/mark/index through the existing quality endpoints
 - [x] API can return a typed dataset-integrity validation report for one symbol/window, including gaps, missing rows, duplicates, and corrupt/future-dated records
+- [x] API can expose the local BTC backfill status and accept one UI-triggered incremental catch-up action
 - [x] UI can drive an internal monitoring console for Overview, Jobs, Quality, and Traceability using the existing implemented APIs
 
 ---

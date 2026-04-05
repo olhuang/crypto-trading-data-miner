@@ -80,6 +80,10 @@
 - a regression test now exists in `tests/test_binance_btc_history_backfill.py` proving multi-day OI history repair windows are split into daily refresh calls
 - a real local `debug_open_interest_history` run has now confirmed Binance returns full daily `open_interest` coverage from `2026-03-06T00:00:00Z` onward; the earlier local `open_interest` first timestamp at `2026-04-01T15:00:00Z` was caused by the old local catch-up path rather than Binance availability
 - the bounded repair defaults now match the latest integrity failures: `scripts/repair_bars_integrity_windows.py` targets the current corrupt/gap windows and `scripts/repair_mark_index_gap.py` / `.ps1` targets the current midnight `mark/index` gap
+- `/monitoring -> Quality` now exposes a BTC backfill status panel plus a `Run Incremental Backfill` action, backed by `GET /api/v1/quality/backfill-status/binance-btc` and `POST /api/v1/quality/backfill-jobs/binance-btc/incremental`
+- the BTC backfill API now runs through `src/services/btc_backfill_control.py`, so status reads and detached incremental triggers are centralized on the backend instead of coupled to front-end script knowledge
+- the BTC backfill status artifact is now safer for UI polling because `scripts/binance_btc_history_backfill.py` writes atomically and records `process_id` / `requested_by`
+- the latest local BTC perp integrity validation for `2026-03-06 -> 2026-04-05` now reports `failed_datasets = 0`; all remaining findings are warning-only coverage/tail shortfalls
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -98,6 +102,7 @@
 - the actual bounded `bars_1m` refill for the corrupt-minute and tail-gap windows still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 - the Quality workspace still lacks the planned BTC backfill status panel, so integrity semantics are clearer now but backfill progress still is not visible in `/monitoring`
 - the harness still cannot execute the actual Binance repair/refill calls end-to-end because outbound network access is blocked here; only the operator machine can run the bounded repair scripts and incremental catch-up
+- the new UI-triggered incremental path is intentionally local-operator oriented; it currently launches a detached local process and does not yet integrate with the broader generic job orchestration spec
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -155,5 +160,5 @@
 - `tmp/binance_btc_history_backfill_status.json`
 
 ## Recommended Next Action
-- if the data-quality line stays active, first run `scripts/repair_bars_integrity_windows.ps1` locally and `scripts/repair_mark_index_gap.ps1` locally with their refreshed defaults, then re-run BTC perp integrity validation for `2026-03-06 -> 2026-04-05`
-- after those bounded repairs are confirmed, run `scripts/binance_btc_history_backfill.ps1 -Mode incremental` once more and re-run integrity validation to confirm the hardened daily-window `open_interest` catch-up is now keeping the recent-tail filled
+- if the data-quality UI line stays active, the next most natural slice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` Quality workspace restructure now that `UI Slice 4C` has landed
+- if the data-maintenance line stays active, use the new `/monitoring -> Quality` backfill panel or `scripts/binance_btc_history_backfill.ps1 -Mode incremental` to refresh the BTC tail, then re-run integrity validation to watch the warning-only tail counts shrink

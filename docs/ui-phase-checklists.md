@@ -419,7 +419,7 @@ Required sections:
 - [ ] replay readiness checklist block
 - [ ] integrity validation form
 - [ ] dataset integrity summary table
-- [ ] backfill status summary block
+- [x] backfill status summary block
 
 ## Required User Events
 - [ ] user filters quality checks by severity/status
@@ -430,7 +430,8 @@ Required sections:
 - [ ] user validates one symbol/window for integrity from UI
 - [ ] user uses quick ranges to set the validation window
 - [ ] user inspects one dataset's integrity findings
-- [ ] user inspects current BTC backfill status from UI
+- [x] user inspects current BTC backfill status from UI
+- [x] user triggers a BTC incremental backfill from UI
 
 ## Data Dependencies
 - `/api/v1/quality/checks`
@@ -441,7 +442,8 @@ Required sections:
 - `/api/v1/market/raw-events/{raw_event_id}`
 - `/api/v1/market/raw-events/{raw_event_id}/normalized-links`
 - `/api/v1/replay/readiness`
-- future read-only status endpoint for BTC backfill progress/coverage
+- `/api/v1/quality/backfill-status/binance-btc`
+- `/api/v1/quality/backfill-jobs/binance-btc/incremental`
 
 ## Acceptance Checks
 - [ ] Data Quality Dashboard shows pass/fail summaries
@@ -449,7 +451,8 @@ Required sections:
 - [ ] Raw Event Explorer displays payload JSON correctly
 - [ ] replay readiness summary is visible without reading docs directly
 - [ ] Integrity Validation can validate one bounded symbol/window from UI
-- [ ] BTC backfill status can be inspected from UI without reading the status file manually
+- [x] BTC backfill status can be inspected from UI without reading the status file manually
+- [x] BTC incremental backfill can be triggered from UI
 
 ## Current Implementation Note
 - `/monitoring` currently satisfies the first operational slice for:
