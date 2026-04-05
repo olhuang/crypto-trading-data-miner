@@ -69,6 +69,7 @@
   - repair progress copy now uses neutral `affected row(s)` wording instead of assuming every repair is a re-fetch write
 - updated `src/services/integrity_repair_control.py` so future-dated `bars_1m` windows are repaired by deleting the exact future rows instead of calling Binance backfill on impossible future timestamps
 - updated `scripts/repair_bars_integrity_windows.py` to reuse the shared repair service, keeping script/UI/API behavior aligned for future-row cleanup
+- extended `frontend/monitoring/app.js` so non-bars `corrupt` findings on full-history datasets now render `Repair Corrupt via Incremental`, covering cases like `mark_prices` / `index_prices` that previously had no action button
 - added regression coverage:
   - `tests/test_repair_bars_integrity_windows.py` now proves auto-detect includes `future_examples`
   - new `tests/test_integrity_repair_control.py` proves future windows are cleaned through delete flow while historical windows still use bounded backfill

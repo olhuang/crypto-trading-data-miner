@@ -1249,6 +1249,10 @@ function buildIntegrityFindingAction(dataset, finding) {
     return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Repair via Incremental");
   }
 
+  if (finding?.category === "corrupt" && dataset?.data_type !== "bars_1m" && !isRetentionLimitedIntegrityDataset(dataset?.data_type)) {
+    return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Repair Corrupt via Incremental");
+  }
+
   if (finding?.category === "coverage" && !isRetentionLimitedIntegrityDataset(dataset?.data_type)) {
     return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Backfill Coverage");
   }
