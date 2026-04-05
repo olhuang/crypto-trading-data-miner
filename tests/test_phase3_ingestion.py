@@ -663,6 +663,63 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(top_position_count, 2)
         self.assertEqual(taker_count, 2)
 
+    def test_market_snapshot_refresh_recent_history_mode_persists_canonical_oi_and_sentiment_rows(self) -> None:
+        fixture_start = datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc)
+        fixture_end = datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)
+        self.addCleanup(
+            self._cleanup_market_snapshot_history_window,
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
+        client = self._client()
+
+        result = run_market_snapshot_refresh(
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            client=client,
+            requested_by="test-user",
+            include_funding=False,
+            include_mark_price=False,
+            include_index_price=False,
+            include_global_long_short_account_ratio=True,
+            include_top_trader_long_short_account_ratio=True,
+            include_top_trader_long_short_position_ratio=True,
+            include_taker_long_short_ratio=True,
+            observed_at=fixture_end,
+            use_recent_history_for_retention_limited=True,
+            retention_history_lookback_minutes=60,
+        )
+
+        self.assertEqual(result.status, "succeeded")
+        self.assertEqual(result.records_written, 10)
+        self.assertEqual(result.history_rows_written, 10)
+
+        with connection_scope() as connection:
+            open_interest_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.open_interest oi
+                join ref.instruments instrument on instrument.instrument_id = oi.instrument_id
+                where instrument.unified_symbol = %s
+                  and oi.ts in (%s, %s)
+                """,
+                ("BTCUSDT_PERP", fixture_start, fixture_end),
+            ).scalar_one()
+            taker_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.taker_long_short_ratios ratio
+                join ref.instruments instrument on instrument.instrument_id = ratio.instrument_id
+                where instrument.unified_symbol = %s
+                  and ratio.period_code = %s
+                  and ratio.ts in (%s, %s)
+                """,
+                ("BTCUSDT_PERP", "5m", fixture_start, fixture_end),
+            ).scalar_one()
+
+        self.assertEqual(open_interest_count, 2)
+        self.assertEqual(taker_count, 2)
+
     def test_sentiment_ratio_history_fetch_and_normalize(self) -> None:
         client = self._client()
         start_time = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
@@ -916,7 +973,10 @@ class Phase3IngestionTests(unittest.TestCase):
 
         with connection_scope() as connection:
             remediation_job = IngestionJobRepository().get_job(connection, result.ingestion_job_id)
-            refresh_job = IngestionJobRepository().get_job(connection, result.refresh_job_id)
+            refresh_jobs = [
+                IngestionJobRepository().get_job(connection, refresh_job_id)
+                for refresh_job_id in remediation_job["metadata_json"]["refresh_job_ids"]
+            ]
 
         self.assertEqual(remediation_job["status"], "succeeded")
         self.assertTrue(remediation_job["metadata_json"]["scheduler_ready"])
@@ -925,14 +985,35 @@ class Phase3IngestionTests(unittest.TestCase):
             {action["data_type"] for action in remediation_job["metadata_json"]["remediation_actions"]},
             set(requested_datasets),
         )
-        self.assertEqual(refresh_job["status"], "succeeded")
-        self.assertTrue(refresh_job["metadata_json"]["include_open_interest"])
-        self.assertTrue(refresh_job["metadata_json"]["include_mark_price"])
-        self.assertTrue(refresh_job["metadata_json"]["include_index_price"])
-        self.assertTrue(refresh_job["metadata_json"]["include_global_long_short_account_ratio"])
-        self.assertTrue(refresh_job["metadata_json"]["include_top_trader_long_short_account_ratio"])
-        self.assertTrue(refresh_job["metadata_json"]["include_top_trader_long_short_position_ratio"])
-        self.assertTrue(refresh_job["metadata_json"]["include_taker_long_short_ratio"])
+        self.assertGreaterEqual(len(refresh_jobs), 3)
+        self.assertTrue(all(job["status"] == "succeeded" for job in refresh_jobs))
+        self.assertTrue(any(job["metadata_json"]["include_open_interest"] for job in refresh_jobs))
+        self.assertTrue(any(job["metadata_json"]["include_mark_price"] for job in refresh_jobs))
+        self.assertTrue(any(job["metadata_json"]["include_index_price"] for job in refresh_jobs))
+        self.assertTrue(any(job["metadata_json"]["include_global_long_short_account_ratio"] for job in refresh_jobs))
+        self.assertTrue(any(job["metadata_json"]["include_top_trader_long_short_account_ratio"] for job in refresh_jobs))
+        self.assertTrue(any(job["metadata_json"]["include_top_trader_long_short_position_ratio"] for job in refresh_jobs))
+        self.assertTrue(any(job["metadata_json"]["include_taker_long_short_ratio"] for job in refresh_jobs))
+
+    def test_market_snapshot_remediation_uses_retention_window_for_limited_datasets(self) -> None:
+        observed_at = datetime(2035, 4, 2, 12, 35, tzinfo=timezone.utc)
+
+        plans = build_market_snapshot_remediation_plan(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            datasets=["open_interest", "taker_long_short_ratios"],
+            observed_at=observed_at,
+            lookback_hours=6,
+        )
+
+        plan_by_type = {plan.data_type: plan for plan in plans}
+        expected_floor = datetime(2035, 3, 3, 0, 0, tzinfo=timezone.utc)
+        self.assertEqual(plan_by_type["open_interest"].planned_start_time, expected_floor)
+        self.assertEqual(plan_by_type["taker_long_short_ratios"].planned_start_time, expected_floor)
+        self.assertEqual(plan_by_type["open_interest"].profile_window_start, expected_floor)
+        self.assertEqual(plan_by_type["taker_long_short_ratios"].profile_window_start, expected_floor)
+        self.assertEqual(plan_by_type["open_interest"].remediation_reason, "missing")
+        self.assertEqual(plan_by_type["taker_long_short_ratios"].remediation_reason, "missing")
 
     def test_trade_stream_processor_persists_trade_raw_mark_and_liquidation_events(self) -> None:
         processor = BinanceTradeStreamProcessor()
@@ -1020,6 +1101,12 @@ class Phase3IngestionTests(unittest.TestCase):
         job_ids = {definition.job_id for definition in phase3_schedule_plan()}
         self.assertIn("binance_instrument_sync_hourly", job_ids)
         self.assertIn("binance_market_snapshot_refresh", job_ids)
+        refresh_job = next(definition for definition in phase3_schedule_plan() if definition.job_id == "binance_market_snapshot_refresh")
+        self.assertTrue(refresh_job.kwargs["include_global_long_short_account_ratio"])
+        self.assertTrue(refresh_job.kwargs["include_top_trader_long_short_account_ratio"])
+        self.assertTrue(refresh_job.kwargs["include_top_trader_long_short_position_ratio"])
+        self.assertTrue(refresh_job.kwargs["include_taker_long_short_ratio"])
+        self.assertTrue(refresh_job.kwargs["use_recent_history_for_retention_limited"])
 
     def test_phase4_schedule_plan_includes_market_snapshot_remediation_job(self) -> None:
         plan = phase4_schedule_plan()

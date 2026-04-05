@@ -5,7 +5,18 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ingestion.binance.public_rest import BinancePublicRestClient
-from jobs.data_quality import FUNDING_FRESHNESS_SLA, OPEN_INTEREST_FRESHNESS_SLA
+from jobs.data_quality import (
+    FUNDING_FRESHNESS_SLA,
+    OPEN_INTEREST_CONTINUITY_INTERVAL,
+    OPEN_INTEREST_FRESHNESS_SLA,
+    SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+    SENTIMENT_RATIO_DATA_TYPES,
+    _dataset_availability_floor,
+    _floor_to_interval,
+    _is_timestamp_on_interval_boundary,
+    _profile_interval_timestamps,
+    _query_dataset_timestamps,
+)
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from storage.db import connection_scope, transaction_scope
 from storage.lookups import resolve_instrument_id
@@ -16,6 +27,8 @@ MARK_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
 INDEX_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
 SENTIMENT_RATIO_FRESHNESS_SLA = timedelta(minutes=15)
 DEFAULT_SENTIMENT_RATIO_PERIOD = "5m"
+RETENTION_HISTORY_CHUNK_DAYS = 1
+RETENTION_LIMITED_DATASETS = frozenset({"open_interest", *SENTIMENT_RATIO_DATA_TYPES})
 
 SUPPORTED_SNAPSHOT_DATASETS = (
     "funding_rates",
@@ -65,6 +78,11 @@ class SnapshotDatasetPlan:
     remediation_reason: str
     planned_start_time: datetime | None
     planned_end_time: datetime | None
+    profile_window_start: datetime | None = None
+    coverage_shortfall_count: int = 0
+    internal_missing_count: int = 0
+    tail_missing_count: int = 0
+    gap_count: int = 0
 
 
 @dataclass(slots=True)
@@ -73,6 +91,7 @@ class MarketSnapshotRemediationResult:
     status: str
     records_written: int
     refresh_job_id: int | None
+    refresh_job_ids: list[int]
     remediation_actions: list[dict[str, Any]]
 
 
@@ -124,6 +143,204 @@ def _freshness_sla_for_dataset(data_type: str) -> timedelta:
     }[data_type]
 
 
+def _continuity_interval_for_dataset(data_type: str) -> timedelta | None:
+    if data_type == "open_interest":
+        return OPEN_INTEREST_CONTINUITY_INTERVAL
+    if data_type in SENTIMENT_RATIO_DATA_TYPES:
+        return SENTIMENT_RATIO_CONTINUITY_INTERVAL
+    return None
+
+
+def _build_day_windows(start_time: datetime, end_time: datetime, *, chunk_days: int) -> list[tuple[datetime, datetime]]:
+    windows: list[tuple[datetime, datetime]] = []
+    cursor = start_time
+    while cursor <= end_time:
+        next_cursor = cursor + timedelta(days=chunk_days)
+        window_end = min(next_cursor - timedelta(milliseconds=1), end_time)
+        windows.append((cursor, window_end))
+        cursor = next_cursor
+    return windows
+
+
+def _retention_limited_plan(
+    *,
+    exchange_code: str,
+    unified_symbol: str,
+    data_type: str,
+    observed_at: datetime,
+) -> SnapshotDatasetPlan:
+    profile_window_start = _dataset_availability_floor(data_type, observed_at)
+    interval = _continuity_interval_for_dataset(data_type)
+    if profile_window_start is None or interval is None:
+        raise ValueError(f"unsupported retention-limited dataset: {data_type}")
+
+    aligned_window_end = _floor_to_interval(observed_at, interval)
+    specs = SNAPSHOT_DATASET_SPECS[data_type]
+    with connection_scope() as connection:
+        instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
+        timestamps = _query_dataset_timestamps(
+            connection,
+            table_name=specs["table_name"],
+            time_column=specs["timestamp_column"],
+            instrument_id=instrument_id,
+            start_time=profile_window_start,
+            end_time=observed_at,
+            period_code=specs["period_code"],
+        )
+
+    safe_timestamps = [
+        timestamp for timestamp in timestamps if _is_timestamp_on_interval_boundary(timestamp, interval)
+    ]
+    coverage_profile = _profile_interval_timestamps(
+        timestamps=safe_timestamps,
+        aligned_start_time=profile_window_start,
+        aligned_end_time=aligned_window_end,
+        interval=interval,
+    )
+    latest_timestamp = safe_timestamps[-1] if safe_timestamps else None
+    remediation_required = (
+        coverage_profile.coverage_shortfall_count > 0
+        or coverage_profile.internal_missing_count > 0
+        or coverage_profile.tail_missing_count > 0
+    )
+    remediation_reason = "fresh"
+    planned_start_time: datetime | None = None
+    if remediation_required:
+        if not safe_timestamps:
+            remediation_reason = "missing"
+            planned_start_time = profile_window_start
+        elif coverage_profile.coverage_shortfall_count > 0:
+            remediation_reason = "coverage_shortfall"
+            planned_start_time = profile_window_start
+        elif coverage_profile.internal_gap_segments:
+            remediation_reason = "continuity_gap"
+            planned_start_time = coverage_profile.internal_gap_segments[0]["gap_start"]
+        else:
+            remediation_reason = "tail_shortfall"
+            planned_start_time = max(profile_window_start, latest_timestamp - timedelta(days=1))
+
+    return SnapshotDatasetPlan(
+        data_type=data_type,
+        latest_timestamp=latest_timestamp,
+        freshness_sla_seconds=int(_freshness_sla_for_dataset(data_type).total_seconds()),
+        remediation_required=remediation_required,
+        remediation_reason=remediation_reason,
+        planned_start_time=planned_start_time,
+        planned_end_time=observed_at if remediation_required else None,
+        profile_window_start=profile_window_start,
+        coverage_shortfall_count=coverage_profile.coverage_shortfall_count,
+        internal_missing_count=coverage_profile.internal_missing_count,
+        tail_missing_count=coverage_profile.tail_missing_count,
+        gap_count=len(coverage_profile.internal_gap_segments),
+    )
+
+
+def _run_open_interest_remediation_window(
+    *,
+    symbol: str,
+    unified_symbol: str,
+    client: BinancePublicRestClient,
+    requested_by: str,
+    start_time: datetime,
+    end_time: datetime,
+    exchange_code: str,
+    open_interest_period: str,
+) -> dict[str, Any]:
+    windows = _build_day_windows(start_time, end_time, chunk_days=RETENTION_HISTORY_CHUNK_DAYS)
+    refresh_job_ids: list[int] = []
+    total_rows_written = 0
+    chunk_results: list[dict[str, Any]] = []
+    for window_start, window_end in windows:
+        result = run_market_snapshot_refresh(
+            symbol=symbol,
+            unified_symbol=unified_symbol,
+            client=client,
+            requested_by=requested_by,
+            exchange_code=exchange_code,
+            history_start_time=window_start,
+            history_end_time=window_end,
+            open_interest_period=open_interest_period,
+            include_funding=False,
+            include_open_interest=True,
+            include_mark_price=False,
+            include_index_price=False,
+        )
+        refresh_job_ids.append(result.ingestion_job_id)
+        total_rows_written += result.records_written
+        chunk_results.append(
+            {
+                "window_start": window_start.isoformat(),
+                "window_end": window_end.isoformat(),
+                "status": result.status,
+                "rows_written": result.records_written,
+                "history_rows_written": result.history_rows_written,
+                "ingestion_job_id": result.ingestion_job_id,
+            }
+        )
+    return {
+        "rows_written": total_rows_written,
+        "refresh_job_ids": refresh_job_ids,
+        "chunk_results": chunk_results,
+    }
+
+
+def _run_sentiment_ratio_remediation_window(
+    *,
+    symbol: str,
+    unified_symbol: str,
+    client: BinancePublicRestClient,
+    requested_by: str,
+    start_time: datetime,
+    end_time: datetime,
+    exchange_code: str,
+    sentiment_ratio_period: str,
+    include_global_long_short_account_ratio: bool,
+    include_top_trader_long_short_account_ratio: bool,
+    include_top_trader_long_short_position_ratio: bool,
+    include_taker_long_short_ratio: bool,
+) -> dict[str, Any]:
+    windows = _build_day_windows(start_time, end_time, chunk_days=RETENTION_HISTORY_CHUNK_DAYS)
+    refresh_job_ids: list[int] = []
+    total_rows_written = 0
+    chunk_results: list[dict[str, Any]] = []
+    for window_start, window_end in windows:
+        result = run_market_snapshot_refresh(
+            symbol=symbol,
+            unified_symbol=unified_symbol,
+            client=client,
+            requested_by=requested_by,
+            exchange_code=exchange_code,
+            history_start_time=window_start,
+            history_end_time=window_end,
+            sentiment_ratio_period=sentiment_ratio_period,
+            include_funding=False,
+            include_open_interest=False,
+            include_mark_price=False,
+            include_index_price=False,
+            include_global_long_short_account_ratio=include_global_long_short_account_ratio,
+            include_top_trader_long_short_account_ratio=include_top_trader_long_short_account_ratio,
+            include_top_trader_long_short_position_ratio=include_top_trader_long_short_position_ratio,
+            include_taker_long_short_ratio=include_taker_long_short_ratio,
+        )
+        refresh_job_ids.append(result.ingestion_job_id)
+        total_rows_written += result.records_written
+        chunk_results.append(
+            {
+                "window_start": window_start.isoformat(),
+                "window_end": window_end.isoformat(),
+                "status": result.status,
+                "rows_written": result.records_written,
+                "history_rows_written": result.history_rows_written,
+                "ingestion_job_id": result.ingestion_job_id,
+            }
+        )
+    return {
+        "rows_written": total_rows_written,
+        "refresh_job_ids": refresh_job_ids,
+        "chunk_results": chunk_results,
+    }
+
+
 def build_market_snapshot_remediation_plan(
     *,
     exchange_code: str,
@@ -138,6 +355,17 @@ def build_market_snapshot_remediation_plan(
     plans: list[SnapshotDatasetPlan] = []
 
     for data_type in normalized_datasets:
+        if data_type in RETENTION_LIMITED_DATASETS:
+            plans.append(
+                _retention_limited_plan(
+                    exchange_code=exchange_code,
+                    unified_symbol=unified_symbol,
+                    data_type=data_type,
+                    observed_at=now,
+                )
+            )
+            continue
+
         latest_timestamp = _latest_timestamp_for_dataset(
             exchange_code=exchange_code,
             unified_symbol=unified_symbol,
@@ -221,6 +449,11 @@ def run_market_snapshot_remediation(
             "remediation_reason": plan.remediation_reason,
             "planned_start_time": plan.planned_start_time.isoformat() if plan.planned_start_time else None,
             "planned_end_time": plan.planned_end_time.isoformat() if plan.planned_end_time else None,
+            "profile_window_start": plan.profile_window_start.isoformat() if plan.profile_window_start else None,
+            "coverage_shortfall_count": plan.coverage_shortfall_count,
+            "internal_missing_count": plan.internal_missing_count,
+            "tail_missing_count": plan.tail_missing_count,
+            "gap_count": plan.gap_count,
         }
         for plan in plans
     ]
@@ -265,28 +498,31 @@ def run_market_snapshot_remediation(
         )
 
     funding_plan = next((plan for plan in plans if plan.data_type == "funding_rates"), None)
-    history_plans = [
+    standard_history_plans = [
         plan
         for plan in plans
         if plan.data_type
-        in {
-            "open_interest",
-            "mark_prices",
-            "index_prices",
-            "global_long_short_account_ratios",
-            "top_trader_long_short_account_ratios",
-            "top_trader_long_short_position_ratios",
-            "taker_long_short_ratios",
-        }
+        in {"mark_prices", "index_prices"}
         and plan.remediation_required
     ]
+    open_interest_plan = next((plan for plan in plans if plan.data_type == "open_interest" and plan.remediation_required), None)
+    sentiment_plans = [
+        plan for plan in plans if plan.data_type in SENTIMENT_RATIO_DATA_TYPES and plan.remediation_required
+    ]
     refresh_job_id: int | None = None
+    refresh_job_ids: list[int] = []
     records_written = 0
 
     try:
-        if funding_plan and funding_plan.remediation_required or history_plans:
-            history_start = min((plan.planned_start_time for plan in history_plans if plan.planned_start_time), default=None)
-            history_end = max((plan.planned_end_time for plan in history_plans if plan.planned_end_time), default=None)
+        if (funding_plan and funding_plan.remediation_required) or standard_history_plans:
+            history_start = min(
+                (plan.planned_start_time for plan in standard_history_plans if plan.planned_start_time),
+                default=None,
+            )
+            history_end = max(
+                (plan.planned_end_time for plan in standard_history_plans if plan.planned_end_time),
+                default=None,
+            )
             refresh_result = run_market_snapshot_refresh(
                 symbol=symbol,
                 unified_symbol=unified_symbol,
@@ -301,22 +537,62 @@ def run_market_snapshot_remediation(
                 price_interval=price_interval,
                 sentiment_ratio_period=sentiment_ratio_period,
                 include_funding=bool(funding_plan and funding_plan.remediation_required),
-                include_open_interest=any(plan.data_type == "open_interest" for plan in history_plans),
-                include_mark_price=any(plan.data_type == "mark_prices" for plan in history_plans),
-                include_index_price=any(plan.data_type == "index_prices" for plan in history_plans),
-                include_global_long_short_account_ratio=any(
-                    plan.data_type == "global_long_short_account_ratios" for plan in history_plans
-                ),
-                include_top_trader_long_short_account_ratio=any(
-                    plan.data_type == "top_trader_long_short_account_ratios" for plan in history_plans
-                ),
-                include_top_trader_long_short_position_ratio=any(
-                    plan.data_type == "top_trader_long_short_position_ratios" for plan in history_plans
-                ),
-                include_taker_long_short_ratio=any(plan.data_type == "taker_long_short_ratios" for plan in history_plans),
+                include_open_interest=False,
+                include_mark_price=any(plan.data_type == "mark_prices" for plan in standard_history_plans),
+                include_index_price=any(plan.data_type == "index_prices" for plan in standard_history_plans),
+                include_global_long_short_account_ratio=False,
+                include_top_trader_long_short_account_ratio=False,
+                include_top_trader_long_short_position_ratio=False,
+                include_taker_long_short_ratio=False,
+                observed_at=now,
             )
             refresh_job_id = refresh_result.ingestion_job_id
-            records_written = refresh_result.records_written
+            refresh_job_ids.append(refresh_result.ingestion_job_id)
+            records_written += refresh_result.records_written
+
+        if open_interest_plan and open_interest_plan.planned_start_time and open_interest_plan.planned_end_time:
+            open_interest_result = _run_open_interest_remediation_window(
+                symbol=symbol,
+                unified_symbol=unified_symbol,
+                client=snapshot_client,
+                requested_by=requested_by,
+                start_time=open_interest_plan.planned_start_time,
+                end_time=open_interest_plan.planned_end_time,
+                exchange_code=exchange_code,
+                open_interest_period=open_interest_period,
+            )
+            if refresh_job_id is None and open_interest_result["refresh_job_ids"]:
+                refresh_job_id = open_interest_result["refresh_job_ids"][0]
+            refresh_job_ids.extend(open_interest_result["refresh_job_ids"])
+            records_written += open_interest_result["rows_written"]
+
+        if sentiment_plans:
+            sentiment_start = min(plan.planned_start_time for plan in sentiment_plans if plan.planned_start_time)
+            sentiment_end = max(plan.planned_end_time for plan in sentiment_plans if plan.planned_end_time)
+            sentiment_result = _run_sentiment_ratio_remediation_window(
+                symbol=symbol,
+                unified_symbol=unified_symbol,
+                client=snapshot_client,
+                requested_by=requested_by,
+                start_time=sentiment_start,
+                end_time=sentiment_end,
+                exchange_code=exchange_code,
+                sentiment_ratio_period=sentiment_ratio_period,
+                include_global_long_short_account_ratio=any(
+                    plan.data_type == "global_long_short_account_ratios" for plan in sentiment_plans
+                ),
+                include_top_trader_long_short_account_ratio=any(
+                    plan.data_type == "top_trader_long_short_account_ratios" for plan in sentiment_plans
+                ),
+                include_top_trader_long_short_position_ratio=any(
+                    plan.data_type == "top_trader_long_short_position_ratios" for plan in sentiment_plans
+                ),
+                include_taker_long_short_ratio=any(plan.data_type == "taker_long_short_ratios" for plan in sentiment_plans),
+            )
+            if refresh_job_id is None and sentiment_result["refresh_job_ids"]:
+                refresh_job_id = sentiment_result["refresh_job_ids"][0]
+            refresh_job_ids.extend(sentiment_result["refresh_job_ids"])
+            records_written += sentiment_result["rows_written"]
 
         with transaction_scope() as connection:
             job_repo = IngestionJobRepository()
@@ -334,6 +610,7 @@ def run_market_snapshot_remediation(
                     "requested_datasets": _normalize_datasets(datasets),
                     "remediation_actions": remediation_actions,
                     "refresh_job_id": refresh_job_id,
+                    "refresh_job_ids": refresh_job_ids,
                     "lookback_hours": lookback_hours,
                     "sentiment_ratio_period": sentiment_ratio_period,
                 },
@@ -344,7 +621,12 @@ def run_market_snapshot_remediation(
                     service_name="market_snapshot_remediation",
                     level="info",
                     message=f"market snapshot remediation finished for {unified_symbol}",
-                    context_json={"job_id": job_id, "refresh_job_id": refresh_job_id, "records_written": records_written},
+                    context_json={
+                        "job_id": job_id,
+                        "refresh_job_id": refresh_job_id,
+                        "refresh_job_ids": refresh_job_ids,
+                        "records_written": records_written,
+                    },
                 ),
             )
 
@@ -353,6 +635,7 @@ def run_market_snapshot_remediation(
             status="succeeded",
             records_written=records_written,
             refresh_job_id=refresh_job_id,
+            refresh_job_ids=refresh_job_ids,
             remediation_actions=remediation_actions,
         )
     except Exception as exc:
@@ -371,6 +654,7 @@ def run_market_snapshot_remediation(
                     "requested_datasets": _normalize_datasets(datasets),
                     "remediation_actions": remediation_actions,
                     "refresh_job_id": refresh_job_id,
+                    "refresh_job_ids": refresh_job_ids,
                     "lookback_hours": lookback_hours,
                     "sentiment_ratio_period": sentiment_ratio_period,
                 },

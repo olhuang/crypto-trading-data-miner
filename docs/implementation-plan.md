@@ -36,6 +36,7 @@ The repository already has a strong design foundation and is now design-complete
 - the existing bar-backfill path now supports both Binance perp and spot historical bars
 - instrument sync now also auto-upserts newly discovered Binance assets into `ref.assets` before instrument writes
 - historical funding/open-interest/mark/index windows are now supported through the current market-snapshot refresh path
+- scheduled market-snapshot maintenance now also has a retention-aware path for OI and Binance futures sentiment ratios, using recent aligned history refresh plus recent-30d continuity-aware remediation instead of freshness-only maintenance
 - the current Binance historical fetch paths now paginate through multi-page REST windows for bars, funding, OI, mark, and index history
 - Phase 4 data-quality jobs for gap, freshness, and duplicate checks in `src/jobs/data_quality.py`
 - Phase 4 dataset-integrity validation now also exists for one symbol/window, including typed gap/missing/duplicate/corrupt reporting plus optional persistence back into `ops.data_quality_checks` and `ops.data_gaps`

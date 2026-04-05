@@ -12,6 +12,7 @@
 - keep sentiment-aware backtests explainable now that diagnostics / debug-trace inspection surfaces compact strategy market context snapshots
 - widen the Quality finding-action flow across more incremental-repairable datasets while keeping retention-limited cases explicit
 - keep sentiment-ratio backfill aligned to real Binance endpoint behavior now that long history windows were found to collapse to the latest ~500 rows unless chunked more aggressively
+- keep retention-limited OI/sentiment maintenance stable now that scheduler refresh/remediation needed to be hardened from freshness-only behavior to recent-history continuity maintenance
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -39,6 +40,9 @@
 - finding-triggered incremental repairs now surface a clearer end state when the detached backfill completed but wrote `0` rows, which helps distinguish "repair ran but the source returned no history" from a normal successful gap fill
 - the integrity repair status box no longer overwrites a finished `0 rows written` message with a generic post-trigger message; queued/running/final states now come from the polled backfill status path itself
 - the current Binance futures sentiment-ratio endpoints behave like recent-history series and long single-window history refreshes can collapse to only the latest ~500 rows, so sentiment-ratio backfill now needs day-sized chunking instead of one long window
+- `run_market_snapshot_refresh` now supports a recent-history retention mode for `open_interest` and the four Binance futures sentiment-ratio datasets, so scheduler-style refreshes can write canonical aligned 5m history rows instead of only writing an off-grid OI snapshot / no sentiment rows
+- `run_market_snapshot_remediation` now treats `open_interest` and the four Binance futures sentiment-ratio datasets as retention-limited continuity series: it profiles the recent 30-day window, plans around coverage/internal-gap/tail issues, and repairs them through day-sized history refreshes instead of a single freshness-only long window
+- phase-3 scheduler intent is now explicit that market snapshot refresh should include the four sentiment-ratio datasets and use recent-history retention mode, reducing the chance that recent-tail integrity degrades between manual re-grabs
 - local `BTCUSDT_PERP` sentiment-ratio tables were confirmed to contain old `2024-04-02` test-fixture residue plus a recent real block; the fixture residue was operator-cleaned from the local DB before re-grab
 - a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run

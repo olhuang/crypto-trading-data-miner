@@ -21,7 +21,15 @@ def phase3_schedule_plan() -> list[ScheduledJobDefinition]:
         ScheduledJobDefinition(
             job_id="binance_market_snapshot_refresh",
             trigger="interval:300s",
-            kwargs={"job_type": "market_snapshot_refresh", "exchange_code": "binance"},
+            kwargs={
+                "job_type": "market_snapshot_refresh",
+                "exchange_code": "binance",
+                "include_global_long_short_account_ratio": True,
+                "include_top_trader_long_short_account_ratio": True,
+                "include_top_trader_long_short_position_ratio": True,
+                "include_taker_long_short_ratio": True,
+                "use_recent_history_for_retention_limited": True,
+            },
         ),
     ]
 

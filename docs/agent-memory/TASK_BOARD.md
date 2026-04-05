@@ -15,6 +15,7 @@
 - continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
 - keep the Quality workspace moving toward guided repair actions now that integrity findings can trigger bounded bars repair plus broader dataset-scoped incremental repair/backfill actions
 - keep Binance sentiment-ratio retention/backfill semantics honest now that the endpoints have shown limit-driven truncation on long history windows
+- keep scheduled OI/sentiment maintenance aligned with retention-window continuity now that freshness-only remediation was confirmed to let recent-tail integrity drift
 
 ## Blocked
 - none currently recorded
@@ -28,6 +29,7 @@
 - align cooldown semantics to future explicit protection-trigger events
 - connect the new debug-trace market-context evidence into replay investigation linkage and future compare/review note anchors
 - defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
+- optionally surface scheduler/remediation continuity reasons in Quality if operators need to distinguish freshness catch-up from true recent-window repair
 
 ## Recently Done
 - added a first finding-aware repair flow inside `/monitoring -> Quality`, so `Selected Dataset Integrity -> Findings` can now trigger bounded `bars_1m` repair and dataset-scoped incremental backfill directly from the UI
@@ -36,6 +38,7 @@
 - improved the finding-repair feedback path so dataset-scoped incremental actions now distinguish a true fill from a `0 rows written` no-op returned by the upstream source
 - fixed the integrity repair status flow so queued/running/final backfill messages are no longer immediately overwritten by a generic post-trigger message
 - verified that long sentiment-ratio history windows can collapse to only the latest ~500 rows from Binance, then hardened the sentiment-ratio backfill path to chunk history daily instead of issuing one long refresh window
+- hardened scheduled snapshot maintenance so refresh can now write recent aligned OI/sentiment history rows and remediation now profiles recent-30d continuity for retention-limited datasets instead of only checking freshness
 - operator-cleaned the local `BTCUSDT_PERP` sentiment-ratio tables so re-grab starts from an empty state instead of mixing recent rows with old `2024-04-02` fixture residue
 - added a compact `market_context_json` field to persisted backtest debug traces, capturing the actual latest-as-of perp context seen by feature-aware strategies at each step
 - exposed that compact market-context snapshot through the debug-trace API and `/monitoring -> Backtests -> Selected Trace Detail`, so sentiment-aware runs are now explainable without digging back through market-data tables by hand

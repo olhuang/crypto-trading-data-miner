@@ -93,6 +93,9 @@ Status: completed
 - integrity semantics should treat these as recent-retention datasets
 - freshness / coverage summary in Quality UI
 - optional dataset detail drill-down
+- scheduled maintenance now also respects recent-retention behavior:
+  - scheduler refresh can write recent aligned 5m ratio history instead of leaving sentiment ratios unmaintained between manual re-grabs
+  - scheduler remediation now evaluates the recent 30-day continuity window and repairs sentiment gaps with day-sized history windows instead of a single freshness-only long request
 
 ### Slice 4: Research Consumption
 

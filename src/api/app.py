@@ -83,6 +83,8 @@ class MarketSnapshotRefreshRequest(ApiRequestModel):
     include_top_trader_long_short_account_ratio: bool = False
     include_top_trader_long_short_position_ratio: bool = False
     include_taker_long_short_ratio: bool = False
+    use_recent_history_for_retention_limited: bool = False
+    retention_history_lookback_minutes: int = 60
 
 
 class MarketSnapshotRemediationRequest(ApiRequestModel):
@@ -1429,6 +1431,8 @@ def create_app() -> FastAPI:
             include_top_trader_long_short_account_ratio=request.include_top_trader_long_short_account_ratio,
             include_top_trader_long_short_position_ratio=request.include_top_trader_long_short_position_ratio,
             include_taker_long_short_ratio=request.include_taker_long_short_ratio,
+            use_recent_history_for_retention_limited=request.use_recent_history_for_retention_limited,
+            retention_history_lookback_minutes=request.retention_history_lookback_minutes,
         )
         return SuccessEnvelope[JobActionResource](
             data=JobActionResource(job_id=result.ingestion_job_id, status=result.status),

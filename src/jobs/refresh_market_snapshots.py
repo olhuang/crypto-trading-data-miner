@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from ingestion.binance.public_rest import BinancePublicRestClient
 from storage.db import transaction_scope
@@ -26,6 +26,30 @@ class MarketSnapshotRefreshResult:
     history_rows_written: int
 
 
+RETENTION_LIMITED_INTERVAL = timedelta(minutes=5)
+DEFAULT_RETENTION_HISTORY_LOOKBACK_MINUTES = 60
+
+
+def _floor_to_interval(timestamp: datetime, interval: timedelta) -> datetime:
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    interval_seconds = int(interval.total_seconds())
+    elapsed_seconds = int((timestamp - epoch).total_seconds())
+    floored_seconds = elapsed_seconds - (elapsed_seconds % interval_seconds)
+    return epoch + timedelta(seconds=floored_seconds)
+
+
+def _recent_retention_history_window(
+    *,
+    observed_at: datetime,
+    lookback_minutes: int,
+) -> tuple[datetime, datetime]:
+    aligned_end = _floor_to_interval(observed_at, RETENTION_LIMITED_INTERVAL)
+    aligned_start = aligned_end - timedelta(minutes=lookback_minutes)
+    if aligned_start > aligned_end:
+        aligned_start = aligned_end
+    return aligned_start, aligned_end
+
+
 def run_market_snapshot_refresh(
     *,
     symbol: str,
@@ -48,9 +72,12 @@ def run_market_snapshot_refresh(
     include_top_trader_long_short_account_ratio: bool = False,
     include_top_trader_long_short_position_ratio: bool = False,
     include_taker_long_short_ratio: bool = False,
+    observed_at: datetime | None = None,
+    use_recent_history_for_retention_limited: bool = False,
+    retention_history_lookback_minutes: int = DEFAULT_RETENTION_HISTORY_LOOKBACK_MINUTES,
 ) -> MarketSnapshotRefreshResult:
     snapshot_client = client or BinancePublicRestClient()
-    observed_at = datetime.now(timezone.utc)
+    observed_at = observed_at or datetime.now(timezone.utc)
     job_window_start = min(
         (value for value in (funding_start_time, history_start_time) if value is not None),
         default=None,
@@ -198,17 +225,37 @@ def run_market_snapshot_refresh(
                     else []
                 )
             else:
+                recent_retention_start: datetime | None = None
+                recent_retention_end: datetime | None = None
+                if use_recent_history_for_retention_limited:
+                    recent_retention_start, recent_retention_end = _recent_retention_history_window(
+                        observed_at=observed_at,
+                        lookback_minutes=retention_history_lookback_minutes,
+                    )
                 open_interest_events = (
-                    [
-                        snapshot_client.normalize_open_interest(
+                    snapshot_client.normalize_open_interest_history(
+                        symbol,
+                        snapshot_client.fetch_open_interest_history(
                             symbol,
-                            snapshot_client.fetch_open_interest(symbol),
-                            observed_at=observed_at,
-                            unified_symbol=unified_symbol,
-                        )
-                    ]
-                    if include_open_interest
-                    else []
+                            period=open_interest_period,
+                            start_time=recent_retention_start,
+                            end_time=recent_retention_end,
+                        ),
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_open_interest and use_recent_history_for_retention_limited
+                    else (
+                        [
+                            snapshot_client.normalize_open_interest(
+                                symbol,
+                                snapshot_client.fetch_open_interest(symbol),
+                                observed_at=observed_at,
+                                unified_symbol=unified_symbol,
+                            )
+                        ]
+                        if include_open_interest
+                        else []
+                    )
                 )
                 if include_mark_price or include_index_price:
                     mark_event, index_event = snapshot_client.normalize_premium_index(
@@ -222,10 +269,66 @@ def run_market_snapshot_refresh(
                 else:
                     mark_events = []
                     index_events = []
-                global_long_short_account_ratio_events = []
-                top_trader_long_short_account_ratio_events = []
-                top_trader_long_short_position_ratio_events = []
-                taker_long_short_ratio_events = []
+                global_long_short_account_ratio_events = (
+                    snapshot_client.normalize_global_long_short_account_ratios(
+                        symbol,
+                        snapshot_client.fetch_global_long_short_account_ratio_history(
+                            symbol,
+                            period=sentiment_ratio_period,
+                            start_time=recent_retention_start,
+                            end_time=recent_retention_end,
+                        ),
+                        period=sentiment_ratio_period,
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_global_long_short_account_ratio and use_recent_history_for_retention_limited
+                    else []
+                )
+                top_trader_long_short_account_ratio_events = (
+                    snapshot_client.normalize_top_trader_long_short_account_ratios(
+                        symbol,
+                        snapshot_client.fetch_top_trader_long_short_account_ratio_history(
+                            symbol,
+                            period=sentiment_ratio_period,
+                            start_time=recent_retention_start,
+                            end_time=recent_retention_end,
+                        ),
+                        period=sentiment_ratio_period,
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_top_trader_long_short_account_ratio and use_recent_history_for_retention_limited
+                    else []
+                )
+                top_trader_long_short_position_ratio_events = (
+                    snapshot_client.normalize_top_trader_long_short_position_ratios(
+                        symbol,
+                        snapshot_client.fetch_top_trader_long_short_position_ratio_history(
+                            symbol,
+                            period=sentiment_ratio_period,
+                            start_time=recent_retention_start,
+                            end_time=recent_retention_end,
+                        ),
+                        period=sentiment_ratio_period,
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_top_trader_long_short_position_ratio and use_recent_history_for_retention_limited
+                    else []
+                )
+                taker_long_short_ratio_events = (
+                    snapshot_client.normalize_taker_long_short_ratios(
+                        symbol,
+                        snapshot_client.fetch_taker_long_short_ratio_history(
+                            symbol,
+                            period=sentiment_ratio_period,
+                            start_time=recent_retention_start,
+                            end_time=recent_retention_end,
+                        ),
+                        period=sentiment_ratio_period,
+                        unified_symbol=unified_symbol,
+                    )
+                    if include_taker_long_short_ratio and use_recent_history_for_retention_limited
+                    else []
+                )
 
             for event in funding_events:
                 FundingRateRepository().upsert(connection, event)
@@ -264,6 +367,8 @@ def run_market_snapshot_refresh(
                 metadata_json={
                     "job_type": "market_snapshot_refresh",
                     "history_mode": bool(history_start_time or history_end_time),
+                    "recent_retention_history_mode": bool(use_recent_history_for_retention_limited and not (history_start_time or history_end_time)),
+                    "retention_history_lookback_minutes": retention_history_lookback_minutes,
                     "history_start_time": history_start_time.isoformat() if history_start_time else None,
                     "history_end_time": history_end_time.isoformat() if history_end_time else None,
                     "history_rows_written": history_rows_written,
@@ -277,6 +382,7 @@ def run_market_snapshot_refresh(
                     "include_top_trader_long_short_account_ratio": include_top_trader_long_short_account_ratio,
                     "include_top_trader_long_short_position_ratio": include_top_trader_long_short_position_ratio,
                     "include_taker_long_short_ratio": include_taker_long_short_ratio,
+                    "use_recent_history_for_retention_limited": use_recent_history_for_retention_limited,
                 },
             )
             log_repo.insert(
@@ -299,6 +405,8 @@ def run_market_snapshot_refresh(
                 metadata_json={
                     "job_type": "market_snapshot_refresh",
                     "history_mode": bool(history_start_time or history_end_time),
+                    "recent_retention_history_mode": bool(use_recent_history_for_retention_limited and not (history_start_time or history_end_time)),
+                    "retention_history_lookback_minutes": retention_history_lookback_minutes,
                     "history_start_time": history_start_time.isoformat() if history_start_time else None,
                     "history_end_time": history_end_time.isoformat() if history_end_time else None,
                     "sentiment_ratio_period": sentiment_ratio_period,
@@ -310,6 +418,7 @@ def run_market_snapshot_refresh(
                     "include_top_trader_long_short_account_ratio": include_top_trader_long_short_account_ratio,
                     "include_top_trader_long_short_position_ratio": include_top_trader_long_short_position_ratio,
                     "include_taker_long_short_ratio": include_taker_long_short_ratio,
+                    "use_recent_history_for_retention_limited": use_recent_history_for_retention_limited,
                 },
             )
             log_repo.insert(
