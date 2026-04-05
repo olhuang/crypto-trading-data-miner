@@ -594,10 +594,12 @@ Required sections:
 
 ## Acceptance Checks
 - [ ] Backtest Run Builder can launch a run from UI
+- [x] Backtest Run Builder can surface a strategy-aware sentiment research path for `btc_sentiment_momentum`
 - [ ] Backtest Runs page lists completed run status
 - [ ] Backtest Run Detail shows KPIs and equity curve
 - [ ] simulated orders/fills can be filtered and inspected
 - [x] diagnostics/debug traces can be inspected from the run detail experience
+- [ ] diagnostics/debug traces expose strategy market context for feature-driven runs
 - [ ] compare/analyze flow has a planned home in the Phase 5 research UI
 - [ ] replay scenarios have a planned home in the Phase 5 research UI
 - [ ] replay result UI/API plan is explicit enough for the next research slice
@@ -612,14 +614,17 @@ Required sections:
 - [x] the current internal Backtests launch form now also includes richer drawdown, daily-loss, leverage, and cooldown guardrail fields
 - [x] the current internal Backtests launch form now loads and displays the current named risk-policy registry foundation
 - [x] the current internal Backtests launch form now includes named assumption-bundle selection plus run-level risk-override baseline fields
+- [x] the current internal Backtests launch form now also exposes a strategy-aware sentiment research path through a `Sentiment Perp` preset, strategy selector, and sentiment threshold fields
 - [x] the current internal Backtests view can list recent runs without raw SQL
 - [x] the current internal Backtests view can inspect run detail, diagnostics summary, artifact bundle, and month breakdown
+- [x] the current internal Backtests selected-run detail now surfaces the sentiment thresholds used by `btc_sentiment_momentum` runs
 - [x] the current internal Backtests view can inspect recent persisted signals, simulated orders, simulated fills, and recent timeseries points for a selected run
 - [x] the current internal Backtests view can inspect persisted step-level debug traces for a selected run through a compact table plus structured summary/linkage/state drill-down
 - [x] the current internal Backtests view can use diagnostics trace anchors to jump into matching debug-trace evidence windows
 - [x] the current internal Backtests view can invoke the ad hoc compare-set API and inspect the JSON result
 - [x] the current internal Backtests view now also exposes compare-review notes for persisted compare sets, including system-seeded facts and human/agent review entry
 - [x] the current internal Backtests launch form now uses visible labels, grouped sections, checkbox/select controls, an advanced/debug subsection, and preset helpers instead of relying on placeholder-only inputs
+- [ ] the current internal Backtests debug-trace/detail surfaces still do not expose the strategy market context that drove feature-aware or sentiment-aware decisions
 - [ ] broader product-grade frontend work should follow `docs/frontend-keep-evolve-replace-strategy.md` instead of forcing all future UI into the current `/monitoring` console
 - [ ] the current internal Backtests view is still not the full Phase 5 research workbench described above
 - [ ] charts and replay scenario pages remain future UI work

@@ -7,7 +7,7 @@
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
-- advance step-level debug traces from the completed Level 2 linkage/UI/anchor/filter slices into replay investigation linkage
+- advance step-level debug traces from the completed Level 2 linkage/UI/anchor/filter slices into strategy market context visibility, then replay investigation linkage
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
@@ -54,6 +54,7 @@
 - added Phase 5 regression coverage proving a runner can trigger a trade from persisted Binance sentiment-ratio context
 - updated `/monitoring -> Backtests` so operators can actually launch the sentiment-aware research path through a `Sentiment Perp` preset, strategy selector, threshold fields, and bundle guidance
 - fixed the Backtests sentiment-threshold visibility bug by making hidden strategy-specific form grids override the shared `.form-grid` display rule
+- aligned the Phase 5 phase/task/checklist docs with the current sentiment/context status so they now reflect `bars_perp_context_v1`, the seeded sentiment-aware strategy path, and diagnostics/trace market-context visibility as the next slice
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

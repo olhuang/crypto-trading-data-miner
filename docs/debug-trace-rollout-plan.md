@@ -57,10 +57,11 @@ Without this layer:
 - [x] Level 2 diagnostics-to-trace anchors across diagnostics API output and the internal trace viewer
 
 ### Not Yet Implemented
+- [ ] strategy market context is not yet surfaced inside debug-trace detail for feature-driven or sentiment-aware runs
 - [ ] replay investigation trace linkage
 
 ### Current Recommended Resume Point
-- Continue with `Level 3` replay investigation trace linkage on top of the completed Level 2 filterable trace viewer and diagnostics-anchor foundation.
+- Continue with a focused trace-evidence slice that surfaces strategy market context inside diagnostics/debug-trace inspection for feature-driven runs, then resume `Level 3` replay investigation linkage on top of that richer evidence layer.
 
 ---
 
@@ -179,7 +180,8 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 4. [x] `Level 2 richer UI drill-down`
 5. [x] `Level 2 diagnostics-to-trace anchors`
 6. [x] `Level 2 targeted trace filters`
-7. `Level 3 replay/investigation trace integration`
+7. `Level 2.5 strategy market context visibility`
+8. `Level 3 replay/investigation trace integration`
 
 Do not skip directly to Level 3.
 
@@ -190,14 +192,15 @@ Do not skip directly to Level 3.
 If resuming from here, implement only this slice:
 
 ### Slice
-`Level 3 replay/investigation trace linkage`
+`Level 2.5 strategy market context visibility`
 
 ### Exact Work
-- reuse the existing debug-trace evidence model for replay investigations
-- attach replay-oriented note/linkage objects to concrete trace anchors or time windows
+- surface the strategy market context that drove a step into diagnostics/debug-trace detail for feature-driven runs
+- show latest-as-of funding/OI/mark/index and sentiment-ratio snapshots in selected trace inspection where available
 - keep the next slice grounded in the current compact trace substrate instead of redesigning the trace schema again
 
 ### Leave For Immediately After
+- `Level 3 replay/investigation trace linkage`
 - richer replay timeline polish and follow-up annotation surfaces
 
 ### Explicitly Defer
