@@ -32,6 +32,7 @@
 - added a first finding-aware repair flow inside `/monitoring -> Quality`, so `Selected Dataset Integrity -> Findings` can now trigger bounded `bars_1m` repair and dataset-scoped incremental backfill directly from the UI
 - expanded the finding-aware repair flow so supported non-bars `gap` findings can trigger incremental repair and non-retention-limited `coverage` findings can trigger coverage backfill from the same findings table
 - tightened the finding-action eligibility rules so supported `mark/index/sentiment` gap findings render their repair button more reliably while retention-limited coverage remains non-actionable
+- improved the finding-repair feedback path so dataset-scoped incremental actions now distinguish a true fill from a `0 rows written` no-op returned by the upstream source
 - added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
 - updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - tightened the repair UX so finding-triggered incremental repairs now surface a live staged progress indicator instead of only a queued/complete message

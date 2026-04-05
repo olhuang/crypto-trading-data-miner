@@ -155,7 +155,11 @@ def trigger_binance_btc_incremental_backfill(
         "stderr": subprocess.STDOUT,
     }
     if os.name == "nt":
-        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0)
+        popen_kwargs["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP
+            | getattr(subprocess, "DETACHED_PROCESS", 0)
+            | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        )
     else:
         popen_kwargs["start_new_session"] = True
 

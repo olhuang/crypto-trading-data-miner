@@ -1004,6 +1004,42 @@ function mapIntegrityDataTypeToBackfillDataset(unifiedSymbol, dataType) {
   return aliases[dataType] || null;
 }
 
+function canonicalizeBackfillDatasetSelector(selector) {
+  const aliases = {
+    btc_spot_bars_1m: "btc_spot_bars_1m",
+    spot_bars_1m: "btc_spot_bars_1m",
+    btc_perp_bars_1m: "btc_perp_bars_1m",
+    perp_bars_1m: "btc_perp_bars_1m",
+    funding_rates: "btc_perp_funding_rates",
+    btc_perp_funding_rates: "btc_perp_funding_rates",
+    open_interest: "btc_perp_open_interest",
+    btc_perp_open_interest: "btc_perp_open_interest",
+    mark_prices: "btc_perp_mark_prices",
+    btc_perp_mark_prices: "btc_perp_mark_prices",
+    index_prices: "btc_perp_index_prices",
+    btc_perp_index_prices: "btc_perp_index_prices",
+    global_long_short_account_ratios: "btc_perp_global_long_short_account_ratios",
+    btc_perp_global_long_short_account_ratios: "btc_perp_global_long_short_account_ratios",
+    top_trader_long_short_account_ratios: "btc_perp_top_trader_long_short_account_ratios",
+    btc_perp_top_trader_long_short_account_ratios: "btc_perp_top_trader_long_short_account_ratios",
+    top_trader_long_short_position_ratios: "btc_perp_top_trader_long_short_position_ratios",
+    btc_perp_top_trader_long_short_position_ratios: "btc_perp_top_trader_long_short_position_ratios",
+    taker_long_short_ratios: "btc_perp_taker_long_short_ratios",
+    btc_perp_taker_long_short_ratios: "btc_perp_taker_long_short_ratios",
+  };
+  return aliases[String(selector || "").trim()] || null;
+}
+
+function findBackfillDatasetStatus(datasets, selectors) {
+  const canonicalSelectors = (Array.isArray(selectors) ? selectors : [])
+    .map((selector) => canonicalizeBackfillDatasetSelector(selector))
+    .filter(Boolean);
+  if (!canonicalSelectors.length) {
+    return null;
+  }
+  return datasets.find((dataset) => canonicalSelectors.includes(dataset.dataset_key)) || null;
+}
+
 function appendUtcMinuteBoundary(timestamp, boundary) {
   const parsed = new Date(timestamp);
   if (Number.isNaN(parsed.getTime())) {
@@ -1693,6 +1729,7 @@ function renderBtcBackfillStatus(status) {
   if (repairContext?.type === "incremental_backfill") {
     const progress = Number(status?.overall?.progress_pct || 0);
     const currentTaskLabel = status?.current_task?.label || status?.current_task?.dataset_key || "current dataset";
+    const repairedDataset = findBackfillDatasetStatus(datasets, repairContext.datasets);
     if (status?.state === "running") {
       setIntegrityRepairStatus({
         phase: "monitoring",
@@ -1702,12 +1739,16 @@ function renderBtcBackfillStatus(status) {
         stateClass: "is-running",
       });
     } else if (status?.state === "finished") {
+      const rowsWritten = Number(repairedDataset?.rows_written || 0);
       setIntegrityRepairStatus({
         phase: "complete",
         title: "Repair Backfill Completed",
-        detail: `Incremental repair for ${repairContext.dataset} finished. Re-run integrity to confirm the finding is cleared.`,
+        detail:
+          rowsWritten > 0
+            ? `Incremental repair for ${repairContext.dataset} wrote ${rowsWritten} row(s). Re-run integrity to confirm the finding is cleared.`
+            : `Incremental repair for ${repairContext.dataset} completed but wrote 0 rows. The source may not have returned data for the requested gap window(s); re-run integrity to confirm whether the finding remains.`,
         progress: 100,
-        stateClass: "is-complete",
+        stateClass: rowsWritten > 0 ? "is-complete" : "is-error",
       });
       clearIntegrityRepairContext();
     } else if (status?.state === "failed" || status?.state === "stale" || status?.state === "status_unreadable") {
