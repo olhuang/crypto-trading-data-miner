@@ -820,7 +820,7 @@
                   <input type="checkbox" name="use_symbol_defaults" checked />
                   <span class="checkbox-copy">
                     <strong>Use Symbol Default Datasets</strong>
-                    <span>Spot defaults to `bars_1m`; perp defaults to `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, and `index_prices`.</span>
+                    <span>Spot defaults to `bars_1m`; perp adds `funding_rates`, `open_interest`, `mark_prices`, `index_prices`, and the four Binance futures sentiment ratio datasets.</span>
                   </span>
                 </label>
                 <div class="field field-span-2">
@@ -845,6 +845,22 @@
                     <label class="checkbox-field">
                       <input type="checkbox" name="integrity_data_type_index_prices" value="index_prices" disabled />
                       <span class="checkbox-copy"><strong>index_prices</strong><span>Index price history</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_global_long_short_account_ratios" value="global_long_short_account_ratios" disabled />
+                      <span class="checkbox-copy"><strong>global_long_short_account_ratios</strong><span>Global long/short account ratio</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_top_trader_long_short_account_ratios" value="top_trader_long_short_account_ratios" disabled />
+                      <span class="checkbox-copy"><strong>top_trader_long_short_account_ratios</strong><span>Top trader account ratio</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_top_trader_long_short_position_ratios" value="top_trader_long_short_position_ratios" disabled />
+                      <span class="checkbox-copy"><strong>top_trader_long_short_position_ratios</strong><span>Top trader position ratio</span></span>
+                    </label>
+                    <label class="checkbox-field">
+                      <input type="checkbox" name="integrity_data_type_taker_long_short_ratios" value="taker_long_short_ratios" disabled />
+                      <span class="checkbox-copy"><strong>taker_long_short_ratios</strong><span>Taker buy/sell ratio</span></span>
                     </label>
                     <label class="checkbox-field">
                       <input type="checkbox" name="integrity_data_type_trades" value="trades" disabled />

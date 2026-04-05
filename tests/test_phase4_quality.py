@@ -21,11 +21,15 @@ from jobs.data_quality import run_bar_gap_checks, run_freshness_checks, run_phas
 from models.market import (
     BarEvent,
     FundingRateEvent,
+    GlobalLongShortAccountRatioEvent,
     LiquidationEvent,
     MarkPriceEvent,
     OpenInterestEvent,
     RawMarketEvent,
+    TakerLongShortRatioEvent,
     TradeEvent,
+    TopTraderLongShortAccountRatioEvent,
+    TopTraderLongShortPositionRatioEvent,
 )
 from services.traceability import normalized_links_for_raw_event, replay_readiness_summary
 from services.btc_backfill_control import load_binance_btc_backfill_status
@@ -33,11 +37,15 @@ from storage.db import connection_scope, transaction_scope
 from storage.repositories.market_data import (
     BarRepository,
     FundingRateRepository,
+    GlobalLongShortAccountRatioRepository,
     LiquidationRepository,
     MarkPriceRepository,
     OpenInterestRepository,
     RawMarketEventRepository,
+    TakerLongShortRatioRepository,
     TradeRepository,
+    TopTraderLongShortAccountRatioRepository,
+    TopTraderLongShortPositionRatioRepository,
 )
 from storage.repositories.ops import DataGapRecord, DataGapRepository, DataQualityCheckRepository
 
@@ -418,6 +426,10 @@ def _cleanup_quality_window(*, exchange_code: str, unified_symbol: str, start_ti
             ("md.mark_prices", "ts"),
             ("md.open_interest", "ts"),
             ("md.funding_rates", "funding_time"),
+            ("md.global_long_short_account_ratios", "ts"),
+            ("md.top_trader_long_short_account_ratios", "ts"),
+            ("md.top_trader_long_short_position_ratios", "ts"),
+            ("md.taker_long_short_ratios", "ts"),
             ("md.trades", "event_time"),
             ("md.bars_1m", "bar_time"),
         ):
@@ -595,7 +607,7 @@ class Phase4QualityTests(unittest.TestCase):
         )
 
     def test_quality_suite_persists_checks_and_gap_rows(self) -> None:
-        self.assertEqual(self.__class__.quality_result.checks_written, 16)
+        self.assertEqual(self.__class__.quality_result.checks_written, 28)
         self.assertEqual(self.__class__.quality_result.gaps_written, 1)
 
         with connection_scope() as connection:
@@ -612,7 +624,7 @@ class Phase4QualityTests(unittest.TestCase):
                 limit=20,
             )
 
-        self.assertGreaterEqual(summary["total_checks"], 16)
+        self.assertGreaterEqual(summary["total_checks"], 28)
         self.assertGreaterEqual(summary["failed_checks"], 4)
         self.assertTrue(any(gap["gap_start"] == self.__class__.seed["middle_time"] for gap in gaps))
 
@@ -629,6 +641,10 @@ class Phase4QualityTests(unittest.TestCase):
         self.assertTrue(any(check["data_type"] == "open_interest" and check["check_name"] == "continuity_check" for check in checks))
         self.assertTrue(any(check["data_type"] == "mark_prices" and check["check_name"] == "duplicate_check" for check in checks))
         self.assertTrue(any(check["data_type"] == "index_prices" and check["check_name"] == "freshness_check" for check in checks))
+        self.assertTrue(any(check["data_type"] == "global_long_short_account_ratios" and check["check_name"] == "freshness_check" for check in checks))
+        self.assertTrue(any(check["data_type"] == "top_trader_long_short_account_ratios" and check["check_name"] == "continuity_check" for check in checks))
+        self.assertTrue(any(check["data_type"] == "top_trader_long_short_position_ratios" and check["check_name"] == "duplicate_check" for check in checks))
+        self.assertTrue(any(check["data_type"] == "taker_long_short_ratios" and check["check_name"] == "freshness_check" for check in checks))
 
     def test_traceability_links_trade_raw_event_back_to_normalized_trade(self) -> None:
         with connection_scope() as connection:
@@ -1106,6 +1122,31 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
 
         self.assertEqual([report.data_type for report in default_result.datasets], ["bars_1m"])
 
+    def test_perp_default_integrity_dataset_selection_includes_sentiment_ratios(self) -> None:
+        default_result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=self.__class__.seed["start_time"],
+            end_time=self.__class__.seed["end_time"],
+            observed_at=self.__class__.seed["end_time"],
+            persist_findings=False,
+        )
+
+        self.assertEqual(
+            [report.data_type for report in default_result.datasets],
+            [
+                "bars_1m",
+                "funding_rates",
+                "open_interest",
+                "mark_prices",
+                "index_prices",
+                "global_long_short_account_ratios",
+                "top_trader_long_short_account_ratios",
+                "top_trader_long_short_position_ratios",
+                "taker_long_short_ratios",
+            ],
+        )
+
     def test_validator_persists_integrity_checks_and_gap_rows(self) -> None:
         with connection_scope() as connection:
             checks = DataQualityCheckRepository().list_recent(
@@ -1342,6 +1383,75 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
             end_time=end_time,
             observed_at=observed_at,
             data_types=["open_interest"],
+            persist_findings=False,
+        )
+
+        report = result.datasets[0]
+        self.assertEqual(report.gap_count, 0)
+        self.assertEqual(report.internal_missing_count, 0)
+        self.assertEqual(report.coverage_shortfall_count, 0)
+        self.assertGreater(report.tail_missing_count, 0)
+        self.assertEqual(report.status, "warning")
+
+    def test_sentiment_ratio_integrity_uses_recent_retention_window_and_period_filter(self) -> None:
+        observed_at = datetime(2031, 7, 31, 12, 0, tzinfo=timezone.utc)
+        start_time = datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
+        end_time = observed_at
+        old_time = datetime(2030, 6, 1, 0, 0, tzinfo=timezone.utc)
+        recent_start = datetime(2031, 7, 1, 0, 0, tzinfo=timezone.utc)
+        recent_next = datetime(2031, 7, 1, 0, 5, tzinfo=timezone.utc)
+        other_period_time = datetime(2031, 7, 1, 0, 10, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_quality_window,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=old_time,
+            end_time=end_time,
+        )
+
+        with transaction_scope() as connection:
+            connection.exec_driver_sql(
+                """
+                delete from md.global_long_short_account_ratios
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and ts between %s and %s
+                """,
+                ("binance", "BTCUSDT_PERP", old_time, end_time),
+            )
+            repo = GlobalLongShortAccountRatioRepository()
+            for ts, period_code, value in (
+                (old_time, "5m", "1.01"),
+                (recent_start, "5m", "1.02"),
+                (recent_next, "5m", "1.03"),
+                (other_period_time, "15m", "9.99"),
+            ):
+                repo.upsert(
+                    connection,
+                    GlobalLongShortAccountRatioEvent(
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        ingest_time=ts,
+                        event_time=ts,
+                        period_code=period_code,
+                        long_short_ratio=value,
+                        long_account_ratio="0.51",
+                        short_account_ratio="0.49",
+                    ),
+                )
+
+        result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=start_time,
+            end_time=end_time,
+            observed_at=observed_at,
+            data_types=["global_long_short_account_ratios"],
             persist_findings=False,
         )
 

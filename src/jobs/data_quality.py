@@ -89,10 +89,20 @@ FUNDING_FRESHNESS_SLA = timedelta(hours=12)
 OPEN_INTEREST_FRESHNESS_SLA = timedelta(minutes=10)
 MARK_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
 INDEX_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
+SENTIMENT_RATIO_FRESHNESS_SLA = timedelta(minutes=15)
 FUNDING_CONTINUITY_INTERVAL = timedelta(hours=8)
 OPEN_INTEREST_CONTINUITY_INTERVAL = timedelta(minutes=5)
 MARK_INDEX_CONTINUITY_INTERVAL = timedelta(minutes=1)
+SENTIMENT_RATIO_CONTINUITY_INTERVAL = timedelta(minutes=5)
 OPEN_INTEREST_RETENTION_DAYS = 30
+SENTIMENT_RATIO_RETENTION_DAYS = 30
+DEFAULT_SENTIMENT_RATIO_PERIOD = "5m"
+SENTIMENT_RATIO_DATA_TYPES = {
+    "global_long_short_account_ratios",
+    "top_trader_long_short_account_ratios",
+    "top_trader_long_short_position_ratios",
+    "taker_long_short_ratios",
+}
 EPOCH_UTC = datetime(1970, 1, 1, tzinfo=timezone.utc)
 INTEGRITY_DATASET_SPECS: dict[str, dict[str, Any]] = {
     "bars_1m": {
@@ -162,6 +172,74 @@ INTEGRITY_DATASET_SPECS: dict[str, dict[str, Any]] = {
         """,
         "corrupt_sample_columns": "ts, open_interest",
     },
+    "global_long_short_account_ratios": {
+        "table_name": "md.global_long_short_account_ratios",
+        "time_column": "ts",
+        "interval": SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+        "profile_aligned_only": True,
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+        "duplicate_key": "ts",
+        "corrupt_where": """
+            (
+                ts > %s
+                or long_short_ratio <= 0
+                or coalesce(long_account_ratio, 0) < 0
+                or coalesce(short_account_ratio, 0) < 0
+            )
+        """,
+        "corrupt_sample_columns": "ts, period_code, long_short_ratio, long_account_ratio, short_account_ratio",
+    },
+    "top_trader_long_short_account_ratios": {
+        "table_name": "md.top_trader_long_short_account_ratios",
+        "time_column": "ts",
+        "interval": SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+        "profile_aligned_only": True,
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+        "duplicate_key": "ts",
+        "corrupt_where": """
+            (
+                ts > %s
+                or long_short_ratio <= 0
+                or coalesce(long_account_ratio, 0) < 0
+                or coalesce(short_account_ratio, 0) < 0
+            )
+        """,
+        "corrupt_sample_columns": "ts, period_code, long_short_ratio, long_account_ratio, short_account_ratio",
+    },
+    "top_trader_long_short_position_ratios": {
+        "table_name": "md.top_trader_long_short_position_ratios",
+        "time_column": "ts",
+        "interval": SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+        "profile_aligned_only": True,
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+        "duplicate_key": "ts",
+        "corrupt_where": """
+            (
+                ts > %s
+                or long_short_ratio <= 0
+                or coalesce(long_account_ratio, 0) < 0
+                or coalesce(short_account_ratio, 0) < 0
+            )
+        """,
+        "corrupt_sample_columns": "ts, period_code, long_short_ratio, long_account_ratio, short_account_ratio",
+    },
+    "taker_long_short_ratios": {
+        "table_name": "md.taker_long_short_ratios",
+        "time_column": "ts",
+        "interval": SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+        "profile_aligned_only": True,
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+        "duplicate_key": "ts",
+        "corrupt_where": """
+            (
+                ts > %s
+                or buy_sell_ratio <= 0
+                or coalesce(buy_vol, 0) < 0
+                or coalesce(sell_vol, 0) < 0
+            )
+        """,
+        "corrupt_sample_columns": "ts, period_code, buy_sell_ratio, buy_vol, sell_vol",
+    },
     "mark_prices": {
         "table_name": "md.mark_prices",
         "time_column": "ts",
@@ -220,7 +298,18 @@ def _align_bar_window(start_time: datetime, end_time: datetime) -> tuple[datetim
 def _default_integrity_data_types(*, unified_symbol: str, raw_event_channel: str | None = None) -> list[str]:
     data_types = ["bars_1m"]
     if not _is_spot_symbol(unified_symbol):
-        data_types.extend(["funding_rates", "open_interest", "mark_prices", "index_prices"])
+        data_types.extend(
+            [
+                "funding_rates",
+                "open_interest",
+                "mark_prices",
+                "index_prices",
+                "global_long_short_account_ratios",
+                "top_trader_long_short_account_ratios",
+                "top_trader_long_short_position_ratios",
+                "taker_long_short_ratios",
+            ]
+        )
     if raw_event_channel is not None:
         data_types.append("raw_market_events")
     return data_types
@@ -391,6 +480,19 @@ def _open_interest_availability_floor(observed_at: datetime) -> datetime:
     return floor.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _sentiment_ratio_availability_floor(observed_at: datetime) -> datetime:
+    floor = observed_at - timedelta(days=SENTIMENT_RATIO_RETENTION_DAYS)
+    return floor.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _dataset_availability_floor(data_type: str, observed_at: datetime) -> datetime | None:
+    if data_type == "open_interest":
+        return _open_interest_availability_floor(observed_at)
+    if data_type in SENTIMENT_RATIO_DATA_TYPES:
+        return _sentiment_ratio_availability_floor(observed_at)
+    return None
+
+
 def _query_dataset_window_stats(
     connection,
     *,
@@ -400,12 +502,16 @@ def _query_dataset_window_stats(
     start_time: datetime,
     end_time: datetime,
     raw_event_channel: str | None = None,
+    period_code: str | None = None,
 ) -> dict[str, Any]:
     where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s"]
     params: list[Any] = [instrument_id, start_time, end_time]
     if table_name == "md.raw_market_events" and raw_event_channel is not None:
         where_clauses.append("channel = %s")
         params.append(raw_event_channel)
+    if period_code is not None:
+        where_clauses.append("period_code = %s")
+        params.append(period_code)
     where_sql = " and ".join(where_clauses)
     row = connection.exec_driver_sql(
         f"""
@@ -430,12 +536,16 @@ def _query_dataset_timestamps(
     start_time: datetime,
     end_time: datetime,
     raw_event_channel: str | None = None,
+    period_code: str | None = None,
 ) -> list[datetime]:
     where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s"]
     params: list[Any] = [instrument_id, start_time, end_time]
     if table_name == "md.raw_market_events" and raw_event_channel is not None:
         where_clauses.append("channel = %s")
         params.append(raw_event_channel)
+    if period_code is not None:
+        where_clauses.append("period_code = %s")
+        params.append(period_code)
     where_sql = " and ".join(where_clauses)
     rows = connection.exec_driver_sql(
         f"""
@@ -459,6 +569,7 @@ def _query_duplicate_profile(
     start_time: datetime,
     end_time: datetime,
     raw_event_channel: str | None = None,
+    period_code: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s"]
     params: list[Any] = [instrument_id, start_time, end_time]
@@ -467,6 +578,9 @@ def _query_duplicate_profile(
         if raw_event_channel is not None:
             where_clauses.append("channel = %s")
             params.append(raw_event_channel)
+    if period_code is not None:
+        where_clauses.append("period_code = %s")
+        params.append(period_code)
     where_sql = " and ".join(where_clauses)
     rows = connection.exec_driver_sql(
         f"""
@@ -516,12 +630,18 @@ def _query_corrupt_profile(
     end_time: datetime,
     observed_at: datetime,
     raw_event_channel: str | None = None,
+    period_code: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
-    where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s", corrupt_where]
-    params: list[Any] = [instrument_id, start_time, end_time, observed_at]
+    where_clauses = [f"instrument_id = %s", f"{time_column} between %s and %s"]
+    params: list[Any] = [instrument_id, start_time, end_time]
     if table_name == "md.raw_market_events" and raw_event_channel is not None:
-        where_clauses.insert(2, "channel = %s")
-        params.insert(3, raw_event_channel)
+        where_clauses.append("channel = %s")
+        params.append(raw_event_channel)
+    if period_code is not None:
+        where_clauses.append("period_code = %s")
+        params.append(period_code)
+    where_clauses.append(corrupt_where)
+    params.append(observed_at)
     where_sql = " and ".join(f"({clause.strip()})" for clause in where_clauses)
     corrupt_count = int(
         connection.exec_driver_sql(
@@ -557,12 +677,16 @@ def _query_future_row_profile(
     instrument_id: int,
     observed_at: datetime,
     raw_event_channel: str | None = None,
+    period_code: str | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     where_clauses = [f"instrument_id = %s", f"{time_column} > %s"]
     params: list[Any] = [instrument_id, observed_at]
     if table_name == "md.raw_market_events" and raw_event_channel is not None:
         where_clauses.append("channel = %s")
         params.append(raw_event_channel)
+    if period_code is not None:
+        where_clauses.append("period_code = %s")
+        params.append(period_code)
     where_sql = " and ".join(where_clauses)
     future_row_count = int(
         connection.exec_driver_sql(
@@ -656,6 +780,7 @@ def validate_dataset_integrity(
             table_name = spec["table_name"]
             time_column = spec["time_column"]
             interval = spec["interval"]
+            period_code = spec.get("period_code")
             aligned_start_time, aligned_end_time = _dataset_interval_window(
                 data_type=data_type,
                 start_time=start_time,
@@ -670,6 +795,7 @@ def validate_dataset_integrity(
                 start_time=aligned_start_time,
                 end_time=aligned_end_time,
                 raw_event_channel=raw_event_channel,
+                period_code=period_code,
             )
             row_count = int(window_stats.get("row_count") or 0)
             available_from = window_stats.get("available_from")
@@ -690,6 +816,7 @@ def validate_dataset_integrity(
                     start_time=aligned_start_time,
                     end_time=aligned_end_time,
                     raw_event_channel=raw_event_channel,
+                    period_code=period_code,
                 )
                 coverage_timestamps = (
                     [timestamp for timestamp in timestamps if _is_timestamp_on_interval_boundary(timestamp, interval)]
@@ -697,8 +824,9 @@ def validate_dataset_integrity(
                     else timestamps
                 )
                 profile_start_time = aligned_start_time
-                if data_type == "open_interest":
-                    profile_start_time = max(profile_start_time, _open_interest_availability_floor(effective_observed_at))
+                availability_floor = _dataset_availability_floor(data_type, effective_observed_at)
+                if availability_floor is not None:
+                    profile_start_time = max(profile_start_time, availability_floor)
                 expected_points = _expected_points_in_interval_window(profile_start_time, aligned_end_time, interval)
                 safe_timestamps = [
                     timestamp
@@ -728,6 +856,7 @@ def validate_dataset_integrity(
                 start_time=aligned_start_time,
                 end_time=aligned_end_time,
                 raw_event_channel=raw_event_channel,
+                period_code=period_code,
             )
             corrupt_count, corrupt_examples = _query_corrupt_profile(
                 connection,
@@ -740,6 +869,7 @@ def validate_dataset_integrity(
                 end_time=aligned_end_time,
                 observed_at=effective_observed_at,
                 raw_event_channel=raw_event_channel,
+                period_code=period_code,
             )
             future_row_count, future_examples = _query_future_row_profile(
                 connection,
@@ -748,6 +878,7 @@ def validate_dataset_integrity(
                 instrument_id=instrument_id,
                 observed_at=effective_observed_at,
                 raw_event_channel=raw_event_channel,
+                period_code=period_code,
             )
             total_corrupt_count = corrupt_count + future_row_count
             safe_available_to = available_to
@@ -755,13 +886,25 @@ def validate_dataset_integrity(
                 safe_available_to = safe_timestamps[-1]
             elif future_row_count > 0:
                 safe_available_to_row = connection.exec_driver_sql(
-                    f"""
-                    select max({time_column})
-                    from {table_name}
-                    where instrument_id = %s
-                      and {time_column} <= %s
-                    """,
-                    (instrument_id, effective_observed_at),
+                    (
+                        f"""
+                        select max({time_column})
+                        from {table_name}
+                        where instrument_id = %s
+                          and {time_column} <= %s
+                          and period_code = %s
+                        """
+                        if period_code is not None
+                        else f"""
+                        select max({time_column})
+                        from {table_name}
+                        where instrument_id = %s
+                          and {time_column} <= %s
+                        """
+                    ),
+                    (instrument_id, effective_observed_at, period_code)
+                    if period_code is not None
+                    else (instrument_id, effective_observed_at),
                 ).scalar_one()
                 safe_available_to = safe_available_to_row
 
@@ -1170,24 +1313,58 @@ def run_freshness_checks(
         quality_repo = DataQualityCheckRepository()
 
         freshness_specs = [
-            ("bars_1m", "bar_time", "md.bars_1m", BAR_FRESHNESS_SLA),
-            ("trades", "event_time", "md.trades", TRADE_FRESHNESS_SLA),
+            ("bars_1m", "bar_time", "md.bars_1m", BAR_FRESHNESS_SLA, None),
+            ("trades", "event_time", "md.trades", TRADE_FRESHNESS_SLA, None),
         ]
         if not _is_spot_symbol(unified_symbol):
             freshness_specs.extend(
                 [
-                    ("funding_rates", "funding_time", "md.funding_rates", FUNDING_FRESHNESS_SLA),
-                    ("open_interest", "ts", "md.open_interest", OPEN_INTEREST_FRESHNESS_SLA),
-                    ("mark_prices", "ts", "md.mark_prices", MARK_PRICE_FRESHNESS_SLA),
-                    ("index_prices", "ts", "md.index_prices", INDEX_PRICE_FRESHNESS_SLA),
+                    ("funding_rates", "funding_time", "md.funding_rates", FUNDING_FRESHNESS_SLA, None),
+                    ("open_interest", "ts", "md.open_interest", OPEN_INTEREST_FRESHNESS_SLA, None),
+                    ("mark_prices", "ts", "md.mark_prices", MARK_PRICE_FRESHNESS_SLA, None),
+                    ("index_prices", "ts", "md.index_prices", INDEX_PRICE_FRESHNESS_SLA, None),
+                    (
+                        "global_long_short_account_ratios",
+                        "ts",
+                        "md.global_long_short_account_ratios",
+                        SENTIMENT_RATIO_FRESHNESS_SLA,
+                        DEFAULT_SENTIMENT_RATIO_PERIOD,
+                    ),
+                    (
+                        "top_trader_long_short_account_ratios",
+                        "ts",
+                        "md.top_trader_long_short_account_ratios",
+                        SENTIMENT_RATIO_FRESHNESS_SLA,
+                        DEFAULT_SENTIMENT_RATIO_PERIOD,
+                    ),
+                    (
+                        "top_trader_long_short_position_ratios",
+                        "ts",
+                        "md.top_trader_long_short_position_ratios",
+                        SENTIMENT_RATIO_FRESHNESS_SLA,
+                        DEFAULT_SENTIMENT_RATIO_PERIOD,
+                    ),
+                    (
+                        "taker_long_short_ratios",
+                        "ts",
+                        "md.taker_long_short_ratios",
+                        SENTIMENT_RATIO_FRESHNESS_SLA,
+                        DEFAULT_SENTIMENT_RATIO_PERIOD,
+                    ),
                 ]
             )
 
-        for data_type, timestamp_column, table_name, sla in freshness_specs:
-            latest = connection.exec_driver_sql(
-                f"select max({timestamp_column}) from {table_name} where instrument_id = %s",
-                (instrument_id,),
-            ).scalar_one()
+        for data_type, timestamp_column, table_name, sla, period_code in freshness_specs:
+            if period_code is None:
+                latest = connection.exec_driver_sql(
+                    f"select max({timestamp_column}) from {table_name} where instrument_id = %s",
+                    (instrument_id,),
+                ).scalar_one()
+            else:
+                latest = connection.exec_driver_sql(
+                    f"select max({timestamp_column}) from {table_name} where instrument_id = %s and period_code = %s",
+                    (instrument_id, period_code),
+                ).scalar_one()
             if latest is None:
                 status = "fail"
                 severity = "error"
@@ -1211,7 +1388,11 @@ def run_freshness_checks(
                     status=status,
                     expected_value=str(int(sla.total_seconds())),
                     observed_value=observed_value,
-                    detail_json={"observed_at": now.isoformat(), "latest_timestamp": latest.isoformat() if latest else None},
+                    detail_json={
+                        "observed_at": now.isoformat(),
+                        "latest_timestamp": latest.isoformat() if latest else None,
+                        "period_code": period_code,
+                    },
                 ),
             )
             checks_written += 1
@@ -1347,6 +1528,42 @@ def run_duplicate_checks(
             )
             checks_written += 1
 
+            for data_type, table_name in (
+                ("global_long_short_account_ratios", "md.global_long_short_account_ratios"),
+                ("top_trader_long_short_account_ratios", "md.top_trader_long_short_account_ratios"),
+                ("top_trader_long_short_position_ratios", "md.top_trader_long_short_position_ratios"),
+                ("taker_long_short_ratios", "md.taker_long_short_ratios"),
+            ):
+                ratio_duplicates = connection.exec_driver_sql(
+                    f"""
+                    select count(*)
+                    from (
+                        select ts, count(*) as row_count
+                        from {table_name}
+                        where instrument_id = %s
+                          and period_code = %s
+                        group by ts
+                        having count(*) > 1
+                    ) duplicates
+                    """,
+                    (instrument_id, DEFAULT_SENTIMENT_RATIO_PERIOD),
+                ).scalar_one()
+                quality_repo.insert(
+                    connection,
+                    DataQualityCheckRecord(
+                        exchange_code=exchange_code,
+                        unified_symbol=unified_symbol,
+                        data_type=data_type,
+                        check_name="duplicate_check",
+                        severity="info" if ratio_duplicates == 0 else "error",
+                        status="pass" if ratio_duplicates == 0 else "fail",
+                        expected_value="0",
+                        observed_value=str(ratio_duplicates),
+                        detail_json={"period_code": DEFAULT_SENTIMENT_RATIO_PERIOD},
+                    ),
+                )
+                checks_written += 1
+
         raw_filters = ["raw.instrument_id = %s"]
         params: list[object] = [instrument_id]
         if raw_event_channel is not None:
@@ -1404,21 +1621,55 @@ def run_snapshot_continuity_checks(
                     ("open_interest", "md.open_interest", "ts", OPEN_INTEREST_CONTINUITY_INTERVAL),
                     ("mark_prices", "md.mark_prices", "ts", MARK_INDEX_CONTINUITY_INTERVAL),
                     ("index_prices", "md.index_prices", "ts", MARK_INDEX_CONTINUITY_INTERVAL),
+                    (
+                        "global_long_short_account_ratios",
+                        "md.global_long_short_account_ratios",
+                        "ts",
+                        SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+                    ),
+                    (
+                        "top_trader_long_short_account_ratios",
+                        "md.top_trader_long_short_account_ratios",
+                        "ts",
+                        SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+                    ),
+                    (
+                        "top_trader_long_short_position_ratios",
+                        "md.top_trader_long_short_position_ratios",
+                        "ts",
+                        SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+                    ),
+                    (
+                        "taker_long_short_ratios",
+                        "md.taker_long_short_ratios",
+                        "ts",
+                        SENTIMENT_RATIO_CONTINUITY_INTERVAL,
+                    ),
                 ]
             )
 
         for data_type, table_name, timestamp_column, expected_interval in continuity_specs:
-            rows = connection.exec_driver_sql(
-                f"""
-                select {timestamp_column}
-                from {table_name}
-                where instrument_id = %s
-                  and {timestamp_column} between %s and %s
-                order by {timestamp_column} asc
-                """,
-                (instrument_id, start_time, end_time),
-            ).all()
-            timestamps = [row[0] for row in rows]
+            spec = INTEGRITY_DATASET_SPECS[data_type]
+            aligned_start_time, aligned_end_time = _dataset_interval_window(
+                data_type=data_type,
+                start_time=start_time,
+                end_time=end_time,
+                interval=expected_interval,
+            )
+            timestamps = _query_dataset_timestamps(
+                connection,
+                table_name=table_name,
+                time_column=timestamp_column,
+                instrument_id=instrument_id,
+                start_time=aligned_start_time,
+                end_time=aligned_end_time,
+                period_code=spec.get("period_code"),
+            )
+            if spec.get("profile_aligned_only"):
+                timestamps = [timestamp for timestamp in timestamps if _is_timestamp_on_interval_boundary(timestamp, expected_interval)]
+            availability_floor = _dataset_availability_floor(data_type, end_time)
+            if availability_floor is not None:
+                timestamps = [timestamp for timestamp in timestamps if timestamp >= max(aligned_start_time, availability_floor)]
             continuity_breaks: list[dict[str, str | int]] = []
             for previous, current in zip(timestamps, timestamps[1:]):
                 delta = current - previous
@@ -1445,6 +1696,7 @@ def run_snapshot_continuity_checks(
                     detail_json={
                         "window_start": start_time.isoformat(),
                         "window_end": end_time.isoformat(),
+                        "period_code": spec.get("period_code"),
                         "breaks": continuity_breaks,
                     },
                 ),

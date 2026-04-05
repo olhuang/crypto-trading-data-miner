@@ -88,7 +88,7 @@ Status: completed
 
 ### Slice 3: Quality / Monitoring
 
-Status: next
+Status: completed
 
 - integrity semantics should treat these as recent-retention datasets
 - freshness / coverage summary in Quality UI

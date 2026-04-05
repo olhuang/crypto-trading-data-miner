@@ -20,6 +20,10 @@ const INTEGRITY_DATASET_FIELDS = [
   "open_interest",
   "mark_prices",
   "index_prices",
+  "global_long_short_account_ratios",
+  "top_trader_long_short_account_ratios",
+  "top_trader_long_short_position_ratios",
+  "taker_long_short_ratios",
   "trades",
   "raw_market_events",
 ];
