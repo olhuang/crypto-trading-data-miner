@@ -52,6 +52,7 @@
 - seeded `btc_sentiment_momentum@v1.0.0` plus `baseline_perp_sentiment_research@v1`
 - added Phase 5 regression coverage proving a runner can trigger a trade from persisted Binance sentiment-ratio context
 - updated `/monitoring -> Backtests` so operators can actually launch the sentiment-aware research path through a `Sentiment Perp` preset, strategy selector, threshold fields, and bundle guidance
+- fixed the Backtests sentiment-threshold visibility bug by making hidden strategy-specific form grids override the shared `.form-grid` display rule
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

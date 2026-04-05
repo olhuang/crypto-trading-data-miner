@@ -296,6 +296,11 @@ select {
   gap: 0.75rem;
 }
 
+.form-grid[hidden],
+.strategy-variant-grid[hidden] {
+  display: none !important;
+}
+
 .field {
   display: grid;
   gap: 0.35rem;

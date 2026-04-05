@@ -92,6 +92,7 @@
 - the Phase 5 runner now loads prior-row plus in-window perp context series for funding rate, open interest, mark price, index price, global account ratio, top-trader account ratio, top-trader position ratio, and taker ratio, then passes the latest as-of snapshot into each strategy evaluation
 - targeted Phase 5 regression coverage now proves the seeded strategy registry exposes `btc_sentiment_momentum`, the new assumption bundle resolves correctly, and a runner can trigger a trade from persisted sentiment-ratio context
 - the `/monitoring -> Backtests` launch form now exposes the seeded sentiment-aware research path directly through a `Sentiment Perp` preset, a real strategy selector, threshold inputs, and clearer assumption-bundle guidance
+- the sentiment-threshold section in the Backtests launch form now truly hides for non-sentiment strategies; a CSS `display:grid` override had been defeating the `hidden` attribute until this follow-up fix
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
