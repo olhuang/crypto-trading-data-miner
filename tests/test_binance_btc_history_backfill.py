@@ -234,6 +234,28 @@ class BinanceBtcHistoryBackfillTests(unittest.TestCase):
                     },
                 )
 
+    def test_filter_incremental_dataset_specs_supports_aliases(self) -> None:
+        dataset_specs = binance_btc_history_backfill.build_incremental_dataset_specs()
+
+        filtered = binance_btc_history_backfill.filter_incremental_dataset_specs(
+            dataset_specs,
+            ["funding_rates", "perp_bars_1m"],
+        )
+
+        self.assertEqual(
+            [spec.dataset_key for spec in filtered],
+            ["btc_perp_bars_1m", "btc_perp_funding_rates"],
+        )
+
+    def test_filter_incremental_dataset_specs_rejects_unknown_dataset(self) -> None:
+        dataset_specs = binance_btc_history_backfill.build_incremental_dataset_specs()
+
+        with self.assertRaisesRegex(ValueError, "unsupported --dataset value"):
+            binance_btc_history_backfill.filter_incremental_dataset_specs(
+                dataset_specs,
+                ["unknown_dataset"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

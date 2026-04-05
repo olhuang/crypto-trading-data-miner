@@ -90,6 +90,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Use DB coverage as the source of truth and only catch up each dataset from its latest stored timestamp onward.",
     )
+    parser.add_argument(
+        "--dataset",
+        action="append",
+        default=[],
+        help=(
+            "Incremental-only dataset selector. May be provided multiple times. "
+            "Supported values include funding_rates, open_interest, mark_prices, index_prices, "
+            "btc_spot_bars_1m, btc_perp_bars_1m, spot_bars_1m, and perp_bars_1m."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -245,6 +255,48 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             checkpoint_interval_seconds=60,
         ),
     ]
+
+
+def normalize_incremental_dataset_selector(value: str) -> str:
+    return value.strip().lower()
+
+
+def filter_incremental_dataset_specs(
+    dataset_specs: list[DatasetSpec],
+    requested_datasets: list[str],
+) -> list[DatasetSpec]:
+    if not requested_datasets:
+        return dataset_specs
+
+    alias_map = {
+        "btc_spot_bars_1m": "btc_spot_bars_1m",
+        "spot_bars_1m": "btc_spot_bars_1m",
+        "btc_perp_bars_1m": "btc_perp_bars_1m",
+        "perp_bars_1m": "btc_perp_bars_1m",
+        "funding_rates": "btc_perp_funding_rates",
+        "btc_perp_funding_rates": "btc_perp_funding_rates",
+        "open_interest": "btc_perp_open_interest",
+        "btc_perp_open_interest": "btc_perp_open_interest",
+        "mark_prices": "btc_perp_mark_prices",
+        "btc_perp_mark_prices": "btc_perp_mark_prices",
+        "index_prices": "btc_perp_index_prices",
+        "btc_perp_index_prices": "btc_perp_index_prices",
+    }
+    canonical_order = {spec.dataset_key: index for index, spec in enumerate(dataset_specs)}
+    selected_dataset_keys: set[str] = set()
+
+    for requested in requested_datasets:
+        normalized = normalize_incremental_dataset_selector(requested)
+        canonical = alias_map.get(normalized)
+        if canonical is None:
+            allowed = ", ".join(sorted(alias_map))
+            raise ValueError(f"unsupported --dataset value '{requested}'. Allowed values: {allowed}")
+        selected_dataset_keys.add(canonical)
+
+    return sorted(
+        (spec for spec in dataset_specs if spec.dataset_key in selected_dataset_keys),
+        key=lambda spec: canonical_order[spec.dataset_key],
+    )
 
 
 def planning_interval_seconds(spec: DatasetSpec) -> int | None:
@@ -534,8 +586,16 @@ def next_start_from_coverage(spec: DatasetSpec, *, default_start: datetime, cove
     return next_start
 
 
-def build_incremental_tasks(start_time: datetime, end_time: datetime) -> tuple[list[DatasetSpec], list[ChunkTask]]:
-    dataset_specs = build_incremental_dataset_specs()
+def build_incremental_tasks(
+    start_time: datetime,
+    end_time: datetime,
+    *,
+    requested_datasets: list[str] | None = None,
+) -> tuple[list[DatasetSpec], list[ChunkTask]]:
+    dataset_specs = filter_incremental_dataset_specs(
+        build_incremental_dataset_specs(),
+        requested_datasets or [],
+    )
     tasks: list[ChunkTask] = []
     with connection_scope() as connection:
         for spec in dataset_specs:
@@ -1002,6 +1062,8 @@ def main() -> int:
         raise ValueError("end_date must be greater than or equal to start_date")
     if args.incremental and args.resume_from_status:
         raise ValueError("--incremental and --resume-from-status cannot be used together")
+    if args.dataset and not args.incremental:
+        raise ValueError("--dataset is supported only together with --incremental")
 
     status_path = Path(args.status_file)
     if args.resume_from_status:
@@ -1020,7 +1082,11 @@ def main() -> int:
         mode = str(status_payload.get("mode") or "bootstrap")
     else:
         if args.incremental:
-            dataset_specs, tasks = build_incremental_tasks(start_time, end_time)
+            dataset_specs, tasks = build_incremental_tasks(
+                start_time,
+                end_time,
+                requested_datasets=args.dataset,
+            )
             mode = "incremental"
         else:
             dataset_specs = build_dataset_specs()

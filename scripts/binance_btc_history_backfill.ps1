@@ -7,6 +7,7 @@ param(
     [string]$StatusFile = "",
     [string]$RequestedBy = "binance_btc_history_backfill_ps1",
     [string]$PythonExe = "",
+    [string[]]$Dataset = @(),
 
     [switch]$StatusOnly,
     [switch]$WatchStatus,
@@ -153,6 +154,11 @@ if ($Mode -eq "resume") {
 elseif ($Mode -eq "incremental") {
     $Args += "--incremental"
     $Args += @("--start-date", $StartDate)
+    foreach ($DatasetName in $Dataset) {
+        if ($DatasetName.Trim()) {
+            $Args += @("--dataset", $DatasetName.Trim())
+        }
+    }
     if ($EndDate.Trim()) {
         $Args += @("--end-date", $EndDate)
     }
