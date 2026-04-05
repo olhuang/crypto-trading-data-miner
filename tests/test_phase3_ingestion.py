@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 import unittest
@@ -52,6 +52,10 @@ class Phase3IngestionTests(unittest.TestCase):
 
     @staticmethod
     def _transport(url: str, params):
+        historical_fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
+        historical_fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
+        historical_fixture_start_ms = int(historical_fixture_start.timestamp() * 1000)
+        historical_fixture_end_ms = int(historical_fixture_end.timestamp() * 1000)
         if url.endswith("/fapi/v1/klines") and params and params.get("startTime") == 1712061300000:
             return JsonHttpResponse(200, [])
         if url.endswith("/api/v3/exchangeInfo"):
@@ -182,7 +186,7 @@ class Phase3IngestionTests(unittest.TestCase):
         if url.endswith("/fapi/v1/openInterest"):
             return JsonHttpResponse(200, {"symbol": "BTCUSDT", "openInterest": "18542.991"})
         if url.endswith("/futures/data/openInterestHist"):
-            if params and params.get("startTime") == 1712061300001:
+            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -190,101 +194,101 @@ class Phase3IngestionTests(unittest.TestCase):
                     {
                         "symbol": "BTCUSDT",
                         "sumOpenInterest": "18540.000",
-                        "timestamp": 1712061000000,
+                        "timestamp": historical_fixture_start_ms,
                     },
                     {
                         "symbol": "BTCUSDT",
                         "sumOpenInterest": "18542.991",
-                        "timestamp": 1712061300000,
+                        "timestamp": historical_fixture_end_ms,
                     },
                 ],
             )
         if url.endswith("/futures/data/globalLongShortAccountRatio"):
-            if params and params.get("startTime") == 1712061300001:
+            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
                     {
                         "symbol": "BTCUSDT",
-                        "longShortRatio": "1.2222",
-                        "longAccount": "0.55",
-                        "shortAccount": "0.45",
-                        "timestamp": 1712061000000,
-                    },
-                    {
-                        "symbol": "BTCUSDT",
-                        "longShortRatio": "1.1050",
-                        "longAccount": "0.525",
-                        "shortAccount": "0.475",
-                        "timestamp": 1712061300000,
-                    },
-                ],
-            )
+                          "longShortRatio": "1.2222",
+                          "longAccount": "0.55",
+                          "shortAccount": "0.45",
+                          "timestamp": historical_fixture_start_ms,
+                      },
+                      {
+                          "symbol": "BTCUSDT",
+                          "longShortRatio": "1.1050",
+                          "longAccount": "0.525",
+                          "shortAccount": "0.475",
+                          "timestamp": historical_fixture_end_ms,
+                      },
+                  ],
+              )
         if url.endswith("/futures/data/topLongShortAccountRatio"):
-            if params and params.get("startTime") == 1712061300001:
+            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
                     {
                         "symbol": "BTCUSDT",
-                        "longShortRatio": "1.45",
-                        "longAccount": "0.592",
-                        "shortAccount": "0.408",
-                        "timestamp": 1712061000000,
-                    },
-                    {
-                        "symbol": "BTCUSDT",
-                        "longShortRatio": "1.41",
-                        "longAccount": "0.585",
-                        "shortAccount": "0.415",
-                        "timestamp": 1712061300000,
-                    },
-                ],
-            )
+                          "longShortRatio": "1.45",
+                          "longAccount": "0.592",
+                          "shortAccount": "0.408",
+                          "timestamp": historical_fixture_start_ms,
+                      },
+                      {
+                          "symbol": "BTCUSDT",
+                          "longShortRatio": "1.41",
+                          "longAccount": "0.585",
+                          "shortAccount": "0.415",
+                          "timestamp": historical_fixture_end_ms,
+                      },
+                  ],
+              )
         if url.endswith("/futures/data/topLongShortPositionRatio"):
-            if params and params.get("startTime") == 1712061300001:
+            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
                     {
                         "symbol": "BTCUSDT",
-                        "longShortRatio": "1.72",
-                        "longAccount": "0.632",
-                        "shortAccount": "0.368",
-                        "timestamp": 1712061000000,
-                    },
-                    {
-                        "symbol": "BTCUSDT",
-                        "longShortRatio": "1.69",
-                        "longAccount": "0.628",
-                        "shortAccount": "0.372",
-                        "timestamp": 1712061300000,
-                    },
-                ],
-            )
+                          "longShortRatio": "1.72",
+                          "longAccount": "0.632",
+                          "shortAccount": "0.368",
+                          "timestamp": historical_fixture_start_ms,
+                      },
+                      {
+                          "symbol": "BTCUSDT",
+                          "longShortRatio": "1.69",
+                          "longAccount": "0.628",
+                          "shortAccount": "0.372",
+                          "timestamp": historical_fixture_end_ms,
+                      },
+                  ],
+              )
         if url.endswith("/futures/data/takerlongshortRatio"):
-            if params and params.get("startTime") == 1712061300001:
+            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
-                    {
-                        "buySellRatio": "1.33",
-                        "buyVol": "1234.5",
-                        "sellVol": "928.2",
-                        "timestamp": 1712061000000,
-                    },
-                    {
-                        "buySellRatio": "0.97",
-                        "buyVol": "990.0",
-                        "sellVol": "1020.1",
-                        "timestamp": 1712061300000,
-                    },
-                ],
-            )
+                      {
+                          "buySellRatio": "1.33",
+                          "buyVol": "1234.5",
+                          "sellVol": "928.2",
+                          "timestamp": historical_fixture_start_ms,
+                      },
+                      {
+                          "buySellRatio": "0.97",
+                          "buyVol": "990.0",
+                          "sellVol": "1020.1",
+                          "timestamp": historical_fixture_end_ms,
+                      },
+                  ],
+              )
         if url.endswith("/fapi/v1/premiumIndex"):
             return JsonHttpResponse(
                 200,
@@ -292,60 +296,60 @@ class Phase3IngestionTests(unittest.TestCase):
                     "symbol": "BTCUSDT",
                     "markPrice": "84244.18",
                     "indexPrice": "84240.01",
-                    "time": 1712061242000,
+                    "time": int(datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc).timestamp() * 1000),
                 },
             )
         if url.endswith("/fapi/v1/markPriceKlines"):
-            if params and params.get("startTime") == 1712061300001:
+            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
                     [
-                        1712061000000,
+                        historical_fixture_start_ms,
                         "84200.00",
                         "84210.00",
                         "84190.00",
                         "84205.50",
                         "0",
-                        1712061059999,
+                        historical_fixture_start_ms + 59999,
                     ],
                     [
-                        1712061300000,
+                        historical_fixture_end_ms,
                         "84240.00",
                         "84250.00",
                         "84230.00",
                         "84244.18",
                         "0",
-                        1712061359999,
+                        historical_fixture_end_ms + 59999,
                     ],
                 ],
             )
         if url.endswith("/fapi/v1/indexPriceKlines"):
             if params and params.get("pair") != "BTCUSDT":
                 raise AssertionError(f"unexpected pair for indexPriceKlines: {params}")
-            if params and params.get("startTime") == 1712061300001:
+            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
                     [
-                        1712061000000,
+                        historical_fixture_start_ms,
                         "84195.00",
                         "84205.00",
                         "84185.00",
                         "84201.25",
                         "0",
-                        1712061059999,
+                        historical_fixture_start_ms + 59999,
                     ],
                     [
-                        1712061300000,
+                        historical_fixture_end_ms,
                         "84235.00",
                         "84245.00",
                         "84225.00",
                         "84240.01",
                         "0",
-                        1712061359999,
+                        historical_fixture_end_ms + 59999,
                     ],
                 ],
             )
@@ -355,6 +359,7 @@ class Phase3IngestionTests(unittest.TestCase):
         return BinancePublicRestClient(http_client=JsonHttpClient(self._transport))
 
     def test_instrument_sync_backfill_and_snapshot_refresh_persist_phase3_data(self) -> None:
+        premium_fixture_time = datetime(2026, 4, 2, 12, 34, 2, tzinfo=timezone.utc)
         client = self._client()
         sync_result = run_instrument_sync(client=client, requested_by="test-user")
         self.assertEqual(sync_result.status, "succeeded")
@@ -461,7 +466,7 @@ class Phase3IngestionTests(unittest.TestCase):
                 """,
                 (
                     "BTCUSDT_PERP",
-                    datetime.fromtimestamp(1712061242000 / 1000, tz=timezone.utc),
+                    premium_fixture_time,
                     "84244.18",
                 ),
             ).scalar_one()
@@ -476,7 +481,7 @@ class Phase3IngestionTests(unittest.TestCase):
                 """,
                 (
                     "BTCUSDT_PERP",
-                    datetime.fromtimestamp(1712061242000 / 1000, tz=timezone.utc),
+                    premium_fixture_time,
                     "84240.01",
                 ),
             ).scalar_one()
@@ -502,8 +507,8 @@ class Phase3IngestionTests(unittest.TestCase):
             self.assertGreaterEqual(sync_job["metadata_json"]["summary"]["assets_touched"], 4)
 
     def test_market_snapshot_refresh_supports_historical_oi_mark_and_index_windows(self) -> None:
-        fixture_start = datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc)
-        fixture_end = datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)
+        fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
+        fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             start_time=fixture_start,
@@ -562,8 +567,8 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(index_count, 2)
 
     def test_market_snapshot_refresh_supports_historical_sentiment_ratio_windows(self) -> None:
-        fixture_start = datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc)
-        fixture_end = datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)
+        fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
+        fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             start_time=fixture_start,
@@ -664,8 +669,8 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(taker_count, 2)
 
     def test_market_snapshot_refresh_recent_history_mode_persists_canonical_oi_and_sentiment_rows(self) -> None:
-        fixture_start = datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc)
-        fixture_end = datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)
+        fixture_start = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
+        fixture_end = datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc)
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             start_time=fixture_start,
@@ -788,6 +793,82 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(str(taker_events[0].buy_sell_ratio), "1.33")
         self.assertEqual(str(taker_events[0].buy_vol), "1234.5")
         self.assertEqual(str(taker_events[0].sell_vol), "928.2")
+
+    def test_sentiment_ratio_history_fetch_filters_boundary_spillover_rows(self) -> None:
+        requested_start = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        requested_end = datetime(2026, 4, 1, 0, 5, tzinfo=timezone.utc)
+        expected_request_start = requested_start - timedelta(minutes=5)
+        expected_request_end = requested_end + timedelta(minutes=5)
+        previous_bucket_ms = int(expected_request_start.timestamp() * 1000)
+        first_bucket_ms = int(requested_start.timestamp() * 1000)
+        second_bucket_ms = int(requested_end.timestamp() * 1000)
+        next_bucket_ms = int((requested_end + timedelta(minutes=5)).timestamp() * 1000)
+
+        def transport(url: str, params):
+            if url.endswith("/futures/data/takerlongshortRatio"):
+                self.assertEqual(params["startTime"], int(expected_request_start.timestamp() * 1000))
+                self.assertEqual(params["endTime"], int(expected_request_end.timestamp() * 1000))
+                return JsonHttpResponse(
+                    200,
+                    [
+                        {"buySellRatio": "0.91", "buyVol": "91", "sellVol": "100", "timestamp": previous_bucket_ms},
+                        {"buySellRatio": "1.11", "buyVol": "111", "sellVol": "100", "timestamp": first_bucket_ms},
+                        {"buySellRatio": "1.22", "buyVol": "122", "sellVol": "100", "timestamp": second_bucket_ms},
+                        {"buySellRatio": "1.33", "buyVol": "133", "sellVol": "100", "timestamp": next_bucket_ms},
+                    ],
+                )
+            return self._transport(url, params)
+
+        client = BinancePublicRestClient(http_client=JsonHttpClient(transport=transport))
+        taker_rows = client.fetch_taker_long_short_ratio_history(
+            "BTCUSDT",
+            period="5m",
+            start_time=requested_start,
+            end_time=requested_end,
+        )
+
+        self.assertEqual(
+            [row["timestamp"] for row in taker_rows],
+            [first_bucket_ms, second_bucket_ms],
+        )
+
+    def test_open_interest_history_fetch_filters_boundary_spillover_rows(self) -> None:
+        requested_start = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        requested_end = datetime(2026, 4, 1, 0, 5, tzinfo=timezone.utc)
+        expected_request_start = requested_start - timedelta(minutes=5)
+        expected_request_end = requested_end + timedelta(minutes=5)
+        previous_bucket_ms = int(expected_request_start.timestamp() * 1000)
+        first_bucket_ms = int(requested_start.timestamp() * 1000)
+        second_bucket_ms = int(requested_end.timestamp() * 1000)
+        next_bucket_ms = int((requested_end + timedelta(minutes=5)).timestamp() * 1000)
+
+        def transport(url: str, params):
+            if url.endswith("/futures/data/openInterestHist"):
+                self.assertEqual(params["startTime"], int(expected_request_start.timestamp() * 1000))
+                self.assertEqual(params["endTime"], int(expected_request_end.timestamp() * 1000))
+                return JsonHttpResponse(
+                    200,
+                    [
+                        {"sumOpenInterest": "100", "timestamp": previous_bucket_ms},
+                        {"sumOpenInterest": "101", "timestamp": first_bucket_ms},
+                        {"sumOpenInterest": "102", "timestamp": second_bucket_ms},
+                        {"sumOpenInterest": "103", "timestamp": next_bucket_ms},
+                    ],
+                )
+            return self._transport(url, params)
+
+        client = BinancePublicRestClient(http_client=JsonHttpClient(transport=transport))
+        oi_rows = client.fetch_open_interest_history(
+            "BTCUSDT",
+            period="5m",
+            start_time=requested_start,
+            end_time=requested_end,
+        )
+
+        self.assertEqual(
+            [row["timestamp"] for row in oi_rows],
+            [first_bucket_ms, second_bucket_ms],
+        )
 
     def test_spot_bar_backfill_uses_spot_klines_endpoint(self) -> None:
         client = self._client()

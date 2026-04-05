@@ -13,6 +13,7 @@
 - widen the Quality finding-action flow across more incremental-repairable datasets while keeping retention-limited cases explicit
 - keep sentiment-ratio backfill aligned to real Binance endpoint behavior now that long history windows were found to collapse to the latest ~500 rows unless chunked more aggressively
 - keep retention-limited OI/sentiment maintenance stable now that scheduler refresh/remediation needed to be hardened from freshness-only behavior to recent-history continuity maintenance
+- keep retention-limited OI/sentiment history fetches boundary-safe so repeated re-grabs stop dropping the same midnight buckets
 - keep recurring job control centralized now that the repo has a built-in scheduler bootstrap and a single config-driven on/off path
 
 ## Verified Findings
@@ -45,6 +46,9 @@
 - `run_market_snapshot_remediation` now treats `open_interest` and the four Binance futures sentiment-ratio datasets as retention-limited continuity series: it profiles the recent 30-day window, plans around coverage/internal-gap/tail issues, and repairs them through day-sized history refreshes instead of a single freshness-only long window
 - phase-3 scheduler intent is now explicit that market snapshot refresh should include the four sentiment-ratio datasets and use recent-history retention mode, reducing the chance that recent-tail integrity degrades between manual re-grabs
 - the API app now has a built-in scheduler bootstrap controlled from one place through `src/config.py` / `.env` (`ENABLE_BUILTIN_SCHEDULER`, `BUILTIN_SCHEDULER_JOB_GROUPS`, and the shared Binance target fields), so refresh/remediation on/off no longer depends on an invisible external toggle inside the repo
+- the recurring `taker_long_short_ratios` midnight gap was traced to retention-limited history fetch boundary handling rather than runtime deletes; the same requested day/window could write spillover rows yet still miss the exact requested midnight bucket
+- retention-limited futures history fetches now widen the upstream request by one period on each side and then filter rows back to the requested `[start_time, end_time]`, making `open_interest` and sentiment-ratio repairs more robust around `00:00/00:05` bucket boundaries
+- phase-3 historical snapshot tests now use aligned 2026 fixture timestamps for OI / sentiment / premium-index history windows, so the new boundary filtering is tested against the actual requested window instead of mismatched 2024 fixture rows
 - local `BTCUSDT_PERP` sentiment-ratio tables were confirmed to contain old `2024-04-02` test-fixture residue plus a recent real block; the fixture residue was operator-cleaned from the local DB before re-grab
 - a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run

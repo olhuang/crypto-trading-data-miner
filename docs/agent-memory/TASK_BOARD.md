@@ -16,6 +16,7 @@
 - keep the Quality workspace moving toward guided repair actions now that integrity findings can trigger bounded bars repair plus broader dataset-scoped incremental repair/backfill actions
 - keep Binance sentiment-ratio retention/backfill semantics honest now that the endpoints have shown limit-driven truncation on long history windows
 - keep scheduled OI/sentiment maintenance aligned with retention-window continuity now that freshness-only remediation was confirmed to let recent-tail integrity drift
+- keep retention-limited OI/sentiment history fetches boundary-safe now that repeated re-grabs exposed recurring midnight bucket drops
 - keep recurring job control explicit and centralized now that the repo has a built-in scheduler toggle in config/app startup
 
 ## Blocked
@@ -41,6 +42,8 @@
 - verified that long sentiment-ratio history windows can collapse to only the latest ~500 rows from Binance, then hardened the sentiment-ratio backfill path to chunk history daily instead of issuing one long refresh window
 - hardened scheduled snapshot maintenance so refresh can now write recent aligned OI/sentiment history rows and remediation now profiles recent-30d continuity for retention-limited datasets instead of only checking freshness
 - added a built-in scheduler bootstrap plus unified config toggles so refresh/remediation can be turned on/off from one place inside the repo instead of depending on an external invisible launcher
+- hardened retention-limited futures history fetches so `open_interest` and the four sentiment-ratio datasets request a one-period overlap and then post-filter back to the requested window, addressing the recurring midnight boundary gap behavior
+- aligned the phase-3 historical snapshot fixtures to 2026 request windows and added explicit boundary-spillover regression tests for sentiment-ratio and OI history fetches
 - operator-cleaned the local `BTCUSDT_PERP` sentiment-ratio tables so re-grab starts from an empty state instead of mixing recent rows with old `2024-04-02` fixture residue
 - added a compact `market_context_json` field to persisted backtest debug traces, capturing the actual latest-as-of perp context seen by feature-aware strategies at each step
 - exposed that compact market-context snapshot through the debug-trace API and `/monitoring -> Backtests -> Selected Trace Detail`, so sentiment-aware runs are now explainable without digging back through market-data tables by hand

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
@@ -36,6 +36,42 @@ def _decimal_or_none(value: Any) -> Decimal | None:
 
 def _pair_from_symbol(symbol: str) -> str:
     return symbol
+
+
+def _period_to_timedelta(period: str) -> timedelta:
+    if len(period) < 2:
+        raise ValueError(f"unsupported Binance period code: {period}")
+    quantity = int(period[:-1])
+    unit = period[-1].lower()
+    if unit == "m":
+        return timedelta(minutes=quantity)
+    if unit == "h":
+        return timedelta(hours=quantity)
+    if unit == "d":
+        return timedelta(days=quantity)
+    raise ValueError(f"unsupported Binance period code: {period}")
+
+
+def _filter_rows_to_requested_window(
+    rows: Iterable[dict[str, Any]],
+    *,
+    timestamp_key: str,
+    start_time: datetime,
+    end_time: datetime,
+) -> list[dict[str, Any]]:
+    start_ms = int(start_time.timestamp() * 1000)
+    end_ms = int(end_time.timestamp() * 1000)
+    filtered: list[dict[str, Any]] = []
+    seen_timestamps: set[int] = set()
+    for row in rows:
+        timestamp_ms = int(row[timestamp_key])
+        if timestamp_ms < start_ms or timestamp_ms > end_ms:
+            continue
+        if timestamp_ms in seen_timestamps:
+            continue
+        seen_timestamps.add(timestamp_ms)
+        filtered.append(row)
+    return filtered
 
 
 @dataclass(slots=True)
@@ -174,9 +210,10 @@ class BinancePublicRestClient:
             }
             return list(self.http.get_json(base_url, params))
 
+        overlap = _period_to_timedelta(period)
         rows: list[dict[str, Any]] = []
-        next_start_ms = int(start_time.timestamp() * 1000)
-        end_ms = int(end_time.timestamp() * 1000)
+        next_start_ms = max(int((start_time - overlap).timestamp() * 1000), 0)
+        end_ms = int((end_time + overlap).timestamp() * 1000)
         while next_start_ms <= end_ms:
             page = list(
                 self.http.get_json(
@@ -196,7 +233,12 @@ class BinancePublicRestClient:
             if len(page) < limit:
                 break
             next_start_ms = int(page[-1]["timestamp"]) + 1
-        return rows
+        return _filter_rows_to_requested_window(
+            rows,
+            timestamp_key="timestamp",
+            start_time=start_time,
+            end_time=end_time,
+        )
 
     def _fetch_futures_data_series(
         self,
@@ -219,9 +261,10 @@ class BinancePublicRestClient:
             }
             return list(self.http.get_json(base_url, params))
 
+        overlap = _period_to_timedelta(period)
         rows: list[dict[str, Any]] = []
-        next_start_ms = int(start_time.timestamp() * 1000)
-        end_ms = int(end_time.timestamp() * 1000)
+        next_start_ms = max(int((start_time - overlap).timestamp() * 1000), 0)
+        end_ms = int((end_time + overlap).timestamp() * 1000)
         while next_start_ms <= end_ms:
             page = list(
                 self.http.get_json(
@@ -241,7 +284,12 @@ class BinancePublicRestClient:
             if len(page) < limit:
                 break
             next_start_ms = int(page[-1]["timestamp"]) + 1
-        return rows
+        return _filter_rows_to_requested_window(
+            rows,
+            timestamp_key="timestamp",
+            start_time=start_time,
+            end_time=end_time,
+        )
 
     def fetch_global_long_short_account_ratio_history(
         self,
