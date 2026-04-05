@@ -92,6 +92,7 @@ INDEX_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
 FUNDING_CONTINUITY_INTERVAL = timedelta(hours=8)
 OPEN_INTEREST_CONTINUITY_INTERVAL = timedelta(minutes=5)
 MARK_INDEX_CONTINUITY_INTERVAL = timedelta(minutes=1)
+OPEN_INTEREST_RETENTION_DAYS = 30
 EPOCH_UTC = datetime(1970, 1, 1, tzinfo=timezone.utc)
 INTEGRITY_DATASET_SPECS: dict[str, dict[str, Any]] = {
     "bars_1m": {
@@ -383,6 +384,11 @@ def _dataset_interval_window(
     if data_type == "bars_1m":
         return _align_bar_window(start_time, end_time)
     return _align_window_for_interval(start_time, end_time, interval)
+
+
+def _open_interest_availability_floor(observed_at: datetime) -> datetime:
+    floor = observed_at - timedelta(days=OPEN_INTEREST_RETENTION_DAYS)
+    return floor.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def _query_dataset_window_stats(
@@ -690,11 +696,18 @@ def validate_dataset_integrity(
                     if spec.get("profile_aligned_only")
                     else timestamps
                 )
-                expected_points = _expected_points_in_interval_window(aligned_start_time, aligned_end_time, interval)
-                safe_timestamps = [timestamp for timestamp in coverage_timestamps if timestamp <= effective_observed_at]
+                profile_start_time = aligned_start_time
+                if data_type == "open_interest":
+                    profile_start_time = max(profile_start_time, _open_interest_availability_floor(effective_observed_at))
+                expected_points = _expected_points_in_interval_window(profile_start_time, aligned_end_time, interval)
+                safe_timestamps = [
+                    timestamp
+                    for timestamp in coverage_timestamps
+                    if profile_start_time <= timestamp <= effective_observed_at
+                ]
                 coverage_profile = _profile_interval_timestamps(
                     timestamps=safe_timestamps,
-                    aligned_start_time=aligned_start_time,
+                    aligned_start_time=profile_start_time,
                     aligned_end_time=aligned_end_time,
                     interval=interval,
                 )
@@ -765,6 +778,7 @@ def validate_dataset_integrity(
                         detail_json=_normalize_json_value({
                             "aligned_window_start": aligned_start_time.isoformat(),
                             "aligned_window_end": aligned_end_time.isoformat(),
+                            "profile_window_start": profile_start_time.isoformat(),
                             "expected_points": expected_points,
                             "segments": [
                                 {
@@ -791,6 +805,7 @@ def validate_dataset_integrity(
                         related_count=coverage_shortfall_count,
                         detail_json=_normalize_json_value({
                             "aligned_window_start": aligned_start_time.isoformat(),
+                            "profile_window_start": profile_start_time.isoformat(),
                             "first_record_in_window": (
                                 safe_timestamps[0].isoformat() if safe_timestamps else (available_from.isoformat() if available_from else None)
                             ),

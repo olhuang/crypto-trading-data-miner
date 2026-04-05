@@ -1288,6 +1288,70 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
         self.assertEqual(report.tail_missing_count, 6)
         self.assertEqual(report.corrupt_count, 0)
 
+    def test_open_interest_integrity_uses_recent_retention_window_for_gap_detection(self) -> None:
+        observed_at = datetime(2031, 7, 31, 12, 0, tzinfo=timezone.utc)
+        start_time = datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
+        end_time = observed_at
+        old_time = datetime(2030, 6, 1, 0, 0, tzinfo=timezone.utc)
+        recent_start = datetime(2031, 7, 1, 0, 0, tzinfo=timezone.utc)
+        recent_next = datetime(2031, 7, 1, 0, 5, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_quality_window,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=old_time,
+            end_time=end_time,
+        )
+
+        with transaction_scope() as connection:
+            connection.exec_driver_sql(
+                """
+                delete from md.open_interest
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and ts between %s and %s
+                """,
+                ("binance", "BTCUSDT_PERP", old_time, end_time),
+            )
+            repo = OpenInterestRepository()
+            for ts, value in (
+                (old_time, "100.0"),
+                (recent_start, "101.0"),
+                (recent_next, "102.0"),
+            ):
+                repo.upsert(
+                    connection,
+                    OpenInterestEvent(
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        event_time=ts,
+                        ingest_time=ts,
+                        open_interest=value,
+                    ),
+                )
+
+        result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=start_time,
+            end_time=end_time,
+            observed_at=observed_at,
+            data_types=["open_interest"],
+            persist_findings=False,
+        )
+
+        report = result.datasets[0]
+        self.assertEqual(report.gap_count, 0)
+        self.assertEqual(report.internal_missing_count, 0)
+        self.assertEqual(report.coverage_shortfall_count, 0)
+        self.assertGreater(report.tail_missing_count, 0)
+        self.assertEqual(report.status, "warning")
+
 
 class BtcBackfillControlEndpointTests(unittest.TestCase):
     @classmethod
