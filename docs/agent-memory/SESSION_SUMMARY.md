@@ -36,6 +36,7 @@
 - interval datasets now only report `fail` for true internal gaps, duplicates, or corrupt/future rows; coverage-only and tail-only shortfalls are now surfaced as `warning`
 - the `/monitoring -> Quality` integrity summary cards, dataset table, and selected dataset detail now expose the new coverage/internal/tail breakdown instead of flattening everything into one `missing` bucket
 - added a regression test proving a dataset with only leading coverage shortfall plus trailing tail shortfall is classified as `warning`, not `fail`
+- fixed the `/api/v1/quality/integrity` resource mapping so the new integrity fields (`warning_datasets`, `coverage_shortfall_count`, `internal_missing_count`, `tail_missing_count`) are now actually returned to the UI instead of being dropped at the API boundary
 
 ## Files Changed
 - `frontend/monitoring/index.html`

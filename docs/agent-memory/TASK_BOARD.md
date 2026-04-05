@@ -46,6 +46,7 @@
 - added bounded repair tooling at `scripts/repair_bars_integrity_windows.py` and `scripts/repair_bars_integrity_windows.ps1` so the corrupt-minute and tail-gap windows can be re-fetched locally without a full backfill
 - cleaned up dataset-integrity semantics so interval datasets now classify coverage shortfall and tail shortfall as `warning`, leaving `fail` for true internal gaps, duplicates, and corrupt rows
 - updated the `/monitoring -> Quality` integrity UI to surface the new coverage/internal/tail breakdown directly in summary cards, dataset rows, and selected dataset detail
+- fixed the integrity API contract so the new warning/coverage/tail fields now reach the UI correctly
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

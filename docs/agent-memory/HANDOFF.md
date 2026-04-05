@@ -74,6 +74,7 @@
 - interval dataset status now behaves as `fail` for internal gaps/duplicates/corrupt rows, `warning` for coverage-only or tail-only shortfalls, and `pass` when neither class is present
 - the `/monitoring -> Quality` integrity summary cards, dataset table, and selected dataset detail now expose the new coverage/internal/tail breakdown directly
 - a regression test now exists in `tests/test_phase4_quality.py` to prove coverage-only plus tail-only interval shortfalls are classified as `warning`
+- the integrity API resource mapping now includes the new warning/coverage/tail fields, so `/monitoring -> Quality` can render the new semantics correctly instead of showing placeholder dashes
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed

@@ -1139,9 +1139,14 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
 
         self.assertTrue(response.success)
         self.assertEqual(response.data.summary.dataset_count, 2)
+        self.assertTrue(hasattr(response.data.summary, "warning_datasets"))
         self.assertEqual(response.data.summary.total_gap_count, 1)
         self.assertEqual(response.data.summary.total_duplicate_count, 1)
         self.assertGreaterEqual(response.data.summary.total_corrupt_count, 1)
+        bars_report = next(report for report in response.data.datasets if report.data_type == "bars_1m")
+        self.assertTrue(hasattr(bars_report, "coverage_shortfall_count"))
+        self.assertTrue(hasattr(bars_report, "internal_missing_count"))
+        self.assertTrue(hasattr(bars_report, "tail_missing_count"))
 
     def test_validator_marks_coverage_and_tail_shortfall_as_warning(self) -> None:
         start_time = datetime(2031, 7, 2, 0, 0, tzinfo=timezone.utc)

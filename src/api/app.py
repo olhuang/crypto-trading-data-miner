@@ -252,6 +252,9 @@ class DatasetIntegrityDatasetResource(BaseModel):
     available_to: str | None = None
     safe_available_to: str | None = None
     missing_count: int
+    coverage_shortfall_count: int
+    internal_missing_count: int
+    tail_missing_count: int
     gap_count: int
     duplicate_count: int
     corrupt_count: int
@@ -262,9 +265,13 @@ class DatasetIntegrityDatasetResource(BaseModel):
 class DatasetIntegritySummaryResource(BaseModel):
     dataset_count: int
     passed_datasets: int
+    warning_datasets: int
     failed_datasets: int
     total_gap_count: int
     total_missing_count: int
+    total_coverage_shortfall_count: int
+    total_internal_missing_count: int
+    total_tail_missing_count: int
     total_duplicate_count: int
     total_corrupt_count: int
     total_future_row_count: int
@@ -1382,9 +1389,13 @@ def create_app() -> FastAPI:
                 summary=DatasetIntegritySummaryResource(
                     dataset_count=result.summary.dataset_count,
                     passed_datasets=result.summary.passed_datasets,
+                    warning_datasets=result.summary.warning_datasets,
                     failed_datasets=result.summary.failed_datasets,
                     total_gap_count=result.summary.total_gap_count,
                     total_missing_count=result.summary.total_missing_count,
+                    total_coverage_shortfall_count=result.summary.total_coverage_shortfall_count,
+                    total_internal_missing_count=result.summary.total_internal_missing_count,
+                    total_tail_missing_count=result.summary.total_tail_missing_count,
                     total_duplicate_count=result.summary.total_duplicate_count,
                     total_corrupt_count=result.summary.total_corrupt_count,
                     total_future_row_count=result.summary.total_future_row_count,
@@ -1400,6 +1411,9 @@ def create_app() -> FastAPI:
                         available_to=dataset.available_to.isoformat() if dataset.available_to else None,
                         safe_available_to=dataset.safe_available_to.isoformat() if dataset.safe_available_to else None,
                         missing_count=dataset.missing_count,
+                        coverage_shortfall_count=dataset.coverage_shortfall_count,
+                        internal_missing_count=dataset.internal_missing_count,
+                        tail_missing_count=dataset.tail_missing_count,
                         gap_count=dataset.gap_count,
                         duplicate_count=dataset.duplicate_count,
                         corrupt_count=dataset.corrupt_count,
