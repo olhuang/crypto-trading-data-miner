@@ -20,24 +20,11 @@ from jobs.data_quality import validate_dataset_integrity
 
 UTC = timezone.utc
 DEFAULT_AUTO_DETECT_START_TIME = "2020-01-01T00:00:00+00:00"
-DEFAULT_WINDOWS = [
-    {
-        "label": "corrupt_bar_minute",
-        "start_time": "2026-04-02T12:34:00+00:00",
-        "end_time": "2026-04-02T12:34:59+00:00",
-    },
-    {
-        "label": "late_gap_block_current",
-        "start_time": "2026-04-05T02:30:00+00:00",
-        "end_time": "2026-04-05T02:46:59+00:00",
-    },
-]
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Repair known BTCUSDT_PERP bar integrity windows by re-fetching bounded 1m kline "
+            "Repair Binance spot/perp bar integrity windows by re-fetching bounded 1m kline "
             "history from Binance."
         )
     )
@@ -67,7 +54,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional UTC ISO timestamp. When supplied with --start-time, repairs only one custom "
-            "window unless --auto-detect is enabled."
+            "window. If omitted, the script now defaults to auto-detect."
         ),
     )
     parser.add_argument(
@@ -163,7 +150,7 @@ def _auto_detect_profile_window(args: argparse.Namespace) -> tuple[datetime, dat
 
 
 def build_windows(args: argparse.Namespace) -> tuple[list[dict[str, str]], dict[str, Any] | None]:
-    if args.auto_detect:
+    if args.auto_detect or (not args.start_time and not args.end_time):
         profile_start_time, profile_end_time = _auto_detect_profile_window(args)
         validation_result = validate_dataset_integrity(
             exchange_code="binance",
@@ -192,7 +179,7 @@ def build_windows(args: argparse.Namespace) -> tuple[list[dict[str, str]], dict[
                 "end_time": args.end_time,
             }
         ], None
-    return DEFAULT_WINDOWS, None
+    raise ValueError("start_time and end_time must be supplied together")
 
 
 def main() -> int:

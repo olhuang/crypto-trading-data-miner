@@ -34,6 +34,7 @@
 - added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
 - updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - tightened the repair UX so finding-triggered incremental repairs now surface a live staged progress indicator instead of only a queued/complete message
+- fixed the generic bars repair tooling so `BTCUSDT_SPOT` repairs default to auto-detect against spot integrity findings instead of reusing stale BTC perp repair windows
 - added `docs/quality-integrity-ui-plan.md` to define how bounded integrity validation and BTC backfill status should land inside the current `/monitoring` Quality workspace
 - implemented `UI Slice 4A` for the Quality workspace so `/monitoring` now supports bounded integrity validation, quick ranges, dataset summary rows, selected dataset detail, and collapsible raw payload review
 - added typed dataset-integrity validation for `gap / duplicate / missing / corrupt` checks, plus persisted integrity findings into `ops.data_quality_checks` and `ops.data_gaps`

@@ -38,6 +38,7 @@
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run
 - the Quality workspace now includes a dedicated integrity-repair status box, so finding actions show progress/errors without relying only on modal alerts
 - the integrity-repair status box now behaves more like the other staged indicators: finding-triggered incremental repairs keep updating progress while the detached backfill process is still running
+- `scripts/repair_bars_integrity_windows.py` is now truly generic across spot/perp when no explicit window is supplied: it defaults to auto-detect for the requested unified symbol instead of replaying legacy BTC perp hard-coded repair windows
 - `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
 - `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
 - `docs/quality-integrity-ui-plan.md` now exists as the dedicated resume document for surfacing bounded dataset-integrity validation and BTC backfill status inside the current `/monitoring` Quality workspace

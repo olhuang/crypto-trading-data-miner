@@ -11,6 +11,7 @@
 - `tail` findings for supported datasets can now trigger dataset-scoped incremental backfill from the same findings table
 - added a dedicated integrity-repair status box in the Quality workspace so repair progress and errors are visible without relying on alerts
 - strengthened the integrity-repair status flow so finding-triggered incremental backfills now keep updating their progress while the detached backfill job is running, instead of only showing a one-time queued message
+- fixed the generic bars repair script so spot repairs no longer fall back to old BTC perp hard-coded windows; when no explicit window is supplied it now defaults to auto-detect against the requested unified symbol
 - extended Phase 4 API tests to cover the new bars-repair endpoint and dataset-scoped backfill trigger contract
 - verified the slice with `node --check frontend/monitoring/app.js`, `python -m py_compile ...`, `python -m unittest tests.test_phase4_quality -v`, and `python -m unittest discover -s tests -v`
 
