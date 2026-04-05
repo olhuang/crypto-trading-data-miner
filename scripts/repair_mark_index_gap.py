@@ -17,8 +17,8 @@ from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 
 
 UTC = timezone.utc
-DEFAULT_START_TIME = "2026-04-03T08:39:00+00:00"
-DEFAULT_END_TIME = "2026-04-04T13:27:59+00:00"
+DEFAULT_START_TIME = "2026-04-04T23:55:00+00:00"
+DEFAULT_END_TIME = "2026-04-05T00:12:59+00:00"
 
 
 def parse_args() -> argparse.Namespace:

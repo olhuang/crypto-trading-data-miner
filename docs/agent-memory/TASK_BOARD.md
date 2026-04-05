@@ -15,7 +15,7 @@
 - keep the new `/monitoring` integrity-validation surface aligned to the broader Quality workspace plan while deciding whether the next follow-up is dataset-detail polish or BTC backfill status
 - finish the remaining BTC perp `bars_1m` integrity remediation now that the earlier `mark/index` gap and fixture-contamination sources are understood
 - keep the Quality integrity semantics readable now that coverage shortfall, true internal gaps, and tail-shortfall are separated
-- keep the Binance BTC `open_interest` maintenance path diagnosable now that local validation shows coverage beginning later than expected
+- keep the Binance BTC `open_interest` maintenance path healthy now that local debugging has confirmed Binance returns the expected recent history and the remaining work is local catch-up/repair
 
 ## Blocked
 - none currently recorded
@@ -51,6 +51,8 @@
 - fixed the integrity API contract so the new warning/coverage/tail fields now reach the UI correctly
 - hardened BTC `open_interest` history catch-up so multi-day windows are executed as day-sized refresh calls
 - added local `open_interest` debug tooling so operators can inspect raw Binance `openInterestHist` coverage by requested day window
+- confirmed through a real local `debug_open_interest_history` run that Binance returns daily `open_interest` windows cleanly from `2026-03-06T00:00:00Z`, so the earlier local late-start coverage was caused by the older catch-up path
+- refreshed the default bounded repair windows for `scripts/repair_bars_integrity_windows.py` and `scripts/repair_mark_index_gap.py` so they now match the currently remaining BTC perp integrity failures
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

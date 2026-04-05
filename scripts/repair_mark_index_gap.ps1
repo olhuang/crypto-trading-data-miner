@@ -1,8 +1,8 @@
 param(
     [string]$Symbol = "BTCUSDT",
     [string]$UnifiedSymbol = "BTCUSDT_PERP",
-    [string]$StartTime = "2026-04-03T08:39:00+00:00",
-    [string]$EndTime = "2026-04-04T13:27:59+00:00",
+    [string]$StartTime = "2026-04-04T23:55:00+00:00",
+    [string]$EndTime = "2026-04-05T00:12:59+00:00",
     [string]$RequestedBy = "repair_mark_index_gap_ps1",
     [string]$PythonExe = "",
     [switch]$DryRun
