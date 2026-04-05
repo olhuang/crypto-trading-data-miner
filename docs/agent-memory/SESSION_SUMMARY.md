@@ -13,6 +13,7 @@
   - `taker_long_short_ratios`
 - stop regression unit tests from polluting local live-market tables and reopening Binance BTC integrity failures
 - fix the remaining `bars_1m` repair edge case where future-dated rows surfaced under the `corrupt` finding category but the repair flow could not derive or apply the right cleanup
+- stop the full regression suite from reintroducing future `mark_prices / index_prices` rows at `2036-04-02T12:30:00Z` / `12:35:00Z`
 
 ## Done
 - traced the `/monitoring -> Backtests` sentiment launch failure to a missing DB seed for `btc_sentiment_momentum@v1.0.0`; the strategy existed in the in-memory registry but not in `strategy.strategies` / `strategy.strategy_versions`
@@ -80,6 +81,15 @@
   - running `python -m unittest tests.test_startup_remediation -v`
   - confirming `md.bars_1m` has `0` rows at `2036-01-04T23:59:00Z` afterward
   - rerunning `python -m unittest discover -s tests -v` (`144 tests`, `OK`) and confirming the future row still remains absent
+- traced the analogous `mark_prices / index_prices` future corruption to the phase-3 historical snapshot/remediation tests: the mock transport could return `2036-04-02T12:30/12:35Z` fixture rows even when the requested historical window did not overlap that fixture window
+- hardened `src/ingestion/binance/public_rest.py` so `fetch_funding_rate_history`, `fetch_mark_price_klines`, and `fetch_index_price_klines` now post-filter rows back to the requested window, matching the existing OI/sentiment history guardrails
+- tightened `tests/test_phase3_ingestion.py` so:
+  - DB-writing future-window cases pre-clean before they run as well as after
+  - historical mock responses for funding / OI / sentiment / mark / index only return fixture rows when the requested window overlaps the fixture window
+  - remediation assertions compare actual refresh-job inclusion to the computed plan instead of assuming every dataset must always be stale
+- added explicit regression coverage proving funding / mark-price / index-price history fetches drop out-of-window rows
+- reran `python -m unittest tests.test_phase3_ingestion -v` (`17 tests`, `OK`) and then the full suite `python -m unittest discover -s tests -v` (`147 tests`, `OK`)
+- verified by direct post-run DB query that `md.mark_prices` / `md.index_prices` do not contain `2036-04-02T12:30:00Z` or `2036-04-02T12:35:00Z`
 
 ## Files Changed
 - `frontend/monitoring/app.js`
@@ -107,6 +117,8 @@
 - `tests/test_integrity_repair_control.py`
 - `.env.example`
 - `README.md`
+- `src/ingestion/binance/public_rest.py`
+- `tests/test_phase3_ingestion.py`
 - `docs/agent-memory/HANDOFF.md`
 - `docs/agent-memory/SESSION_SUMMARY.md`
 - `docs/agent-memory/TASK_BOARD.md`

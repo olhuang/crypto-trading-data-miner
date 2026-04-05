@@ -74,6 +74,28 @@ def _filter_rows_to_requested_window(
     return filtered
 
 
+def _filter_kline_rows_to_requested_window(
+    rows: Iterable[list[Any]],
+    *,
+    timestamp_index: int,
+    start_time: datetime,
+    end_time: datetime,
+) -> list[list[Any]]:
+    start_ms = int(start_time.timestamp() * 1000)
+    end_ms = int(end_time.timestamp() * 1000)
+    filtered: list[list[Any]] = []
+    seen_timestamps: set[int] = set()
+    for row in rows:
+        timestamp_ms = int(row[timestamp_index])
+        if timestamp_ms < start_ms or timestamp_ms > end_ms:
+            continue
+        if timestamp_ms in seen_timestamps:
+            continue
+        seen_timestamps.add(timestamp_ms)
+        filtered.append(row)
+    return filtered
+
+
 @dataclass(slots=True)
 class InstrumentSyncSummary:
     instruments_seen: int
@@ -185,7 +207,12 @@ class BinancePublicRestClient:
             if len(page) < limit:
                 break
             next_start_ms = int(page[-1]["fundingTime"]) + 1
-        return rows
+        return _filter_rows_to_requested_window(
+            rows,
+            timestamp_key="fundingTime",
+            start_time=start_time,
+            end_time=end_time,
+        )
 
     def fetch_open_interest(self, symbol: str) -> dict[str, Any]:
         return self.http.get_json(f"{self.futures_base_url}/fapi/v1/openInterest", {"symbol": symbol})
@@ -408,7 +435,12 @@ class BinancePublicRestClient:
             if len(page) < limit:
                 break
             next_start_ms = int(page[-1][6]) + 1
-        return rows
+        return _filter_kline_rows_to_requested_window(
+            rows,
+            timestamp_index=0,
+            start_time=start_time,
+            end_time=end_time,
+        )
 
     def fetch_index_price_klines(
         self,
@@ -453,7 +485,12 @@ class BinancePublicRestClient:
             if len(page) < limit:
                 break
             next_start_ms = int(page[-1][6]) + 1
-        return rows
+        return _filter_kline_rows_to_requested_window(
+            rows,
+            timestamp_index=0,
+            start_time=start_time,
+            end_time=end_time,
+        )
 
     def normalize_spot_instruments(self, payload: dict[str, Any]) -> list[InstrumentMetadata]:
         instruments: list[InstrumentMetadata] = []

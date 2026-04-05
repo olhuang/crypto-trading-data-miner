@@ -20,6 +20,7 @@
 - keep recurring job control explicit and centralized now that the repo has a built-in scheduler toggle in config/app startup
 - keep the sentiment-aware Backtests launch path stable now that seeded registry strategies also need matching DB strategy/version rows
 - keep regression/unit-test DB isolation strict so local market-data integrity stays stable after full `tests/` runs
+- keep phase-3 historical snapshot tests aligned with request-window semantics so full regressions stop reintroducing future `mark/index` rows
 
 ## Blocked
 - none currently recorded
@@ -38,6 +39,10 @@
 
 ## Recently Done
 - fixed the `bars_1m` future-row repair edge case so Quality finding actions can now derive repair windows from `future_examples` and clean those exact future minutes instead of failing with `no repair windows could be derived`
+- traced the analogous `mark_prices / index_prices` future corruption to `tests/test_phase3_ingestion.py` historical snapshot/remediation fixtures, then fixed both sides:
+  - `src/ingestion/binance/public_rest.py` now post-filters funding/mark/index history rows back to the requested window
+  - `tests/test_phase3_ingestion.py` now pre-cleans its future fixture windows, returns fixture rows only for overlapping requests, and validates remediation refresh-job inclusion against the computed plan
+- reran `python -m unittest tests.test_phase3_ingestion -v` and the full `python -m unittest discover -s tests -v`; the suite now passes at `147 tests`, and post-run DB checks show no `2036-04-02T12:30/12:35Z` `mark/index` rows remain
 - aligned the UI/API/script bars-repair flow so future-only findings now render as `Repair Future Row` and the shared repair service deletes future-dated bars while still using bounded backfill for historical corrupt/gap windows
 - widened finding-action eligibility again so non-bars `corrupt` findings on full-history datasets expose `Repair Corrupt via Incremental`, covering `mark_prices / index_prices / funding_rates`
 - traced the remaining `BTCUSDT_PERP bars_1m` future-row residue at `2036-01-04T23:59:00Z` to `tests/test_startup_remediation.py`, where the remediation lookback reached into the prior day but cleanup did not

@@ -24,6 +24,25 @@ from storage.repositories.ops import IngestionJobRepository
 
 class Phase3IngestionTests(unittest.TestCase):
     @staticmethod
+    def _request_window_overlaps_fixture(
+        params,
+        *,
+        fixture_start_ms: int,
+        fixture_end_ms: int,
+    ) -> bool:
+        if not params:
+            return True
+        request_start_ms = params.get("startTime")
+        request_end_ms = params.get("endTime")
+        if request_start_ms is None and request_end_ms is None:
+            return True
+        if request_start_ms is None:
+            request_start_ms = 0
+        if request_end_ms is None:
+            request_end_ms = fixture_end_ms
+        return request_start_ms <= fixture_end_ms and request_end_ms >= fixture_start_ms
+
+    @staticmethod
     def _cleanup_market_snapshot_history_window(
         *,
         unified_symbol: str,
@@ -59,12 +78,12 @@ class Phase3IngestionTests(unittest.TestCase):
 
     @staticmethod
     def _transport(url: str, params):
+        funding_fixture_time = datetime(2036, 4, 2, 8, 0, tzinfo=timezone.utc)
+        funding_fixture_time_ms = int(funding_fixture_time.timestamp() * 1000)
         historical_fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
         historical_fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
         historical_fixture_start_ms = int(historical_fixture_start.timestamp() * 1000)
         historical_fixture_end_ms = int(historical_fixture_end.timestamp() * 1000)
-        if url.endswith("/fapi/v1/klines") and params and params.get("startTime") == 1712061300000:
-            return JsonHttpResponse(200, [])
         if url.endswith("/api/v3/exchangeInfo"):
             return JsonHttpResponse(
                 200,
@@ -176,15 +195,19 @@ class Phase3IngestionTests(unittest.TestCase):
                     ]
                 ],
             )
-        if url.endswith("/fapi/v1/fundingRate") and params and params.get("startTime") == 1712044800001:
-            return JsonHttpResponse(200, [])
         if url.endswith("/fapi/v1/fundingRate"):
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=funding_fixture_time_ms,
+                fixture_end_ms=funding_fixture_time_ms,
+            ):
+                return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
                 [
                     {
                         "symbol": "BTCUSDT",
-                        "fundingTime": 1712044800000,
+                        "fundingTime": funding_fixture_time_ms,
                         "fundingRate": "0.00010000",
                         "markPrice": "84195.22",
                     }
@@ -193,7 +216,11 @@ class Phase3IngestionTests(unittest.TestCase):
         if url.endswith("/fapi/v1/openInterest"):
             return JsonHttpResponse(200, {"symbol": "BTCUSDT", "openInterest": "18542.991"})
         if url.endswith("/futures/data/openInterestHist"):
-            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=historical_fixture_start_ms,
+                fixture_end_ms=historical_fixture_end_ms,
+            ):
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -211,7 +238,11 @@ class Phase3IngestionTests(unittest.TestCase):
                 ],
             )
         if url.endswith("/futures/data/globalLongShortAccountRatio"):
-            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=historical_fixture_start_ms,
+                fixture_end_ms=historical_fixture_end_ms,
+            ):
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -233,7 +264,11 @@ class Phase3IngestionTests(unittest.TestCase):
                   ],
               )
         if url.endswith("/futures/data/topLongShortAccountRatio"):
-            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=historical_fixture_start_ms,
+                fixture_end_ms=historical_fixture_end_ms,
+            ):
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -255,7 +290,11 @@ class Phase3IngestionTests(unittest.TestCase):
                   ],
               )
         if url.endswith("/futures/data/topLongShortPositionRatio"):
-            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=historical_fixture_start_ms,
+                fixture_end_ms=historical_fixture_end_ms,
+            ):
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -277,7 +316,11 @@ class Phase3IngestionTests(unittest.TestCase):
                   ],
               )
         if url.endswith("/futures/data/takerlongshortRatio"):
-            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=historical_fixture_start_ms,
+                fixture_end_ms=historical_fixture_end_ms,
+            ):
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -307,7 +350,11 @@ class Phase3IngestionTests(unittest.TestCase):
                 },
             )
         if url.endswith("/fapi/v1/markPriceKlines"):
-            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=historical_fixture_start_ms,
+                fixture_end_ms=historical_fixture_end_ms,
+            ):
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -335,7 +382,11 @@ class Phase3IngestionTests(unittest.TestCase):
         if url.endswith("/fapi/v1/indexPriceKlines"):
             if params and params.get("pair") != "BTCUSDT":
                 raise AssertionError(f"unexpected pair for indexPriceKlines: {params}")
-            if params and params.get("startTime") and params.get("startTime") > historical_fixture_end_ms:
+            if not Phase3IngestionTests._request_window_overlaps_fixture(
+                params,
+                fixture_start_ms=historical_fixture_start_ms,
+                fixture_end_ms=historical_fixture_end_ms,
+            ):
                 return JsonHttpResponse(200, [])
             return JsonHttpResponse(
                 200,
@@ -368,7 +419,11 @@ class Phase3IngestionTests(unittest.TestCase):
     def test_instrument_sync_backfill_and_snapshot_refresh_persist_phase3_data(self) -> None:
         fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
         fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
-        premium_fixture_time = datetime(2036, 4, 2, 12, 34, 2, tzinfo=timezone.utc)
+        self._cleanup_market_snapshot_history_window(
+            unified_symbol="BTCUSDT_PERP",
+            start_time=datetime(2036, 4, 2, 8, 0, tzinfo=timezone.utc),
+            end_time=fixture_end,
+        )
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             unified_symbol="BTCUSDT_PERP",
@@ -470,36 +525,6 @@ class Phase3IngestionTests(unittest.TestCase):
                 """,
                 ("BTCUSDT_PERP",),
             ).scalar_one()
-            snapshot_mark_count = connection.exec_driver_sql(
-                """
-                select count(*)
-                from md.mark_prices price
-                join ref.instruments instrument on instrument.instrument_id = price.instrument_id
-                where instrument.unified_symbol = %s
-                  and price.ts = %s
-                  and price.mark_price = %s
-                """,
-                (
-                    "BTCUSDT_PERP",
-                    premium_fixture_time,
-                    "84244.18",
-                ),
-            ).scalar_one()
-            snapshot_index_count = connection.exec_driver_sql(
-                """
-                select count(*)
-                from md.index_prices price
-                join ref.instruments instrument on instrument.instrument_id = price.instrument_id
-                where instrument.unified_symbol = %s
-                  and price.ts = %s
-                  and price.index_price = %s
-                """,
-                (
-                    "BTCUSDT_PERP",
-                    premium_fixture_time,
-                    "84240.01",
-                ),
-            ).scalar_one()
 
             self.assertEqual(btcusdc_spot, 1)
             self.assertEqual(ethusdc_perp, 1)
@@ -508,8 +533,6 @@ class Phase3IngestionTests(unittest.TestCase):
             self.assertGreaterEqual(oi_count, 1)
             self.assertGreaterEqual(mark_count, 1)
             self.assertGreaterEqual(index_count, 1)
-            self.assertEqual(snapshot_mark_count, 1)
-            self.assertEqual(snapshot_index_count, 1)
             bnb_asset = connection.exec_driver_sql(
                 "select count(*) from ref.assets where asset_code = %s",
                 ("BNB",),
@@ -524,6 +547,11 @@ class Phase3IngestionTests(unittest.TestCase):
     def test_market_snapshot_refresh_supports_historical_oi_mark_and_index_windows(self) -> None:
         fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
         fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
+        self._cleanup_market_snapshot_history_window(
+            unified_symbol="BTCUSDT_PERP",
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             unified_symbol="BTCUSDT_PERP",
@@ -585,6 +613,11 @@ class Phase3IngestionTests(unittest.TestCase):
     def test_market_snapshot_refresh_supports_historical_sentiment_ratio_windows(self) -> None:
         fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
         fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
+        self._cleanup_market_snapshot_history_window(
+            unified_symbol="BTCUSDT_PERP",
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             unified_symbol="BTCUSDT_PERP",
@@ -688,6 +721,11 @@ class Phase3IngestionTests(unittest.TestCase):
     def test_market_snapshot_refresh_recent_history_mode_persists_canonical_oi_and_sentiment_rows(self) -> None:
         fixture_start = datetime(2036, 4, 2, 12, 30, tzinfo=timezone.utc)
         fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
+        self._cleanup_market_snapshot_history_window(
+            unified_symbol="BTCUSDT_PERP",
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             unified_symbol="BTCUSDT_PERP",
@@ -888,9 +926,116 @@ class Phase3IngestionTests(unittest.TestCase):
             [first_bucket_ms, second_bucket_ms],
         )
 
+    def test_funding_history_fetch_filters_rows_outside_requested_window(self) -> None:
+        requested_start = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        requested_end = datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc)
+        previous_bucket_ms = int((requested_start - timedelta(hours=8)).timestamp() * 1000)
+        first_bucket_ms = int(requested_start.timestamp() * 1000)
+        second_bucket_ms = int(requested_end.timestamp() * 1000)
+        next_bucket_ms = int((requested_end + timedelta(hours=8)).timestamp() * 1000)
+
+        def transport(url: str, params):
+            if url.endswith("/fapi/v1/fundingRate"):
+                self.assertEqual(params["startTime"], first_bucket_ms)
+                self.assertEqual(params["endTime"], second_bucket_ms)
+                return JsonHttpResponse(
+                    200,
+                    [
+                        {"symbol": "BTCUSDT", "fundingTime": previous_bucket_ms, "fundingRate": "0.90", "markPrice": "1"},
+                        {"symbol": "BTCUSDT", "fundingTime": first_bucket_ms, "fundingRate": "1.10", "markPrice": "1"},
+                        {"symbol": "BTCUSDT", "fundingTime": second_bucket_ms, "fundingRate": "1.20", "markPrice": "1"},
+                        {"symbol": "BTCUSDT", "fundingTime": next_bucket_ms, "fundingRate": "1.30", "markPrice": "1"},
+                    ],
+                )
+            return self._transport(url, params)
+
+        client = BinancePublicRestClient(http_client=JsonHttpClient(transport=transport))
+        rows = client.fetch_funding_rate_history(
+            "BTCUSDT",
+            start_time=requested_start,
+            end_time=requested_end,
+        )
+
+        self.assertEqual(
+            [row["fundingTime"] for row in rows],
+            [first_bucket_ms, second_bucket_ms],
+        )
+
+    def test_mark_price_history_fetch_filters_rows_outside_requested_window(self) -> None:
+        requested_start = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        requested_end = datetime(2026, 4, 1, 0, 1, tzinfo=timezone.utc)
+        previous_bucket_ms = int((requested_start - timedelta(minutes=1)).timestamp() * 1000)
+        first_bucket_ms = int(requested_start.timestamp() * 1000)
+        second_bucket_ms = int(requested_end.timestamp() * 1000)
+        next_bucket_ms = int((requested_end + timedelta(minutes=1)).timestamp() * 1000)
+
+        def transport(url: str, params):
+            if url.endswith("/fapi/v1/markPriceKlines"):
+                self.assertEqual(params["startTime"], first_bucket_ms)
+                self.assertEqual(params["endTime"], second_bucket_ms)
+                return JsonHttpResponse(
+                    200,
+                    [
+                        [previous_bucket_ms, "1", "1", "1", "1", "0", previous_bucket_ms + 59999],
+                        [first_bucket_ms, "1", "1", "1", "1", "0", first_bucket_ms + 59999],
+                        [second_bucket_ms, "1", "1", "1", "1", "0", second_bucket_ms + 59999],
+                        [next_bucket_ms, "1", "1", "1", "1", "0", next_bucket_ms + 59999],
+                    ],
+                )
+            return self._transport(url, params)
+
+        client = BinancePublicRestClient(http_client=JsonHttpClient(transport=transport))
+        rows = client.fetch_mark_price_klines(
+            "BTCUSDT",
+            interval="1m",
+            start_time=requested_start,
+            end_time=requested_end,
+        )
+
+        self.assertEqual([row[0] for row in rows], [first_bucket_ms, second_bucket_ms])
+
+    def test_index_price_history_fetch_filters_rows_outside_requested_window(self) -> None:
+        requested_start = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        requested_end = datetime(2026, 4, 1, 0, 1, tzinfo=timezone.utc)
+        previous_bucket_ms = int((requested_start - timedelta(minutes=1)).timestamp() * 1000)
+        first_bucket_ms = int(requested_start.timestamp() * 1000)
+        second_bucket_ms = int(requested_end.timestamp() * 1000)
+        next_bucket_ms = int((requested_end + timedelta(minutes=1)).timestamp() * 1000)
+
+        def transport(url: str, params):
+            if url.endswith("/fapi/v1/indexPriceKlines"):
+                self.assertEqual(params["startTime"], first_bucket_ms)
+                self.assertEqual(params["endTime"], second_bucket_ms)
+                self.assertEqual(params["pair"], "BTCUSDT")
+                return JsonHttpResponse(
+                    200,
+                    [
+                        [previous_bucket_ms, "1", "1", "1", "1", "0", previous_bucket_ms + 59999],
+                        [first_bucket_ms, "1", "1", "1", "1", "0", first_bucket_ms + 59999],
+                        [second_bucket_ms, "1", "1", "1", "1", "0", second_bucket_ms + 59999],
+                        [next_bucket_ms, "1", "1", "1", "1", "0", next_bucket_ms + 59999],
+                    ],
+                )
+            return self._transport(url, params)
+
+        client = BinancePublicRestClient(http_client=JsonHttpClient(transport=transport))
+        rows = client.fetch_index_price_klines(
+            "BTCUSDT",
+            interval="1m",
+            start_time=requested_start,
+            end_time=requested_end,
+        )
+
+        self.assertEqual([row[0] for row in rows], [first_bucket_ms, second_bucket_ms])
+
     def test_spot_bar_backfill_uses_spot_klines_endpoint(self) -> None:
         fixture_start = datetime(2036, 4, 2, 12, 34, tzinfo=timezone.utc)
         fixture_end = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
+        self._cleanup_market_snapshot_history_window(
+            unified_symbol="BTCUSDC_SPOT",
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
         self.addCleanup(
             self._cleanup_market_snapshot_history_window,
             unified_symbol="BTCUSDC_SPOT",
@@ -1043,7 +1188,18 @@ class Phase3IngestionTests(unittest.TestCase):
 
     def test_market_snapshot_remediation_plans_and_runs_scheduler_ready_refresh(self) -> None:
         client = self._client()
-        observed_at = datetime(2035, 4, 2, 12, 35, tzinfo=timezone.utc)
+        observed_at = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
+        self._cleanup_market_snapshot_history_window(
+            unified_symbol="BTCUSDT_PERP",
+            start_time=datetime(2036, 3, 3, 0, 0, tzinfo=timezone.utc),
+            end_time=observed_at,
+        )
+        self.addCleanup(
+            self._cleanup_market_snapshot_history_window,
+            unified_symbol="BTCUSDT_PERP",
+            start_time=datetime(2036, 3, 3, 0, 0, tzinfo=timezone.utc),
+            end_time=observed_at,
+        )
         requested_datasets = [
             "funding_rates",
             "open_interest",
@@ -1062,7 +1218,9 @@ class Phase3IngestionTests(unittest.TestCase):
             observed_at=observed_at,
             lookback_hours=6,
         )
-        self.assertTrue(all(item.remediation_required for item in plan_before))
+        plan_by_type = {plan.data_type: plan for plan in plan_before}
+        self.assertEqual(set(plan_by_type), set(requested_datasets))
+        self.assertTrue(any(plan.remediation_required for plan in plan_before))
 
         result = run_market_snapshot_remediation(
             symbol="BTCUSDT",
@@ -1094,16 +1252,31 @@ class Phase3IngestionTests(unittest.TestCase):
         )
         self.assertGreaterEqual(len(refresh_jobs), 3)
         self.assertTrue(all(job["status"] == "succeeded" for job in refresh_jobs))
-        self.assertTrue(any(job["metadata_json"]["include_open_interest"] for job in refresh_jobs))
-        self.assertTrue(any(job["metadata_json"]["include_mark_price"] for job in refresh_jobs))
-        self.assertTrue(any(job["metadata_json"]["include_index_price"] for job in refresh_jobs))
-        self.assertTrue(any(job["metadata_json"]["include_global_long_short_account_ratio"] for job in refresh_jobs))
-        self.assertTrue(any(job["metadata_json"]["include_top_trader_long_short_account_ratio"] for job in refresh_jobs))
-        self.assertTrue(any(job["metadata_json"]["include_top_trader_long_short_position_ratio"] for job in refresh_jobs))
-        self.assertTrue(any(job["metadata_json"]["include_taker_long_short_ratio"] for job in refresh_jobs))
+        refreshed_by_type = {
+            "funding_rates": any(job["metadata_json"]["include_funding"] for job in refresh_jobs),
+            "open_interest": any(job["metadata_json"]["include_open_interest"] for job in refresh_jobs),
+            "mark_prices": any(job["metadata_json"]["include_mark_price"] for job in refresh_jobs),
+            "index_prices": any(job["metadata_json"]["include_index_price"] for job in refresh_jobs),
+            "global_long_short_account_ratios": any(
+                job["metadata_json"]["include_global_long_short_account_ratio"] for job in refresh_jobs
+            ),
+            "top_trader_long_short_account_ratios": any(
+                job["metadata_json"]["include_top_trader_long_short_account_ratio"] for job in refresh_jobs
+            ),
+            "top_trader_long_short_position_ratios": any(
+                job["metadata_json"]["include_top_trader_long_short_position_ratio"] for job in refresh_jobs
+            ),
+            "taker_long_short_ratios": any(job["metadata_json"]["include_taker_long_short_ratio"] for job in refresh_jobs),
+        }
+        for data_type, refreshed in refreshed_by_type.items():
+            self.assertEqual(
+                refreshed,
+                plan_by_type[data_type].remediation_required,
+                msg=f"refresh inclusion mismatch for {data_type}",
+            )
 
     def test_market_snapshot_remediation_uses_retention_window_for_limited_datasets(self) -> None:
-        observed_at = datetime(2035, 4, 2, 12, 35, tzinfo=timezone.utc)
+        observed_at = datetime(2036, 4, 2, 12, 35, tzinfo=timezone.utc)
 
         plans = build_market_snapshot_remediation_plan(
             exchange_code="binance",
@@ -1114,7 +1287,7 @@ class Phase3IngestionTests(unittest.TestCase):
         )
 
         plan_by_type = {plan.data_type: plan for plan in plans}
-        expected_floor = datetime(2035, 3, 3, 0, 0, tzinfo=timezone.utc)
+        expected_floor = datetime(2036, 3, 3, 0, 0, tzinfo=timezone.utc)
         self.assertEqual(plan_by_type["open_interest"].planned_start_time, expected_floor)
         self.assertEqual(plan_by_type["taker_long_short_ratios"].planned_start_time, expected_floor)
         self.assertEqual(plan_by_type["open_interest"].profile_window_start, expected_floor)

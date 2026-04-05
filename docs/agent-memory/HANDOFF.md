@@ -17,6 +17,7 @@
 - keep recurring job control centralized now that the repo has a built-in scheduler bootstrap and a single config-driven on/off path
 - keep the Backtests launch flow resilient now that the sentiment-aware strategy path depends on seeded DB strategy-version rows and friendlier lookup error handling
 - keep regression tests from mutating live/local market-data windows now that multiple DB-writing test cases were found to overlap real 2026 Binance BTC data
+- keep phase-3 historical snapshot fixtures from reintroducing future `mark/index` corruption now that a full regression run exposed request-window/mock overlap mismatches in those tests
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -67,6 +68,10 @@
 - a full `python -m unittest discover -s tests -v` run now passes (`142 tests`) after these isolation fixes
 - post-run local DB spot checks show the old `2024-04-02T12:30/12:35Z` OI/sentiment fixture rows are no longer reintroduced by a full regression run
 - one pre-existing local residue still remains from older regression runs: the `BTCUSDT_PERP bars_1m` corrupt candle at `2026-04-02T12:34:00Z` still exists in the DB after the suite, but it was not recreated by the fixed regression run
+- the recurring `mark_prices / index_prices` future rows at `2036-04-02T12:30/12:35Z` were a similar test-pollution issue, but more specifically they came from the phase-3 remediation/history tests: the mock transport returned future fixture rows even when the requested window did not overlap, and `funding/mark/index` historical fetchers were not yet post-filtering rows back to the requested window
+- `src/ingestion/binance/public_rest.py` now post-filters `fundingRate`, `markPriceKlines`, and `indexPriceKlines` history rows back to the caller's requested `[start_time, end_time]`, matching the retention-limited OI/sentiment fetch hardening that already existed
+- `tests/test_phase3_ingestion.py` now pre-cleans its future fixture windows before DB-writing cases, uses overlap-aware mock responses for historical OI/sentiment/mark/index/funding requests, and validates remediation refresh-job inclusion against the computed plan instead of assuming every dataset must always be stale
+- after those fixes, a full `python -m unittest discover -s tests -v` run passes (`147 tests`) and direct post-run DB checks confirm `md.mark_prices` / `md.index_prices` do not contain `2036-04-02T12:30:00Z` or `2036-04-02T12:35:00Z`
 - `bars_1m` future-row repair no longer dead-ends on corrupt-only assumptions: the UI now derives repair windows from `future_examples`, labels those findings as `Repair Future Row` when appropriate, and the backend deletes the exact future minute instead of attempting a meaningless future backfill
 - `scripts/repair_bars_integrity_windows.py` now routes through the shared repair service, so auto-detected future-dated bars are handled the same way as the UI/API repair path
 - non-bars `corrupt` findings for full-history datasets now render a repair action too, so `mark_prices / index_prices / funding_rates` can trigger dataset-scoped incremental repair from the Findings table instead of only showing actions for `gap/tail/coverage`
