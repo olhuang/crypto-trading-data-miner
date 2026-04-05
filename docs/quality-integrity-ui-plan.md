@@ -67,6 +67,14 @@ The current operator flow for integrity work is still too manual:
 
 This makes post-backfill validation harder than it should be.
 
+It also makes result interpretation noisier than it should be when the selected validation window extends beyond current local coverage.
+Integrity results should clearly distinguish:
+- `coverage shortfall`
+- `true internal gaps`
+- `tail not yet ingested`
+
+Only the second category should read as a true interval-integrity failure by default.
+
 ---
 
 ## Design Principles
@@ -195,12 +203,24 @@ This should be the main scanning surface.
 ## Selected Dataset Detail
 
 When a dataset row is selected, show:
-- headline counts
-- missing segments / gap segments
+- headline counts split into:
+  - coverage shortfall
+  - internal missing
+  - tail shortfall
+- internal gap segments
 - duplicate profile
 - corrupt profile
 - future-row profile
 - persisted finding refs where available
+
+The result semantics should read as:
+- `fail`
+  - duplicates, corrupt rows, or true internal gaps
+- `warning`
+  - the selected window starts before current local coverage
+  - or the selected window extends beyond the latest safe local tail
+- `pass`
+  - no true integrity failures and no coverage/tail warnings
 
 ## Raw JSON
 

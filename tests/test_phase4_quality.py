@@ -1143,6 +1143,74 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
         self.assertEqual(response.data.summary.total_duplicate_count, 1)
         self.assertGreaterEqual(response.data.summary.total_corrupt_count, 1)
 
+    def test_validator_marks_coverage_and_tail_shortfall_as_warning(self) -> None:
+        start_time = datetime(2031, 7, 2, 0, 0, tzinfo=timezone.utc)
+        first_bar_time = datetime(2031, 7, 2, 0, 1, tzinfo=timezone.utc)
+        second_bar_time = datetime(2031, 7, 2, 0, 2, tzinfo=timezone.utc)
+        end_time = datetime(2031, 7, 2, 0, 3, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_quality_window,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        with transaction_scope() as connection:
+            connection.exec_driver_sql(
+                """
+                delete from md.bars_1m
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and bar_time between %s and %s
+                """,
+                ("binance", "BTCUSDT_SPOT", start_time, end_time),
+            )
+            bar_repo = BarRepository()
+            for bar_time in (first_bar_time, second_bar_time):
+                bar_repo.upsert(
+                    connection,
+                    BarEvent(
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_SPOT",
+                        ingest_time=bar_time,
+                        bar_interval="1m",
+                        bar_time=bar_time,
+                        event_time=bar_time,
+                        open="100000.0",
+                        high="100010.0",
+                        low="99990.0",
+                        close="100005.0",
+                        volume="5.0",
+                        quote_volume="500025.0",
+                        trade_count=50,
+                    ),
+                )
+
+        result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_SPOT",
+            start_time=start_time,
+            end_time=end_time,
+            observed_at=end_time,
+            data_types=["bars_1m"],
+            persist_findings=False,
+        )
+
+        report = result.datasets[0]
+        self.assertEqual(report.status, "warning")
+        self.assertEqual(report.coverage_shortfall_count, 1)
+        self.assertEqual(report.internal_missing_count, 0)
+        self.assertEqual(report.tail_missing_count, 1)
+        self.assertEqual(report.gap_count, 0)
+        self.assertEqual(result.summary.warning_datasets, 1)
+        self.assertEqual(result.summary.failed_datasets, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

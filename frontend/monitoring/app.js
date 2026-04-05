@@ -899,13 +899,18 @@ function renderIntegritySummaryCards(result) {
     },
     {
       label: "Datasets",
-      value: `${formatValue(result.summary?.passed_datasets)} pass / ${formatValue(result.summary?.failed_datasets)} fail`,
+      value: `${formatValue(result.summary?.passed_datasets)} pass / ${formatValue(result.summary?.warning_datasets)} warning / ${formatValue(result.summary?.failed_datasets)} fail`,
       detail: `Total ${formatValue(result.summary?.dataset_count)}`,
     },
     {
-      label: "Gap / Missing",
-      value: `${formatValue(result.summary?.total_gap_count)} / ${formatValue(result.summary?.total_missing_count)}`,
-      detail: "Gap segments / missing points",
+      label: "Coverage / Tail",
+      value: `${formatValue(result.summary?.total_coverage_shortfall_count)} / ${formatValue(result.summary?.total_tail_missing_count)}`,
+      detail: "Coverage shortfall / tail points",
+    },
+    {
+      label: "Internal Gap / Missing",
+      value: `${formatValue(result.summary?.total_gap_count)} / ${formatValue(result.summary?.total_internal_missing_count)}`,
+      detail: "Gap segments / internal missing points",
     },
     {
       label: "Duplicate / Corrupt",
@@ -967,6 +972,9 @@ function renderIntegrityDatasetDetail(dataset) {
       available_to: dataset.available_to,
       safe_available_to: dataset.safe_available_to,
       missing_count: dataset.missing_count,
+      coverage_shortfall_count: dataset.coverage_shortfall_count,
+      internal_missing_count: dataset.internal_missing_count,
+      tail_missing_count: dataset.tail_missing_count,
       gap_count: dataset.gap_count,
       duplicate_count: dataset.duplicate_count,
       corrupt_count: dataset.corrupt_count,
@@ -980,8 +988,11 @@ function renderIntegrityDatasetDetail(dataset) {
       available_from: "First Record In Selected Window",
       available_to: "Last Record In Selected Window",
       safe_available_to: "Last Safe Record In Selected Window",
-      missing_count: "Missing Count",
-      gap_count: "Gap Count",
+      missing_count: "Total Missing Count",
+      coverage_shortfall_count: "Coverage Shortfall Count",
+      internal_missing_count: "Internal Missing Count",
+      tail_missing_count: "Tail Missing Count",
+      gap_count: "Internal Gap Count",
       duplicate_count: "Duplicate Count",
       corrupt_count: "Corrupt Count",
       future_row_count: "Future Row Count",
@@ -996,6 +1007,9 @@ function renderIntegrityDatasetDetail(dataset) {
       "available_to",
       "safe_available_to",
       "missing_count",
+      "coverage_shortfall_count",
+      "internal_missing_count",
+      "tail_missing_count",
       "gap_count",
       "duplicate_count",
       "corrupt_count",
@@ -1034,7 +1048,7 @@ function renderIntegrityValidationResult(result) {
   setText(
     "integrity-validation-context",
     result
-      ? `symbol=${result.unified_symbol} | datasets=${result.summary?.dataset_count ?? 0} | gaps=${result.summary?.total_gap_count ?? 0} | missing=${result.summary?.total_missing_count ?? 0}`
+      ? `symbol=${result.unified_symbol} | datasets=${result.summary?.dataset_count ?? 0} | fail=${result.summary?.failed_datasets ?? 0} | warning=${result.summary?.warning_datasets ?? 0}`
       : "Run one bounded validation window to see the latest integrity summary."
   );
 
@@ -1046,12 +1060,13 @@ function renderIntegrityValidationResult(result) {
       { key: "status", label: "Status", type: "status" },
       { key: "available_from", label: "First Record In Selected Window" },
       { key: "safe_available_to", label: "Last Safe Record In Selected Window" },
-      { key: "expected_points", label: "Expected" },
-      { key: "row_count", label: "Actual" },
-      { key: "missing_count", label: "Missing" },
+      { key: "coverage_shortfall_count", label: "Coverage" },
+      { key: "gap_count", label: "Internal Gaps" },
+      { key: "tail_missing_count", label: "Tail" },
+      { key: "internal_missing_count", label: "Internal Missing" },
       { key: "duplicate_count", label: "Duplicate" },
       { key: "corrupt_count", label: "Corrupt" },
-      { key: "future_row_count", label: "Future" },
+      { key: "future_row_count", label: "Future" }
     ],
     datasets,
     (record) => {

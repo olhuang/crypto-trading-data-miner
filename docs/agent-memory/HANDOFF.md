@@ -70,6 +70,10 @@
 - a reusable cleanup tool now exists at `scripts/cleanup_startup_remediation_fixture_bars.py`, and it has already been used locally to delete 24 contaminated `BTCUSDT_PERP bars_1m` fixture rows
 - bounded local repair tooling now also exists for the remaining BTC perp bar issues at `scripts/repair_bars_integrity_windows.py` plus `scripts/repair_bars_integrity_windows.ps1`
 - the new bars cleanup/repair tooling has been syntax-checked and covered by both targeted and full unit-test runs (`107 tests` passed)
+- dataset-integrity semantics are now cleaner: interval datasets distinguish `coverage shortfall`, `true internal gaps`, and `tail not yet ingested` instead of flattening every missing point into one fail bucket
+- interval dataset status now behaves as `fail` for internal gaps/duplicates/corrupt rows, `warning` for coverage-only or tail-only shortfalls, and `pass` when neither class is present
+- the `/monitoring -> Quality` integrity summary cards, dataset table, and selected dataset detail now expose the new coverage/internal/tail breakdown directly
+- a regression test now exists in `tests/test_phase4_quality.py` to prove coverage-only plus tail-only interval shortfalls are classified as `warning`
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -86,6 +90,7 @@
 - `bars_1m` still contains a real corrupt row and a small tail gap, so integrity work is not finished even after the `mark/index` cleanup
 - the actual bounded `mark/index` gap refill still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 - the actual bounded `bars_1m` refill for the corrupt-minute and tail-gap windows still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
+- the Quality workspace still lacks the planned BTC backfill status panel, so integrity semantics are clearer now but backfill progress still is not visible in `/monitoring`
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -129,6 +134,9 @@
 - `scripts/repair_bars_integrity_windows.py`
 - `scripts/repair_bars_integrity_windows.ps1`
 - `tests/test_startup_remediation.py`
+- `src/jobs/data_quality.py`
+- `tests/test_phase4_quality.py`
+- `docs/quality-integrity-ui-plan.md`
 - `scripts/validate_dataset_integrity.py`
 - `scripts/validate_dataset_integrity.ps1`
 - `tests/test_binance_btc_history_backfill.py`

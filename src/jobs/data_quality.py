@@ -44,6 +44,9 @@ class DatasetIntegrityDatasetReport:
     available_to: datetime | None
     safe_available_to: datetime | None
     missing_count: int
+    coverage_shortfall_count: int
+    internal_missing_count: int
+    tail_missing_count: int
     gap_count: int
     duplicate_count: int
     corrupt_count: int
@@ -55,9 +58,13 @@ class DatasetIntegrityDatasetReport:
 class DatasetIntegritySummary:
     dataset_count: int
     passed_datasets: int
+    warning_datasets: int
     failed_datasets: int
     total_gap_count: int
     total_missing_count: int
+    total_coverage_shortfall_count: int
+    total_internal_missing_count: int
+    total_tail_missing_count: int
     total_duplicate_count: int
     total_corrupt_count: int
     total_future_row_count: int
@@ -255,42 +262,48 @@ def _expected_points_in_interval_window(
     return int(((aligned_end_time - aligned_start_time) / interval)) + 1
 
 
-def _segment_missing_interval_timestamps(
+@dataclass(slots=True)
+class IntervalCoverageProfile:
+    total_missing_count: int
+    coverage_shortfall_count: int
+    internal_missing_count: int
+    tail_missing_count: int
+    internal_gap_segments: list[dict[str, Any]]
+
+
+def _profile_interval_timestamps(
     *,
     timestamps: list[datetime],
     aligned_start_time: datetime,
     aligned_end_time: datetime,
     interval: timedelta,
-) -> tuple[int, list[dict[str, Any]]]:
+) -> IntervalCoverageProfile:
     if aligned_end_time < aligned_start_time:
-        return 0, []
+        return IntervalCoverageProfile(
+            total_missing_count=0,
+            coverage_shortfall_count=0,
+            internal_missing_count=0,
+            tail_missing_count=0,
+            internal_gap_segments=[],
+        )
 
     if not timestamps:
         expected_points = _expected_points_in_interval_window(aligned_start_time, aligned_end_time, interval)
-        if expected_points == 0:
-            return 0, []
-        return expected_points, [
-            {
-                "gap_start": aligned_start_time,
-                "gap_end": aligned_end_time,
-                "missing_points": expected_points,
-            }
-        ]
+        return IntervalCoverageProfile(
+            total_missing_count=expected_points,
+            coverage_shortfall_count=expected_points,
+            internal_missing_count=0,
+            tail_missing_count=0,
+            internal_gap_segments=[],
+        )
 
-    segments: list[dict[str, Any]] = []
-    missing_count = 0
+    internal_gap_segments: list[dict[str, Any]] = []
+    coverage_shortfall_count = 0
+    internal_missing_count = 0
+    tail_missing_count = 0
     first_timestamp = timestamps[0]
     if first_timestamp > aligned_start_time:
-        leading_missing_points = int((first_timestamp - aligned_start_time) / interval)
-        if leading_missing_points > 0:
-            segments.append(
-                {
-                    "gap_start": aligned_start_time,
-                    "gap_end": first_timestamp - interval,
-                    "missing_points": leading_missing_points,
-                }
-            )
-            missing_count += leading_missing_points
+        coverage_shortfall_count = int((first_timestamp - aligned_start_time) / interval)
 
     for previous_timestamp, current_timestamp in zip(timestamps, timestamps[1:]):
         delta = current_timestamp - previous_timestamp
@@ -298,33 +311,43 @@ def _segment_missing_interval_timestamps(
         if delta_points <= 1:
             continue
         missing_points = delta_points - 1
-        segments.append(
+        internal_gap_segments.append(
             {
                 "gap_start": previous_timestamp + interval,
                 "gap_end": current_timestamp - interval,
                 "missing_points": missing_points,
             }
         )
-        missing_count += missing_points
+        internal_missing_count += missing_points
 
     last_timestamp = timestamps[-1]
     if last_timestamp < aligned_end_time:
-        trailing_missing_points = int((aligned_end_time - last_timestamp) / interval)
-        if trailing_missing_points > 0:
-            segments.append(
-                {
-                    "gap_start": last_timestamp + interval,
-                    "gap_end": aligned_end_time,
-                    "missing_points": trailing_missing_points,
-                }
-            )
-            missing_count += trailing_missing_points
+        tail_missing_count = int((aligned_end_time - last_timestamp) / interval)
 
-    return missing_count, segments
+    return IntervalCoverageProfile(
+        total_missing_count=coverage_shortfall_count + internal_missing_count + tail_missing_count,
+        coverage_shortfall_count=coverage_shortfall_count,
+        internal_missing_count=internal_missing_count,
+        tail_missing_count=tail_missing_count,
+        internal_gap_segments=internal_gap_segments,
+    )
 
 
 def _status_for_count(count: int, *, fail_severity: str = "error") -> tuple[str, str]:
     return ("fail", fail_severity) if count > 0 else ("pass", "info")
+
+
+def _warning_status_for_count(count: int) -> tuple[str, str]:
+    return ("warning", "warning") if count > 0 else ("pass", "info")
+
+
+def _dataset_status_from_findings(findings: list[DatasetIntegrityFinding]) -> str:
+    statuses = {finding.status for finding in findings}
+    if "fail" in statuses:
+        return "fail"
+    if "warning" in statuses:
+        return "warning"
+    return "pass"
 
 
 def _normalize_json_value(value: Any) -> Any:
@@ -566,8 +589,14 @@ def _persist_integrity_check(
     observed_value: str | None,
     related_count: int,
     detail_json: dict[str, Any],
+    status_override: str | None = None,
+    severity_override: str | None = None,
 ) -> int:
     status, severity = _status_for_count(related_count)
+    if status_override is not None:
+        status = status_override
+    if severity_override is not None:
+        severity = severity_override
     quality_repo.insert(
         connection,
         DataQualityCheckRecord(
@@ -635,6 +664,9 @@ def validate_dataset_integrity(
             timestamps = []
             expected_points: int | None = None
             missing_count = 0
+            coverage_shortfall_count = 0
+            internal_missing_count = 0
+            tail_missing_count = 0
             gap_segments: list[dict[str, Any]] = []
             if interval is not None:
                 timestamps = _query_dataset_timestamps(
@@ -647,12 +679,18 @@ def validate_dataset_integrity(
                     raw_event_channel=raw_event_channel,
                 )
                 expected_points = _expected_points_in_interval_window(aligned_start_time, aligned_end_time, interval)
-                missing_count, gap_segments = _segment_missing_interval_timestamps(
-                    timestamps=timestamps,
+                safe_timestamps = [timestamp for timestamp in timestamps if timestamp <= effective_observed_at]
+                coverage_profile = _profile_interval_timestamps(
+                    timestamps=safe_timestamps,
                     aligned_start_time=aligned_start_time,
                     aligned_end_time=aligned_end_time,
                     interval=interval,
                 )
+                missing_count = coverage_profile.total_missing_count
+                coverage_shortfall_count = coverage_profile.coverage_shortfall_count
+                internal_missing_count = coverage_profile.internal_missing_count
+                tail_missing_count = coverage_profile.tail_missing_count
+                gap_segments = coverage_profile.internal_gap_segments
             elif row_count == 0:
                 missing_count = 1
 
@@ -725,22 +763,61 @@ def validate_dataset_integrity(
                         }),
                     )
                 )
-            missing_status, missing_severity = _status_for_count(missing_count)
-            findings.append(
-                DatasetIntegrityFinding(
-                    category="missing",
-                    severity=missing_severity,
-                    status=missing_status,
-                    message="expected rows missing inside validation window" if missing_count else "no missing rows detected",
-                    related_count=missing_count,
-                    detail_json=_normalize_json_value({
-                        "row_count": row_count,
-                        "expected_points": expected_points,
-                        "available_from": available_from.isoformat() if available_from else None,
-                        "available_to": available_to.isoformat() if available_to else None,
-                    }),
+                coverage_status, coverage_severity = _warning_status_for_count(coverage_shortfall_count)
+                findings.append(
+                    DatasetIntegrityFinding(
+                        category="coverage",
+                        severity=coverage_severity,
+                        status=coverage_status,
+                        message=(
+                            "selected window starts before current local dataset coverage"
+                            if coverage_shortfall_count
+                            else "no coverage shortfall at window start"
+                        ),
+                        related_count=coverage_shortfall_count,
+                        detail_json=_normalize_json_value({
+                            "aligned_window_start": aligned_start_time.isoformat(),
+                            "first_record_in_window": available_from.isoformat() if available_from else None,
+                            "coverage_shortfall_count": coverage_shortfall_count,
+                        }),
+                    )
                 )
-            )
+                tail_status, tail_severity = _warning_status_for_count(tail_missing_count)
+                findings.append(
+                    DatasetIntegrityFinding(
+                        category="tail",
+                        severity=tail_severity,
+                        status=tail_status,
+                        message=(
+                            "selected window extends beyond current local coverage tail"
+                            if tail_missing_count
+                            else "no tail shortfall detected"
+                        ),
+                        related_count=tail_missing_count,
+                        detail_json=_normalize_json_value({
+                            "aligned_window_end": aligned_end_time.isoformat(),
+                            "last_safe_record_in_window": safe_available_to.isoformat() if safe_available_to else None,
+                            "tail_missing_count": tail_missing_count,
+                        }),
+                    )
+                )
+            else:
+                missing_status, missing_severity = _warning_status_for_count(missing_count)
+                findings.append(
+                    DatasetIntegrityFinding(
+                        category="missing",
+                        severity=missing_severity,
+                        status=missing_status,
+                        message="expected rows missing inside validation window" if missing_count else "no missing rows detected",
+                        related_count=missing_count,
+                        detail_json=_normalize_json_value({
+                            "row_count": row_count,
+                            "expected_points": expected_points,
+                            "available_from": available_from.isoformat() if available_from else None,
+                            "available_to": available_to.isoformat() if available_to else None,
+                        }),
+                    )
+                )
             duplicate_status, duplicate_severity = _status_for_count(duplicate_count)
             findings.append(
                 DatasetIntegrityFinding(
@@ -769,7 +846,7 @@ def validate_dataset_integrity(
                 )
             )
 
-            dataset_status = "fail" if any(finding.status == "fail" for finding in findings) else "pass"
+            dataset_status = _dataset_status_from_findings(findings)
             report = DatasetIntegrityDatasetReport(
                 data_type=data_type,
                 status=dataset_status,
@@ -780,6 +857,9 @@ def validate_dataset_integrity(
                 available_to=available_to,
                 safe_available_to=safe_available_to,
                 missing_count=missing_count,
+                coverage_shortfall_count=coverage_shortfall_count,
+                internal_missing_count=internal_missing_count,
+                tail_missing_count=tail_missing_count,
                 gap_count=len(gap_segments),
                 duplicate_count=duplicate_count,
                 corrupt_count=total_corrupt_count,
@@ -801,6 +881,8 @@ def validate_dataset_integrity(
                         observed_value=str(len(gap_segments)),
                         related_count=len(gap_segments),
                         detail_json=report.findings[0].detail_json,
+                        status_override=report.findings[0].status,
+                        severity_override=report.findings[0].severity,
                     )
                     resolved_gap_count = gap_repo.resolve_overlapping_open_gaps(
                         connection,
@@ -846,7 +928,26 @@ def validate_dataset_integrity(
                     expected_value="0",
                     observed_value=str(missing_count),
                     related_count=missing_count,
-                    detail_json=next(f.detail_json for f in findings if f.category == "missing"),
+                    detail_json=_normalize_json_value({
+                        "missing_count": missing_count,
+                        "coverage_shortfall_count": coverage_shortfall_count,
+                        "internal_missing_count": internal_missing_count,
+                        "tail_missing_count": tail_missing_count,
+                        "available_from": available_from.isoformat() if available_from else None,
+                        "safe_available_to": safe_available_to.isoformat() if safe_available_to else None,
+                        "aligned_window_start": aligned_start_time.isoformat(),
+                        "aligned_window_end": aligned_end_time.isoformat(),
+                    }),
+                    status_override=(
+                        "fail"
+                        if internal_missing_count > 0
+                        else ("warning" if missing_count > 0 else "pass")
+                    ),
+                    severity_override=(
+                        "error"
+                        if internal_missing_count > 0
+                        else ("warning" if missing_count > 0 else "info")
+                    ),
                 )
                 persisted_checks_written += _persist_integrity_check(
                     quality_repo=quality_repo,
@@ -876,9 +977,13 @@ def validate_dataset_integrity(
         summary = DatasetIntegritySummary(
             dataset_count=len(dataset_reports),
             passed_datasets=sum(1 for report in dataset_reports if report.status == "pass"),
+            warning_datasets=sum(1 for report in dataset_reports if report.status == "warning"),
             failed_datasets=sum(1 for report in dataset_reports if report.status == "fail"),
             total_gap_count=sum(report.gap_count for report in dataset_reports),
             total_missing_count=sum(report.missing_count for report in dataset_reports),
+            total_coverage_shortfall_count=sum(report.coverage_shortfall_count for report in dataset_reports),
+            total_internal_missing_count=sum(report.internal_missing_count for report in dataset_reports),
+            total_tail_missing_count=sum(report.tail_missing_count for report in dataset_reports),
             total_duplicate_count=sum(report.duplicate_count for report in dataset_reports),
             total_corrupt_count=sum(report.corrupt_count for report in dataset_reports),
             total_future_row_count=sum(report.future_row_count for report in dataset_reports),

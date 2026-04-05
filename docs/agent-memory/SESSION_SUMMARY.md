@@ -32,6 +32,10 @@
 - added `scripts/repair_bars_integrity_windows.py` and `scripts/repair_bars_integrity_windows.ps1` so the known corrupt-minute and tail-gap windows can be re-fetched locally as a bounded repair instead of re-running a full history backfill
 - verified the new cleanup and repair tools with `py_compile`, targeted dry-runs, `tests.test_startup_remediation`, and the full `unittest discover` suite (`107 tests`)
 - attempted the actual bounded bar repair, but the current harness still cannot reach Binance because outbound network access remains blocked here; the repair tooling is ready for local execution outside the sandbox
+- cleaned up dataset-integrity semantics so interval datasets now distinguish `coverage shortfall`, `internal gaps`, and `tail not yet ingested` instead of treating every missing point as the same kind of failure
+- interval datasets now only report `fail` for true internal gaps, duplicates, or corrupt/future rows; coverage-only and tail-only shortfalls are now surfaced as `warning`
+- the `/monitoring -> Quality` integrity summary cards, dataset table, and selected dataset detail now expose the new coverage/internal/tail breakdown instead of flattening everything into one `missing` bucket
+- added a regression test proving a dataset with only leading coverage shortfall plus trailing tail shortfall is classified as `warning`, not `fail`
 
 ## Files Changed
 - `frontend/monitoring/index.html`
@@ -50,6 +54,9 @@
 - `scripts/cleanup_startup_remediation_fixture_bars.py`
 - `scripts/repair_bars_integrity_windows.py`
 - `scripts/repair_bars_integrity_windows.ps1`
+- `src/jobs/data_quality.py`
+- `docs/quality-integrity-ui-plan.md`
+- `tests/test_phase4_quality.py`
 
 ## Decisions
 - keep integrity validation inside the existing `Quality` page instead of creating a new top-level nav item
@@ -66,9 +73,11 @@
 - the new repair tool and checkpoint hardening are implemented and tested locally, but the actual bounded `mark/index` refill still has to be executed on the local machine because the current harness cannot call Binance directly
 - the repo-side source of `bars_1m` fixture contamination is fixed, but the actual Binance refill for the corrupt minute and tail-gap windows still must be run locally because the harness cannot perform outbound market-data fetches
 - `BTCUSDT_PERP bars_1m` should be re-validated after running `scripts/repair_bars_integrity_windows.ps1`; until then, integrity will still show the known corrupt candle and tail gaps
+- the new integrity semantics are in place, but the Quality workspace still does not surface BTC backfill status yet, so operators still need the local wrapper/status file for that part of the workflow
 
 ## Next
 - if the data-quality UI line remains active, build `UI Slice 4C: BTC Backfill Status Panel`
 - optional follow-up before that: polish the selected dataset detail toward the fuller `UI Slice 4B` presentation
 - if data remediation stays active, run `scripts/repair_mark_index_gap.ps1` locally and then re-run integrity validation to confirm the bounded BTC perp `mark/index` gap is gone
 - run `scripts/repair_bars_integrity_windows.ps1` locally, then re-run BTC perp integrity validation to confirm the corrupt `bars_1m` candle and tail-gap windows are repaired
+- if the UI line stays active after that, move to `UI Slice 4C: BTC Backfill Status Panel`
