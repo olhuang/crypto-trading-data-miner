@@ -105,9 +105,9 @@ Status: completed for the first backtest/runtime slice
 
 Next follow-up items:
 
-- expose sentiment-aware strategy parameters in `/monitoring -> Backtests`
+- surface strategy market context inside diagnostics / debug-trace inspection for sentiment-aware runs
 - extend compare/research surfaces so sentiment context can be inspected alongside runs
-- consider trace/diagnostics enrichment when sentiment context materially affects decisions
+- consider a broader feature-pipeline formalization only after trace/debug inspection can explain context-gated decisions
 
 ## Notes
 

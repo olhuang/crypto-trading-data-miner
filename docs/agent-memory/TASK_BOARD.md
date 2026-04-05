@@ -24,7 +24,8 @@
 - connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
-- decide whether the next sentiment-ratio follow-up is trace/diagnostics context visibility or broader feature-pipeline formalization
+- surface strategy market context inside diagnostics / trace inspection for sentiment-aware runs
+- defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
 
 ## Recently Done
 - added `docs/quality-integrity-ui-plan.md` to define how bounded integrity validation and BTC backfill status should land inside the current `/monitoring` Quality workspace

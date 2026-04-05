@@ -9,6 +9,7 @@
 - provide a local runnable Binance BTC history backfill path with explicit progress/status output now that direct outbound execution is blocked inside the current harness
 - continue the Quality workspace evolve path now that the first integrity-validation UI slice is live inside `/monitoring`
 - continue the Binance futures sentiment-ratio rollout from the completed collection/quality slices into strategy feature-input and research-consumption surfaces
+- make sentiment-aware backtests explainable by surfacing strategy market context inside diagnostics / debug-trace inspection
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -178,4 +179,4 @@
 ## Recommended Next Action
 - if the data-quality UI line stays active, the next most natural slice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` Quality workspace restructure now that `UI Slice 4C` has landed
 - if the data-maintenance line stays active, use the new `/monitoring -> Quality` backfill panel or `scripts/binance_btc_history_backfill.ps1 -Mode incremental` to refresh the BTC tail, then re-run integrity validation to watch the warning-only tail counts shrink
-- if the sentiment-ratio line stays active, the next most natural slice is to surface strategy market context inside diagnostics/trace inspection, then consider broader feature-pipeline formalization
+- if the sentiment-ratio line stays active, the next most natural slice is to surface strategy market context inside diagnostics/trace inspection, then consider broader feature-pipeline formalization only after that evidence path exists
