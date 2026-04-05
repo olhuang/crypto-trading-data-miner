@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from models.backtest import BacktestRunConfig, StrategySessionConfig
 from models.market import BarEvent
@@ -14,6 +14,19 @@ StrategyDecision = Signal | TargetPosition | None
 
 
 @dataclass(slots=True)
+class StrategyMarketContext:
+    feature_input_version: str
+    funding_rate: dict[str, Any] | None = None
+    open_interest: dict[str, Any] | None = None
+    mark_price: dict[str, Any] | None = None
+    index_price: dict[str, Any] | None = None
+    global_long_short_account_ratio: dict[str, Any] | None = None
+    top_trader_long_short_account_ratio: dict[str, Any] | None = None
+    top_trader_long_short_position_ratio: dict[str, Any] | None = None
+    taker_long_short_ratio: dict[str, Any] | None = None
+
+
+@dataclass(slots=True)
 class StrategyEvaluationInput:
     session: StrategySessionConfig
     run_config: BacktestRunConfig
@@ -21,6 +34,7 @@ class StrategyEvaluationInput:
     recent_bars: Sequence[BarEvent]
     current_positions: Mapping[str, Decimal]
     current_cash: Decimal
+    market_context: StrategyMarketContext | None = None
 
 
 class StrategyBase(ABC):

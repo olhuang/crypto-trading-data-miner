@@ -128,6 +128,27 @@ def build_default_assumption_bundle_registry() -> AssumptionBundleRegistry:
     )
     registry.register(
         RegisteredAssumptionBundle(
+            assumption_bundle_code="baseline_perp_sentiment_research",
+            assumption_bundle_version="v1",
+            display_name="Baseline Perp Sentiment Research",
+            description="Starter perpetual-futures research bundle that keeps the bars-based execution assumptions but exposes perp context and sentiment ratios to strategies.",
+            market_scope="perp",
+            assumptions=AssumptionBundleConfig(
+                assumption_bundle_code="baseline_perp_sentiment_research",
+                assumption_bundle_version="v1",
+                market_data_version="md.bars_1m",
+                fee_model_version="ref_fee_schedule_v1",
+                slippage_model_version="fixed_bps_v1",
+                fill_model_version="deterministic_bars_v1",
+                latency_model_version="bars_next_open_v1",
+                feature_input_version="bars_perp_context_v1",
+                benchmark_set_code="btc_perp_baseline_v1",
+                risk_policy=RiskPolicyOverrideConfig(policy_code="perp_medium_v1"),
+            ),
+        )
+    )
+    registry.register(
+        RegisteredAssumptionBundle(
             assumption_bundle_code="stress_costs",
             assumption_bundle_version="v1",
             display_name="Stress Costs Placeholder",

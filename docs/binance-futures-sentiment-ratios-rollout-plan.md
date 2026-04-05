@@ -96,9 +96,18 @@ Status: completed
 
 ### Slice 4: Research Consumption
 
-- expose in feature pipelines
-- join to backtest / replay research views
-- optional compare-set diagnostics
+Status: completed for the first backtest/runtime slice
+
+- expose perp context + sentiment ratios through `bars_perp_context_v1`
+- surface as-of market context to strategy evaluations during bar-stream backtests
+- seed a starter sentiment-aware strategy at `btc_sentiment_momentum@v1.0.0`
+- seed a named assumption bundle at `baseline_perp_sentiment_research@v1`
+
+Next follow-up items:
+
+- expose sentiment-aware strategy parameters in `/monitoring -> Backtests`
+- extend compare/research surfaces so sentiment context can be inspected alongside runs
+- consider trace/diagnostics enrichment when sentiment context materially affects decisions
 
 ## Notes
 

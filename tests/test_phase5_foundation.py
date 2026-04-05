@@ -29,15 +29,17 @@ from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
 from models.backtest import BacktestRunConfig, RiskPolicyConfig, RiskPolicyOverrideConfig, StrategySessionConfig
 from models.common import LiquidityFlag, OrderSide, OrderType, RiskDecision, SignalType
-from models.market import BarEvent
+from models.market import BarEvent, GlobalLongShortAccountRatioEvent, TakerLongShortRatioEvent
 from models.strategy import Signal, TargetPosition
-from storage.db import get_engine
+from storage.db import get_engine, transaction_scope
 from storage.repositories.backtest import BacktestRunRepository
-from storage.repositories.market_data import BarRepository
+from storage.repositories.market_data import BarRepository, GlobalLongShortAccountRatioRepository, TakerLongShortRatioRepository
 from strategy import (
     MovingAverageCrossStrategy,
+    SentimentAwareMovingAverageStrategy,
     StrategyBase,
     StrategyEvaluationInput,
+    StrategyMarketContext,
     UnknownStrategyError,
     build_default_registry,
 )
@@ -79,6 +81,37 @@ def build_bar_at(symbol: str, bar_time: datetime, close: str) -> BarEvent:
             "volume": "10",
         }
     )
+
+
+def _cleanup_strategy_market_context_window(*, start_time: datetime, end_time: datetime) -> None:
+    with transaction_scope() as connection:
+        for table_name, time_column in (
+            ("md.taker_long_short_ratios", "ts"),
+            ("md.global_long_short_account_ratios", "ts"),
+            ("md.bars_1m", "bar_time"),
+        ):
+            connection.execute(
+                text(
+                    f"""
+                    delete from {table_name}
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = :exchange_code
+                          and instrument.unified_symbol = :unified_symbol
+                        limit 1
+                    )
+                      and {time_column} between :start_time and :end_time
+                    """
+                ),
+                {
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            )
 
 
 class OneShotTargetStrategy(StrategyBase):
@@ -151,6 +184,44 @@ class ScheduledTargetStrategy(StrategyBase):
                         "exchange_code": evaluation.bar.exchange_code,
                         "unified_symbol": evaluation.bar.unified_symbol,
                         "target_qty": str(target),
+                    }
+                ],
+            }
+        )
+
+
+class MarketContextEntryStrategy(StrategyBase):
+    strategy_code = "market_context_strategy"
+    strategy_version = "v1.0.0"
+
+    def __init__(self) -> None:
+        self._has_fired = False
+
+    def evaluate(self, evaluation: StrategyEvaluationInput) -> TargetPosition | None:
+        if self._has_fired:
+            return None
+        market_context = evaluation.market_context
+        if market_context is None:
+            return None
+        ratio_snapshot = market_context.global_long_short_account_ratio
+        taker_snapshot = market_context.taker_long_short_ratio
+        if ratio_snapshot is None or taker_snapshot is None:
+            return None
+        if Decimal(str(ratio_snapshot["long_short_ratio"])) < Decimal("1.20"):
+            return None
+        if Decimal(str(taker_snapshot["buy_sell_ratio"])) < Decimal("1.05"):
+            return None
+        self._has_fired = True
+        return TargetPosition.model_validate(
+            {
+                "strategy_code": evaluation.session.strategy_code,
+                "strategy_version": evaluation.session.strategy_version,
+                "target_time": evaluation.bar.bar_time,
+                "positions": [
+                    {
+                        "exchange_code": evaluation.bar.exchange_code,
+                        "unified_symbol": evaluation.bar.unified_symbol,
+                        "target_qty": "1",
                     }
                 ],
             }
@@ -390,6 +461,7 @@ class Phase5FoundationTests(unittest.TestCase):
         }
 
         self.assertIn(("baseline_perp_research", "v1"), bundle_keys)
+        self.assertIn(("baseline_perp_sentiment_research", "v1"), bundle_keys)
         self.assertIn(("baseline_spot_research", "v1"), bundle_keys)
         self.assertIn(("stress_costs", "v1"), bundle_keys)
 
@@ -425,11 +497,41 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(effective_risk.policy_code, "perp_medium_v1")
         self.assertEqual(effective_risk.max_gross_exposure_multiple, Decimal("1.5"))
 
+        sentiment_run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_assumption_bundle_sentiment_resolution",
+                "session": {
+                    "session_code": "bt_btc_assumption_bundle_sentiment_resolution",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_sentiment_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+                "assumption_bundle_code": "baseline_perp_sentiment_research",
+                "assumption_bundle_version": "v1",
+            }
+        )
+        sentiment_assumptions = sentiment_run_config.build_effective_assumption_snapshot()
+        self.assertEqual(sentiment_assumptions.feature_input_version, "bars_perp_context_v1")
+
     def test_default_registry_loads_seeded_example_strategy(self) -> None:
         registry = build_default_registry()
         strategy = registry.create("btc_momentum", "v1.0.0", {"short_window": 3, "long_window": 5, "target_qty": "2"})
         self.assertIsInstance(strategy, MovingAverageCrossStrategy)
         self.assertEqual(strategy.target_qty, Decimal("2"))
+
+        sentiment_strategy = registry.create(
+            "btc_sentiment_momentum",
+            "v1.0.0",
+            {"short_window": 3, "long_window": 5, "target_qty": "2"},
+        )
+        self.assertIsInstance(sentiment_strategy, SentimentAwareMovingAverageStrategy)
+        self.assertEqual(sentiment_strategy.target_qty, Decimal("2"))
 
         with self.assertRaises(UnknownStrategyError):
             registry.create("unknown_strategy", "v1.0.0")
@@ -471,6 +573,70 @@ class Phase5FoundationTests(unittest.TestCase):
 
         self.assertIsInstance(decision, TargetPosition)
         self.assertEqual(decision.positions[0].target_qty, Decimal("1"))
+
+    def test_sentiment_strategy_requires_market_context_for_long_entry(self) -> None:
+        session = StrategySessionConfig.model_validate(
+            {
+                "session_code": "bt_btc_sentiment",
+                "environment": "backtest",
+                "account_code": "paper_main",
+                "strategy_code": "btc_sentiment_momentum",
+                "strategy_version": "v1.0.0",
+                "exchange_code": "binance",
+                "universe": ["BTCUSDT_PERP"],
+            }
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_sentiment_test",
+                "session": session.model_dump(mode="json", by_alias=True),
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+                "feature_input_version": "bars_perp_context_v1",
+            }
+        )
+        bars = [build_bar("BTCUSDT_PERP", index, str(100 + index)) for index in range(20)]
+        strategy = SentimentAwareMovingAverageStrategy(short_window=3, long_window=5)
+
+        no_context_decision = strategy.evaluate(
+            StrategyEvaluationInput(
+                session=session,
+                run_config=run_config,
+                bar=bars[-1],
+                recent_bars=bars,
+                current_positions={},
+                current_cash=Decimal("10000"),
+            )
+        )
+        self.assertIsNone(no_context_decision)
+
+        context_decision = strategy.evaluate(
+            StrategyEvaluationInput(
+                session=session,
+                run_config=run_config,
+                bar=bars[-1],
+                recent_bars=bars,
+                current_positions={},
+                current_cash=Decimal("10000"),
+                market_context=StrategyMarketContext(
+                    feature_input_version="bars_perp_context_v1",
+                    global_long_short_account_ratio={
+                        "event_time": bars[-1].bar_time,
+                        "period_code": "5m",
+                        "long_short_ratio": Decimal("1.50"),
+                    },
+                    taker_long_short_ratio={
+                        "event_time": bars[-1].bar_time,
+                        "period_code": "5m",
+                        "buy_sell_ratio": Decimal("1.10"),
+                    },
+                ),
+            )
+        )
+
+        self.assertIsInstance(context_decision, TargetPosition)
+        self.assertEqual(context_decision.positions[0].target_qty, Decimal("1"))
 
     def test_lifecycle_generates_reduce_only_exit_and_blocks_flip_when_disabled(self) -> None:
         run_config = BacktestRunConfig.model_validate(
@@ -643,6 +809,167 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(result.final_positions["BTCUSDT_PERP"], Decimal("1"))
         self.assertEqual(len(result.fills), 1)
         self.assertEqual(result.fills[0].fill_price, bars[5].open + Decimal("0.0105"))
+
+    def test_runner_load_and_run_surfaces_perp_market_context_to_strategy(self) -> None:
+        start_time = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2026, 4, 1, 0, 5, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_strategy_market_context_window,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_context",
+                "session": {
+                    "session_code": "bt_btc_context",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "market_context_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "initial_cash": "10000",
+                "feature_input_version": "bars_perp_context_v1",
+            }
+        )
+
+        with transaction_scope() as connection:
+            connection.execute(
+                text(
+                    """
+                    delete from md.taker_long_short_ratios
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = :exchange_code
+                          and instrument.unified_symbol = :unified_symbol
+                        limit 1
+                    )
+                      and ts between :start_time and :end_time
+                    """
+                ),
+                {
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    delete from md.global_long_short_account_ratios
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = :exchange_code
+                          and instrument.unified_symbol = :unified_symbol
+                        limit 1
+                    )
+                      and ts between :start_time and :end_time
+                    """
+                ),
+                {
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    delete from md.bars_1m
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = :exchange_code
+                          and instrument.unified_symbol = :unified_symbol
+                        limit 1
+                    )
+                      and bar_time between :start_time and :end_time
+                    """
+                ),
+                {
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            )
+
+            bar_repo = BarRepository()
+            for index in range(5):
+                bar_time = start_time + timedelta(minutes=index)
+                close = Decimal("100") + Decimal(index)
+                bar_repo.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": str(close),
+                            "high": str(close),
+                            "low": str(close),
+                            "close": str(close),
+                            "volume": "10",
+                        }
+                    ),
+                )
+
+            GlobalLongShortAccountRatioRepository().upsert(
+                connection,
+                GlobalLongShortAccountRatioEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    ingest_time=start_time + timedelta(minutes=2),
+                    event_time=start_time + timedelta(minutes=2),
+                    period_code="5m",
+                    long_short_ratio=Decimal("1.30"),
+                    long_account_ratio=Decimal("0.56"),
+                    short_account_ratio=Decimal("0.44"),
+                ),
+            )
+            TakerLongShortRatioRepository().upsert(
+                connection,
+                TakerLongShortRatioEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    ingest_time=start_time + timedelta(minutes=2),
+                    event_time=start_time + timedelta(minutes=2),
+                    period_code="5m",
+                    buy_sell_ratio=Decimal("1.08"),
+                    buy_vol=Decimal("125"),
+                    sell_vol=Decimal("116"),
+                ),
+            )
+
+            runner = BacktestRunnerSkeleton(
+                run_config,
+                strategy=MarketContextEntryStrategy(),
+                fill_model=DeterministicBarsFillModel(
+                    fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                    slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+                ),
+            )
+            result = runner.load_and_run(connection)
+
+        generated_signals = [signal for step in result.steps for signal in step.signals]
+        self.assertEqual(len(generated_signals), 1)
+        self.assertEqual(generated_signals[0].signal_time, start_time + timedelta(minutes=2))
+        self.assertEqual(result.final_positions["BTCUSDT_PERP"], Decimal("1"))
+        self.assertEqual(len(result.fills), 1)
 
     def test_runner_blocks_new_entries_when_equity_floor_is_breached(self) -> None:
         run_config = BacktestRunConfig.model_validate(

@@ -13,9 +13,9 @@ from models.strategy import Signal, TargetPosition
 from sqlalchemy.engine import Connection
 from storage.repositories.backtest import BacktestRunRepository
 from storage.repositories.strategy import StrategySignalRepository
-from strategy import StrategyBase, StrategyEvaluationInput, StrategyRegistry, build_default_registry
+from strategy import StrategyBase, StrategyEvaluationInput, StrategyMarketContext, StrategyRegistry, build_default_registry
 
-from .data import BacktestBarLoader
+from .data import BacktestBarLoader, BacktestPerpContextCursor, BacktestPerpContextLoader
 from .fills import DeterministicBarsFillModel, SimulatedFill, SimulatedOrder
 from .lifecycle import BacktestLifecycle, BacktestStepPlan
 from .performance import PerformancePoint, PerformanceSummary, build_performance_point, summarize_performance
@@ -90,6 +90,7 @@ class BacktestRunnerSkeleton:
         *,
         current_positions: Mapping[str, Decimal] | None = None,
         current_cash: Decimal = Decimal("0"),
+        market_context: StrategyMarketContext | None = None,
     ) -> BacktestStepResult:
         if bar.unified_symbol not in self.run_config.session.universe:
             raise ValueError("bar unified_symbol must belong to the configured strategy session universe")
@@ -102,6 +103,7 @@ class BacktestRunnerSkeleton:
                 recent_bars=recent_bars,
                 current_positions=positions,
                 current_cash=current_cash,
+                market_context=market_context,
             )
         )
         plan = self.lifecycle.plan_from_decision(decision, positions)
@@ -121,6 +123,7 @@ class BacktestRunnerSkeleton:
         *,
         initial_positions: Mapping[str, Decimal] | None = None,
         initial_cash: Decimal | None = None,
+        market_context_by_symbol: Mapping[str, BacktestPerpContextCursor] | None = None,
         persist_signals: bool = False,
         connection: Connection | None = None,
         capture_steps: bool = True,
@@ -180,11 +183,17 @@ class BacktestRunnerSkeleton:
                     recent_bars = deque(maxlen=history_cap) if history_cap is not None else []
                     recent_bars_by_symbol[bar.unified_symbol] = recent_bars
                 recent_bars.append(bar)
+                market_context = None
+                if market_context_by_symbol is not None:
+                    context_cursor = market_context_by_symbol.get(bar.unified_symbol)
+                    if context_cursor is not None:
+                        market_context = context_cursor.context_at(bar.bar_time)
                 step_result = self.evaluate_bar(
                     bar,
                     recent_bars,
                     current_positions=portfolio.positions,
                     current_cash=portfolio.cash,
+                    market_context=market_context,
                 )
 
                 signal_id_by_symbol: dict[str, int] = {}
@@ -293,14 +302,17 @@ class BacktestRunnerSkeleton:
         connection: Connection,
         *,
         bar_loader: BacktestBarLoader | None = None,
+        context_loader: BacktestPerpContextLoader | None = None,
         persist_signals: bool = False,
         capture_steps: bool = True,
         capture_debug_traces: bool = False,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
         bars = loader.load_bars(connection, self.run_config)
+        market_context_by_symbol = (context_loader or BacktestPerpContextLoader()).load_contexts(connection, self.run_config)
         return self.run_bars(
             bars,
+            market_context_by_symbol=market_context_by_symbol,
             persist_signals=persist_signals,
             connection=connection,
             capture_steps=capture_steps,
@@ -312,6 +324,7 @@ class BacktestRunnerSkeleton:
         connection: Connection,
         *,
         bar_loader: BacktestBarLoader | None = None,
+        context_loader: BacktestPerpContextLoader | None = None,
         persist_signals: bool = True,
         capture_steps: bool = False,
         persist_debug_traces: bool = False,
@@ -319,6 +332,7 @@ class BacktestRunnerSkeleton:
         loop_result = self.load_and_run(
             connection,
             bar_loader=bar_loader,
+            context_loader=context_loader,
             persist_signals=persist_signals,
             capture_steps=capture_steps,
             capture_debug_traces=persist_debug_traces,

@@ -12,11 +12,7 @@
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
-- keep the new `/monitoring` integrity-validation surface aligned to the broader Quality workspace plan while deciding whether the next follow-up is dataset-detail polish or BTC backfill status
-- keep the new `/monitoring` BTC backfill panel aligned with the broader Quality workspace plan while deciding whether the next follow-up is dataset-detail polish or stronger Quality segmentation
-- finish the remaining BTC perp `bars_1m` integrity remediation now that the earlier `mark/index` gap and fixture-contamination sources are understood
-- keep the Quality integrity semantics readable now that coverage shortfall, true internal gaps, and tail-shortfall are separated
-- keep the Binance BTC `open_interest` maintenance path healthy now that local debugging has confirmed Binance returns the expected recent history and the remaining work is local catch-up/repair
+- continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
 
 ## Blocked
 - none currently recorded
@@ -28,11 +24,8 @@
 - connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
-- expose dataset-integrity validation and/or BTC backfill status inside `/monitoring` if the data-quality line becomes the next active slice
-- continue the Quality workspace from `docs/quality-integrity-ui-plan.md`, most likely with `UI Slice 4C: BTC Backfill Status Panel`
-- run the bounded BTC perp bar repair tool locally and then re-run integrity validation to verify the corrupt-minute and tail-gap windows are gone
-- after the remaining BTC perp bar repair is confirmed, continue the Quality workspace with `UI Slice 4C: BTC Backfill Status Panel`
-- run the new local OI debug tool and verify whether Binance itself truncates `openInterestHist` coverage before `2026-04-01`
+- expose the new sentiment-aware strategy/bundle cleanly in `/monitoring -> Backtests`
+- decide whether the next sentiment-ratio follow-up is trace/diagnostics context visibility or broader feature-pipeline formalization
 
 ## Recently Done
 - added `docs/quality-integrity-ui-plan.md` to define how bounded integrity validation and BTC backfill status should land inside the current `/monitoring` Quality workspace
@@ -56,6 +49,9 @@
 - refreshed the default bounded repair windows for `scripts/repair_bars_integrity_windows.py` and `scripts/repair_mark_index_gap.py` so they now match the currently remaining BTC perp integrity failures, including the `2026-04-05T02:30:00Z -> 2026-04-05T02:46:59Z` bars gap
 - implemented `UI Slice 4C` for `/monitoring -> Quality`, adding BTC backfill status visibility plus a UI-triggered incremental backfill action backed by API endpoints and a backend service layer
 - confirmed the bounded BTC perp repair work is complete enough that integrity is now warning-only for `2026-03-06 -> 2026-04-05`; no true internal gaps/corrupt rows remain in the selected window
+- added the first Phase 5 sentiment-ratio research-consumption slice by surfacing perp market context into strategy evaluations through `bars_perp_context_v1`
+- seeded `btc_sentiment_momentum@v1.0.0` plus `baseline_perp_sentiment_research@v1`
+- added Phase 5 regression coverage proving a runner can trigger a trade from persisted Binance sentiment-ratio context
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

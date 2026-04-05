@@ -8,6 +8,7 @@
 - keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
 - provide a local runnable Binance BTC history backfill path with explicit progress/status output now that direct outbound execution is blocked inside the current harness
 - continue the Quality workspace evolve path now that the first integrity-validation UI slice is live inside `/monitoring`
+- continue the Binance futures sentiment-ratio rollout from the completed collection/quality slices into strategy feature-input and research-consumption surfaces
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -54,7 +55,7 @@
 - the Quality integrity dataset labels now explicitly say `First/Last Record In Selected Window`, reducing confusion with global dataset coverage
 - BTC `open_interest` incremental catch-up now always re-fetches the currently available 30-day window, so recent-tail gaps can be repaired instead of only appending after the latest stored timestamp
 - REST `premiumIndex` normalization now uses Binance payload event time for `mark_prices / index_prices` snapshot writes, preventing new microsecond poll timestamps from contaminating the historical minute series
-- `docs/quality-integrity-ui-plan.md` now reflects that `UI Slice 4A` is complete and points the next likely resume slice toward `UI Slice 4C: BTC Backfill Status Panel`
+- `docs/quality-integrity-ui-plan.md` now reflects that the initial Quality integrity slice plus the BTC backfill status slice are complete, leaving dataset-detail polish or broader workspace restructure as the next likely UI follow-up
 - a reusable cleanup tool now exists at `scripts/cleanup_offgrid_mark_index_rows.py` for deleting legacy off-grid `mark_prices / index_prices` rows that were previously written with non-minute timestamps
 - the local `BTCUSDT_PERP` `mark_prices / index_prices` series has already been remediated with that tool, deleting 67 off-grid rows from each table
 - after the cleanup, a dry-run confirms there are no remaining off-grid `mark/index` rows for `BTCUSDT_PERP`
@@ -85,6 +86,11 @@
 - `scripts/binance_btc_history_backfill.py --incremental` is now gap-aware for available history: it plans leading/internal/tail repair windows per dataset instead of only appending after the latest checkpoint, and `open_interest` availability now floors to the UTC day start 30 days ago
 - the BTC backfill status artifact is now safer for UI polling because `scripts/binance_btc_history_backfill.py` writes atomically and records `process_id` / `requested_by`
 - the latest local BTC perp integrity validation for `2026-03-06 -> 2026-04-05` now reports `failed_datasets = 0`; all remaining findings are warning-only coverage/tail shortfalls
+- the Binance futures sentiment-ratio rollout now has an initial research-consumption slice: Phase 5 strategies can receive funding/OI/mark/index plus ratio snapshots as `StrategyMarketContext` when `feature_input_version = bars_perp_context_v1`
+- a new starter research strategy now exists at `btc_sentiment_momentum@v1.0.0`; it reuses the moving-average baseline but only allows long entries when the global account long/short ratio and taker buy/sell ratio satisfy configured thresholds
+- a new named assumption bundle now exists at `baseline_perp_sentiment_research@v1`, keeping the baseline perp execution assumptions while turning on `bars_perp_context_v1`
+- the Phase 5 runner now loads prior-row plus in-window perp context series for funding rate, open interest, mark price, index price, global account ratio, top-trader account ratio, top-trader position ratio, and taker ratio, then passes the latest as-of snapshot into each strategy evaluation
+- targeted Phase 5 regression coverage now proves the seeded strategy registry exposes `btc_sentiment_momentum`, the new assumption bundle resolves correctly, and a runner can trigger a trade from persisted sentiment-ratio context
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -95,15 +101,15 @@
 - replay investigation notes and unified annotation service remain future work
 - the actual Binance BTC long-history pull still has to be run on the local machine outside the harness
 - the quality-side UI direction is now explicit: keep integrity validation bounded by date window, add quick-range helpers, and stage BTC backfill status as a companion quality surface instead of a separate top-level page
-- the Quality page still does not surface BTC backfill status, so operators still need the local status file or PowerShell wrapper for that workflow
 - the new integrity UI has not yet been browser e2e tested in this harness
 - current `mark_prices / index_prices` integrity failures no longer look dominated by timestamp contamination; the remaining problem is historical coverage shortfall plus a real missing block after `2026-04-03T08:39Z`
 - `bars_1m` still contains a real corrupt row and a small tail gap, so integrity work is not finished even after the `mark/index` cleanup
 - the actual bounded `mark/index` gap refill still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 - the actual bounded `bars_1m` refill for the corrupt-minute and tail-gap windows still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
-- the Quality workspace still lacks the planned BTC backfill status panel, so integrity semantics are clearer now but backfill progress still is not visible in `/monitoring`
 - the harness still cannot execute the actual Binance repair/refill calls end-to-end because outbound network access is blocked here; only the operator machine can run the bounded repair scripts and incremental catch-up
 - the new UI-triggered incremental path is intentionally local-operator oriented; it currently launches a detached local process and does not yet integrate with the broader generic job orchestration spec
+- the current Backtests launch form still assumes the original `btc_momentum` parameter set; it does not yet expose the new sentiment-aware thresholds or make the new research bundle especially discoverable
+- the current backtest diagnostics/trace surfaces do not yet show the strategy market context that drove a sentiment-aware decision, so debugging remains signal/decision-centric rather than feature-context-centric
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -159,7 +165,16 @@
 - `src/jobs/data_quality.py`
 - `tests/test_phase4_quality.py`
 - `tmp/binance_btc_history_backfill_status.json`
+- `docs/binance-futures-sentiment-ratios-rollout-plan.md`
+- `src/backtest/data.py`
+- `src/backtest/runner.py`
+- `src/strategy/base.py`
+- `src/strategy/examples.py`
+- `src/strategy/registry.py`
+- `src/backtest/assumption_registry.py`
+- `tests/test_phase5_foundation.py`
 
 ## Recommended Next Action
 - if the data-quality UI line stays active, the next most natural slice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` Quality workspace restructure now that `UI Slice 4C` has landed
 - if the data-maintenance line stays active, use the new `/monitoring -> Quality` backfill panel or `scripts/binance_btc_history_backfill.ps1 -Mode incremental` to refresh the BTC tail, then re-run integrity validation to watch the warning-only tail counts shrink
+- if the sentiment-ratio line stays active, the next most natural slice is to expose `btc_sentiment_momentum` and `baseline_perp_sentiment_research` cleanly in `/monitoring -> Backtests`, then consider trace/diagnostics surfacing for strategy market context

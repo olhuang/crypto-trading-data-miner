@@ -110,6 +110,8 @@ Major implementation areas now present include:
 - strategy base interface, registry, and seeded example strategy under `src/strategy/`
 - Phase 5 backtest lifecycle/runner skeleton under `src/backtest/`
 - Phase 5 bars loader, bar-stream evaluation loop, canonical signal normalization, and optional signal persistence under `src/backtest/` and `src/storage/repositories/strategy.py`
+- Phase 5 perp-context feature loading for backtests, including funding/OI/mark/index plus Binance sentiment-ratio snapshots surfaced into strategy evaluation inputs through `bars_perp_context_v1`
+- a seeded sentiment-aware example strategy (`btc_sentiment_momentum@v1.0.0`) plus a starter named assumption bundle (`baseline_perp_sentiment_research@v1`) for research runs that consume perp context
 - Phase 5 deterministic bars-based market/limit fill simulation with fee/slippage handling under `src/backtest/`
 - Phase 5 first-wave shared risk guardrails with session-level risk policy and blocked-intent runtime summary under `src/backtest/`
 - Phase 5 run-level risk overrides, effective risk-policy snapshot persistence, and assumption-bundle metadata linkage under `src/models/backtest.py`, `src/backtest/`, and `src/storage/repositories/backtest.py`
