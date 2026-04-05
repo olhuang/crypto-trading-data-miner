@@ -15,6 +15,7 @@
 - keep the new `/monitoring` integrity-validation surface aligned to the broader Quality workspace plan while deciding whether the next follow-up is dataset-detail polish or BTC backfill status
 - finish the remaining BTC perp `bars_1m` integrity remediation now that the earlier `mark/index` gap and fixture-contamination sources are understood
 - keep the Quality integrity semantics readable now that coverage shortfall, true internal gaps, and tail-shortfall are separated
+- keep the Binance BTC `open_interest` maintenance path diagnosable now that local validation shows coverage beginning later than expected
 
 ## Blocked
 - none currently recorded
@@ -30,6 +31,7 @@
 - continue the Quality workspace from `docs/quality-integrity-ui-plan.md`, most likely with `UI Slice 4C: BTC Backfill Status Panel`
 - run the bounded BTC perp bar repair tool locally and then re-run integrity validation to verify the corrupt-minute and tail-gap windows are gone
 - after the remaining BTC perp bar repair is confirmed, continue the Quality workspace with `UI Slice 4C: BTC Backfill Status Panel`
+- run the new local OI debug tool and verify whether Binance itself truncates `openInterestHist` coverage before `2026-04-01`
 
 ## Recently Done
 - added `docs/quality-integrity-ui-plan.md` to define how bounded integrity validation and BTC backfill status should land inside the current `/monitoring` Quality workspace
@@ -47,6 +49,8 @@
 - cleaned up dataset-integrity semantics so interval datasets now classify coverage shortfall and tail shortfall as `warning`, leaving `fail` for true internal gaps, duplicates, and corrupt rows
 - updated the `/monitoring -> Quality` integrity UI to surface the new coverage/internal/tail breakdown directly in summary cards, dataset rows, and selected dataset detail
 - fixed the integrity API contract so the new warning/coverage/tail fields now reach the UI correctly
+- hardened BTC `open_interest` history catch-up so multi-day windows are executed as day-sized refresh calls
+- added local `open_interest` debug tooling so operators can inspect raw Binance `openInterestHist` coverage by requested day window
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

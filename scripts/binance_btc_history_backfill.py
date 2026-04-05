@@ -26,6 +26,7 @@ from storage.lookups import resolve_instrument_id
 UTC = timezone.utc
 DEFAULT_STATUS_FILE = REPO_ROOT / "tmp" / "binance_btc_history_backfill_status.json"
 OPEN_INTEREST_LOOKBACK_DAYS = 30
+OPEN_INTEREST_CHUNK_DAYS = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +116,17 @@ def build_month_windows(start_time: datetime, end_time: datetime, *, chunk_month
     cursor = start_time
     while cursor <= end_time:
         next_cursor = add_months(cursor, chunk_months)
+        window_end = min(next_cursor - timedelta(milliseconds=1), end_time)
+        windows.append((cursor, window_end))
+        cursor = next_cursor
+    return windows
+
+
+def build_day_windows(start_time: datetime, end_time: datetime, *, chunk_days: int) -> list[tuple[datetime, datetime]]:
+    windows: list[tuple[datetime, datetime]] = []
+    cursor = start_time
+    while cursor <= end_time:
+        next_cursor = cursor + timedelta(days=chunk_days)
         window_end = min(next_cursor - timedelta(milliseconds=1), end_time)
         windows.append((cursor, window_end))
         cursor = next_cursor
@@ -546,6 +558,78 @@ def open_interest_available_from() -> datetime:
     return utc_now() - timedelta(days=OPEN_INTEREST_LOOKBACK_DAYS)
 
 
+def run_open_interest_history_window(
+    *,
+    symbol: str,
+    unified_symbol: str,
+    requested_by: str,
+    start_time: datetime,
+    end_time: datetime,
+) -> dict[str, Any]:
+    open_interest_floor = open_interest_available_from()
+    if end_time < open_interest_floor:
+        return {
+            "status": "skipped_unavailable",
+            "rows_written": 0,
+            "history_rows_written": 0,
+            "ingestion_job_ids": [],
+            "effective_start": None,
+            "availability_note": (
+                f"Binance open interest history endpoint is treated as available only from "
+                f"{open_interest_floor.isoformat()} onward"
+            ),
+            "chunk_results": [],
+        }
+
+    effective_start = max(start_time, open_interest_floor)
+    windows = build_day_windows(effective_start, end_time, chunk_days=OPEN_INTEREST_CHUNK_DAYS)
+    chunk_results: list[dict[str, Any]] = []
+    ingestion_job_ids: list[int] = []
+    total_rows_written = 0
+    total_history_rows_written = 0
+
+    for window_start, window_end in windows:
+        result = run_market_snapshot_refresh(
+            symbol=symbol,
+            unified_symbol=unified_symbol,
+            requested_by=requested_by,
+            exchange_code="binance",
+            history_start_time=window_start,
+            history_end_time=window_end,
+            include_funding=False,
+            include_open_interest=True,
+            include_mark_price=False,
+            include_index_price=False,
+        )
+        chunk_results.append(
+            {
+                "window_start": window_start.isoformat(),
+                "window_end": window_end.isoformat(),
+                "status": result.status,
+                "rows_written": result.records_written,
+                "history_rows_written": result.history_rows_written,
+                "ingestion_job_id": result.ingestion_job_id,
+            }
+        )
+        total_rows_written += result.records_written
+        total_history_rows_written += result.history_rows_written
+        ingestion_job_ids.append(result.ingestion_job_id)
+
+    return {
+        "status": "succeeded",
+        "rows_written": total_rows_written,
+        "history_rows_written": total_history_rows_written,
+        "ingestion_job_ids": ingestion_job_ids,
+        "effective_start": effective_start.isoformat(),
+        "availability_note": (
+            "window start adjusted to current open-interest availability floor"
+            if effective_start != start_time
+            else None
+        ),
+        "chunk_results": chunk_results,
+    }
+
+
 def run_perp_snapshot_window(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
     component_results: list[dict[str, Any]] = []
     total_rows_written = 0
@@ -579,56 +663,29 @@ def run_perp_snapshot_window(task: ChunkTask, *, requested_by: str) -> dict[str,
     total_history_rows_written += funding_result.history_rows_written
     job_ids.append(funding_result.ingestion_job_id)
 
-    open_interest_floor = open_interest_available_from()
-    if task.end_time < open_interest_floor:
-        component_results.append(
-            {
-                "component": "open_interest",
-                "status": "skipped_unavailable",
-                "rows_written": 0,
-                "history_rows_written": 0,
-                "ingestion_job_id": None,
-                "window_start": task.start_time.isoformat(),
-                "window_end": task.end_time.isoformat(),
-                "availability_note": (
-                    f"Binance open interest history endpoint is treated as available only from "
-                    f"{open_interest_floor.isoformat()} onward"
-                ),
-            }
-        )
-    else:
-        effective_start = max(task.start_time, open_interest_floor)
-        open_interest_result = run_market_snapshot_refresh(
-            symbol=task.symbol,
-            unified_symbol=task.unified_symbol,
-            requested_by=requested_by,
-            exchange_code="binance",
-            history_start_time=effective_start,
-            history_end_time=task.end_time,
-            include_funding=False,
-            include_open_interest=True,
-            include_mark_price=False,
-            include_index_price=False,
-        )
-        component_results.append(
-            {
-                "component": "open_interest",
-                "status": open_interest_result.status,
-                "rows_written": open_interest_result.records_written,
-                "history_rows_written": open_interest_result.history_rows_written,
-                "ingestion_job_id": open_interest_result.ingestion_job_id,
-                "window_start": effective_start.isoformat(),
-                "window_end": task.end_time.isoformat(),
-                "availability_note": (
-                    "window start adjusted to current open-interest availability floor"
-                    if effective_start != task.start_time
-                    else None
-                ),
-            }
-        )
-        total_rows_written += open_interest_result.records_written
-        total_history_rows_written += open_interest_result.history_rows_written
-        job_ids.append(open_interest_result.ingestion_job_id)
+    open_interest_result = run_open_interest_history_window(
+        symbol=task.symbol,
+        unified_symbol=task.unified_symbol,
+        requested_by=requested_by,
+        start_time=task.start_time,
+        end_time=task.end_time,
+    )
+    component_results.append(
+        {
+            "component": "open_interest",
+            "status": open_interest_result["status"],
+            "rows_written": open_interest_result["rows_written"],
+            "history_rows_written": open_interest_result["history_rows_written"],
+            "ingestion_job_ids": open_interest_result["ingestion_job_ids"],
+            "window_start": open_interest_result["effective_start"] or task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+            "availability_note": open_interest_result["availability_note"],
+            "chunk_results": open_interest_result["chunk_results"],
+        }
+    )
+    total_rows_written += open_interest_result["rows_written"]
+    total_history_rows_written += open_interest_result["history_rows_written"]
+    job_ids.extend(open_interest_result["ingestion_job_ids"])
 
     mark_index_result = run_market_snapshot_refresh(
         symbol=task.symbol,
@@ -716,27 +773,24 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
         }
 
     if task.task_kind == "open_interest":
-        result = run_market_snapshot_refresh(
+        result = run_open_interest_history_window(
             symbol=task.symbol,
             unified_symbol=task.unified_symbol,
             requested_by=requested_by,
-            exchange_code="binance",
-            history_start_time=task.start_time,
-            history_end_time=task.end_time,
-            include_funding=False,
-            include_open_interest=True,
-            include_mark_price=False,
-            include_index_price=False,
+            start_time=task.start_time,
+            end_time=task.end_time,
         )
         return {
             "dataset_key": task.dataset_key,
             "label": task.label,
-            "status": result.status,
-            "rows_written": result.records_written,
-            "history_rows_written": result.history_rows_written,
-            "ingestion_job_id": result.ingestion_job_id,
-            "window_start": task.start_time.isoformat(),
+            "status": result["status"],
+            "rows_written": result["rows_written"],
+            "history_rows_written": result["history_rows_written"],
+            "ingestion_job_ids": result["ingestion_job_ids"],
+            "window_start": result["effective_start"] or task.start_time.isoformat(),
             "window_end": task.end_time.isoformat(),
+            "availability_note": result["availability_note"],
+            "chunk_results": result["chunk_results"],
         }
 
     if task.task_kind == "mark_prices":

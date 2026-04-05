@@ -75,6 +75,9 @@
 - the `/monitoring -> Quality` integrity summary cards, dataset table, and selected dataset detail now expose the new coverage/internal/tail breakdown directly
 - a regression test now exists in `tests/test_phase4_quality.py` to prove coverage-only plus tail-only interval shortfalls are classified as `warning`
 - the integrity API resource mapping now includes the new warning/coverage/tail fields, so `/monitoring -> Quality` can render the new semantics correctly instead of showing placeholder dashes
+- Binance BTC `open_interest` catch-up is now more defensive: history refreshes run in day-sized windows instead of one large recent-tail request
+- local debug tooling now exists at `scripts/debug_open_interest_history.py` plus `scripts/debug_open_interest_history.ps1` so the actual `openInterestHist` response coverage can be inspected window by window on the operator machine
+- a regression test now exists in `tests/test_binance_btc_history_backfill.py` proving multi-day OI history repair windows are split into daily refresh calls
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -92,6 +95,7 @@
 - the actual bounded `mark/index` gap refill still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 - the actual bounded `bars_1m` refill for the corrupt-minute and tail-gap windows still must be executed locally against Binance; the current harness can implement the repair tooling but cannot perform the outbound network fetch itself
 - the Quality workspace still lacks the planned BTC backfill status panel, so integrity semantics are clearer now but backfill progress still is not visible in `/monitoring`
+- the harness still cannot answer the remaining OI coverage question end-to-end because outbound Binance requests are blocked here; the new local debug tool must be run on the operator machine
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -138,6 +142,9 @@
 - `src/jobs/data_quality.py`
 - `tests/test_phase4_quality.py`
 - `docs/quality-integrity-ui-plan.md`
+- `scripts/debug_open_interest_history.py`
+- `scripts/debug_open_interest_history.ps1`
+- `tests/test_binance_btc_history_backfill.py`
 - `scripts/validate_dataset_integrity.py`
 - `scripts/validate_dataset_integrity.ps1`
 - `tests/test_binance_btc_history_backfill.py`
@@ -147,3 +154,4 @@
 
 ## Recommended Next Action
 - if the data-quality line stays active, first run `scripts/repair_bars_integrity_windows.ps1` locally and re-run BTC perp integrity validation; after the corrupt-minute/tail-gap repair is confirmed, either continue to `UI Slice 4C: BTC Backfill Status Panel` or move to coverage-policy cleanup for `funding_rates / open_interest / mark / index`
+- for the remaining OI question, run `scripts/debug_open_interest_history.ps1 -StartTime 2026-03-06T00:00:00Z -EndTime 2026-04-05T00:00:00Z -OutputJson` locally, then compare the earliest returned timestamp with the local `md.open_interest` coverage

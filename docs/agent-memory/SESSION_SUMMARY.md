@@ -37,6 +37,10 @@
 - the `/monitoring -> Quality` integrity summary cards, dataset table, and selected dataset detail now expose the new coverage/internal/tail breakdown instead of flattening everything into one `missing` bucket
 - added a regression test proving a dataset with only leading coverage shortfall plus trailing tail shortfall is classified as `warning`, not `fail`
 - fixed the `/api/v1/quality/integrity` resource mapping so the new integrity fields (`warning_datasets`, `coverage_shortfall_count`, `internal_missing_count`, `tail_missing_count`) are now actually returned to the UI instead of being dropped at the API boundary
+- hardened Binance BTC `open_interest` catch-up so history fetches now execute as daily windows instead of one large recent-tail request, reducing the risk that endpoint pagination/window quirks truncate the captured coverage
+- added `scripts/debug_open_interest_history.py` and `scripts/debug_open_interest_history.ps1` so local operators can inspect what the Binance `openInterestHist` endpoint actually returns for each requested time window
+- added a regression test proving the new `open_interest` history helper chunks a multi-day window into day-sized refresh calls
+- confirmed the debug wrapper itself works, but the current harness still cannot execute the network call to Binance due outbound socket restrictions
 
 ## Files Changed
 - `frontend/monitoring/index.html`
@@ -58,6 +62,9 @@
 - `src/jobs/data_quality.py`
 - `docs/quality-integrity-ui-plan.md`
 - `tests/test_phase4_quality.py`
+- `scripts/debug_open_interest_history.py`
+- `scripts/debug_open_interest_history.ps1`
+- `tests/test_binance_btc_history_backfill.py`
 
 ## Decisions
 - keep integrity validation inside the existing `Quality` page instead of creating a new top-level nav item
@@ -75,6 +82,7 @@
 - the repo-side source of `bars_1m` fixture contamination is fixed, but the actual Binance refill for the corrupt minute and tail-gap windows still must be run locally because the harness cannot perform outbound market-data fetches
 - `BTCUSDT_PERP bars_1m` should be re-validated after running `scripts/repair_bars_integrity_windows.ps1`; until then, integrity will still show the known corrupt candle and tail gaps
 - the new integrity semantics are in place, but the Quality workspace still does not surface BTC backfill status yet, so operators still need the local wrapper/status file for that part of the workflow
+- the `open_interest` path is now more defensive, but the actual question of how far back Binance will return OI history still has to be confirmed from a real local debug run because the harness cannot make the outbound request
 
 ## Next
 - if the data-quality UI line remains active, build `UI Slice 4C: BTC Backfill Status Panel`
@@ -82,3 +90,4 @@
 - if data remediation stays active, run `scripts/repair_mark_index_gap.ps1` locally and then re-run integrity validation to confirm the bounded BTC perp `mark/index` gap is gone
 - run `scripts/repair_bars_integrity_windows.ps1` locally, then re-run BTC perp integrity validation to confirm the corrupt `bars_1m` candle and tail-gap windows are repaired
 - if the UI line stays active after that, move to `UI Slice 4C: BTC Backfill Status Panel`
+- run `.\scripts\debug_open_interest_history.ps1 -StartTime 2026-03-06T00:00:00Z -EndTime 2026-04-05T00:00:00Z -OutputJson` locally to confirm whether Binance itself is truncating OI coverage before `2026-04-01`
