@@ -11,6 +11,7 @@
 - `tail` findings for supported datasets can now trigger dataset-scoped incremental backfill from the same findings table
 - supported non-bars `gap` findings can now trigger dataset-scoped incremental repair from the same findings table
 - non-retention-limited `coverage` findings can now trigger `Backfill Coverage` from the same findings table
+- finding-action eligibility now keys off dataset policy, so supported `mark/index/sentiment` gap findings do not depend on a fragile `status === fail` check to render their repair button
 - added a dedicated integrity-repair status box in the Quality workspace so repair progress and errors are visible without relying on alerts
 - strengthened the integrity-repair status flow so finding-triggered incremental backfills now keep updating their progress while the detached backfill job is running, instead of only showing a one-time queued message
 - fixed the generic bars repair script so spot repairs no longer fall back to old BTC perp hard-coded windows; when no explicit window is supplied it now defaults to auto-detect against the requested unified symbol

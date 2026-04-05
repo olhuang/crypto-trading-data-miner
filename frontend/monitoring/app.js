@@ -1143,6 +1143,16 @@ function buildDatasetScopedIncrementalFindingAction(dataset, finding, label) {
   };
 }
 
+function isRetentionLimitedIntegrityDataset(dataType) {
+  return [
+    "open_interest",
+    "global_long_short_account_ratios",
+    "top_trader_long_short_account_ratios",
+    "top_trader_long_short_position_ratios",
+    "taker_long_short_ratios",
+  ].includes(dataType);
+}
+
 function buildIntegrityFindingAction(dataset, finding) {
   if (dataset?.data_type === "bars_1m" && finding?.status === "fail" && ["gap", "corrupt"].includes(finding?.category)) {
     return {
@@ -1155,11 +1165,11 @@ function buildIntegrityFindingAction(dataset, finding) {
     return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Run Incremental");
   }
 
-  if (finding?.category === "gap" && dataset?.data_type !== "bars_1m" && finding?.status === "fail") {
+  if (finding?.category === "gap" && dataset?.data_type !== "bars_1m") {
     return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Repair via Incremental");
   }
 
-  if (finding?.category === "coverage" && dataset?.data_type !== "open_interest") {
+  if (finding?.category === "coverage" && !isRetentionLimitedIntegrityDataset(dataset?.data_type)) {
     return buildDatasetScopedIncrementalFindingAction(dataset, finding, "Backfill Coverage");
   }
 
