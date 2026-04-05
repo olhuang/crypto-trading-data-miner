@@ -134,6 +134,23 @@ def build_day_windows(start_time: datetime, end_time: datetime, *, chunk_days: i
     return windows
 
 
+def floor_to_interval(timestamp: datetime, interval_seconds: int) -> datetime:
+    epoch_seconds = int(timestamp.timestamp())
+    floored_seconds = epoch_seconds - (epoch_seconds % interval_seconds)
+    return datetime.fromtimestamp(floored_seconds, tz=UTC)
+
+
+def ceil_to_interval(timestamp: datetime, interval_seconds: int) -> datetime:
+    floored = floor_to_interval(timestamp, interval_seconds)
+    if floored >= timestamp.replace(microsecond=0):
+        return floored
+    return floored + timedelta(seconds=interval_seconds)
+
+
+def align_window_to_interval(start_time: datetime, end_time: datetime, interval_seconds: int) -> tuple[datetime, datetime]:
+    return ceil_to_interval(start_time, interval_seconds), floor_to_interval(end_time, interval_seconds)
+
+
 def build_dataset_specs() -> list[DatasetSpec]:
     return [
         DatasetSpec(
@@ -228,6 +245,24 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             checkpoint_interval_seconds=60,
         ),
     ]
+
+
+def planning_interval_seconds(spec: DatasetSpec) -> int | None:
+    if spec.task_kind == "funding_rates":
+        return int(timedelta(hours=8).total_seconds())
+    return spec.checkpoint_interval_seconds
+
+
+def strict_alignment_required(spec: DatasetSpec) -> bool:
+    return spec.task_kind in {"bars", "open_interest", "mark_prices", "index_prices"}
+
+
+def bucket_expression_sql(time_column: str, interval_seconds: int) -> str:
+    truncated = f"date_trunc('second', {time_column})"
+    return (
+        f"({truncated} - "
+        f"((extract(epoch from {truncated})::bigint % {interval_seconds}) * interval '1 second'))"
+    )
 
 
 def build_chunk_tasks(start_time: datetime, end_time: datetime) -> list[ChunkTask]:
@@ -376,6 +411,103 @@ def coverage_row(
     return payload
 
 
+def planned_gap_windows(
+    connection,
+    *,
+    spec: DatasetSpec,
+    exchange_code: str,
+    start_time: datetime,
+    end_time: datetime,
+) -> list[tuple[datetime, datetime]]:
+    assert spec.table_name is not None
+    assert spec.time_column is not None
+
+    interval_seconds = planning_interval_seconds(spec)
+    instrument_id = resolve_instrument_id(connection, exchange_code, spec.unified_symbol)
+    effective_start = start_time
+    if spec.task_kind == "open_interest":
+        effective_start = max(effective_start, open_interest_available_from())
+
+    if interval_seconds is None:
+        if effective_start > end_time:
+            return []
+        return [(effective_start, end_time)]
+
+    aligned_start, aligned_end = align_window_to_interval(effective_start, end_time, interval_seconds)
+    if aligned_end < aligned_start:
+        return []
+
+    where_clauses = [
+        "instrument_id = :instrument_id",
+        f"{spec.time_column} between :start_time and :end_time",
+    ]
+    if strict_alignment_required(spec):
+        where_clauses.append(aligned_checkpoint_condition_sql(spec.time_column, interval_seconds))
+
+    bucket_expr = bucket_expression_sql(spec.time_column, interval_seconds)
+    where_sql = " and ".join(where_clauses)
+    rows = connection.execute(
+        text(
+            f"""
+            with buckets as (
+                select distinct {bucket_expr} as bucket_ts
+                from {spec.table_name}
+                where {where_sql}
+            ),
+            ordered as (
+                select
+                    bucket_ts,
+                    lag(bucket_ts) over (order by bucket_ts) as prev_bucket_ts
+                from buckets
+            ),
+            bounds as (
+                select min(bucket_ts) as first_bucket_ts, max(bucket_ts) as last_bucket_ts
+                from buckets
+            ),
+            gaps as (
+                select
+                    :aligned_start as gap_start,
+                    first_bucket_ts - (:interval_seconds * interval '1 second') as gap_end
+                from bounds
+                where first_bucket_ts is not null and first_bucket_ts > :aligned_start
+                union all
+                select
+                    prev_bucket_ts + (:interval_seconds * interval '1 second') as gap_start,
+                    bucket_ts - (:interval_seconds * interval '1 second') as gap_end
+                from ordered
+                where prev_bucket_ts is not null
+                  and bucket_ts > prev_bucket_ts + (:interval_seconds * interval '1 second')
+                union all
+                select
+                    last_bucket_ts + (:interval_seconds * interval '1 second') as gap_start,
+                    :aligned_end as gap_end
+                from bounds
+                where last_bucket_ts is not null and last_bucket_ts < :aligned_end
+                union all
+                select
+                    :aligned_start as gap_start,
+                    :aligned_end as gap_end
+                from bounds
+                where first_bucket_ts is null
+            )
+            select gap_start, gap_end
+            from gaps
+            where gap_start <= gap_end
+            order by gap_start
+            """
+        ),
+        {
+            "instrument_id": instrument_id,
+            "start_time": aligned_start,
+            "end_time": aligned_end,
+            "aligned_start": aligned_start,
+            "aligned_end": aligned_end,
+            "interval_seconds": interval_seconds,
+        },
+    ).mappings().fetchall()
+    return [(row["gap_start"], row["gap_end"]) for row in rows]
+
+
 def parse_iso_datetime_or_none(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -407,23 +539,17 @@ def build_incremental_tasks(start_time: datetime, end_time: datetime) -> tuple[l
     tasks: list[ChunkTask] = []
     with connection_scope() as connection:
         for spec in dataset_specs:
-            assert spec.table_name is not None
-            assert spec.time_column is not None
-            coverage = coverage_row(
+            gap_windows = planned_gap_windows(
                 connection,
+                spec=spec,
                 exchange_code="binance",
-                unified_symbol=spec.unified_symbol,
-                table_name=spec.table_name,
-                time_column=spec.time_column,
-                safe_upper_bound=end_time,
-                checkpoint_interval_seconds=spec.checkpoint_interval_seconds,
+                start_time=start_time,
+                end_time=end_time,
             )
-            dataset_start = next_start_from_coverage(spec, default_start=start_time, coverage=coverage)
-            if dataset_start > end_time:
-                continue
-
-            windows = build_month_windows(dataset_start, end_time, chunk_months=spec.chunk_months)
-            for index, (window_start, window_end) in enumerate(windows, start=1):
+            chunk_windows: list[tuple[datetime, datetime]] = []
+            for gap_start, gap_end in gap_windows:
+                chunk_windows.extend(build_month_windows(gap_start, gap_end, chunk_months=spec.chunk_months))
+            for index, (window_start, window_end) in enumerate(chunk_windows, start=1):
                 tasks.append(
                     ChunkTask(
                         dataset_key=spec.dataset_key,
@@ -432,7 +558,7 @@ def build_incremental_tasks(start_time: datetime, end_time: datetime) -> tuple[l
                         unified_symbol=spec.unified_symbol,
                         task_kind=spec.task_kind,
                         chunk_index=index,
-                        chunk_total=len(windows),
+                        chunk_total=len(chunk_windows),
                         start_time=window_start,
                         end_time=window_end,
                     )
@@ -563,7 +689,8 @@ def format_chunk_window(task: ChunkTask) -> str:
 
 
 def open_interest_available_from() -> datetime:
-    return utc_now() - timedelta(days=OPEN_INTEREST_LOOKBACK_DAYS)
+    floor = utc_now() - timedelta(days=OPEN_INTEREST_LOOKBACK_DAYS)
+    return floor.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def run_open_interest_history_window(

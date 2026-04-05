@@ -82,6 +82,7 @@
 - the bounded repair defaults now match the latest integrity failures: `scripts/repair_bars_integrity_windows.py` targets the current corrupt minute plus the `2026-04-05T02:30:00Z -> 2026-04-05T02:46:59Z` gap, and `scripts/repair_mark_index_gap.py` / `.ps1` targets the current midnight `mark/index` gap
 - `/monitoring -> Quality` now exposes a BTC backfill status panel plus a `Run Incremental Backfill` action, backed by `GET /api/v1/quality/backfill-status/binance-btc` and `POST /api/v1/quality/backfill-jobs/binance-btc/incremental`
 - the BTC backfill API now runs through `src/services/btc_backfill_control.py`, so status reads and detached incremental triggers are centralized on the backend instead of coupled to front-end script knowledge
+- `scripts/binance_btc_history_backfill.py --incremental` is now gap-aware for available history: it plans leading/internal/tail repair windows per dataset instead of only appending after the latest checkpoint, and `open_interest` availability now floors to the UTC day start 30 days ago
 - the BTC backfill status artifact is now safer for UI polling because `scripts/binance_btc_history_backfill.py` writes atomically and records `process_id` / `requested_by`
 - the latest local BTC perp integrity validation for `2026-03-06 -> 2026-04-05` now reports `failed_datasets = 0`; all remaining findings are warning-only coverage/tail shortfalls
 

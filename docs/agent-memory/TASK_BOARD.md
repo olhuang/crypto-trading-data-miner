@@ -59,6 +59,7 @@
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage
+- upgraded the BTC history incremental planner again so it now schedules all detected history gaps plus the live tail for available datasets, instead of only filling forward from the latest checkpoint
 - updated the local BTC history backfill tool so futures `open_interest` is handled as a separately available dataset and failed long runs can resume from `tmp/binance_btc_history_backfill_status.json`
 - added `scripts/binance_btc_history_backfill.py` for chunked local backfill of `BTCUSDT_SPOT` and `BTCUSDT_PERP` from `2020-01-01` to YTD, plus rolling status output in `tmp/binance_btc_history_backfill_status.json`
 - added a one-click copy icon to the persistent JSON panels across `/monitoring`, covering run payloads, diagnostics, artifacts, compare-note detail, trace detail, and traceability payloads

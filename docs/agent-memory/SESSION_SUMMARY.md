@@ -45,6 +45,7 @@
 - implemented `UI Slice 4C` inside `/monitoring -> Quality` so the console now exposes a BTC backfill status panel with dataset progress, raw status payload, selected dataset detail, and a `Run Incremental Backfill` action
 - added `GET /api/v1/quality/backfill-status/binance-btc` and `POST /api/v1/quality/backfill-jobs/binance-btc/incremental`
 - added `src/services/btc_backfill_control.py` so the API now owns status-file reads and detached incremental-trigger behavior instead of the UI needing to know script paths directly
+- upgraded `scripts/binance_btc_history_backfill.py --incremental` so it now plans all detected leading/internal/tail repair windows for available datasets instead of only appending after the latest stored timestamp; `open_interest` recent availability is also floored to the UTC day start 30 days ago
 - hardened the local BTC status artifact for UI polling by making `scripts/binance_btc_history_backfill.py` write status updates atomically and include `process_id` / `requested_by`
 - added API regression tests covering the new BTC backfill status and trigger endpoints
 - confirmed the debug wrapper itself works, but the current harness still cannot execute the network call to Binance due outbound socket restrictions

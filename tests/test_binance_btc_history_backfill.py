@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import sys
 import unittest
+from unittest.mock import patch
 
 from sqlalchemy import text
 
@@ -145,6 +146,91 @@ class BinanceBtcHistoryBackfillTests(unittest.TestCase):
                         "instrument_id": instrument_id,
                         "aligned_ts": aligned_ts,
                         "offgrid_ts": offgrid_ts,
+                    },
+                )
+
+    def test_open_interest_available_from_is_rounded_down_to_day_start(self) -> None:
+        fake_now = datetime(2036, 4, 5, 2, 53, 30, tzinfo=timezone.utc)
+        with patch.object(binance_btc_history_backfill, "utc_now", return_value=fake_now):
+            available_from = binance_btc_history_backfill.open_interest_available_from()
+        self.assertEqual(available_from, datetime(2036, 3, 6, 0, 0, tzinfo=timezone.utc))
+
+    def test_planned_gap_windows_include_internal_funding_gap(self) -> None:
+        start_time = datetime(2036, 1, 1, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2036, 1, 1, 23, 59, 59, tzinfo=timezone.utc)
+        first_time = datetime(2036, 1, 1, 0, 0, 0, 1000, tzinfo=timezone.utc)
+        third_time = datetime(2036, 1, 1, 16, 0, 0, 0, tzinfo=timezone.utc)
+        spec = binance_btc_history_backfill.DatasetSpec(
+            dataset_key="btc_perp_funding_rates",
+            label="BTCUSDT_PERP funding_rates",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="funding_rates",
+            table_name="md.funding_rates",
+            time_column="funding_time",
+        )
+
+        with transaction_scope() as connection:
+            instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
+            connection.execute(
+                text(
+                    """
+                    insert into md.funding_rates (
+                        instrument_id,
+                        funding_time,
+                        funding_rate,
+                        mark_price,
+                        index_price
+                    ) values
+                        (:instrument_id, :first_time, '0.0001', '100', '100'),
+                        (:instrument_id, :third_time, '0.0002', '101', '101')
+                    on conflict (instrument_id, funding_time) do update
+                    set funding_rate = excluded.funding_rate,
+                        mark_price = excluded.mark_price,
+                        index_price = excluded.index_price
+                    """
+                ),
+                {
+                    "instrument_id": instrument_id,
+                    "first_time": first_time,
+                    "third_time": third_time,
+                },
+            )
+
+        try:
+            with connection_scope() as connection:
+                windows = binance_btc_history_backfill.planned_gap_windows(
+                    connection,
+                    spec=spec,
+                    exchange_code="binance",
+                    start_time=start_time,
+                    end_time=end_time,
+                )
+
+            self.assertEqual(
+                windows,
+                [
+                    (
+                        datetime(2036, 1, 1, 8, 0, tzinfo=timezone.utc),
+                        datetime(2036, 1, 1, 8, 0, tzinfo=timezone.utc),
+                    ),
+                ],
+            )
+        finally:
+            with transaction_scope() as connection:
+                instrument_id = resolve_instrument_id(connection, "binance", "BTCUSDT_PERP")
+                connection.execute(
+                    text(
+                        """
+                        delete from md.funding_rates
+                        where instrument_id = :instrument_id
+                          and funding_time in (:first_time, :third_time)
+                        """
+                    ),
+                    {
+                        "instrument_id": instrument_id,
+                        "first_time": first_time,
+                        "third_time": third_time,
                     },
                 )
 
