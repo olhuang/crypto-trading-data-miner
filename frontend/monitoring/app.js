@@ -203,7 +203,14 @@ function renderTable(targetId, columns, records, onRowClick) {
     columns.forEach((column) => {
       const td = document.createElement("td");
       const rawValue = record[column.key];
-      if (column.type === "status") {
+      if (typeof column.render === "function") {
+        const rendered = column.render(record, rawValue, td);
+        if (rendered instanceof Node) {
+          td.appendChild(rendered);
+        } else {
+          td.textContent = formatValue(rendered);
+        }
+      } else if (column.type === "status") {
         const badge = document.createElement("span");
         badge.className = `status-pill ${statusClass(rawValue)}`;
         badge.textContent = formatValue(rawValue);
@@ -965,6 +972,236 @@ function getSelectedIntegrityDataTypes(form) {
   });
 }
 
+function getCurrentIntegrityForm() {
+  return document.getElementById("integrity-validation-form");
+}
+
+function getCurrentIntegrityUnifiedSymbol() {
+  return state.currentIntegrityResult?.unified_symbol || "";
+}
+
+function unifiedSymbolToVenueSymbol(unifiedSymbol) {
+  return String(unifiedSymbol || "")
+    .replace(/_PERP$/u, "")
+    .replace(/_SPOT$/u, "");
+}
+
+function mapIntegrityDataTypeToBackfillDataset(unifiedSymbol, dataType) {
+  if (dataType === "bars_1m") {
+    return String(unifiedSymbol || "").endsWith("_SPOT") ? "spot_bars_1m" : "perp_bars_1m";
+  }
+  const aliases = {
+    funding_rates: "funding_rates",
+    open_interest: "open_interest",
+    mark_prices: "mark_prices",
+    index_prices: "index_prices",
+    global_long_short_account_ratios: "global_long_short_account_ratios",
+    top_trader_long_short_account_ratios: "top_trader_long_short_account_ratios",
+    top_trader_long_short_position_ratios: "top_trader_long_short_position_ratios",
+    taker_long_short_ratios: "taker_long_short_ratios",
+  };
+  return aliases[dataType] || null;
+}
+
+function appendUtcMinuteBoundary(timestamp, boundary) {
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return timestamp;
+  }
+  if (boundary === "end") {
+    parsed.setUTCSeconds(59, 0);
+  } else {
+    parsed.setUTCSeconds(0, 0);
+  }
+  return parsed.toISOString().replace(/\.\d{3}Z$/u, "Z");
+}
+
+function mergeIntegrityRepairWindows(windows) {
+  if (!windows.length) {
+    return [];
+  }
+
+  const ordered = [...windows].sort((left, right) => {
+    return new Date(left.start_time).getTime() - new Date(right.start_time).getTime();
+  });
+  const merged = [ordered[0]];
+
+  ordered.slice(1).forEach((window) => {
+    const current = merged[merged.length - 1];
+    const currentEndMs = new Date(current.end_time).getTime();
+    const nextStartMs = new Date(window.start_time).getTime();
+    if (nextStartMs <= currentEndMs + 1000) {
+      if (new Date(window.end_time).getTime() > currentEndMs) {
+        current.end_time = window.end_time;
+      }
+      current.label = `${current.label}+${window.label}`;
+      return;
+    }
+    merged.push({ ...window });
+  });
+
+  return merged;
+}
+
+function buildBarsRepairWindowsFromFinding(finding) {
+  const windows = [];
+  if (!finding || typeof finding !== "object") {
+    return windows;
+  }
+
+  if (finding.category === "gap") {
+    (finding.detail_json?.segments || []).forEach((segment, index) => {
+      if (!segment.gap_start || !segment.gap_end) {
+        return;
+      }
+      windows.push({
+        label: `gap_${index + 1}`,
+        start_time: appendUtcMinuteBoundary(segment.gap_start, "start"),
+        end_time: appendUtcMinuteBoundary(segment.gap_end, "end"),
+      });
+    });
+  }
+
+  if (finding.category === "corrupt") {
+    (finding.detail_json?.corrupt_examples || []).forEach((example, index) => {
+      if (!example.ts) {
+        return;
+      }
+      windows.push({
+        label: `corrupt_${index + 1}`,
+        start_time: appendUtcMinuteBoundary(example.ts, "start"),
+        end_time: appendUtcMinuteBoundary(example.ts, "end"),
+      });
+    });
+  }
+
+  return mergeIntegrityRepairWindows(windows);
+}
+
+function setIntegrityRepairBusy(isBusy) {
+  document.querySelectorAll("[data-integrity-repair-action]").forEach((button) => {
+    button.disabled = isBusy;
+  });
+}
+
+function setIntegrityRepairStatus({ phase, title, detail, progress, stateClass }) {
+  const container = document.getElementById("integrity-repair-status");
+  const titleNode = document.getElementById("integrity-repair-status-title");
+  const phaseNode = document.getElementById("integrity-repair-status-phase");
+  const detailNode = document.getElementById("integrity-repair-status-detail");
+  const progressNode = document.getElementById("integrity-repair-progress");
+  if (!container || !titleNode || !phaseNode || !detailNode || !progressNode) {
+    return;
+  }
+
+  container.classList.remove("is-running", "is-complete", "is-error");
+  if (stateClass) {
+    container.classList.add(stateClass);
+  }
+  titleNode.textContent = title;
+  phaseNode.textContent = phase;
+  detailNode.textContent = detail;
+  progressNode.style.width = `${Math.max(0, Math.min(100, progress || 0))}%`;
+}
+
+function createIntegrityFindingActionButton(label, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary-button compact-button";
+  button.dataset.integrityRepairAction = "true";
+  button.textContent = label;
+  button.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      await onClick();
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
+  return button;
+}
+
+function buildIntegrityFindingAction(dataset, finding) {
+  const unifiedSymbol = getCurrentIntegrityUnifiedSymbol();
+  if (dataset?.data_type === "bars_1m" && finding?.status === "fail" && ["gap", "corrupt"].includes(finding?.category)) {
+    return {
+      label: finding.category === "gap" ? "Repair Gap" : "Repair Corrupt",
+      execute: () => executeBarsIntegrityRepair(dataset, finding),
+    };
+  }
+
+  const backfillDataset = mapIntegrityDataTypeToBackfillDataset(unifiedSymbol, dataset?.data_type);
+  if (finding?.category === "tail" && Number(finding?.related_count || 0) > 0 && backfillDataset) {
+    return {
+      label: "Run Incremental",
+      execute: () => triggerBtcIncrementalBackfill({ datasets: [backfillDataset], sourceDataset: dataset?.data_type }),
+    };
+  }
+
+  return null;
+}
+
+async function executeBarsIntegrityRepair(dataset, finding) {
+  const unifiedSymbol = getCurrentIntegrityUnifiedSymbol();
+  const windows = buildBarsRepairWindowsFromFinding(finding);
+  if (!windows.length) {
+    throw new Error("No repair windows could be derived from the selected finding.");
+  }
+
+  setIntegrityRepairBusy(true);
+  setIntegrityRepairStatus({
+    phase: "repairing",
+    title: "Repairing Bars Finding",
+    detail: `Re-fetching ${windows.length} bounded bar window(s) for ${unifiedSymbol}.`,
+    progress: 28,
+    stateClass: "is-running",
+  });
+
+  try {
+    const payload = {
+      exchange_code: "binance",
+      symbol: unifiedSymbolToVenueSymbol(unifiedSymbol),
+      unified_symbol: unifiedSymbol,
+      interval: "1m",
+      windows,
+    };
+    const result = await sendEnvelope("/api/v1/quality/integrity-repairs/bars", "POST", payload);
+
+    setIntegrityRepairStatus({
+      phase: "refreshing",
+      title: "Refreshing Integrity Result",
+      detail: `Repair wrote ${formatValue(result.total_rows_written)} rows. Re-running integrity validation now.`,
+      progress: 72,
+      stateClass: "is-running",
+    });
+
+    const form = getCurrentIntegrityForm();
+    if (form) {
+      await runIntegrityValidation(form);
+    }
+
+    setIntegrityRepairStatus({
+      phase: "complete",
+      title: "Bars Repair Completed",
+      detail: `${dataset.data_type} finding repaired and integrity results refreshed.`,
+      progress: 100,
+      stateClass: "is-complete",
+    });
+  } catch (error) {
+    setIntegrityRepairStatus({
+      phase: "error",
+      title: "Bars Repair Failed",
+      detail: error.message || "The selected bars integrity finding could not be repaired.",
+      progress: 100,
+      stateClass: "is-error",
+    });
+    throw error;
+  } finally {
+    setIntegrityRepairBusy(false);
+  }
+}
+
 function renderIntegritySummaryCards(result) {
   const container = document.getElementById("integrity-result-summary");
   if (!container) {
@@ -1047,6 +1284,13 @@ function renderIntegrityDatasetDetail(dataset) {
     renderJson("integrity-dataset-raw", {
       message: "Dataset detail will appear here.",
     });
+    setIntegrityRepairStatus({
+      phase: "idle",
+      title: "Finding Repair Idle",
+      detail: "Select a failing finding to run a supported repair action.",
+      progress: 0,
+      stateClass: "",
+    });
     return;
   }
 
@@ -1121,6 +1365,17 @@ function renderIntegrityDatasetDetail(dataset) {
       { key: "status", label: "Status", type: "status" },
       { key: "related_count", label: "Count" },
       { key: "message", label: "Message" },
+      {
+        key: "action",
+        label: "Action",
+        render: (record) => {
+          const action = buildIntegrityFindingAction(dataset, record);
+          if (!action) {
+            return "-";
+          }
+          return createIntegrityFindingActionButton(action.label, action.execute);
+        },
+      },
     ],
     dataset.findings || []
   );
@@ -1411,18 +1666,27 @@ async function loadBtcBackfillStatus({ silent = false } = {}) {
   }
 }
 
-async function triggerBtcIncrementalBackfill() {
+async function triggerBtcIncrementalBackfill(options = {}) {
+  const datasets = Array.isArray(options.datasets) ? options.datasets.filter(Boolean) : [];
+  const sourceDataset = options.sourceDataset || null;
+  if (sourceDataset) {
+    setIntegrityRepairBusy(true);
+  }
   setBtcBackfillActionBusy(true);
   setBtcBackfillActionStatus({
     phase: "submitting",
     title: "Submitting Incremental Backfill",
-    detail: "Requesting a detached BTC incremental catch-up run from the Quality API.",
+    detail: datasets.length
+      ? `Requesting detached incremental catch-up for ${datasets.join(", ")}.`
+      : "Requesting a detached BTC incremental catch-up run from the Quality API.",
     progress: 18,
     stateClass: "is-running",
   });
 
   try {
-    const result = await sendEnvelope("/api/v1/quality/backfill-jobs/binance-btc/incremental", "POST", {});
+    const result = await sendEnvelope("/api/v1/quality/backfill-jobs/binance-btc/incremental", "POST", {
+      datasets: datasets.length ? datasets : undefined,
+    });
     renderJson("btc-backfill-trigger-result", result);
 
     setBtcBackfillActionStatus({
@@ -1430,7 +1694,7 @@ async function triggerBtcIncrementalBackfill() {
       title: result.already_running ? "Backfill Already Running" : "Incremental Backfill Started",
       detail: result.already_running
         ? "Another BTC backfill process is already active; loading the current status instead of starting a duplicate run."
-        : `Detached process ${formatValue(result.job_id)} started; loading the latest backfill status now.`,
+        : `Detached process ${formatValue(result.job_id)} started${datasets.length ? ` for ${datasets.join(", ")}` : ""}; loading the latest backfill status now.`,
       progress: result.already_running ? 55 : 42,
       stateClass: "is-running",
     });
@@ -1446,6 +1710,18 @@ async function triggerBtcIncrementalBackfill() {
         : 100,
       stateClass: state.currentBtcBackfillStatus?.state === "running" ? "is-running" : "is-complete",
     });
+
+    if (sourceDataset) {
+      setIntegrityRepairStatus({
+        phase: "queued",
+        title: "Incremental Backfill Triggered",
+        detail: `Triggered incremental catch-up for ${sourceDataset}. Re-run integrity after the backfill status reaches a finished state.`,
+        progress: state.currentBtcBackfillStatus?.state === "running"
+          ? Number(state.currentBtcBackfillStatus?.overall?.progress_pct || 0)
+          : 100,
+        stateClass: state.currentBtcBackfillStatus?.state === "running" ? "is-running" : "is-complete",
+      });
+    }
   } catch (error) {
     setBtcBackfillActionStatus({
       phase: "error",
@@ -1454,9 +1730,21 @@ async function triggerBtcIncrementalBackfill() {
       progress: 100,
       stateClass: "is-error",
     });
+    if (sourceDataset) {
+      setIntegrityRepairStatus({
+        phase: "error",
+        title: "Incremental Trigger Failed",
+        detail: error.message || `The incremental repair action for ${sourceDataset} could not be started.`,
+        progress: 100,
+        stateClass: "is-error",
+      });
+    }
     throw error;
   } finally {
     setBtcBackfillActionBusy(false);
+    if (sourceDataset) {
+      setIntegrityRepairBusy(false);
+    }
   }
 }
 

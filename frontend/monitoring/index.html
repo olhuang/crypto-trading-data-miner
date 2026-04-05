@@ -928,6 +928,16 @@
                 <h3>Selected Dataset Integrity</h3>
                 <p>Inspect one dataset's counts and findings before drilling into the full raw payload.</p>
               </div>
+              <div id="integrity-repair-status" class="launch-status" aria-live="polite">
+                <div class="launch-status-header">
+                  <strong id="integrity-repair-status-title">Finding Repair Idle</strong>
+                  <span id="integrity-repair-status-phase" class="status-pill">idle</span>
+                </div>
+                <div class="progress-track" aria-hidden="true">
+                  <div id="integrity-repair-progress" class="progress-bar"></div>
+                </div>
+                <p id="integrity-repair-status-detail" class="card-detail">Select a failing finding to run a supported repair action.</p>
+              </div>
               <div id="integrity-dataset-summary" class="property-shell">
                 <div class="summary-empty">Select a dataset row after running integrity validation.</div>
               </div>

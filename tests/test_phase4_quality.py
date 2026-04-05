@@ -16,7 +16,14 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from api.app import BtcBackfillTriggerRequest, DatasetIntegrityValidationRequest, Phase4QualityRunRequest, create_app
+from api.app import (
+    BarsIntegrityRepairRequest,
+    BarsIntegrityRepairWindowRequest,
+    BtcBackfillTriggerRequest,
+    DatasetIntegrityValidationRequest,
+    Phase4QualityRunRequest,
+    create_app,
+)
 from jobs.data_quality import run_bar_gap_checks, run_freshness_checks, run_phase4_quality_suite, validate_dataset_integrity
 from models.market import (
     BarEvent,
@@ -1469,6 +1476,7 @@ class BtcBackfillControlEndpointTests(unittest.TestCase):
         cls.app = create_app()
         cls.status_endpoint = _resolve_route(cls.app, "/api/v1/quality/backfill-status/binance-btc", "GET")
         cls.trigger_endpoint = _resolve_route(cls.app, "/api/v1/quality/backfill-jobs/binance-btc/incremental", "POST")
+        cls.repair_endpoint = _resolve_route(cls.app, "/api/v1/quality/integrity-repairs/bars", "POST")
 
     def test_backfill_status_endpoint_returns_typed_payload(self) -> None:
         with patch(
@@ -1534,6 +1542,71 @@ class BtcBackfillControlEndpointTests(unittest.TestCase):
         self.assertEqual(response.data.status, "started")
         self.assertFalse(response.data.already_running)
         self.assertTrue(response.data.process_alive)
+
+    def test_backfill_trigger_endpoint_accepts_dataset_scope(self) -> None:
+        with patch(
+            "api.app.trigger_binance_btc_incremental_backfill",
+            return_value={
+                "job_id": 6262,
+                "status": "started",
+                "already_running": False,
+                "status_file": "tmp/status.json",
+                "log_file": "tmp/backfill.log",
+                "process_alive": True,
+                "started_at": "2026-04-05T10:05:00+00:00",
+                "datasets": ["funding_rates"],
+            },
+        ) as trigger_mock:
+            response = self.__class__.trigger_endpoint(BtcBackfillTriggerRequest(datasets=["funding_rates"]))
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.datasets, ["funding_rates"])
+        trigger_mock.assert_called_once()
+        self.assertEqual(trigger_mock.call_args.kwargs["datasets"], ["funding_rates"])
+
+    def test_bars_integrity_repair_endpoint_returns_typed_payload(self) -> None:
+        with patch(
+            "api.app.repair_bars_integrity_windows",
+            return_value={
+                "exchange_code": "binance",
+                "symbol": "BTCUSDT",
+                "unified_symbol": "BTCUSDT_PERP",
+                "interval": "1m",
+                "windows_requested": 1,
+                "windows_completed": 1,
+                "total_rows_written": 6,
+                "results": [
+                    {
+                        "label": "gap_1",
+                        "start_time": "2026-04-01T00:00:00+00:00",
+                        "end_time": "2026-04-01T00:05:59+00:00",
+                        "ingestion_job_id": 9123,
+                        "status": "succeeded",
+                        "rows_written": 6,
+                    }
+                ],
+            },
+        ):
+            response = self.__class__.repair_endpoint(
+                BarsIntegrityRepairRequest(
+                    exchange_code="binance",
+                    symbol="BTCUSDT",
+                    unified_symbol="BTCUSDT_PERP",
+                    interval="1m",
+                    windows=[
+                        BarsIntegrityRepairWindowRequest(
+                            label="gap_1",
+                            start_time=datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+                            end_time=datetime(2026, 4, 1, 0, 5, 59, tzinfo=timezone.utc),
+                        )
+                    ],
+                )
+            )
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.total_rows_written, 6)
+        self.assertEqual(len(response.data.results), 1)
+        self.assertEqual(response.data.results[0].ingestion_job_id, 9123)
 
     def test_load_backfill_status_marks_stale_when_recorded_process_is_gone(self) -> None:
         with TemporaryDirectory() as temp_dir:

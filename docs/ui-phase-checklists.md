@@ -396,11 +396,13 @@ Required sections:
 
 ### Page 4.5: Integrity Validation
 Required sections:
-- [ ] explicit symbol/window validation form
-- [ ] quick range helpers
-- [ ] persist findings control
-- [ ] dataset summary table
-- [ ] selected dataset integrity detail
+- [x] explicit symbol/window validation form
+- [x] quick range helpers
+- [x] persist findings control
+- [x] dataset summary table
+- [x] selected dataset integrity detail
+- [x] finding-aware repair status block
+- [x] action buttons for supported findings
 - [ ] raw validation JSON detail
 
 ### Page 4.6: BTC Backfill Status
@@ -417,8 +419,8 @@ Required sections:
 - [ ] JSON payload viewer
 - [ ] raw-to-normalized linkage panel
 - [ ] replay readiness checklist block
-- [ ] integrity validation form
-- [ ] dataset integrity summary table
+- [x] integrity validation form
+- [x] dataset integrity summary table
 - [x] backfill status summary block
 
 ## Required User Events
@@ -427,9 +429,10 @@ Required sections:
 - [ ] user opens raw payload JSON
 - [ ] user inspects normalized links from raw event
 - [ ] user reviews replay readiness summary
-- [ ] user validates one symbol/window for integrity from UI
-- [ ] user uses quick ranges to set the validation window
-- [ ] user inspects one dataset's integrity findings
+- [x] user validates one symbol/window for integrity from UI
+- [x] user uses quick ranges to set the validation window
+- [x] user inspects one dataset's integrity findings
+- [x] user can trigger supported repair actions from selected integrity findings
 - [x] user inspects current BTC backfill status from UI
 - [x] user triggers a BTC incremental backfill from UI
 
@@ -444,13 +447,15 @@ Required sections:
 - `/api/v1/replay/readiness`
 - `/api/v1/quality/backfill-status/binance-btc`
 - `/api/v1/quality/backfill-jobs/binance-btc/incremental`
+- `/api/v1/quality/integrity-repairs/bars`
 
 ## Acceptance Checks
 - [ ] Data Quality Dashboard shows pass/fail summaries
 - [ ] Data Gaps Explorer lists open gaps when present
 - [ ] Raw Event Explorer displays payload JSON correctly
 - [ ] replay readiness summary is visible without reading docs directly
-- [ ] Integrity Validation can validate one bounded symbol/window from UI
+- [x] Integrity Validation can validate one bounded symbol/window from UI
+- [x] supported `bars_1m`/`tail` finding repairs can be launched from the selected-dataset findings table
 - [x] BTC backfill status can be inspected from UI without reading the status file manually
 - [x] BTC incremental backfill can be triggered from UI
 
@@ -460,7 +465,7 @@ Required sections:
   - recent gaps inspection
   - raw-event detail inspection
   - raw-to-normalized traceability inspection
-- a dedicated plan now exists for adding integrity validation and BTC backfill status to the current Quality workspace in `docs/quality-integrity-ui-plan.md`
+- integrity validation, BTC backfill status, and a first finding-aware repair flow are now live in the current Quality workspace
 - it does not yet implement the full long-term product UI/component set described for Phase 4
 
 ## Handoff Criteria to Phase 5 UI

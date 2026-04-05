@@ -10,6 +10,7 @@
 - continue the Quality workspace evolve path now that the first integrity-validation UI slice is live inside `/monitoring`
 - continue the Binance futures sentiment-ratio rollout from the completed collection/quality slices into strategy feature-input and research-consumption surfaces
 - make sentiment-aware backtests explainable by surfacing strategy market context inside diagnostics / debug-trace inspection
+- keep the new Quality finding-action flow narrow and reliable before widening it to more datasets or repair classes
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -32,6 +33,10 @@
 - the Phase 5 phase/task/checklist docs are now aligned to the current sentiment/context status: `bars_perp_context_v1`, `btc_sentiment_momentum`, Backtests UI launch support, and diagnostics/trace market-context visibility as the next slice
 - the broader spec set has now been re-scanned and the stale spec bodies were updated so `spec-index`, feature-pipeline, diagnostics, UI/UI API, and strategy-workbench docs all reflect the seeded sentiment-aware backtest path and the same next diagnostics slice
 - `scripts/repair_bars_integrity_windows.py` / `.ps1` now support `--auto-detect` / `-AutoDetect`, so bounded bars repair can discover `bars_1m` internal gaps and corrupt minutes from integrity output instead of relying only on hand-maintained default windows
+- `/monitoring -> Quality -> Selected Dataset Integrity` now has a first finding-aware repair flow: `bars_1m` `gap`/`corrupt` findings can trigger bounded repair, and supported `tail` findings can trigger dataset-scoped incremental backfill
+- a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
+- the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run
+- the Quality workspace now includes a dedicated integrity-repair status box, so finding actions show progress/errors without relying only on modal alerts
 - `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
 - `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
 - `docs/quality-integrity-ui-plan.md` now exists as the dedicated resume document for surfacing bounded dataset-integrity validation and BTC backfill status inside the current `/monitoring` Quality workspace
@@ -115,6 +120,7 @@
 - the harness still cannot execute the actual Binance repair/refill calls end-to-end because outbound network access is blocked here; only the operator machine can run the bounded repair scripts and incremental catch-up
 - the new UI-triggered incremental path is intentionally local-operator oriented; it currently launches a detached local process and does not yet integrate with the broader generic job orchestration spec
 - the current backtest diagnostics/trace surfaces do not yet show the strategy market context that drove a sentiment-aware decision, so debugging remains signal/decision-centric rather than feature-context-centric
+- the new finding-action flow is intentionally partial: it does not yet offer one-click repair for retention-limited coverage shortfall, generic duplicate cleanup, or non-bars internal gaps outside the existing targeted tooling
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`
@@ -183,3 +189,4 @@
 - if the data-quality UI line stays active, the next most natural slice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` Quality workspace restructure now that `UI Slice 4C` has landed
 - if the data-maintenance line stays active, use the new `/monitoring -> Quality` backfill panel or `scripts/binance_btc_history_backfill.ps1 -Mode incremental` to refresh the BTC tail, then re-run integrity validation to watch the warning-only tail counts shrink
 - if the sentiment-ratio line stays active, the next most natural slice is to surface strategy market context inside diagnostics/trace inspection, then consider broader feature-pipeline formalization only after that evidence path exists
+- if the Quality line stays active, the next most natural slice is to expand or polish finding-aware repair coverage after the current `bars_1m` + `tail` actions have seen real operator use

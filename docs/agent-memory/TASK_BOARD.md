@@ -13,6 +13,7 @@
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
+- keep the Quality workspace moving toward guided repair actions now that integrity findings can trigger bounded bars repair and dataset-scoped incremental backfill
 
 ## Blocked
 - none currently recorded
@@ -26,8 +27,12 @@
 - align cooldown semantics to future explicit protection-trigger events
 - surface strategy market context inside diagnostics / trace inspection for sentiment-aware runs
 - defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
+- optionally expand the new integrity finding-action flow beyond `bars_1m` and `tail` once the current v1 path has been used in practice
 
 ## Recently Done
+- added a first finding-aware repair flow inside `/monitoring -> Quality`, so `Selected Dataset Integrity -> Findings` can now trigger bounded `bars_1m` repair and dataset-scoped incremental backfill directly from the UI
+- added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
+- updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - added `docs/quality-integrity-ui-plan.md` to define how bounded integrity validation and BTC backfill status should land inside the current `/monitoring` Quality workspace
 - implemented `UI Slice 4A` for the Quality workspace so `/monitoring` now supports bounded integrity validation, quick ranges, dataset summary rows, selected dataset detail, and collapsible raw payload review
 - added typed dataset-integrity validation for `gap / duplicate / missing / corrupt` checks, plus persisted integrity findings into `ops.data_quality_checks` and `ops.data_gaps`

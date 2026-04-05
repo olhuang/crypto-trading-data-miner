@@ -27,6 +27,7 @@ from jobs.remediate_market_snapshots import run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
 from services.btc_backfill_control import load_binance_btc_backfill_status, trigger_binance_btc_incremental_backfill
+from services.integrity_repair_control import repair_bars_integrity_windows
 from services.startup_remediation import run_startup_gap_remediation
 from services.traceability import get_raw_event_detail, normalized_links_for_raw_event, replay_readiness_summary
 from services.validate_and_store import (
@@ -128,6 +129,41 @@ class DatasetIntegrityValidationRequest(ApiRequestModel):
 
 class BtcBackfillTriggerRequest(ApiRequestModel):
     status_file: str | None = None
+    datasets: list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_backfill_trigger_request(self) -> "BtcBackfillTriggerRequest":
+        if self.datasets is not None:
+            self.datasets = list(dict.fromkeys(self.datasets))
+            if not self.datasets:
+                raise ValueError("datasets must not be empty when provided")
+        return self
+
+
+class BarsIntegrityRepairWindowRequest(ApiRequestModel):
+    label: str | None = None
+    start_time: datetime
+    end_time: datetime
+
+    @model_validator(mode="after")
+    def validate_window(self) -> "BarsIntegrityRepairWindowRequest":
+        if self.end_time < self.start_time:
+            raise ValueError("end_time must be greater than or equal to start_time")
+        return self
+
+
+class BarsIntegrityRepairRequest(ApiRequestModel):
+    exchange_code: str = "binance"
+    symbol: str
+    unified_symbol: str
+    interval: str = "1m"
+    windows: list[BarsIntegrityRepairWindowRequest]
+
+    @model_validator(mode="after")
+    def validate_repair_request(self) -> "BarsIntegrityRepairRequest":
+        if not self.windows:
+            raise ValueError("windows must not be empty")
+        return self
 
 
 class BacktestCompareSetRequest(ApiRequestModel):
@@ -349,6 +385,27 @@ class BtcBackfillTriggerResource(BaseModel):
     log_file: str | None = None
     process_alive: bool | None = None
     started_at: str | None = None
+    datasets: list[str] | None = None
+
+
+class BarsIntegrityRepairWindowResource(BaseModel):
+    label: str
+    start_time: str
+    end_time: str
+    ingestion_job_id: int
+    status: str
+    rows_written: int
+
+
+class BarsIntegrityRepairResource(BaseModel):
+    exchange_code: str
+    symbol: str
+    unified_symbol: str
+    interval: str
+    windows_requested: int
+    windows_completed: int
+    total_rows_written: int
+    results: list[BarsIntegrityRepairWindowResource]
 
 
 class RawEventDetailResource(BaseModel):
@@ -1564,6 +1621,66 @@ def create_app() -> FastAPI:
             meta=_meta(actor),
         )
 
+    @app.post("/api/v1/quality/integrity-repairs/bars")
+    def execute_bars_integrity_repair(
+        request: BarsIntegrityRepairRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BarsIntegrityRepairResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        if request.exchange_code != "binance":
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": "bars integrity repair currently supports only exchange_code=binance",
+                    "details": {"exchange_code": request.exchange_code},
+                },
+            )
+        try:
+            result = repair_bars_integrity_windows(
+                symbol=request.symbol,
+                unified_symbol=request.unified_symbol,
+                interval=request.interval,
+                windows=[
+                    {
+                        "label": window.label,
+                        "start_time": window.start_time,
+                        "end_time": window.end_time,
+                    }
+                    for window in request.windows
+                ],
+                requested_by=actor.user_id,
+                exchange_code=request.exchange_code,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "VALIDATION_ERROR", "message": str(exc), "details": {}},
+            ) from exc
+        return SuccessEnvelope[BarsIntegrityRepairResource](
+            data=BarsIntegrityRepairResource(
+                exchange_code=str(result["exchange_code"]),
+                symbol=str(result["symbol"]),
+                unified_symbol=str(result["unified_symbol"]),
+                interval=str(result["interval"]),
+                windows_requested=int(result["windows_requested"]),
+                windows_completed=int(result["windows_completed"]),
+                total_rows_written=int(result["total_rows_written"]),
+                results=[
+                    BarsIntegrityRepairWindowResource(
+                        label=str(window["label"]),
+                        start_time=str(window["start_time"]),
+                        end_time=str(window["end_time"]),
+                        ingestion_job_id=int(window["ingestion_job_id"]),
+                        status=str(window["status"]),
+                        rows_written=int(window["rows_written"]),
+                    )
+                    for window in result["results"]
+                ],
+            ),
+            meta=_meta(actor),
+        )
+
     @app.post("/api/v1/quality/backfill-jobs/binance-btc/incremental")
     def trigger_quality_binance_btc_incremental_backfill(
         request: BtcBackfillTriggerRequest,
@@ -1575,7 +1692,10 @@ def create_app() -> FastAPI:
                 status_code=422,
                 detail={"code": "VALIDATION_ERROR", "message": "status_file overrides are not supported from the API", "details": {}},
             )
-        result = trigger_binance_btc_incremental_backfill(requested_by=actor.user_id)
+        result = trigger_binance_btc_incremental_backfill(
+            requested_by=actor.user_id,
+            datasets=request.datasets,
+        )
         return SuccessEnvelope[BtcBackfillTriggerResource](
             data=BtcBackfillTriggerResource(
                 job_id=result.get("job_id"),
@@ -1585,6 +1705,7 @@ def create_app() -> FastAPI:
                 log_file=result.get("log_file"),
                 process_alive=result.get("process_alive"),
                 started_at=result.get("started_at"),
+                datasets=result.get("datasets"),
             ),
             meta=_meta(actor),
         )

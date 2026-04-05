@@ -43,15 +43,21 @@ The `/monitoring` Quality page now exposes an initial Integrity slice with:
 - quick ranges
 - dataset summary table
 - selected dataset summary/detail
+- finding-aware repair actions for supported cases
 - raw JSON as collapsible secondary detail
 
 The rest of the Quality page currently shows:
 - quality checks
 - open gaps
 
-It does not yet expose:
+It now also exposes:
 - BTC backfill status
+- UI-triggered incremental BTC backfill
+- a first finding-aware repair flow for supported integrity findings
+
+It does not yet expose:
 - stronger segmented Quality workspace navigation
+- broader one-click repair coverage across all finding categories
 - deeper dataset-detail polish for gap/future-row evidence
 
 ---

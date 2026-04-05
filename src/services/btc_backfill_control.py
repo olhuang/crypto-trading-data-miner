@@ -119,6 +119,7 @@ def trigger_binance_btc_incremental_backfill(
     *,
     status_file: Path = DEFAULT_STATUS_FILE,
     log_file: Path = DEFAULT_LOG_FILE,
+    datasets: list[str] | None = None,
 ) -> dict[str, Any]:
     current_status = load_binance_btc_backfill_status(status_file=status_file, log_file=log_file)
     if current_status.get("state") == "running" and (
@@ -131,6 +132,7 @@ def trigger_binance_btc_incremental_backfill(
             "status_file": str(status_file),
             "log_file": str(log_file),
             "process_alive": bool(current_status.get("process_alive")),
+            "datasets": list(datasets or []),
         }
 
     status_file.parent.mkdir(parents=True, exist_ok=True)
@@ -144,6 +146,8 @@ def trigger_binance_btc_incremental_backfill(
         requested_by,
         "--incremental",
     ]
+    for dataset in datasets or []:
+        command.extend(["--dataset", dataset])
 
     popen_kwargs: dict[str, Any] = {
         "cwd": str(REPO_ROOT),
@@ -166,4 +170,5 @@ def trigger_binance_btc_incremental_backfill(
         "log_file": str(log_file),
         "process_alive": True,
         "started_at": _iso_now(),
+        "datasets": list(datasets or []),
     }
