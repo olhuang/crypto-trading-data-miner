@@ -24,14 +24,9 @@ DEFAULT_WINDOWS = [
         "end_time": "2026-04-02T12:34:59+00:00",
     },
     {
-        "label": "late_gap_block_a",
-        "start_time": "2026-04-05T01:55:00+00:00",
-        "end_time": "2026-04-05T01:57:59+00:00",
-    },
-    {
-        "label": "late_gap_block_b",
-        "start_time": "2026-04-05T02:10:00+00:00",
-        "end_time": "2026-04-05T02:22:59+00:00",
+        "label": "late_gap_block_current",
+        "start_time": "2026-04-05T02:30:00+00:00",
+        "end_time": "2026-04-05T02:46:59+00:00",
     },
 ]
 

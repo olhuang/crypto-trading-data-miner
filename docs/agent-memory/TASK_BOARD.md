@@ -53,7 +53,7 @@
 - hardened BTC `open_interest` history catch-up so multi-day windows are executed as day-sized refresh calls
 - added local `open_interest` debug tooling so operators can inspect raw Binance `openInterestHist` coverage by requested day window
 - confirmed through a real local `debug_open_interest_history` run that Binance returns daily `open_interest` windows cleanly from `2026-03-06T00:00:00Z`, so the earlier local late-start coverage was caused by the older catch-up path
-- refreshed the default bounded repair windows for `scripts/repair_bars_integrity_windows.py` and `scripts/repair_mark_index_gap.py` so they now match the currently remaining BTC perp integrity failures
+- refreshed the default bounded repair windows for `scripts/repair_bars_integrity_windows.py` and `scripts/repair_mark_index_gap.py` so they now match the currently remaining BTC perp integrity failures, including the `2026-04-05T02:30:00Z -> 2026-04-05T02:46:59Z` bars gap
 - implemented `UI Slice 4C` for `/monitoring -> Quality`, adding BTC backfill status visibility plus a UI-triggered incremental backfill action backed by API endpoints and a backend service layer
 - confirmed the bounded BTC perp repair work is complete enough that integrity is now warning-only for `2026-03-06 -> 2026-04-05`; no true internal gaps/corrupt rows remain in the selected window
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
