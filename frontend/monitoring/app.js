@@ -747,8 +747,27 @@ function bindBacktestPresetButtons() {
   });
 }
 
-function toIsoUtc(date) {
-  return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+function formatUtcDateInput(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function expandUtcDateBoundary(dateValue, boundary) {
+  const [year, month, day] = String(dateValue || "")
+    .split("-")
+    .map((part) => Number(part));
+  if (!year || !month || !day) {
+    return "";
+  }
+
+  const hour = boundary === "end" ? 23 : 0;
+  const minute = boundary === "end" ? 59 : 0;
+  const second = boundary === "end" ? 59 : 0;
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, second))
+    .toISOString()
+    .replace(/\.\d{3}Z$/, "Z");
 }
 
 function setIntegrityQuickRange(rangeKey) {
@@ -775,8 +794,8 @@ function setIntegrityQuickRange(rangeKey) {
     return;
   }
 
-  setFormControlValue(startControl, toIsoUtc(start));
-  setFormControlValue(endControl, toIsoUtc(now));
+  setFormControlValue(startControl, formatUtcDateInput(start));
+  setFormControlValue(endControl, formatUtcDateInput(now));
 }
 
 function syncIntegrityDatasetControls() {
@@ -1050,16 +1069,22 @@ async function runIntegrityValidation(form) {
   const formData = new FormData(form);
   const useSymbolDefaults = form.elements.namedItem("use_symbol_defaults")?.checked !== false;
   const selectedDataTypes = getSelectedIntegrityDataTypes(form);
+  const startDate = String(formData.get("start_time") || "").trim();
+  const endDate = String(formData.get("end_time") || "").trim();
   const payload = {
     exchange_code: String(formData.get("exchange_code") || "").trim() || "binance",
     unified_symbol: String(formData.get("unified_symbol") || "").trim(),
-    start_time: String(formData.get("start_time") || "").trim(),
-    end_time: String(formData.get("end_time") || "").trim(),
+    start_time: expandUtcDateBoundary(startDate, "start"),
+    end_time: expandUtcDateBoundary(endDate, "end"),
     persist_findings: Boolean(form.elements.namedItem("persist_findings")?.checked),
   };
 
   if (!payload.unified_symbol || !payload.start_time || !payload.end_time) {
-    throw new Error("exchange_code, unified_symbol, start_time, and end_time are required");
+    throw new Error("exchange_code, unified_symbol, start_date, and end_date are required");
+  }
+
+  if (endDate < startDate) {
+    throw new Error("end_date must be on or after start_date");
   }
 
   if (!useSymbolDefaults) {

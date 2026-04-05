@@ -10,6 +10,7 @@
 - wired the new UI to `POST /api/v1/quality/integrity`
 - added `checklist-grid` styling and cleaned up duplicate JSON-copy helper definitions in `frontend/monitoring/app.js`
 - added a staged integrity-validation status indicator with busy-state form locking so operators now see submit/validate/render/complete phases during `Validate Integrity`
+- switched the integrity window inputs from free-form timestamps to date pickers, with submit-time expansion to UTC day boundaries (`00:00:00` / `23:59:59`)
 - updated `docs/quality-integrity-ui-plan.md` so it now reflects that `UI Slice 4A` is landed and the next likely slice is `UI Slice 4C`
 
 ## Files Changed
