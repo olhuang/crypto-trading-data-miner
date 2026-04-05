@@ -337,6 +337,36 @@ class Phase3IngestionTests(unittest.TestCase):
                 """,
                 ("BTCUSDT_PERP",),
             ).scalar_one()
+            snapshot_mark_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.mark_prices price
+                join ref.instruments instrument on instrument.instrument_id = price.instrument_id
+                where instrument.unified_symbol = %s
+                  and price.ts = %s
+                  and price.mark_price = %s
+                """,
+                (
+                    "BTCUSDT_PERP",
+                    datetime.fromtimestamp(1712061242000 / 1000, tz=timezone.utc),
+                    "84244.18",
+                ),
+            ).scalar_one()
+            snapshot_index_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.index_prices price
+                join ref.instruments instrument on instrument.instrument_id = price.instrument_id
+                where instrument.unified_symbol = %s
+                  and price.ts = %s
+                  and price.index_price = %s
+                """,
+                (
+                    "BTCUSDT_PERP",
+                    datetime.fromtimestamp(1712061242000 / 1000, tz=timezone.utc),
+                    "84240.01",
+                ),
+            ).scalar_one()
 
             self.assertEqual(btcusdc_spot, 1)
             self.assertEqual(ethusdc_perp, 1)
@@ -345,6 +375,8 @@ class Phase3IngestionTests(unittest.TestCase):
             self.assertGreaterEqual(oi_count, 1)
             self.assertGreaterEqual(mark_count, 1)
             self.assertGreaterEqual(index_count, 1)
+            self.assertEqual(snapshot_mark_count, 1)
+            self.assertEqual(snapshot_index_count, 1)
             bnb_asset = connection.exec_driver_sql(
                 "select count(*) from ref.assets where asset_code = %s",
                 ("BNB",),

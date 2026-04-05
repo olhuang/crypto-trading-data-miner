@@ -13,6 +13,8 @@
 - switched the integrity window inputs from free-form timestamps to date pickers, with submit-time expansion to UTC day boundaries (`00:00:00` / `23:59:59`)
 - clarified the integrity dataset labels so `available_from / available_to` now read as first/last record inside the selected validation window
 - changed BTC `open_interest` incremental catch-up to always re-fetch the full currently available 30-day window instead of only appending after the latest stored timestamp
+- fixed the REST premium-index normalization bug so `mark_prices / index_prices` snapshot writes now use Binance payload event time instead of local `observed_at`, preventing new microsecond poll timestamps from contaminating the historical series
+- added a regression test proving snapshot refresh writes `mark/index` rows at the exchange payload timestamp
 - updated `docs/quality-integrity-ui-plan.md` so it now reflects that `UI Slice 4A` is landed and the next likely slice is `UI Slice 4C`
 
 ## Files Changed
@@ -33,6 +35,7 @@
 ## Risks / Unknowns
 - the new integrity UI has only been syntax-checked, not browser e2e tested in this harness
 - the future BTC backfill status panel still needs a dedicated read-only API endpoint before the UI can stop depending on local file inspection
+- the current mark/index integrity failures still mix existing DB coverage gaps with legacy off-grid snapshot contamination from before the timestamp fix, so code is corrected but historical data still needs remediation/backfill
 
 ## Next
 - if the data-quality UI line remains active, build `UI Slice 4C: BTC Backfill Status Panel`

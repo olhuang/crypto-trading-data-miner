@@ -53,6 +53,7 @@
 - the Quality integrity form now uses date pickers for `Start Date` / `End Date` and expands them to UTC day boundaries at submit time
 - the Quality integrity dataset labels now explicitly say `First/Last Record In Selected Window`, reducing confusion with global dataset coverage
 - BTC `open_interest` incremental catch-up now always re-fetches the currently available 30-day window, so recent-tail gaps can be repaired instead of only appending after the latest stored timestamp
+- REST `premiumIndex` normalization now uses Binance payload event time for `mark_prices / index_prices` snapshot writes, preventing new microsecond poll timestamps from contaminating the historical minute series
 - `docs/quality-integrity-ui-plan.md` now reflects that `UI Slice 4A` is complete and points the next likely resume slice toward `UI Slice 4C: BTC Backfill Status Panel`
 
 ## Open Problems
@@ -66,6 +67,7 @@
 - the quality-side UI direction is now explicit: keep integrity validation bounded by date window, add quick-range helpers, and stage BTC backfill status as a companion quality surface instead of a separate top-level page
 - the Quality page still does not surface BTC backfill status, so operators still need the local status file or PowerShell wrapper for that workflow
 - the new integrity UI has not yet been browser e2e tested in this harness
+- current `mark_prices / index_prices` integrity failures still include historical coverage shortfall and legacy off-grid rows written before the snapshot timestamp fix, so the code path is corrected but existing local data still needs remediation/backfill
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`

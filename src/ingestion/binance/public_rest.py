@@ -442,8 +442,8 @@ class BinancePublicRestClient:
         observed_at: datetime | None = None,
         unified_symbol: str | None = None,
     ) -> tuple[MarkPriceEvent, IndexPriceEvent]:
-        event_time = observed_at or _utc_from_millis(payload["time"])
-        ingest_time = datetime.now(timezone.utc)
+        event_time = _utc_from_millis(payload["time"])
+        ingest_time = observed_at or datetime.now(timezone.utc)
         normalized_symbol = unified_symbol or f"{symbol}_PERP"
         return (
             MarkPriceEvent(
