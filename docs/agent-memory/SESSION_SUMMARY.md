@@ -11,6 +11,8 @@
 - added `checklist-grid` styling and cleaned up duplicate JSON-copy helper definitions in `frontend/monitoring/app.js`
 - added a staged integrity-validation status indicator with busy-state form locking so operators now see submit/validate/render/complete phases during `Validate Integrity`
 - switched the integrity window inputs from free-form timestamps to date pickers, with submit-time expansion to UTC day boundaries (`00:00:00` / `23:59:59`)
+- clarified the integrity dataset labels so `available_from / available_to` now read as first/last record inside the selected validation window
+- changed BTC `open_interest` incremental catch-up to always re-fetch the full currently available 30-day window instead of only appending after the latest stored timestamp
 - updated `docs/quality-integrity-ui-plan.md` so it now reflects that `UI Slice 4A` is landed and the next likely slice is `UI Slice 4C`
 
 ## Files Changed

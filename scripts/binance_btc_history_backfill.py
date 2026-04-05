@@ -336,14 +336,15 @@ def parse_iso_datetime_or_none(value: str | None) -> datetime | None:
 
 
 def next_start_from_coverage(spec: DatasetSpec, *, default_start: datetime, coverage: dict[str, Any]) -> datetime:
+    if spec.task_kind == "open_interest":
+        return max(default_start, open_interest_available_from())
+
     available_to = parse_iso_datetime_or_none(coverage.get("safe_available_to") or coverage.get("available_to"))
     if available_to is None:
         next_start = default_start
     else:
         next_start = available_to + timedelta(milliseconds=1)
 
-    if spec.task_kind == "open_interest":
-        next_start = max(next_start, open_interest_available_from())
     return next_start
 
 
