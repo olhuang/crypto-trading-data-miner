@@ -113,6 +113,9 @@
 - persisted backtest debug traces now include a compact `market_context_json` snapshot, carrying latest-as-of funding/OI/mark/index and Binance futures sentiment-ratio context when `feature_input_version = bars_perp_context_v1`
 - `GET /api/v1/backtests/runs/{run_id}/debug-traces` now returns that compact `market_context_json`, and `/monitoring -> Backtests -> Selected Trace Detail` now shows it in a dedicated `Market Context` subsection instead of forcing operators to infer context from decision JSON alone
 - a new DB migration now exists at `db/init/012_backtest_debug_trace_market_context.sql`, extending `backtest.debug_traces` with `market_context_json`
+- `tests/test_phase3_ingestion.py` historical snapshot-refresh tests were confirmed as the source of the recurring `2024-04-02T12:30/12:35Z` fixture contamination in `open_interest` and the Binance futures sentiment-ratio tables
+- those Phase 3 ingestion tests now register explicit cleanup for the exact historical fixture window, so future local test runs no longer leave `open_interest` / `global_long_short_account_ratios` / `top_trader_long_short_account_ratios` / `top_trader_long_short_position_ratios` / `taker_long_short_ratios` residue behind
+- the current local DB has already had that `2024-04-02T12:30/12:35Z` fixture window cleaned out for the affected BTC perp OI/sentiment tables
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
@@ -132,6 +135,7 @@
 - the new UI-triggered incremental path is intentionally local-operator oriented; it currently launches a detached local process and does not yet integrate with the broader generic job orchestration spec
 - the current backtest diagnostics/trace surfaces now show compact strategy market context snapshots, but compare/review and replay investigation flows still do not attach directly to that evidence layer
 - the new finding-action flow is still intentionally partial: it does not yet offer one-click repair for retention-limited coverage shortfall, generic duplicate cleanup, or generic non-bars corrupt cleanup outside the existing targeted tooling
+- `tests/test_phase3_ingestion.py` still writes real historical market snapshot rows during integration coverage; the fixture window is now cleaned explicitly, but future new history-window tests in that file should follow the same cleanup pattern
 
 ## Files To Inspect Next
 - `docs/ai-memory-and-handoff-spec.md`

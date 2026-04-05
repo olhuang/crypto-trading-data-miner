@@ -39,6 +39,7 @@
 - operator-cleaned the local `BTCUSDT_PERP` sentiment-ratio tables so re-grab starts from an empty state instead of mixing recent rows with old `2024-04-02` fixture residue
 - added a compact `market_context_json` field to persisted backtest debug traces, capturing the actual latest-as-of perp context seen by feature-aware strategies at each step
 - exposed that compact market-context snapshot through the debug-trace API and `/monitoring -> Backtests -> Selected Trace Detail`, so sentiment-aware runs are now explainable without digging back through market-data tables by hand
+- traced the recurring BTC perp `2024-04-02T12:30/12:35Z` OI/sentiment contamination to `tests/test_phase3_ingestion.py` historical snapshot-refresh tests and added exact-window cleanup so those tests no longer leave residue in the local DB
 - added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
 - updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - tightened the repair UX so finding-triggered incremental repairs now surface a live staged progress indicator instead of only a queued/complete message

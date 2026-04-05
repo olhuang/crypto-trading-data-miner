@@ -18,11 +18,38 @@ from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.scheduler import phase3_schedule_plan, phase4_schedule_plan
 from jobs.sync_instruments import run_instrument_sync
 from runtime.binance_trade_stream import BinanceTradeStreamProcessor
-from storage.db import connection_scope
+from storage.db import connection_scope, transaction_scope
 from storage.repositories.ops import IngestionJobRepository
 
 
 class Phase3IngestionTests(unittest.TestCase):
+    @staticmethod
+    def _cleanup_market_snapshot_history_window(*, start_time: datetime, end_time: datetime) -> None:
+        with transaction_scope() as connection:
+            for table_name in (
+                "md.open_interest",
+                "md.mark_prices",
+                "md.index_prices",
+                "md.global_long_short_account_ratios",
+                "md.top_trader_long_short_account_ratios",
+                "md.top_trader_long_short_position_ratios",
+                "md.taker_long_short_ratios",
+            ):
+                connection.exec_driver_sql(
+                    f"""
+                    delete from {table_name}
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                        limit 1
+                    )
+                      and ts between %s and %s
+                    """,
+                    ("binance", "BTCUSDT_PERP", start_time, end_time),
+                )
+
     @staticmethod
     def _transport(url: str, params):
         if url.endswith("/fapi/v1/klines") and params and params.get("startTime") == 1712061300000:
@@ -475,6 +502,13 @@ class Phase3IngestionTests(unittest.TestCase):
             self.assertGreaterEqual(sync_job["metadata_json"]["summary"]["assets_touched"], 4)
 
     def test_market_snapshot_refresh_supports_historical_oi_mark_and_index_windows(self) -> None:
+        fixture_start = datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc)
+        fixture_end = datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)
+        self.addCleanup(
+            self._cleanup_market_snapshot_history_window,
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
         client = self._client()
         result = run_market_snapshot_refresh(
             symbol="BTCUSDT",
@@ -500,7 +534,7 @@ class Phase3IngestionTests(unittest.TestCase):
                 where instrument.unified_symbol = %s
                   and oi.ts in (%s, %s)
                 """,
-                ("BTCUSDT_PERP", datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc), datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)),
+                ("BTCUSDT_PERP", fixture_start, fixture_end),
             ).scalar_one()
             mark_count = connection.exec_driver_sql(
                 """
@@ -510,7 +544,7 @@ class Phase3IngestionTests(unittest.TestCase):
                 where instrument.unified_symbol = %s
                   and price.ts in (%s, %s)
                 """,
-                ("BTCUSDT_PERP", datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc), datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)),
+                ("BTCUSDT_PERP", fixture_start, fixture_end),
             ).scalar_one()
             index_count = connection.exec_driver_sql(
                 """
@@ -520,7 +554,7 @@ class Phase3IngestionTests(unittest.TestCase):
                 where instrument.unified_symbol = %s
                   and price.ts in (%s, %s)
                 """,
-                ("BTCUSDT_PERP", datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc), datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)),
+                ("BTCUSDT_PERP", fixture_start, fixture_end),
             ).scalar_one()
 
         self.assertEqual(oi_count, 2)
@@ -528,6 +562,13 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(index_count, 2)
 
     def test_market_snapshot_refresh_supports_historical_sentiment_ratio_windows(self) -> None:
+        fixture_start = datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc)
+        fixture_end = datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc)
+        self.addCleanup(
+            self._cleanup_market_snapshot_history_window,
+            start_time=fixture_start,
+            end_time=fixture_end,
+        )
         client = self._client()
         result = run_market_snapshot_refresh(
             symbol="BTCUSDT",
@@ -564,8 +605,8 @@ class Phase3IngestionTests(unittest.TestCase):
                 (
                     "BTCUSDT_PERP",
                     "5m",
-                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
-                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                    fixture_start,
+                    fixture_end,
                 ),
             ).scalar_one()
             top_account_count = connection.exec_driver_sql(
@@ -580,8 +621,8 @@ class Phase3IngestionTests(unittest.TestCase):
                 (
                     "BTCUSDT_PERP",
                     "5m",
-                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
-                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                    fixture_start,
+                    fixture_end,
                 ),
             ).scalar_one()
             top_position_count = connection.exec_driver_sql(
@@ -596,8 +637,8 @@ class Phase3IngestionTests(unittest.TestCase):
                 (
                     "BTCUSDT_PERP",
                     "5m",
-                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
-                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                    fixture_start,
+                    fixture_end,
                 ),
             ).scalar_one()
             taker_count = connection.exec_driver_sql(
@@ -612,8 +653,8 @@ class Phase3IngestionTests(unittest.TestCase):
                 (
                     "BTCUSDT_PERP",
                     "5m",
-                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
-                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                    fixture_start,
+                    fixture_end,
                 ),
             ).scalar_one()
 
