@@ -1,36 +1,28 @@
 # Session Summary
 
 ## Goal
-- re-scan the spec set and align stale spec bodies to the current sentiment-aware backtest status and next diagnostics slice
+- let the bars integrity repair script auto-detect `bars_1m` gaps/corrupt minutes and repair them without manual window transcription
 
 ## Done
-- updated the stale phase/checklist tracking docs so Phase 5 now consistently reflects `bars_perp_context_v1`, `btc_sentiment_momentum`, the sentiment-aware Backtests launch path, and the new diagnostics/trace market-context follow-up
-- updated the stale spec bodies in `docs/spec-index.md`, `docs/strategy-input-and-feature-pipeline-spec.md`, `docs/backtest-and-replay-diagnostics-spec.md`, `docs/ui-spec.md`, `docs/ui-api-spec.md`, and `docs/strategy-workbench-spec.md`
-- added explicit notes across those specs that the seeded sentiment-aware research path is live today and that strategy market context visibility inside diagnostics/debug traces is the next slice
-- updated repo handoff files in the usual flow so next-session resume guidance matches the refreshed phase/checklist docs
+- added `--auto-detect` to `scripts/repair_bars_integrity_windows.py` so it can run a bounded `bars_1m` integrity profile, extract all internal gap segments plus corrupt minutes, and convert them into repair windows automatically
+- updated `scripts/repair_bars_integrity_windows.ps1` with `-AutoDetect` so the auto-detect flow is directly usable from PowerShell
+- added `tests/test_repair_bars_integrity_windows.py` to cover gap-window extraction and overlap-merging behavior
+- verified the new flow with `py_compile`, the new unittest module, and a PowerShell dry-run that showed auto-detected repair windows from a real bounded integrity scan
 
 ## Files Changed
-- `docs/phases-2-to-9-checklists.md`
-- `docs/ui-phase-checklists.md`
-- `docs/implementation-plan.md`
-- `docs/debug-trace-rollout-plan.md`
-- `docs/spec-index.md`
-- `docs/strategy-input-and-feature-pipeline-spec.md`
-- `docs/backtest-and-replay-diagnostics-spec.md`
-- `docs/ui-spec.md`
-- `docs/ui-api-spec.md`
-- `docs/strategy-workbench-spec.md`
+- `scripts/repair_bars_integrity_windows.py`
+- `scripts/repair_bars_integrity_windows.ps1`
+- `tests/test_repair_bars_integrity_windows.py`
 - `docs/agent-memory/HANDOFF.md`
 - `docs/agent-memory/SESSION_SUMMARY.md`
 - `docs/agent-memory/TASK_BOARD.md`
 
 ## Decisions
-- treat `strategy market context inside diagnostics/debug-trace inspection` as the explicit next Phase 5 slice before replay-investigation linkage
-- keep the phase/task/checklist documents synchronized when a new strategy/runtime capability changes the practical resume point
+- keep the bounded bars repair entrypoint generic, but let `--auto-detect` derive windows from `validate_dataset_integrity(..., data_types=[\"bars_1m\"])` instead of maintaining an ever-growing list of hard-coded defaults
+- continue treating `strategy market context inside diagnostics/debug-trace inspection` as the explicit next Phase 5 slice before replay-investigation linkage
 
 ## Risks / Unknowns
-- this was a docs-only alignment slice; runtime behavior was not changed or re-tested in the harness
-- some older high-level docs already matched the current direction and were left untouched; this pass focused on the stale spec bodies affected by the recent sentiment/context work
+- full-history `-AutoDetect` can take longer because it first runs a full bounded integrity profile; it is best used with a realistic suspect window when you already know the failing range
 
 ## Next
 - continue from the current sentiment-ratio follow-up plan: surface strategy market context inside diagnostics/trace inspection for sentiment-aware runs

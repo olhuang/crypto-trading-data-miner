@@ -56,6 +56,7 @@
 - fixed the Backtests sentiment-threshold visibility bug by making hidden strategy-specific form grids override the shared `.form-grid` display rule
 - aligned the Phase 5 phase/task/checklist docs with the current sentiment/context status so they now reflect `bars_perp_context_v1`, the seeded sentiment-aware strategy path, and diagnostics/trace market-context visibility as the next slice
 - re-scanned the stale spec set and aligned `spec-index`, feature-pipeline, diagnostics, UI/UI API, and strategy-workbench docs to the same current sentiment/context status and next-slice wording
+- upgraded the bounded bars repair tool so it can auto-detect `bars_1m` internal gaps and corrupt minutes from integrity output instead of requiring every repair window to be typed by hand
 - added a Windows-friendly `scripts/binance_btc_history_backfill.ps1` wrapper for bootstrap/resume/incremental/status operations on the BTC history backfill tool
 - hardened the BTC history incremental mode against future-dated local test rows so checkpoint planning now uses bounded safe coverage instead of raw future timestamps
 - upgraded the local BTC history backfill tool with an explicit `--incremental` catch-up mode that derives per-dataset checkpoints from DB coverage

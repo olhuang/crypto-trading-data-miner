@@ -4,8 +4,9 @@ import argparse
 import json
 import sys
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -14,9 +15,11 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from jobs.backfill_bars import run_bar_backfill
+from jobs.data_quality import validate_dataset_integrity
 
 
 UTC = timezone.utc
+DEFAULT_AUTO_DETECT_START_TIME = "2020-01-01T00:00:00+00:00"
 DEFAULT_WINDOWS = [
     {
         "label": "corrupt_bar_minute",
@@ -62,7 +65,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--end-time",
         default=None,
-        help="Optional UTC ISO timestamp. When supplied with --start-time, repairs only one custom window.",
+        help=(
+            "Optional UTC ISO timestamp. When supplied with --start-time, repairs only one custom "
+            "window unless --auto-detect is enabled."
+        ),
+    )
+    parser.add_argument(
+        "--auto-detect",
+        action="store_true",
+        help=(
+            "Run a bounded bars_1m integrity profile first, then repair every detected internal gap "
+            "and corrupt minute inside the selected window."
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -79,9 +93,97 @@ def parse_utc_timestamp(value: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
-def build_windows(args: argparse.Namespace) -> list[dict[str, str]]:
+def _minute_window(timestamp: datetime) -> tuple[datetime, datetime]:
+    minute_start = timestamp.replace(second=0, microsecond=0)
+    return minute_start, minute_start + timedelta(seconds=59)
+
+
+def _merge_windows(windows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not windows:
+        return []
+
+    ordered = sorted(windows, key=lambda item: (item["start_time"], item["end_time"]))
+    merged: list[dict[str, Any]] = [ordered[0].copy()]
+    for window in ordered[1:]:
+        current = merged[-1]
+        if window["start_time"] <= current["end_time"] + timedelta(seconds=1):
+            current["end_time"] = max(current["end_time"], window["end_time"])
+            current["sources"].extend(window["sources"])
+            continue
+        merged.append(window.copy())
+    return merged
+
+
+def _build_detected_windows(validation_result: Any) -> list[dict[str, str]]:
+    bars_report = next(report for report in validation_result.datasets if report.data_type == "bars_1m")
+    candidate_windows: list[dict[str, Any]] = []
+
+    for finding in bars_report.findings:
+        if finding.category == "gap":
+            for segment in finding.detail_json.get("segments", []):
+                start_time = parse_utc_timestamp(segment["gap_start"])
+                end_time = parse_utc_timestamp(segment["gap_end"]).replace(second=59, microsecond=0)
+                candidate_windows.append(
+                    {
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "sources": [f"gap:{segment['gap_start']}->{segment['gap_end']}"],
+                    }
+                )
+        elif finding.category == "corrupt":
+            for example in finding.detail_json.get("corrupt_examples", []):
+                start_time, end_time = _minute_window(parse_utc_timestamp(example["ts"]))
+                candidate_windows.append(
+                    {
+                        "start_time": start_time,
+                        "end_time": end_time,
+                        "sources": [f"corrupt:{example['ts']}"],
+                    }
+                )
+
+    rendered: list[dict[str, str]] = []
+    for index, window in enumerate(_merge_windows(candidate_windows), start=1):
+        rendered.append(
+            {
+                "label": f"auto_detected_window_{index}",
+                "start_time": window["start_time"].isoformat(),
+                "end_time": window["end_time"].isoformat(),
+                "source_summary": ", ".join(window["sources"]),
+            }
+        )
+    return rendered
+
+
+def _auto_detect_profile_window(args: argparse.Namespace) -> tuple[datetime, datetime]:
     if bool(args.start_time) ^ bool(args.end_time):
         raise ValueError("start_time and end_time must be supplied together")
+    if args.start_time and args.end_time:
+        return parse_utc_timestamp(args.start_time), parse_utc_timestamp(args.end_time)
+    return parse_utc_timestamp(DEFAULT_AUTO_DETECT_START_TIME), datetime.now(UTC)
+
+
+def build_windows(args: argparse.Namespace) -> tuple[list[dict[str, str]], dict[str, Any] | None]:
+    if args.auto_detect:
+        profile_start_time, profile_end_time = _auto_detect_profile_window(args)
+        validation_result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol=args.unified_symbol,
+            start_time=profile_start_time,
+            end_time=profile_end_time,
+            data_types=["bars_1m"],
+            persist_findings=False,
+        )
+        windows = _build_detected_windows(validation_result)
+        bars_report = next(report for report in validation_result.datasets if report.data_type == "bars_1m")
+        return windows, {
+            "profile_start_time": profile_start_time.isoformat(),
+            "profile_end_time": profile_end_time.isoformat(),
+            "gap_count": bars_report.gap_count,
+            "corrupt_count": bars_report.corrupt_count,
+            "internal_missing_count": bars_report.internal_missing_count,
+            "tail_missing_count": bars_report.tail_missing_count,
+        }
+
     if args.start_time and args.end_time:
         return [
             {
@@ -89,28 +191,32 @@ def build_windows(args: argparse.Namespace) -> list[dict[str, str]]:
                 "start_time": args.start_time,
                 "end_time": args.end_time,
             }
-        ]
-    return DEFAULT_WINDOWS
+        ], None
+    return DEFAULT_WINDOWS, None
 
 
 def main() -> int:
     args = parse_args()
-    windows = build_windows(args)
+    windows, auto_detect_summary = build_windows(args)
     print("Binance bars integrity repair")
-    print(json.dumps(
-        {
-            "symbol": args.symbol,
-            "unified_symbol": args.unified_symbol,
-            "interval": args.interval,
-            "requested_by": args.requested_by,
-            "dry_run": args.dry_run,
-            "windows": windows,
-        },
-        indent=2,
-    ))
+    payload: dict[str, Any] = {
+        "symbol": args.symbol,
+        "unified_symbol": args.unified_symbol,
+        "interval": args.interval,
+        "requested_by": args.requested_by,
+        "dry_run": args.dry_run,
+        "auto_detect": args.auto_detect,
+        "windows": windows,
+    }
+    if auto_detect_summary is not None:
+        payload["auto_detect_summary"] = auto_detect_summary
+    print(json.dumps(payload, indent=2))
 
     if args.dry_run:
         print("Dry run only. No backfill executed.")
+        return 0
+    if not windows:
+        print("No repair windows detected. Nothing to backfill.")
         return 0
 
     results = []

@@ -6,6 +6,7 @@ param(
     [string]$StartTime = "",
     [string]$EndTime = "",
     [string]$PythonExe = "",
+    [switch]$AutoDetect,
     [switch]$DryRun
 )
 
@@ -41,6 +42,10 @@ if ($StartTime.Trim() -and $EndTime.Trim()) {
 }
 elseif ($StartTime.Trim() -or $EndTime.Trim()) {
     throw "StartTime and EndTime must be supplied together."
+}
+
+if ($AutoDetect) {
+    $Args += "--auto-detect"
 }
 
 if ($DryRun) {
