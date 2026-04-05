@@ -105,6 +105,12 @@ def load_binance_btc_backfill_status(
     payload.setdefault("coverage_summary", None)
     payload.setdefault("error", None)
     payload["process_alive"] = _process_is_running(payload.get("process_id"))
+    if payload.get("state") == "running" and not payload["process_alive"]:
+        payload["state"] = "stale"
+        payload["error"] = payload.get("error") or {
+            "code": "STALE_STATUS",
+            "message": "backfill status file still reports running, but the recorded process is no longer alive",
+        }
     return payload
 
 

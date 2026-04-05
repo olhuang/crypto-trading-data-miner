@@ -205,6 +205,7 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             task_kind="open_interest",
             table_name="md.open_interest",
             time_column="ts",
+            checkpoint_interval_seconds=300,
         ),
         DatasetSpec(
             dataset_key="btc_perp_mark_prices",
@@ -478,6 +479,7 @@ def collect_coverage_summary(*, safe_upper_bound: datetime | None = None) -> dic
                     table_name="md.open_interest",
                     time_column="ts",
                     safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=300,
                 ),
                 "mark_prices": coverage_row(
                     connection,

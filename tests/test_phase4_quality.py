@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
@@ -26,6 +28,7 @@ from models.market import (
     TradeEvent,
 )
 from services.traceability import normalized_links_for_raw_event, replay_readiness_summary
+from services.btc_backfill_control import load_binance_btc_backfill_status
 from storage.db import connection_scope, transaction_scope
 from storage.repositories.market_data import (
     BarRepository,
@@ -1217,6 +1220,74 @@ class DatasetIntegrityValidationTests(unittest.TestCase):
         self.assertEqual(result.summary.warning_datasets, 1)
         self.assertEqual(result.summary.failed_datasets, 0)
 
+    def test_open_interest_integrity_ignores_offgrid_snapshot_rows_for_gap_detection(self) -> None:
+        start_time = datetime(2031, 7, 3, 0, 0, tzinfo=timezone.utc)
+        aligned_time = datetime(2031, 7, 3, 0, 0, tzinfo=timezone.utc)
+        offgrid_time = datetime(2031, 7, 3, 0, 24, 21, tzinfo=timezone.utc)
+        end_time = datetime(2031, 7, 3, 0, 30, tzinfo=timezone.utc)
+        self.addCleanup(
+            _cleanup_quality_window,
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        with transaction_scope() as connection:
+            connection.exec_driver_sql(
+                """
+                delete from md.open_interest
+                where instrument_id = (
+                    select instrument.instrument_id
+                    from ref.instruments instrument
+                    join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                    where exchange.exchange_code = %s and instrument.unified_symbol = %s
+                    limit 1
+                )
+                  and ts between %s and %s
+                """,
+                ("binance", "BTCUSDT_PERP", start_time, end_time),
+            )
+            repo = OpenInterestRepository()
+            repo.upsert(
+                connection,
+                OpenInterestEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    event_time=aligned_time,
+                    ingest_time=aligned_time,
+                    open_interest="100.0",
+                ),
+            )
+            repo.upsert(
+                connection,
+                OpenInterestEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    event_time=offgrid_time,
+                    ingest_time=offgrid_time,
+                    open_interest="101.0",
+                ),
+            )
+
+        result = validate_dataset_integrity(
+            exchange_code="binance",
+            unified_symbol="BTCUSDT_PERP",
+            start_time=start_time,
+            end_time=end_time,
+            observed_at=end_time,
+            data_types=["open_interest"],
+            persist_findings=False,
+        )
+
+        report = result.datasets[0]
+        self.assertEqual(report.status, "warning")
+        self.assertEqual(report.gap_count, 0)
+        self.assertEqual(report.internal_missing_count, 0)
+        self.assertEqual(report.coverage_shortfall_count, 0)
+        self.assertEqual(report.tail_missing_count, 6)
+        self.assertEqual(report.corrupt_count, 0)
+
 
 class BtcBackfillControlEndpointTests(unittest.TestCase):
     @classmethod
@@ -1289,6 +1360,31 @@ class BtcBackfillControlEndpointTests(unittest.TestCase):
         self.assertEqual(response.data.status, "started")
         self.assertFalse(response.data.already_running)
         self.assertTrue(response.data.process_alive)
+
+    def test_load_backfill_status_marks_stale_when_recorded_process_is_gone(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            status_file = temp_path / "status.json"
+            log_file = temp_path / "backfill.log"
+            status_file.write_text(
+                json.dumps(
+                    {
+                        "state": "running",
+                        "mode": "incremental",
+                        "updated_at": "2026-04-05T00:00:00+00:00",
+                        "process_id": 424242,
+                        "overall": {"tasks_total": 6, "tasks_completed": 3, "progress_pct": 50.0},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("services.btc_backfill_control.os.kill", side_effect=OSError()):
+                payload = load_binance_btc_backfill_status(status_file=status_file, log_file=log_file)
+
+        self.assertEqual(payload["state"], "stale")
+        self.assertFalse(payload["process_alive"])
+        self.assertEqual(payload["error"]["code"], "STALE_STATUS")
 
 
 if __name__ == "__main__":

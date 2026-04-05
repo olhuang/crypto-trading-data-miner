@@ -151,6 +151,7 @@ INTEGRITY_DATASET_SPECS: dict[str, dict[str, Any]] = {
         "table_name": "md.open_interest",
         "time_column": "ts",
         "interval": OPEN_INTEREST_CONTINUITY_INTERVAL,
+        "profile_aligned_only": True,
         "duplicate_key": "ts",
         "corrupt_where": """
             (
@@ -331,6 +332,12 @@ def _profile_interval_timestamps(
         tail_missing_count=tail_missing_count,
         internal_gap_segments=internal_gap_segments,
     )
+
+
+def _is_timestamp_on_interval_boundary(timestamp: datetime, interval: timedelta) -> bool:
+    if timestamp.microsecond != 0:
+        return False
+    return _floor_to_interval(timestamp, interval) == timestamp
 
 
 def _status_for_count(count: int, *, fail_severity: str = "error") -> tuple[str, str]:
@@ -678,8 +685,13 @@ def validate_dataset_integrity(
                     end_time=aligned_end_time,
                     raw_event_channel=raw_event_channel,
                 )
+                coverage_timestamps = (
+                    [timestamp for timestamp in timestamps if _is_timestamp_on_interval_boundary(timestamp, interval)]
+                    if spec.get("profile_aligned_only")
+                    else timestamps
+                )
                 expected_points = _expected_points_in_interval_window(aligned_start_time, aligned_end_time, interval)
-                safe_timestamps = [timestamp for timestamp in timestamps if timestamp <= effective_observed_at]
+                safe_timestamps = [timestamp for timestamp in coverage_timestamps if timestamp <= effective_observed_at]
                 coverage_profile = _profile_interval_timestamps(
                     timestamps=safe_timestamps,
                     aligned_start_time=aligned_start_time,
@@ -726,7 +738,9 @@ def validate_dataset_integrity(
             )
             total_corrupt_count = corrupt_count + future_row_count
             safe_available_to = available_to
-            if future_row_count > 0:
+            if interval is not None and safe_timestamps:
+                safe_available_to = safe_timestamps[-1]
+            elif future_row_count > 0:
                 safe_available_to_row = connection.exec_driver_sql(
                     f"""
                     select max({time_column})
@@ -777,7 +791,9 @@ def validate_dataset_integrity(
                         related_count=coverage_shortfall_count,
                         detail_json=_normalize_json_value({
                             "aligned_window_start": aligned_start_time.isoformat(),
-                            "first_record_in_window": available_from.isoformat() if available_from else None,
+                            "first_record_in_window": (
+                                safe_timestamps[0].isoformat() if safe_timestamps else (available_from.isoformat() if available_from else None)
+                            ),
                             "coverage_shortfall_count": coverage_shortfall_count,
                         }),
                     )
