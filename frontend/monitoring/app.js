@@ -1760,6 +1760,14 @@ function renderBtcBackfillStatus(status) {
         stateClass: "is-error",
       });
       clearIntegrityRepairContext();
+    } else if (status?.state === "not_started" || status?.state === "unknown") {
+      setIntegrityRepairStatus({
+        phase: "queued",
+        title: "Repair Backfill Queued",
+        detail: `Incremental repair for ${repairContext.dataset} has been requested. Waiting for the backfill status artifact to update.`,
+        progress: 32,
+        stateClass: "is-running",
+      });
     }
   }
 
@@ -1845,19 +1853,6 @@ async function triggerBtcIncrementalBackfill(options = {}) {
       stateClass: state.currentBtcBackfillStatus?.state === "running" ? "is-running" : "is-complete",
     });
 
-    if (sourceDataset) {
-      setIntegrityRepairStatus({
-        phase: state.currentBtcBackfillStatus?.state === "running" ? "monitoring" : "queued",
-        title: state.currentBtcBackfillStatus?.state === "running" ? "Repair Backfill Running" : "Incremental Backfill Triggered",
-        detail: state.currentBtcBackfillStatus?.state === "running"
-          ? `Incremental repair for ${sourceDataset} is now running and will keep updating below.`
-          : `Triggered incremental catch-up for ${sourceDataset}. Re-run integrity after the backfill status reaches a finished state.`,
-        progress: state.currentBtcBackfillStatus?.state === "running"
-          ? Number(state.currentBtcBackfillStatus?.overall?.progress_pct || 0)
-          : 42,
-        stateClass: state.currentBtcBackfillStatus?.state === "running" ? "is-running" : "is-complete",
-      });
-    }
   } catch (error) {
     setBtcBackfillActionStatus({
       phase: "error",

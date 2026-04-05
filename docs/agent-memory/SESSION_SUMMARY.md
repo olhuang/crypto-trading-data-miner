@@ -14,6 +14,7 @@
 - finding-action eligibility now keys off dataset policy, so supported `mark/index/sentiment` gap findings do not depend on a fragile `status === fail` check to render their repair button
 - finding-triggered incremental repairs now look up the matching dataset in BTC backfill status and explicitly report when the repair completed with `0` rows written
 - detached BTC incremental launches now request `CREATE_NO_WINDOW` on Windows so the local operator flow is less likely to flash a transient console window
+- fixed a front-end overwrite bug where the first post-trigger render could replace a finished incremental repair result with a generic "Incremental Backfill Triggered" message before the operator saw the real outcome
 - added a dedicated integrity-repair status box in the Quality workspace so repair progress and errors are visible without relying on alerts
 - strengthened the integrity-repair status flow so finding-triggered incremental backfills now keep updating their progress while the detached backfill job is running, instead of only showing a one-time queued message
 - fixed the generic bars repair script so spot repairs no longer fall back to old BTC perp hard-coded windows; when no explicit window is supplied it now defaults to auto-detect against the requested unified symbol

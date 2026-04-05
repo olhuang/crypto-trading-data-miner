@@ -33,6 +33,7 @@
 - expanded the finding-aware repair flow so supported non-bars `gap` findings can trigger incremental repair and non-retention-limited `coverage` findings can trigger coverage backfill from the same findings table
 - tightened the finding-action eligibility rules so supported `mark/index/sentiment` gap findings render their repair button more reliably while retention-limited coverage remains non-actionable
 - improved the finding-repair feedback path so dataset-scoped incremental actions now distinguish a true fill from a `0 rows written` no-op returned by the upstream source
+- fixed the integrity repair status flow so queued/running/final backfill messages are no longer immediately overwritten by a generic post-trigger message
 - added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
 - updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - tightened the repair UX so finding-triggered incremental repairs now surface a live staged progress indicator instead of only a queued/complete message
