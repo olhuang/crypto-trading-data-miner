@@ -49,6 +49,7 @@
 - by default, spot integrity validation checks `bars_1m`; perp integrity validation checks `bars_1m`, `funding_rates`, `open_interest`, `mark_prices`, and `index_prices`
 - interval-gap findings can now persist into `ops.data_gaps`, while higher-level integrity findings persist into `ops.data_quality_checks`
 - `/monitoring -> Quality` now exposes `UI Slice 4A` for integrity validation with quick ranges, bounded form inputs, optional dataset overrides, result summary cards, dataset summary rows, selected dataset detail, and collapsible raw payload surfaces
+- the Quality integrity form now also shows a staged validation-status indicator and temporarily locks its controls while a validation request is in flight
 - `docs/quality-integrity-ui-plan.md` now reflects that `UI Slice 4A` is complete and points the next likely resume slice toward `UI Slice 4C: BTC Backfill Status Panel`
 
 ## Open Problems

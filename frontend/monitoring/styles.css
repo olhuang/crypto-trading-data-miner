@@ -472,10 +472,18 @@ select {
   opacity: 0.72;
 }
 
+.labeled-form.is-busy {
+  opacity: 0.72;
+}
+
 .sectioned-form.is-busy input,
 .sectioned-form.is-busy select,
 .sectioned-form.is-busy textarea,
-.sectioned-form.is-busy button {
+.sectioned-form.is-busy button,
+.labeled-form.is-busy input,
+.labeled-form.is-busy select,
+.labeled-form.is-busy textarea,
+.labeled-form.is-busy button {
   pointer-events: none;
 }
 

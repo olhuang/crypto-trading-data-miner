@@ -795,6 +795,16 @@
                   <button type="submit">Validate Integrity</button>
                 </div>
               </form>
+              <div id="integrity-validation-status" class="launch-status" aria-live="polite">
+                <div class="launch-status-header">
+                  <strong id="integrity-validation-status-title">Ready to Validate</strong>
+                  <span id="integrity-validation-status-phase" class="status-pill">idle</span>
+                </div>
+                <div class="progress-track" aria-hidden="true">
+                  <div id="integrity-validation-progress" class="progress-bar"></div>
+                </div>
+                <p id="integrity-validation-status-detail" class="card-detail">No integrity validation currently in progress.</p>
+              </div>
               <p id="integrity-validation-context" class="card-detail">Run one bounded validation window to see the latest integrity summary.</p>
               <div id="integrity-result-summary" class="summary-cards">
                 <div class="summary-empty">No integrity validation has been run in this session.</div>

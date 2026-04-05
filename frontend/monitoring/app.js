@@ -1074,8 +1074,53 @@ async function runIntegrityValidation(form) {
     payload.raw_event_channel = rawEventChannel;
   }
 
-  const result = await sendEnvelope("/api/v1/quality/integrity", "POST", payload);
-  renderIntegrityValidationResult(result);
+  setIntegrityValidationFormBusy(true);
+  setIntegrityValidationStatus({
+    phase: "submitting",
+    title: "Submitting Validation Request",
+    detail: "Sending the bounded integrity validation request to the quality API.",
+    progress: 18,
+    stateClass: "is-running",
+  });
+
+  try {
+    setIntegrityValidationStatus({
+      phase: "validating",
+      title: "Integrity Validation Running",
+      detail: "Waiting for the quality validator to scan the requested datasets and time window.",
+      progress: 58,
+      stateClass: "is-running",
+    });
+    const result = await sendEnvelope("/api/v1/quality/integrity", "POST", payload);
+
+    setIntegrityValidationStatus({
+      phase: "rendering",
+      title: "Rendering Validation Results",
+      detail: "Applying dataset summaries and findings to the current Quality workspace.",
+      progress: 86,
+      stateClass: "is-running",
+    });
+    renderIntegrityValidationResult(result);
+
+    setIntegrityValidationStatus({
+      phase: "complete",
+      title: "Integrity Validation Completed",
+      detail: `${result.unified_symbol} validated across ${result.summary?.dataset_count ?? 0} dataset(s).`,
+      progress: 100,
+      stateClass: "is-complete",
+    });
+  } catch (error) {
+    setIntegrityValidationStatus({
+      phase: "error",
+      title: "Validation Failed",
+      detail: error.message || "The integrity validation request failed.",
+      progress: 100,
+      stateClass: "is-error",
+    });
+    throw error;
+  } finally {
+    setIntegrityValidationFormBusy(false);
+  }
 }
 
 function setBacktestLaunchFormBusy(isBusy) {
@@ -1090,6 +1135,40 @@ function setBacktestLaunchFormBusy(isBusy) {
   document.querySelectorAll("[data-backtest-preset]").forEach((button) => {
     button.disabled = isBusy;
   });
+}
+
+function setIntegrityValidationFormBusy(isBusy) {
+  const form = document.getElementById("integrity-validation-form");
+  if (!form) {
+    return;
+  }
+  form.classList.toggle("is-busy", isBusy);
+  form.querySelectorAll("input, select, textarea, button").forEach((element) => {
+    element.disabled = isBusy;
+  });
+  document.querySelectorAll("[data-integrity-range]").forEach((button) => {
+    button.disabled = isBusy;
+  });
+}
+
+function setIntegrityValidationStatus({ phase, title, detail, progress, stateClass }) {
+  const container = document.getElementById("integrity-validation-status");
+  const titleNode = document.getElementById("integrity-validation-status-title");
+  const phaseNode = document.getElementById("integrity-validation-status-phase");
+  const detailNode = document.getElementById("integrity-validation-status-detail");
+  const progressNode = document.getElementById("integrity-validation-progress");
+  if (!container || !titleNode || !phaseNode || !detailNode || !progressNode) {
+    return;
+  }
+
+  container.classList.remove("is-running", "is-complete", "is-error");
+  if (stateClass) {
+    container.classList.add(stateClass);
+  }
+  titleNode.textContent = title;
+  phaseNode.textContent = phase;
+  detailNode.textContent = detail;
+  progressNode.style.width = `${Math.max(0, Math.min(100, progress || 0))}%`;
 }
 
 function setBacktestLaunchStatus({ phase, title, detail, progress, stateClass }) {
