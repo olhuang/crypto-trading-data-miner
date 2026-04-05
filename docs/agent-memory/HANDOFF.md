@@ -11,6 +11,7 @@
 - continue the Binance futures sentiment-ratio rollout from the completed collection/quality slices into strategy feature-input and research-consumption surfaces
 - make sentiment-aware backtests explainable by surfacing strategy market context inside diagnostics / debug-trace inspection
 - widen the Quality finding-action flow across more incremental-repairable datasets while keeping retention-limited cases explicit
+- keep sentiment-ratio backfill aligned to real Binance endpoint behavior now that long history windows were found to collapse to the latest ~500 rows unless chunked more aggressively
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -37,6 +38,8 @@
 - the finding-action eligibility now follows dataset policy instead of only the current finding status text, so supported `mark/index/sentiment` `gap` findings render incremental repair actions more reliably while retention-limited `coverage` cases stay gated
 - finding-triggered incremental repairs now surface a clearer end state when the detached backfill completed but wrote `0` rows, which helps distinguish "repair ran but the source returned no history" from a normal successful gap fill
 - the integrity repair status box no longer overwrites a finished `0 rows written` message with a generic post-trigger message; queued/running/final states now come from the polled backfill status path itself
+- the current Binance futures sentiment-ratio endpoints behave like recent-history series and long single-window history refreshes can collapse to only the latest ~500 rows, so sentiment-ratio backfill now needs day-sized chunking instead of one long window
+- local `BTCUSDT_PERP` sentiment-ratio tables were confirmed to contain old `2024-04-02` test-fixture residue plus a recent real block; the fixture residue was operator-cleaned from the local DB before re-grab
 - a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run
 - the Quality workspace now includes a dedicated integrity-repair status box, so finding actions show progress/errors without relying only on modal alerts

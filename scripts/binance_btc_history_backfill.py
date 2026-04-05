@@ -29,6 +29,7 @@ DEFAULT_STATUS_FILE = REPO_ROOT / "tmp" / "binance_btc_history_backfill_status.j
 OPEN_INTEREST_LOOKBACK_DAYS = 30
 OPEN_INTEREST_CHUNK_DAYS = 1
 SENTIMENT_RATIO_LOOKBACK_DAYS = 30
+SENTIMENT_RATIO_CHUNK_DAYS = 1
 DEFAULT_SENTIMENT_RATIO_PERIOD = "5m"
 
 
@@ -998,42 +999,67 @@ def run_sentiment_ratio_history_window(
             "rows_written": 0,
             "history_rows_written": 0,
             "ingestion_job_id": None,
+            "ingestion_job_ids": [],
             "effective_start": None,
             "availability_note": (
                 f"Binance futures sentiment ratio endpoints are treated as available only from "
                 f"{sentiment_floor.isoformat()} onward"
             ),
+            "chunk_results": [],
         }
 
     effective_start = max(start_time, sentiment_floor)
-    result = run_market_snapshot_refresh(
-        symbol=symbol,
-        unified_symbol=unified_symbol,
-        requested_by=requested_by,
-        exchange_code="binance",
-        history_start_time=effective_start,
-        history_end_time=end_time,
-        sentiment_ratio_period=period_code,
-        include_funding=False,
-        include_open_interest=False,
-        include_mark_price=False,
-        include_index_price=False,
-        include_global_long_short_account_ratio=include_global_long_short_account_ratio,
-        include_top_trader_long_short_account_ratio=include_top_trader_long_short_account_ratio,
-        include_top_trader_long_short_position_ratio=include_top_trader_long_short_position_ratio,
-        include_taker_long_short_ratio=include_taker_long_short_ratio,
-    )
+    windows = build_day_windows(effective_start, end_time, chunk_days=SENTIMENT_RATIO_CHUNK_DAYS)
+    chunk_results: list[dict[str, Any]] = []
+    ingestion_job_ids: list[int] = []
+    total_rows_written = 0
+    total_history_rows_written = 0
+
+    for window_start, window_end in windows:
+        result = run_market_snapshot_refresh(
+            symbol=symbol,
+            unified_symbol=unified_symbol,
+            requested_by=requested_by,
+            exchange_code="binance",
+            history_start_time=window_start,
+            history_end_time=window_end,
+            sentiment_ratio_period=period_code,
+            include_funding=False,
+            include_open_interest=False,
+            include_mark_price=False,
+            include_index_price=False,
+            include_global_long_short_account_ratio=include_global_long_short_account_ratio,
+            include_top_trader_long_short_account_ratio=include_top_trader_long_short_account_ratio,
+            include_top_trader_long_short_position_ratio=include_top_trader_long_short_position_ratio,
+            include_taker_long_short_ratio=include_taker_long_short_ratio,
+        )
+        chunk_results.append(
+            {
+                "window_start": window_start.isoformat(),
+                "window_end": window_end.isoformat(),
+                "status": result.status,
+                "rows_written": result.records_written,
+                "history_rows_written": result.history_rows_written,
+                "ingestion_job_id": result.ingestion_job_id,
+            }
+        )
+        total_rows_written += result.records_written
+        total_history_rows_written += result.history_rows_written
+        ingestion_job_ids.append(result.ingestion_job_id)
+
     return {
-        "status": result.status,
-        "rows_written": result.records_written,
-        "history_rows_written": result.history_rows_written,
-        "ingestion_job_id": result.ingestion_job_id,
+        "status": "succeeded",
+        "rows_written": total_rows_written,
+        "history_rows_written": total_history_rows_written,
+        "ingestion_job_id": ingestion_job_ids[-1] if ingestion_job_ids else None,
+        "ingestion_job_ids": ingestion_job_ids,
         "effective_start": effective_start.isoformat(),
         "availability_note": (
             "window start adjusted to current sentiment-ratio availability floor"
             if effective_start != start_time
             else None
         ),
+        "chunk_results": chunk_results,
     }
 
 
@@ -1297,9 +1323,11 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "rows_written": result["rows_written"],
             "history_rows_written": result["history_rows_written"],
             "ingestion_job_id": result["ingestion_job_id"],
+            "ingestion_job_ids": result["ingestion_job_ids"],
             "window_start": result["effective_start"] or task.start_time.isoformat(),
             "window_end": task.end_time.isoformat(),
             "availability_note": result["availability_note"],
+            "chunk_results": result["chunk_results"],
         }
 
     if task.task_kind == "top_trader_long_short_account_ratios":
@@ -1319,9 +1347,11 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "rows_written": result["rows_written"],
             "history_rows_written": result["history_rows_written"],
             "ingestion_job_id": result["ingestion_job_id"],
+            "ingestion_job_ids": result["ingestion_job_ids"],
             "window_start": result["effective_start"] or task.start_time.isoformat(),
             "window_end": task.end_time.isoformat(),
             "availability_note": result["availability_note"],
+            "chunk_results": result["chunk_results"],
         }
 
     if task.task_kind == "top_trader_long_short_position_ratios":
@@ -1341,9 +1371,11 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "rows_written": result["rows_written"],
             "history_rows_written": result["history_rows_written"],
             "ingestion_job_id": result["ingestion_job_id"],
+            "ingestion_job_ids": result["ingestion_job_ids"],
             "window_start": result["effective_start"] or task.start_time.isoformat(),
             "window_end": task.end_time.isoformat(),
             "availability_note": result["availability_note"],
+            "chunk_results": result["chunk_results"],
         }
 
     if task.task_kind == "taker_long_short_ratios":
@@ -1363,9 +1395,11 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "rows_written": result["rows_written"],
             "history_rows_written": result["history_rows_written"],
             "ingestion_job_id": result["ingestion_job_id"],
+            "ingestion_job_ids": result["ingestion_job_ids"],
             "window_start": result["effective_start"] or task.start_time.isoformat(),
             "window_end": task.end_time.isoformat(),
             "availability_note": result["availability_note"],
+            "chunk_results": result["chunk_results"],
         }
 
     return run_perp_snapshot_window(task, requested_by=requested_by)

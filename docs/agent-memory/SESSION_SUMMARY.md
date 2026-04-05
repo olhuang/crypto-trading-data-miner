@@ -18,6 +18,8 @@
 - added a dedicated integrity-repair status box in the Quality workspace so repair progress and errors are visible without relying on alerts
 - strengthened the integrity-repair status flow so finding-triggered incremental backfills now keep updating their progress while the detached backfill job is running, instead of only showing a one-time queued message
 - fixed the generic bars repair script so spot repairs no longer fall back to old BTC perp hard-coded windows; when no explicit window is supplied it now defaults to auto-detect against the requested unified symbol
+- sentiment-ratio historical refresh is now chunked daily, matching the already-hardened open-interest path, so re-grabs no longer depend on Binance returning more than the latest ~500 rows for a long 5m window
+- confirmed that the old `2024-04-02` sentiment-ratio rows were test-fixture residue rather than maintained historical coverage, and operator-directed local cleanup removed those rows before re-grab
 - extended Phase 4 API tests to cover the new bars-repair endpoint and dataset-scoped backfill trigger contract
 - verified the slice with `node --check frontend/monitoring/app.js`, `python -m py_compile ...`, `python -m unittest tests.test_phase4_quality -v`, and `python -m unittest discover -s tests -v`
 
@@ -29,6 +31,8 @@
 - `frontend/monitoring/app.js`
 - `frontend/monitoring/styles.css`
 - `tests/test_phase4_quality.py`
+- `scripts/binance_btc_history_backfill.py`
+- `tests/test_binance_btc_history_backfill.py`
 - `docs/agent-memory/HANDOFF.md`
 - `docs/agent-memory/SESSION_SUMMARY.md`
 - `docs/agent-memory/TASK_BOARD.md`
@@ -42,11 +46,13 @@
   - non-retention-limited `coverage` -> dataset-scoped coverage backfill
 - keep `open_interest` coverage shortfall non-actionable from the finding table because that dataset is retention-limited by policy
 - route UI-triggered repair through backend endpoints/services instead of letting the browser invoke PowerShell directly
+- treat Binance futures sentiment-ratio endpoints as recent-history data that still require bounded chunking in backfill, even inside the current 30-day retention window
 - continue treating `strategy market context inside diagnostics/debug-trace inspection` as the explicit next Phase 5 slice before replay-investigation linkage
 
 ## Risks / Unknowns
 - the current finding-action coverage is still intentionally partial; retention-limited `coverage shortfall`, generic duplicate cleanup, and generic non-bars `corrupt` findings still do not expose one-click repair actions
 - dataset-scoped incremental repair is detached/async, so the UI can trigger it and monitor status, but not guarantee the dataset is clean until the follow-up integrity run finishes
+- the repo still lacks a dedicated one-time cleanup tool for stale sentiment-ratio fixture rows; this session used direct local DB cleanup at the user's request
 
 ## Next
 - continue from the current sentiment-ratio follow-up plan: surface strategy market context inside diagnostics/trace inspection for sentiment-aware runs

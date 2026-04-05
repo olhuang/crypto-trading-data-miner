@@ -14,6 +14,7 @@
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
 - keep the Quality workspace moving toward guided repair actions now that integrity findings can trigger bounded bars repair plus broader dataset-scoped incremental repair/backfill actions
+- keep Binance sentiment-ratio retention/backfill semantics honest now that the endpoints have shown limit-driven truncation on long history windows
 
 ## Blocked
 - none currently recorded
@@ -34,6 +35,8 @@
 - tightened the finding-action eligibility rules so supported `mark/index/sentiment` gap findings render their repair button more reliably while retention-limited coverage remains non-actionable
 - improved the finding-repair feedback path so dataset-scoped incremental actions now distinguish a true fill from a `0 rows written` no-op returned by the upstream source
 - fixed the integrity repair status flow so queued/running/final backfill messages are no longer immediately overwritten by a generic post-trigger message
+- verified that long sentiment-ratio history windows can collapse to only the latest ~500 rows from Binance, then hardened the sentiment-ratio backfill path to chunk history daily instead of issuing one long refresh window
+- operator-cleaned the local `BTCUSDT_PERP` sentiment-ratio tables so re-grab starts from an empty state instead of mixing recent rows with old `2024-04-02` fixture residue
 - added `POST /api/v1/quality/integrity-repairs/bars` plus a backend repair service, and extended the BTC incremental trigger API so callers can scope it to specific datasets
 - updated the Quality workspace with an integrity-repair status box and finding action buttons, then covered the new API contract in `tests/test_phase4_quality.py`
 - tightened the repair UX so finding-triggered incremental repairs now surface a live staged progress indicator instead of only a queued/complete message

@@ -69,6 +69,49 @@ class BinanceBtcHistoryBackfillTests(unittest.TestCase):
         self.assertEqual(result["history_rows_written"], 30)
         self.assertEqual(len(result["chunk_results"]), 3)
 
+    def test_sentiment_ratio_history_window_is_chunked_daily(self) -> None:
+        start_time = datetime(2036, 1, 1, 0, 0, tzinfo=timezone.utc)
+        end_time = datetime(2036, 1, 3, 12, 0, tzinfo=timezone.utc)
+        original_refresh = binance_btc_history_backfill.run_market_snapshot_refresh
+        original_floor = binance_btc_history_backfill.sentiment_ratio_available_from
+        calls: list[tuple[datetime, datetime]] = []
+
+        def fake_refresh(**kwargs):
+            calls.append((kwargs["history_start_time"], kwargs["history_end_time"]))
+            return SimpleNamespace(
+                status="succeeded",
+                records_written=12,
+                history_rows_written=12,
+                ingestion_job_id=len(calls),
+            )
+
+        try:
+            binance_btc_history_backfill.run_market_snapshot_refresh = fake_refresh
+            binance_btc_history_backfill.sentiment_ratio_available_from = lambda: start_time
+            result = binance_btc_history_backfill.run_sentiment_ratio_history_window(
+                symbol="BTCUSDT",
+                unified_symbol="BTCUSDT_PERP",
+                requested_by="test",
+                start_time=start_time,
+                end_time=end_time,
+                include_global_long_short_account_ratio=True,
+            )
+        finally:
+            binance_btc_history_backfill.run_market_snapshot_refresh = original_refresh
+            binance_btc_history_backfill.sentiment_ratio_available_from = original_floor
+
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(calls[0][0], datetime(2036, 1, 1, 0, 0, tzinfo=timezone.utc))
+        self.assertEqual(calls[0][1], datetime(2036, 1, 1, 23, 59, 59, 999000, tzinfo=timezone.utc))
+        self.assertEqual(calls[1][0], datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc))
+        self.assertEqual(calls[1][1], datetime(2036, 1, 2, 23, 59, 59, 999000, tzinfo=timezone.utc))
+        self.assertEqual(calls[2][0], datetime(2036, 1, 3, 0, 0, tzinfo=timezone.utc))
+        self.assertEqual(calls[2][1], end_time)
+        self.assertEqual(result["rows_written"], 36)
+        self.assertEqual(result["history_rows_written"], 36)
+        self.assertEqual(result["ingestion_job_ids"], [1, 2, 3])
+        self.assertEqual(len(result["chunk_results"]), 3)
+
     def test_mark_price_checkpoint_prefers_aligned_safe_timestamp(self) -> None:
         aligned_ts = datetime(2036, 1, 1, 0, 4, tzinfo=timezone.utc)
         offgrid_ts = datetime(2036, 1, 1, 0, 4, 15, tzinfo=timezone.utc)
@@ -375,8 +418,10 @@ class BinanceBtcHistoryBackfillTests(unittest.TestCase):
                 "rows_written": 2,
                 "history_rows_written": 2,
                 "ingestion_job_id": 77,
+                "ingestion_job_ids": [77],
                 "effective_start": kwargs["start_time"].isoformat(),
                 "availability_note": None,
+                "chunk_results": [],
             }
 
         task = binance_btc_history_backfill.ChunkTask(
