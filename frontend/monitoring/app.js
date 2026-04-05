@@ -9,6 +9,7 @@ const state = {
   selectedCompareNoteId: null,
   currentIntegrityResult: null,
   selectedIntegrityDataType: null,
+  integrityRepairContext: null,
   currentBtcBackfillStatus: null,
   selectedBtcBackfillDatasetKey: null,
   btcBackfillStatusPollHandle: null,
@@ -1084,6 +1085,14 @@ function setIntegrityRepairBusy(isBusy) {
   });
 }
 
+function setIntegrityRepairContext(context) {
+  state.integrityRepairContext = context || null;
+}
+
+function clearIntegrityRepairContext() {
+  state.integrityRepairContext = null;
+}
+
 function setIntegrityRepairStatus({ phase, title, detail, progress, stateClass }) {
   const container = document.getElementById("integrity-repair-status");
   const titleNode = document.getElementById("integrity-repair-status-title");
@@ -1149,12 +1158,18 @@ async function executeBarsIntegrityRepair(dataset, finding) {
     throw new Error("No repair windows could be derived from the selected finding.");
   }
 
+  setIntegrityRepairContext({
+    type: "bars_repair",
+    dataset: dataset.data_type,
+    unifiedSymbol,
+    windowCount: windows.length,
+  });
   setIntegrityRepairBusy(true);
   setIntegrityRepairStatus({
-    phase: "repairing",
-    title: "Repairing Bars Finding",
-    detail: `Re-fetching ${windows.length} bounded bar window(s) for ${unifiedSymbol}.`,
-    progress: 28,
+    phase: "preparing",
+    title: "Preparing Bars Repair",
+    detail: `Building ${windows.length} bounded repair window(s) for ${unifiedSymbol}.`,
+    progress: 12,
     stateClass: "is-running",
   });
 
@@ -1166,13 +1181,20 @@ async function executeBarsIntegrityRepair(dataset, finding) {
       interval: "1m",
       windows,
     };
+    setIntegrityRepairStatus({
+      phase: "repairing",
+      title: "Repairing Bars Finding",
+      detail: `Re-fetching ${windows.length} bounded bar window(s) for ${unifiedSymbol}.`,
+      progress: 46,
+      stateClass: "is-running",
+    });
     const result = await sendEnvelope("/api/v1/quality/integrity-repairs/bars", "POST", payload);
 
     setIntegrityRepairStatus({
       phase: "refreshing",
       title: "Refreshing Integrity Result",
       detail: `Repair wrote ${formatValue(result.total_rows_written)} rows. Re-running integrity validation now.`,
-      progress: 72,
+      progress: 82,
       stateClass: "is-running",
     });
 
@@ -1198,6 +1220,7 @@ async function executeBarsIntegrityRepair(dataset, finding) {
     });
     throw error;
   } finally {
+    clearIntegrityRepairContext();
     setIntegrityRepairBusy(false);
   }
 }
@@ -1641,6 +1664,39 @@ function renderBtcBackfillStatus(status) {
     });
   }
 
+  const repairContext = state.integrityRepairContext;
+  if (repairContext?.type === "incremental_backfill") {
+    const progress = Number(status?.overall?.progress_pct || 0);
+    const currentTaskLabel = status?.current_task?.label || status?.current_task?.dataset_key || "current dataset";
+    if (status?.state === "running") {
+      setIntegrityRepairStatus({
+        phase: "monitoring",
+        title: "Repair Backfill Running",
+        detail: `Incremental repair for ${repairContext.dataset} is running. ${currentTaskLabel} is in progress.`,
+        progress,
+        stateClass: "is-running",
+      });
+    } else if (status?.state === "finished") {
+      setIntegrityRepairStatus({
+        phase: "complete",
+        title: "Repair Backfill Completed",
+        detail: `Incremental repair for ${repairContext.dataset} finished. Re-run integrity to confirm the finding is cleared.`,
+        progress: 100,
+        stateClass: "is-complete",
+      });
+      clearIntegrityRepairContext();
+    } else if (status?.state === "failed" || status?.state === "stale" || status?.state === "status_unreadable") {
+      setIntegrityRepairStatus({
+        phase: "error",
+        title: "Repair Backfill Failed",
+        detail: status?.error?.message || `Incremental repair for ${repairContext.dataset} did not complete cleanly.`,
+        progress: 100,
+        stateClass: "is-error",
+      });
+      clearIntegrityRepairContext();
+    }
+  }
+
   if (status?.state === "running") {
     scheduleBtcBackfillStatusPoll();
   } else {
@@ -1670,7 +1726,19 @@ async function triggerBtcIncrementalBackfill(options = {}) {
   const datasets = Array.isArray(options.datasets) ? options.datasets.filter(Boolean) : [];
   const sourceDataset = options.sourceDataset || null;
   if (sourceDataset) {
+    setIntegrityRepairContext({
+      type: "incremental_backfill",
+      dataset: sourceDataset,
+      datasets,
+    });
     setIntegrityRepairBusy(true);
+    setIntegrityRepairStatus({
+      phase: "submitting",
+      title: "Submitting Repair Backfill",
+      detail: `Requesting incremental repair for ${sourceDataset}.`,
+      progress: 18,
+      stateClass: "is-running",
+    });
   }
   setBtcBackfillActionBusy(true);
   setBtcBackfillActionStatus({
@@ -1713,12 +1781,14 @@ async function triggerBtcIncrementalBackfill(options = {}) {
 
     if (sourceDataset) {
       setIntegrityRepairStatus({
-        phase: "queued",
-        title: "Incremental Backfill Triggered",
-        detail: `Triggered incremental catch-up for ${sourceDataset}. Re-run integrity after the backfill status reaches a finished state.`,
+        phase: state.currentBtcBackfillStatus?.state === "running" ? "monitoring" : "queued",
+        title: state.currentBtcBackfillStatus?.state === "running" ? "Repair Backfill Running" : "Incremental Backfill Triggered",
+        detail: state.currentBtcBackfillStatus?.state === "running"
+          ? `Incremental repair for ${sourceDataset} is now running and will keep updating below.`
+          : `Triggered incremental catch-up for ${sourceDataset}. Re-run integrity after the backfill status reaches a finished state.`,
         progress: state.currentBtcBackfillStatus?.state === "running"
           ? Number(state.currentBtcBackfillStatus?.overall?.progress_pct || 0)
-          : 100,
+          : 42,
         stateClass: state.currentBtcBackfillStatus?.state === "running" ? "is-running" : "is-complete",
       });
     }
@@ -1738,6 +1808,7 @@ async function triggerBtcIncrementalBackfill(options = {}) {
         progress: 100,
         stateClass: "is-error",
       });
+      clearIntegrityRepairContext();
     }
     throw error;
   } finally {
