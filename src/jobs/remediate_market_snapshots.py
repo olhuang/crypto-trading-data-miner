@@ -14,8 +14,46 @@ from storage.repositories.ops import IngestionJobRepository, SystemLogRecord, Sy
 
 MARK_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
 INDEX_PRICE_FRESHNESS_SLA = timedelta(minutes=10)
+SENTIMENT_RATIO_FRESHNESS_SLA = timedelta(minutes=15)
+DEFAULT_SENTIMENT_RATIO_PERIOD = "5m"
 
-SUPPORTED_SNAPSHOT_DATASETS = ("funding_rates", "open_interest", "mark_prices", "index_prices")
+SUPPORTED_SNAPSHOT_DATASETS = (
+    "funding_rates",
+    "open_interest",
+    "mark_prices",
+    "index_prices",
+    "global_long_short_account_ratios",
+    "top_trader_long_short_account_ratios",
+    "top_trader_long_short_position_ratios",
+    "taker_long_short_ratios",
+)
+
+SNAPSHOT_DATASET_SPECS = {
+    "funding_rates": {"table_name": "md.funding_rates", "timestamp_column": "funding_time", "period_code": None},
+    "open_interest": {"table_name": "md.open_interest", "timestamp_column": "ts", "period_code": None},
+    "mark_prices": {"table_name": "md.mark_prices", "timestamp_column": "ts", "period_code": None},
+    "index_prices": {"table_name": "md.index_prices", "timestamp_column": "ts", "period_code": None},
+    "global_long_short_account_ratios": {
+        "table_name": "md.global_long_short_account_ratios",
+        "timestamp_column": "ts",
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+    },
+    "top_trader_long_short_account_ratios": {
+        "table_name": "md.top_trader_long_short_account_ratios",
+        "timestamp_column": "ts",
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+    },
+    "top_trader_long_short_position_ratios": {
+        "table_name": "md.top_trader_long_short_position_ratios",
+        "timestamp_column": "ts",
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+    },
+    "taker_long_short_ratios": {
+        "table_name": "md.taker_long_short_ratios",
+        "timestamp_column": "ts",
+        "period_code": DEFAULT_SENTIMENT_RATIO_PERIOD,
+    },
+}
 
 
 @dataclass(slots=True)
@@ -56,18 +94,20 @@ def _latest_timestamp_for_dataset(
     unified_symbol: str,
     data_type: str,
 ) -> datetime | None:
-    specs = {
-        "funding_rates": ("md.funding_rates", "funding_time"),
-        "open_interest": ("md.open_interest", "ts"),
-        "mark_prices": ("md.mark_prices", "ts"),
-        "index_prices": ("md.index_prices", "ts"),
-    }
-    table_name, timestamp_column = specs[data_type]
+    specs = SNAPSHOT_DATASET_SPECS[data_type]
+    table_name = specs["table_name"]
+    timestamp_column = specs["timestamp_column"]
+    period_code = specs["period_code"]
     with connection_scope() as connection:
         instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
+        if period_code is None:
+            return connection.exec_driver_sql(
+                f"select max({timestamp_column}) from {table_name} where instrument_id = %s",
+                (instrument_id,),
+            ).scalar_one()
         return connection.exec_driver_sql(
-            f"select max({timestamp_column}) from {table_name} where instrument_id = %s",
-            (instrument_id,),
+            f"select max({timestamp_column}) from {table_name} where instrument_id = %s and period_code = %s",
+            (instrument_id, period_code),
         ).scalar_one()
 
 
@@ -77,6 +117,10 @@ def _freshness_sla_for_dataset(data_type: str) -> timedelta:
         "open_interest": OPEN_INTEREST_FRESHNESS_SLA,
         "mark_prices": MARK_PRICE_FRESHNESS_SLA,
         "index_prices": INDEX_PRICE_FRESHNESS_SLA,
+        "global_long_short_account_ratios": SENTIMENT_RATIO_FRESHNESS_SLA,
+        "top_trader_long_short_account_ratios": SENTIMENT_RATIO_FRESHNESS_SLA,
+        "top_trader_long_short_position_ratios": SENTIMENT_RATIO_FRESHNESS_SLA,
+        "taker_long_short_ratios": SENTIMENT_RATIO_FRESHNESS_SLA,
     }[data_type]
 
 
@@ -157,6 +201,7 @@ def run_market_snapshot_remediation(
     lookback_hours: int = 24,
     open_interest_period: str = "5m",
     price_interval: str = "1m",
+    sentiment_ratio_period: str = DEFAULT_SENTIMENT_RATIO_PERIOD,
 ) -> MarketSnapshotRemediationResult:
     snapshot_client = client or BinancePublicRestClient()
     now = observed_at or datetime.now(timezone.utc)
@@ -186,7 +231,7 @@ def run_market_snapshot_remediation(
         job_id = job_repo.create_job(
             connection,
             service_name="market_snapshot_remediation",
-            data_type="funding_open_interest_mark_index",
+            data_type="funding_open_interest_mark_index_sentiment",
             exchange_code=exchange_code,
             unified_symbol=unified_symbol,
             schedule_type="manual_scheduler_ready",
@@ -206,6 +251,7 @@ def run_market_snapshot_remediation(
                 "requested_datasets": _normalize_datasets(datasets),
                 "remediation_actions": remediation_actions,
                 "lookback_hours": lookback_hours,
+                "sentiment_ratio_period": sentiment_ratio_period,
             },
         )
         log_repo.insert(
@@ -219,7 +265,21 @@ def run_market_snapshot_remediation(
         )
 
     funding_plan = next((plan for plan in plans if plan.data_type == "funding_rates"), None)
-    history_plans = [plan for plan in plans if plan.data_type in {"open_interest", "mark_prices", "index_prices"} and plan.remediation_required]
+    history_plans = [
+        plan
+        for plan in plans
+        if plan.data_type
+        in {
+            "open_interest",
+            "mark_prices",
+            "index_prices",
+            "global_long_short_account_ratios",
+            "top_trader_long_short_account_ratios",
+            "top_trader_long_short_position_ratios",
+            "taker_long_short_ratios",
+        }
+        and plan.remediation_required
+    ]
     refresh_job_id: int | None = None
     records_written = 0
 
@@ -239,10 +299,21 @@ def run_market_snapshot_remediation(
                 history_end_time=history_end,
                 open_interest_period=open_interest_period,
                 price_interval=price_interval,
+                sentiment_ratio_period=sentiment_ratio_period,
                 include_funding=bool(funding_plan and funding_plan.remediation_required),
                 include_open_interest=any(plan.data_type == "open_interest" for plan in history_plans),
                 include_mark_price=any(plan.data_type == "mark_prices" for plan in history_plans),
                 include_index_price=any(plan.data_type == "index_prices" for plan in history_plans),
+                include_global_long_short_account_ratio=any(
+                    plan.data_type == "global_long_short_account_ratios" for plan in history_plans
+                ),
+                include_top_trader_long_short_account_ratio=any(
+                    plan.data_type == "top_trader_long_short_account_ratios" for plan in history_plans
+                ),
+                include_top_trader_long_short_position_ratio=any(
+                    plan.data_type == "top_trader_long_short_position_ratios" for plan in history_plans
+                ),
+                include_taker_long_short_ratio=any(plan.data_type == "taker_long_short_ratios" for plan in history_plans),
             )
             refresh_job_id = refresh_result.ingestion_job_id
             records_written = refresh_result.records_written
@@ -264,6 +335,7 @@ def run_market_snapshot_remediation(
                     "remediation_actions": remediation_actions,
                     "refresh_job_id": refresh_job_id,
                     "lookback_hours": lookback_hours,
+                    "sentiment_ratio_period": sentiment_ratio_period,
                 },
             )
             log_repo.insert(
@@ -300,6 +372,7 @@ def run_market_snapshot_remediation(
                     "remediation_actions": remediation_actions,
                     "refresh_job_id": refresh_job_id,
                     "lookback_hours": lookback_hours,
+                    "sentiment_ratio_period": sentiment_ratio_period,
                 },
             )
             log_repo.insert(

@@ -28,6 +28,8 @@ UTC = timezone.utc
 DEFAULT_STATUS_FILE = REPO_ROOT / "tmp" / "binance_btc_history_backfill_status.json"
 OPEN_INTEREST_LOOKBACK_DAYS = 30
 OPEN_INTEREST_CHUNK_DAYS = 1
+SENTIMENT_RATIO_LOOKBACK_DAYS = 30
+DEFAULT_SENTIMENT_RATIO_PERIOD = "5m"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +43,7 @@ class DatasetSpec:
     table_name: str | None = None
     time_column: str | None = None
     checkpoint_interval_seconds: int | None = None
+    period_code: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +57,7 @@ class ChunkTask:
     chunk_total: int
     start_time: datetime
     end_time: datetime
+    period_code: str | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -97,6 +101,8 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Incremental-only dataset selector. May be provided multiple times. "
             "Supported values include funding_rates, open_interest, mark_prices, index_prices, "
+            "global_long_short_account_ratios, top_trader_long_short_account_ratios, "
+            "top_trader_long_short_position_ratios, taker_long_short_ratios, "
             "btc_spot_bars_1m, btc_perp_bars_1m, spot_bars_1m, and perp_bars_1m."
         ),
     )
@@ -185,7 +191,7 @@ def build_dataset_specs() -> list[DatasetSpec]:
         ),
         DatasetSpec(
             dataset_key="btc_perp_snapshot_history",
-            label="BTCUSDT_PERP funding/open_interest/mark/index",
+            label="BTCUSDT_PERP funding/open_interest/mark/index/sentiment",
             symbol="BTCUSDT",
             unified_symbol="BTCUSDT_PERP",
             task_kind="perp_snapshots",
@@ -254,6 +260,50 @@ def build_incremental_dataset_specs() -> list[DatasetSpec]:
             time_column="ts",
             checkpoint_interval_seconds=60,
         ),
+        DatasetSpec(
+            dataset_key="btc_perp_global_long_short_account_ratios",
+            label="BTCUSDT_PERP global_long_short_account_ratios",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="global_long_short_account_ratios",
+            table_name="md.global_long_short_account_ratios",
+            time_column="ts",
+            checkpoint_interval_seconds=300,
+            period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_top_trader_long_short_account_ratios",
+            label="BTCUSDT_PERP top_trader_long_short_account_ratios",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="top_trader_long_short_account_ratios",
+            table_name="md.top_trader_long_short_account_ratios",
+            time_column="ts",
+            checkpoint_interval_seconds=300,
+            period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_top_trader_long_short_position_ratios",
+            label="BTCUSDT_PERP top_trader_long_short_position_ratios",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="top_trader_long_short_position_ratios",
+            table_name="md.top_trader_long_short_position_ratios",
+            time_column="ts",
+            checkpoint_interval_seconds=300,
+            period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+        ),
+        DatasetSpec(
+            dataset_key="btc_perp_taker_long_short_ratios",
+            label="BTCUSDT_PERP taker_long_short_ratios",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="taker_long_short_ratios",
+            table_name="md.taker_long_short_ratios",
+            time_column="ts",
+            checkpoint_interval_seconds=300,
+            period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+        ),
     ]
 
 
@@ -281,6 +331,14 @@ def filter_incremental_dataset_specs(
         "btc_perp_mark_prices": "btc_perp_mark_prices",
         "index_prices": "btc_perp_index_prices",
         "btc_perp_index_prices": "btc_perp_index_prices",
+        "global_long_short_account_ratios": "btc_perp_global_long_short_account_ratios",
+        "btc_perp_global_long_short_account_ratios": "btc_perp_global_long_short_account_ratios",
+        "top_trader_long_short_account_ratios": "btc_perp_top_trader_long_short_account_ratios",
+        "btc_perp_top_trader_long_short_account_ratios": "btc_perp_top_trader_long_short_account_ratios",
+        "top_trader_long_short_position_ratios": "btc_perp_top_trader_long_short_position_ratios",
+        "btc_perp_top_trader_long_short_position_ratios": "btc_perp_top_trader_long_short_position_ratios",
+        "taker_long_short_ratios": "btc_perp_taker_long_short_ratios",
+        "btc_perp_taker_long_short_ratios": "btc_perp_taker_long_short_ratios",
     }
     canonical_order = {spec.dataset_key: index for index, spec in enumerate(dataset_specs)}
     selected_dataset_keys: set[str] = set()
@@ -306,7 +364,16 @@ def planning_interval_seconds(spec: DatasetSpec) -> int | None:
 
 
 def strict_alignment_required(spec: DatasetSpec) -> bool:
-    return spec.task_kind in {"bars", "open_interest", "mark_prices", "index_prices"}
+    return spec.task_kind in {
+        "bars",
+        "open_interest",
+        "mark_prices",
+        "index_prices",
+        "global_long_short_account_ratios",
+        "top_trader_long_short_account_ratios",
+        "top_trader_long_short_position_ratios",
+        "taker_long_short_ratios",
+    }
 
 
 def bucket_expression_sql(time_column: str, interval_seconds: int) -> str:
@@ -333,6 +400,7 @@ def build_chunk_tasks(start_time: datetime, end_time: datetime) -> list[ChunkTas
                     chunk_total=len(windows),
                     start_time=window_start,
                     end_time=window_end,
+                    period_code=spec.period_code,
                 )
             )
     return tasks
@@ -390,8 +458,15 @@ def coverage_row(
     time_column: str,
     safe_upper_bound: datetime | None = None,
     checkpoint_interval_seconds: int | None = None,
+    period_code: str | None = None,
 ) -> dict[str, Any]:
     instrument_id = resolve_instrument_id(connection, exchange_code, unified_symbol)
+    params: dict[str, Any] = {"instrument_id": instrument_id}
+    where_clauses = ["instrument_id = :instrument_id"]
+    if period_code is not None:
+        where_clauses.append("period_code = :period_code")
+        params["period_code"] = period_code
+    where_sql = " and ".join(where_clauses)
     row = connection.execute(
         text(
             f"""
@@ -400,25 +475,26 @@ def coverage_row(
                 min({time_column}) as available_from,
                 max({time_column}) as available_to
             from {table_name}
-            where instrument_id = :instrument_id
+            where {where_sql}
             """
         ),
-        {"instrument_id": instrument_id},
+        params,
     ).mappings().one()
     safe_latest_to = None
     checkpoint_available_to = None
     future_row_count = 0
     if safe_upper_bound is not None:
+        safe_params = {**params, "safe_upper_bound": safe_upper_bound}
         safe_latest_to = connection.execute(
             text(
                 f"""
                 select max({time_column}) as safe_latest_to
                 from {table_name}
-                where instrument_id = :instrument_id
+                where {where_sql}
                   and {time_column} <= :safe_upper_bound
                 """
             ),
-            {"instrument_id": instrument_id, "safe_upper_bound": safe_upper_bound},
+            safe_params,
         ).scalar_one_or_none()
         future_row_count = int(
             connection.execute(
@@ -426,11 +502,11 @@ def coverage_row(
                     f"""
                     select count(*) as future_row_count
                     from {table_name}
-                    where instrument_id = :instrument_id
+                    where {where_sql}
                       and {time_column} > :safe_upper_bound
                     """
                 ),
-                {"instrument_id": instrument_id, "safe_upper_bound": safe_upper_bound},
+                safe_params,
             ).scalar_one()
         )
         if checkpoint_interval_seconds is not None:
@@ -439,12 +515,12 @@ def coverage_row(
                     f"""
                     select max({time_column}) as checkpoint_available_to
                     from {table_name}
-                    where instrument_id = :instrument_id
+                    where {where_sql}
                       and {time_column} <= :safe_upper_bound
                       and {aligned_checkpoint_condition_sql(time_column, checkpoint_interval_seconds)}
                     """
                 ),
-                {"instrument_id": instrument_id, "safe_upper_bound": safe_upper_bound},
+                safe_params,
             ).scalar_one_or_none()
 
     payload = {
@@ -460,6 +536,8 @@ def coverage_row(
         payload["safe_available_to"] = isoformat_or_none(safe_latest_to)
         payload["checkpoint_available_to"] = isoformat_or_none(checkpoint_available_to)
         payload["future_row_count"] = future_row_count
+    if period_code is not None:
+        payload["period_code"] = period_code
     return payload
 
 
@@ -479,6 +557,13 @@ def planned_gap_windows(
     effective_start = start_time
     if spec.task_kind == "open_interest":
         effective_start = max(effective_start, open_interest_available_from())
+    if spec.task_kind in {
+        "global_long_short_account_ratios",
+        "top_trader_long_short_account_ratios",
+        "top_trader_long_short_position_ratios",
+        "taker_long_short_ratios",
+    }:
+        effective_start = max(effective_start, sentiment_ratio_available_from())
 
     if interval_seconds is None:
         if effective_start > end_time:
@@ -498,6 +583,17 @@ def planned_gap_windows(
         "instrument_id = :instrument_id",
         f"{time_range_expression} between :start_time and :end_time",
     ]
+    params: dict[str, Any] = {
+        "instrument_id": instrument_id,
+        "start_time": aligned_start,
+        "end_time": aligned_end,
+        "aligned_start": aligned_start,
+        "aligned_end": aligned_end,
+        "interval_seconds": interval_seconds,
+    }
+    if spec.period_code is not None:
+        where_clauses.append("period_code = :period_code")
+        params["period_code"] = spec.period_code
     if strict_alignment_required(spec):
         where_clauses.append(aligned_checkpoint_condition_sql(spec.time_column, interval_seconds))
 
@@ -552,14 +648,7 @@ def planned_gap_windows(
             order by gap_start
             """
         ),
-        {
-            "instrument_id": instrument_id,
-            "start_time": aligned_start,
-            "end_time": aligned_end,
-            "aligned_start": aligned_start,
-            "aligned_end": aligned_end,
-            "interval_seconds": interval_seconds,
-        },
+        params,
     ).mappings().fetchall()
     return [(row["gap_start"], row["gap_end"]) for row in rows]
 
@@ -576,6 +665,13 @@ def parse_iso_datetime_or_none(value: str | None) -> datetime | None:
 def next_start_from_coverage(spec: DatasetSpec, *, default_start: datetime, coverage: dict[str, Any]) -> datetime:
     if spec.task_kind == "open_interest":
         return max(default_start, open_interest_available_from())
+    if spec.task_kind in {
+        "global_long_short_account_ratios",
+        "top_trader_long_short_account_ratios",
+        "top_trader_long_short_position_ratios",
+        "taker_long_short_ratios",
+    }:
+        return max(default_start, sentiment_ratio_available_from())
 
     available_to = parse_iso_datetime_or_none(
         coverage.get("checkpoint_available_to")
@@ -625,6 +721,7 @@ def build_incremental_tasks(
                         chunk_total=len(chunk_windows),
                         start_time=window_start,
                         end_time=window_end,
+                        period_code=spec.period_code,
                     )
                 )
     return dataset_specs, tasks
@@ -688,6 +785,46 @@ def collect_coverage_summary(*, safe_upper_bound: datetime | None = None) -> dic
                     time_column="ts",
                     safe_upper_bound=safe_upper_bound,
                     checkpoint_interval_seconds=60,
+                ),
+                "global_long_short_account_ratios": coverage_row(
+                    connection,
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    table_name="md.global_long_short_account_ratios",
+                    time_column="ts",
+                    safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=300,
+                    period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+                ),
+                "top_trader_long_short_account_ratios": coverage_row(
+                    connection,
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    table_name="md.top_trader_long_short_account_ratios",
+                    time_column="ts",
+                    safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=300,
+                    period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+                ),
+                "top_trader_long_short_position_ratios": coverage_row(
+                    connection,
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    table_name="md.top_trader_long_short_position_ratios",
+                    time_column="ts",
+                    safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=300,
+                    period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+                ),
+                "taker_long_short_ratios": coverage_row(
+                    connection,
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    table_name="md.taker_long_short_ratios",
+                    time_column="ts",
+                    safe_upper_bound=safe_upper_bound,
+                    checkpoint_interval_seconds=300,
+                    period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
                 ),
             },
         }
@@ -754,6 +891,11 @@ def format_chunk_window(task: ChunkTask) -> str:
 
 def open_interest_available_from() -> datetime:
     floor = utc_now() - timedelta(days=OPEN_INTEREST_LOOKBACK_DAYS)
+    return floor.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def sentiment_ratio_available_from() -> datetime:
+    floor = utc_now() - timedelta(days=SENTIMENT_RATIO_LOOKBACK_DAYS)
     return floor.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
@@ -833,6 +975,65 @@ def run_open_interest_history_window(
             else None
         ),
         "chunk_results": chunk_results,
+    }
+
+
+def run_sentiment_ratio_history_window(
+    *,
+    symbol: str,
+    unified_symbol: str,
+    requested_by: str,
+    start_time: datetime,
+    end_time: datetime,
+    period_code: str = DEFAULT_SENTIMENT_RATIO_PERIOD,
+    include_global_long_short_account_ratio: bool = False,
+    include_top_trader_long_short_account_ratio: bool = False,
+    include_top_trader_long_short_position_ratio: bool = False,
+    include_taker_long_short_ratio: bool = False,
+) -> dict[str, Any]:
+    sentiment_floor = sentiment_ratio_available_from()
+    if end_time < sentiment_floor:
+        return {
+            "status": "skipped_unavailable",
+            "rows_written": 0,
+            "history_rows_written": 0,
+            "ingestion_job_id": None,
+            "effective_start": None,
+            "availability_note": (
+                f"Binance futures sentiment ratio endpoints are treated as available only from "
+                f"{sentiment_floor.isoformat()} onward"
+            ),
+        }
+
+    effective_start = max(start_time, sentiment_floor)
+    result = run_market_snapshot_refresh(
+        symbol=symbol,
+        unified_symbol=unified_symbol,
+        requested_by=requested_by,
+        exchange_code="binance",
+        history_start_time=effective_start,
+        history_end_time=end_time,
+        sentiment_ratio_period=period_code,
+        include_funding=False,
+        include_open_interest=False,
+        include_mark_price=False,
+        include_index_price=False,
+        include_global_long_short_account_ratio=include_global_long_short_account_ratio,
+        include_top_trader_long_short_account_ratio=include_top_trader_long_short_account_ratio,
+        include_top_trader_long_short_position_ratio=include_top_trader_long_short_position_ratio,
+        include_taker_long_short_ratio=include_taker_long_short_ratio,
+    )
+    return {
+        "status": result.status,
+        "rows_written": result.records_written,
+        "history_rows_written": result.history_rows_written,
+        "ingestion_job_id": result.ingestion_job_id,
+        "effective_start": effective_start.isoformat(),
+        "availability_note": (
+            "window start adjusted to current sentiment-ratio availability floor"
+            if effective_start != start_time
+            else None
+        ),
     }
 
 
@@ -919,6 +1120,35 @@ def run_perp_snapshot_window(task: ChunkTask, *, requested_by: str) -> dict[str,
     total_rows_written += mark_index_result.records_written
     total_history_rows_written += mark_index_result.history_rows_written
     job_ids.append(mark_index_result.ingestion_job_id)
+
+    sentiment_result = run_sentiment_ratio_history_window(
+        symbol=task.symbol,
+        unified_symbol=task.unified_symbol,
+        requested_by=requested_by,
+        start_time=task.start_time,
+        end_time=task.end_time,
+        period_code=DEFAULT_SENTIMENT_RATIO_PERIOD,
+        include_global_long_short_account_ratio=True,
+        include_top_trader_long_short_account_ratio=True,
+        include_top_trader_long_short_position_ratio=True,
+        include_taker_long_short_ratio=True,
+    )
+    component_results.append(
+        {
+            "component": "sentiment_ratios",
+            "status": sentiment_result["status"],
+            "rows_written": sentiment_result["rows_written"],
+            "history_rows_written": sentiment_result["history_rows_written"],
+            "ingestion_job_id": sentiment_result["ingestion_job_id"],
+            "window_start": sentiment_result["effective_start"] or task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+            "availability_note": sentiment_result["availability_note"],
+        }
+    )
+    total_rows_written += sentiment_result["rows_written"]
+    total_history_rows_written += sentiment_result["history_rows_written"]
+    if sentiment_result["ingestion_job_id"] is not None:
+        job_ids.append(sentiment_result["ingestion_job_id"])
 
     return {
         "dataset_key": task.dataset_key,
@@ -1048,6 +1278,94 @@ def execute_task(task: ChunkTask, *, requested_by: str) -> dict[str, Any]:
             "ingestion_job_id": result.ingestion_job_id,
             "window_start": task.start_time.isoformat(),
             "window_end": task.end_time.isoformat(),
+        }
+
+    if task.task_kind == "global_long_short_account_ratios":
+        result = run_sentiment_ratio_history_window(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            start_time=task.start_time,
+            end_time=task.end_time,
+            period_code=task.period_code or DEFAULT_SENTIMENT_RATIO_PERIOD,
+            include_global_long_short_account_ratio=True,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result["status"],
+            "rows_written": result["rows_written"],
+            "history_rows_written": result["history_rows_written"],
+            "ingestion_job_id": result["ingestion_job_id"],
+            "window_start": result["effective_start"] or task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+            "availability_note": result["availability_note"],
+        }
+
+    if task.task_kind == "top_trader_long_short_account_ratios":
+        result = run_sentiment_ratio_history_window(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            start_time=task.start_time,
+            end_time=task.end_time,
+            period_code=task.period_code or DEFAULT_SENTIMENT_RATIO_PERIOD,
+            include_top_trader_long_short_account_ratio=True,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result["status"],
+            "rows_written": result["rows_written"],
+            "history_rows_written": result["history_rows_written"],
+            "ingestion_job_id": result["ingestion_job_id"],
+            "window_start": result["effective_start"] or task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+            "availability_note": result["availability_note"],
+        }
+
+    if task.task_kind == "top_trader_long_short_position_ratios":
+        result = run_sentiment_ratio_history_window(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            start_time=task.start_time,
+            end_time=task.end_time,
+            period_code=task.period_code or DEFAULT_SENTIMENT_RATIO_PERIOD,
+            include_top_trader_long_short_position_ratio=True,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result["status"],
+            "rows_written": result["rows_written"],
+            "history_rows_written": result["history_rows_written"],
+            "ingestion_job_id": result["ingestion_job_id"],
+            "window_start": result["effective_start"] or task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+            "availability_note": result["availability_note"],
+        }
+
+    if task.task_kind == "taker_long_short_ratios":
+        result = run_sentiment_ratio_history_window(
+            symbol=task.symbol,
+            unified_symbol=task.unified_symbol,
+            requested_by=requested_by,
+            start_time=task.start_time,
+            end_time=task.end_time,
+            period_code=task.period_code or DEFAULT_SENTIMENT_RATIO_PERIOD,
+            include_taker_long_short_ratio=True,
+        )
+        return {
+            "dataset_key": task.dataset_key,
+            "label": task.label,
+            "status": result["status"],
+            "rows_written": result["rows_written"],
+            "history_rows_written": result["history_rows_written"],
+            "ingestion_job_id": result["ingestion_job_id"],
+            "window_start": result["effective_start"] or task.start_time.isoformat(),
+            "window_end": task.end_time.isoformat(),
+            "availability_note": result["availability_note"],
         }
 
     return run_perp_snapshot_window(task, requested_by=requested_by)

@@ -527,6 +527,101 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(mark_count, 2)
         self.assertEqual(index_count, 2)
 
+    def test_market_snapshot_refresh_supports_historical_sentiment_ratio_windows(self) -> None:
+        client = self._client()
+        result = run_market_snapshot_refresh(
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            client=client,
+            requested_by="test-user",
+            history_start_time=datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc),
+            history_end_time=datetime(2026, 4, 2, 12, 35, tzinfo=timezone.utc),
+            sentiment_ratio_period="5m",
+            include_funding=False,
+            include_open_interest=False,
+            include_mark_price=False,
+            include_index_price=False,
+            include_global_long_short_account_ratio=True,
+            include_top_trader_long_short_account_ratio=True,
+            include_top_trader_long_short_position_ratio=True,
+            include_taker_long_short_ratio=True,
+        )
+
+        self.assertEqual(result.status, "succeeded")
+        self.assertEqual(result.records_written, 8)
+        self.assertEqual(result.history_rows_written, 8)
+
+        with connection_scope() as connection:
+            global_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.global_long_short_account_ratios ratio
+                join ref.instruments instrument on instrument.instrument_id = ratio.instrument_id
+                where instrument.unified_symbol = %s
+                  and ratio.period_code = %s
+                  and ratio.ts in (%s, %s)
+                """,
+                (
+                    "BTCUSDT_PERP",
+                    "5m",
+                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
+                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                ),
+            ).scalar_one()
+            top_account_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.top_trader_long_short_account_ratios ratio
+                join ref.instruments instrument on instrument.instrument_id = ratio.instrument_id
+                where instrument.unified_symbol = %s
+                  and ratio.period_code = %s
+                  and ratio.ts in (%s, %s)
+                """,
+                (
+                    "BTCUSDT_PERP",
+                    "5m",
+                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
+                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                ),
+            ).scalar_one()
+            top_position_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.top_trader_long_short_position_ratios ratio
+                join ref.instruments instrument on instrument.instrument_id = ratio.instrument_id
+                where instrument.unified_symbol = %s
+                  and ratio.period_code = %s
+                  and ratio.ts in (%s, %s)
+                """,
+                (
+                    "BTCUSDT_PERP",
+                    "5m",
+                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
+                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                ),
+            ).scalar_one()
+            taker_count = connection.exec_driver_sql(
+                """
+                select count(*)
+                from md.taker_long_short_ratios ratio
+                join ref.instruments instrument on instrument.instrument_id = ratio.instrument_id
+                where instrument.unified_symbol = %s
+                  and ratio.period_code = %s
+                  and ratio.ts in (%s, %s)
+                """,
+                (
+                    "BTCUSDT_PERP",
+                    "5m",
+                    datetime.fromtimestamp(1712061000000 / 1000, tz=timezone.utc),
+                    datetime.fromtimestamp(1712061300000 / 1000, tz=timezone.utc),
+                ),
+            ).scalar_one()
+
+        self.assertEqual(global_count, 2)
+        self.assertEqual(top_account_count, 2)
+        self.assertEqual(top_position_count, 2)
+        self.assertEqual(taker_count, 2)
+
     def test_sentiment_ratio_history_fetch_and_normalize(self) -> None:
         client = self._client()
         start_time = datetime(2026, 4, 2, 12, 30, tzinfo=timezone.utc)
@@ -744,11 +839,21 @@ class Phase3IngestionTests(unittest.TestCase):
     def test_market_snapshot_remediation_plans_and_runs_scheduler_ready_refresh(self) -> None:
         client = self._client()
         observed_at = datetime(2035, 4, 2, 12, 35, tzinfo=timezone.utc)
+        requested_datasets = [
+            "funding_rates",
+            "open_interest",
+            "mark_prices",
+            "index_prices",
+            "global_long_short_account_ratios",
+            "top_trader_long_short_account_ratios",
+            "top_trader_long_short_position_ratios",
+            "taker_long_short_ratios",
+        ]
 
         plan_before = build_market_snapshot_remediation_plan(
             exchange_code="binance",
             unified_symbol="BTCUSDT_PERP",
-            datasets=["funding_rates", "open_interest", "mark_prices", "index_prices"],
+            datasets=requested_datasets,
             observed_at=observed_at,
             lookback_hours=6,
         )
@@ -759,7 +864,7 @@ class Phase3IngestionTests(unittest.TestCase):
             unified_symbol="BTCUSDT_PERP",
             client=client,
             requested_by="test-user",
-            datasets=["funding_rates", "open_interest", "mark_prices", "index_prices"],
+            datasets=requested_datasets,
             observed_at=observed_at,
             lookback_hours=6,
         )
@@ -777,12 +882,16 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertEqual(remediation_job["metadata_json"]["refresh_job_id"], result.refresh_job_id)
         self.assertEqual(
             {action["data_type"] for action in remediation_job["metadata_json"]["remediation_actions"]},
-            {"funding_rates", "open_interest", "mark_prices", "index_prices"},
+            set(requested_datasets),
         )
         self.assertEqual(refresh_job["status"], "succeeded")
         self.assertTrue(refresh_job["metadata_json"]["include_open_interest"])
         self.assertTrue(refresh_job["metadata_json"]["include_mark_price"])
         self.assertTrue(refresh_job["metadata_json"]["include_index_price"])
+        self.assertTrue(refresh_job["metadata_json"]["include_global_long_short_account_ratio"])
+        self.assertTrue(refresh_job["metadata_json"]["include_top_trader_long_short_account_ratio"])
+        self.assertTrue(refresh_job["metadata_json"]["include_top_trader_long_short_position_ratio"])
+        self.assertTrue(refresh_job["metadata_json"]["include_taker_long_short_ratio"])
 
     def test_trade_stream_processor_persists_trade_raw_mark_and_liquidation_events(self) -> None:
         processor = BinanceTradeStreamProcessor()
@@ -872,8 +981,14 @@ class Phase3IngestionTests(unittest.TestCase):
         self.assertIn("binance_market_snapshot_refresh", job_ids)
 
     def test_phase4_schedule_plan_includes_market_snapshot_remediation_job(self) -> None:
-        job_ids = {definition.job_id for definition in phase4_schedule_plan()}
+        plan = phase4_schedule_plan()
+        job_ids = {definition.job_id for definition in plan}
         self.assertIn("binance_market_snapshot_remediation", job_ids)
+        remediation_job = next(definition for definition in plan if definition.job_id == "binance_market_snapshot_remediation")
+        self.assertIn("global_long_short_account_ratios", remediation_job.kwargs["datasets"])
+        self.assertIn("top_trader_long_short_account_ratios", remediation_job.kwargs["datasets"])
+        self.assertIn("top_trader_long_short_position_ratios", remediation_job.kwargs["datasets"])
+        self.assertIn("taker_long_short_ratios", remediation_job.kwargs["datasets"])
 
 
 if __name__ == "__main__":

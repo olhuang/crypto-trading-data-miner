@@ -71,6 +71,8 @@ Taker table:
 
 ### Slice 1: Backend Foundation
 
+Status: completed
+
 - schema migration
 - market event models
 - repositories
@@ -78,11 +80,15 @@ Taker table:
 
 ### Slice 2: Snapshot / Backfill Integration
 
+Status: completed
+
 - wire into `market_snapshot_refresh`
 - add recent-window incremental catch-up
 - support dataset-scoped repair / backfill
 
 ### Slice 3: Quality / Monitoring
+
+Status: next
 
 - integrity semantics should treat these as recent-retention datasets
 - freshness / coverage summary in Quality UI

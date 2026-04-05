@@ -352,13 +352,55 @@ class BinanceBtcHistoryBackfillTests(unittest.TestCase):
 
         filtered = binance_btc_history_backfill.filter_incremental_dataset_specs(
             dataset_specs,
-            ["funding_rates", "perp_bars_1m"],
+            ["funding_rates", "perp_bars_1m", "global_long_short_account_ratios"],
         )
 
         self.assertEqual(
             [spec.dataset_key for spec in filtered],
-            ["btc_perp_bars_1m", "btc_perp_funding_rates"],
+            [
+                "btc_perp_bars_1m",
+                "btc_perp_funding_rates",
+                "btc_perp_global_long_short_account_ratios",
+            ],
         )
+
+    def test_execute_task_dispatches_sentiment_ratio_history_window(self) -> None:
+        original_runner = binance_btc_history_backfill.run_sentiment_ratio_history_window
+        calls: list[dict[str, object]] = []
+
+        def fake_runner(**kwargs):
+            calls.append(kwargs)
+            return {
+                "status": "succeeded",
+                "rows_written": 2,
+                "history_rows_written": 2,
+                "ingestion_job_id": 77,
+                "effective_start": kwargs["start_time"].isoformat(),
+                "availability_note": None,
+            }
+
+        task = binance_btc_history_backfill.ChunkTask(
+            dataset_key="btc_perp_global_long_short_account_ratios",
+            label="BTCUSDT_PERP global_long_short_account_ratios",
+            symbol="BTCUSDT",
+            unified_symbol="BTCUSDT_PERP",
+            task_kind="global_long_short_account_ratios",
+            chunk_index=1,
+            chunk_total=1,
+            start_time=datetime(2036, 1, 1, 0, 0, tzinfo=timezone.utc),
+            end_time=datetime(2036, 1, 1, 23, 59, tzinfo=timezone.utc),
+            period_code="5m",
+        )
+
+        try:
+            binance_btc_history_backfill.run_sentiment_ratio_history_window = fake_runner
+            result = binance_btc_history_backfill.execute_task(task, requested_by="test")
+        finally:
+            binance_btc_history_backfill.run_sentiment_ratio_history_window = original_runner
+
+        self.assertEqual(result["rows_written"], 2)
+        self.assertEqual(calls[0]["period_code"], "5m")
+        self.assertTrue(calls[0]["include_global_long_short_account_ratio"])
 
     def test_filter_incremental_dataset_specs_rejects_unknown_dataset(self) -> None:
         dataset_specs = binance_btc_history_backfill.build_incremental_dataset_specs()

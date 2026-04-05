@@ -34,7 +34,16 @@ def phase4_schedule_plan() -> list[ScheduledJobDefinition]:
             kwargs={
                 "job_type": "market_snapshot_remediation",
                 "exchange_code": "binance",
-                "datasets": ["funding_rates", "open_interest", "mark_prices", "index_prices"],
+                "datasets": [
+                    "funding_rates",
+                    "open_interest",
+                    "mark_prices",
+                    "index_prices",
+                    "global_long_short_account_ratios",
+                    "top_trader_long_short_account_ratios",
+                    "top_trader_long_short_position_ratios",
+                    "taker_long_short_ratios",
+                ],
             },
         )
     ]

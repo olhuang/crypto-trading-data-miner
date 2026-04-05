@@ -73,6 +73,15 @@ class MarketSnapshotRefreshRequest(ApiRequestModel):
     history_end_time: datetime | None = None
     open_interest_period: str = "5m"
     price_interval: str = "1m"
+    sentiment_ratio_period: str = "5m"
+    include_funding: bool = True
+    include_open_interest: bool = True
+    include_mark_price: bool = True
+    include_index_price: bool = True
+    include_global_long_short_account_ratio: bool = False
+    include_top_trader_long_short_account_ratio: bool = False
+    include_top_trader_long_short_position_ratio: bool = False
+    include_taker_long_short_ratio: bool = False
 
 
 class MarketSnapshotRemediationRequest(ApiRequestModel):
@@ -84,6 +93,7 @@ class MarketSnapshotRemediationRequest(ApiRequestModel):
     lookback_hours: int = 24
     open_interest_period: str = "5m"
     price_interval: str = "1m"
+    sentiment_ratio_period: str = "5m"
 
 
 class Phase4QualityRunRequest(ApiRequestModel):
@@ -1348,6 +1358,15 @@ def create_app() -> FastAPI:
             history_end_time=request.history_end_time,
             open_interest_period=request.open_interest_period,
             price_interval=request.price_interval,
+            sentiment_ratio_period=request.sentiment_ratio_period,
+            include_funding=request.include_funding,
+            include_open_interest=request.include_open_interest,
+            include_mark_price=request.include_mark_price,
+            include_index_price=request.include_index_price,
+            include_global_long_short_account_ratio=request.include_global_long_short_account_ratio,
+            include_top_trader_long_short_account_ratio=request.include_top_trader_long_short_account_ratio,
+            include_top_trader_long_short_position_ratio=request.include_top_trader_long_short_position_ratio,
+            include_taker_long_short_ratio=request.include_taker_long_short_ratio,
         )
         return SuccessEnvelope[JobActionResource](
             data=JobActionResource(job_id=result.ingestion_job_id, status=result.status),
@@ -1370,6 +1389,7 @@ def create_app() -> FastAPI:
             lookback_hours=request.lookback_hours,
             open_interest_period=request.open_interest_period,
             price_interval=request.price_interval,
+            sentiment_ratio_period=request.sentiment_ratio_period,
         )
         return SuccessEnvelope[JobActionResource](
             data=JobActionResource(job_id=result.ingestion_job_id, status=result.status),
