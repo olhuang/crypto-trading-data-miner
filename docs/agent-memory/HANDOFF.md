@@ -15,6 +15,7 @@
 - keep retention-limited OI/sentiment maintenance stable now that scheduler refresh/remediation needed to be hardened from freshness-only behavior to recent-history continuity maintenance
 - keep retention-limited OI/sentiment history fetches boundary-safe so repeated re-grabs stop dropping the same midnight buckets
 - keep recurring job control centralized now that the repo has a built-in scheduler bootstrap and a single config-driven on/off path
+- keep the Backtests launch flow resilient now that the sentiment-aware strategy path depends on seeded DB strategy-version rows and friendlier lookup error handling
 
 ## Verified Findings
 - the repo already has enough design density that chat-only continuity is not reliable
@@ -49,6 +50,8 @@
 - the recurring `taker_long_short_ratios` midnight gap was traced to retention-limited history fetch boundary handling rather than runtime deletes; the same requested day/window could write spillover rows yet still miss the exact requested midnight bucket
 - retention-limited futures history fetches now widen the upstream request by one period on each side and then filter rows back to the requested `[start_time, end_time]`, making `open_interest` and sentiment-ratio repairs more robust around `00:00/00:05` bucket boundaries
 - phase-3 historical snapshot tests now use aligned 2026 fixture timestamps for OI / sentiment / premium-index history windows, so the new boundary filtering is tested against the actual requested window instead of mismatched 2024 fixture rows
+- the sentiment-aware backtest launch failure was traced to a missing seeded DB row for `btc_sentiment_momentum@v1.0.0`; a new migration now seeds that strategy/version pair, the local DB was patched to match, and the API now converts lookup misses into typed validation errors instead of raw 500s
+- the `/monitoring` fetch helpers now tolerate plain-text non-JSON error responses, so launch failures surface the real server message instead of `Unexpected token ... is not valid JSON`
 - local `BTCUSDT_PERP` sentiment-ratio tables were confirmed to contain old `2024-04-02` test-fixture residue plus a recent real block; the fixture residue was operator-cleaned from the local DB before re-grab
 - a dedicated backend repair endpoint now exists at `POST /api/v1/quality/integrity-repairs/bars`, backed by `src/services/integrity_repair_control.py`
 - the BTC incremental trigger API now accepts optional dataset scope, and the UI uses that narrower path for `tail` repair actions instead of always launching a full BTC incremental run

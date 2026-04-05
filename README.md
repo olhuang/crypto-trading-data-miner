@@ -316,6 +316,7 @@ Relevant files:
 - `db/init/006_seed_strategy_and_accounts.sql`
 - `db/init/007_update_starter_fee_schedule_defaults.sql`
 - `db/init/008_compare_sets_and_annotations.sql`
+- `db/init/013_seed_sentiment_strategy.sql`
 - `docs/database-bootstrap.md`
 - `db/verify/phase_1_verification.sql`
 - `scripts/verify_phase1.sh`

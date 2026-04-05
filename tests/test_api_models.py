@@ -32,6 +32,7 @@ from api.app import (
     resolve_current_actor,
 )
 from storage.db import transaction_scope
+from storage.lookups import LookupResolutionError
 from storage.repositories.ops import IngestionJobRepository
 
 
@@ -715,6 +716,50 @@ class ModelsApiTests(unittest.TestCase):
 
         self.assertEqual(exc.exception.status_code, 422)
         self.assertEqual(exc.exception.detail["code"], "VALIDATION_ERROR")
+
+    def test_backtest_run_create_rejects_missing_strategy_version_lookup(self) -> None:
+        original_runner = app_module.BacktestRunnerSkeleton
+
+        class StubRunner:
+            def __init__(self, run_config):
+                self.run_config = run_config
+
+            def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
+                raise LookupResolutionError(
+                    "unknown strategy version for strategy_code=btc_sentiment_momentum strategy_version=v1.0.0"
+                )
+
+        app_module.BacktestRunnerSkeleton = StubRunner
+        try:
+            with self.assertRaises(HTTPException) as exc:
+                self.__class__.backtest_runs_create_endpoint(
+                    BacktestRunStartRequest.model_validate(
+                        {
+                            "run_name": "btc_missing_strategy_seed",
+                            "session": {
+                                "session_code": "bt_missing_strategy_seed",
+                                "environment": "backtest",
+                                "account_code": "paper_main",
+                                "strategy_code": "btc_sentiment_momentum",
+                                "strategy_version": "v1.0.0",
+                                "exchange_code": "binance",
+                                "universe": ["BTCUSDT_PERP"],
+                            },
+                            "start_time": "2026-03-01T00:00:00Z",
+                            "end_time": "2026-03-31T00:00:00Z",
+                            "initial_cash": "100000",
+                            "assumption_bundle_code": "baseline_perp_sentiment_research",
+                            "assumption_bundle_version": "v1",
+                        }
+                    ),
+                    "Bearer developer:u_123:Alice",
+                )
+        finally:
+            app_module.BacktestRunnerSkeleton = original_runner
+
+        self.assertEqual(exc.exception.status_code, 422)
+        self.assertEqual(exc.exception.detail["code"], "VALIDATION_ERROR")
+        self.assertEqual(exc.exception.detail["details"]["field"], "strategy_version")
 
     def test_backtest_run_detail_endpoints_return_orders_fills_timeseries_and_signals(self) -> None:
         original_repository = app_module.BacktestRunRepository

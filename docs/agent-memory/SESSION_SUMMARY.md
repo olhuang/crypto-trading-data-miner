@@ -1,6 +1,7 @@
 # Session Summary
 
 ## Goal
+- restore the sentiment-aware Backtests launch path after `btc_sentiment_momentum` runs started failing during DB strategy-version lookup
 - eliminate the recurring fixed-time midnight gaps on retention-limited OI/sentiment datasets after repeated re-grabs
 - stop retention-limited datasets from looking healthy immediately after manual re-grab and then drifting back into integrity failures
 - make recurring scheduler control visible and centrally switchable inside the repo
@@ -12,6 +13,12 @@
   - `taker_long_short_ratios`
 
 ## Done
+- traced the `/monitoring -> Backtests` sentiment launch failure to a missing DB seed for `btc_sentiment_momentum@v1.0.0`; the strategy existed in the in-memory registry but not in `strategy.strategies` / `strategy.strategy_versions`
+- added `db/init/013_seed_sentiment_strategy.sql` so fresh DB bootstrap now creates the `btc_sentiment_momentum` strategy row and `v1.0.0` version row
+- patched the local DB to insert the same seed immediately, then smoke-verified that a real sentiment backtest launch can now persist successfully
+- hardened `src/api/app.py` so lookup misses during backtest launch return a typed `422 VALIDATION_ERROR` instead of raw `500 Internal Server Error`
+- hardened `frontend/monitoring/app.js` so non-JSON error bodies are surfaced as readable messages instead of `Unexpected token ... is not valid JSON`
+- added regression coverage in `tests/test_api_models.py` for the missing-strategy-version lookup path and expanded `tests/test_seed_defaults.py` to require the new sentiment strategy seed
 - traced the recurring fixed-time `taker_long_short_ratios` gap to retention-limited history fetch boundary handling rather than runtime deletes; the same day/window could succeed yet still miss the exact midnight bucket
 - updated `src/ingestion/binance/public_rest.py` so retention-limited futures history fetches now:
   - widen the Binance request by one period on each side
@@ -47,6 +54,12 @@
 - added `tests/test_builtin_scheduler.py` to lock down group selection and app-lifespan start/stop behavior
 
 ## Files Changed
+- `frontend/monitoring/app.js`
+- `src/api/app.py`
+- `tests/test_api_models.py`
+- `tests/test_seed_defaults.py`
+- `db/init/013_seed_sentiment_strategy.sql`
+- `README.md`
 - `src/ingestion/binance/public_rest.py`
 - `src/jobs/refresh_market_snapshots.py`
 - `src/jobs/remediate_market_snapshots.py`
@@ -64,6 +77,8 @@
 - `docs/binance-futures-sentiment-ratios-rollout-plan.md`
 
 ## Decisions
+- strategy registry entries are not enough for persisted backtests; any new seeded research strategy must also have a matching DB `strategy` + `strategy_version` seed row
+- frontend envelope helpers should always tolerate plain-text error responses from the API so operational failures remain intelligible
 - retention-limited futures history fetches should request a small overlap around the target window but must only persist/report rows that fall back inside the original requested bounds
 - retention-limited datasets should be maintained as canonical recent-history series, not merely as freshness snapshots
 - scheduler refresh is now allowed to write recent aligned history for OI/sentiment datasets because that is less harmful than repeatedly producing off-grid OI rows plus empty sentiment maintenance
@@ -71,6 +86,11 @@
 - built-in recurring job execution should be explicitly opt-in and centrally controlled through config, not implicitly inferred from hidden local processes
 
 ## Verification
+- real local smoke launch via `create_backtest_run` endpoint payload for `btc_sentiment_momentum` now succeeds and returns a persisted `run_id`
+- local DB verification confirms `btc_sentiment_momentum@v1.0.0` now resolves from `strategy.strategy_versions`
+- `python -m py_compile src/api/app.py tests/test_api_models.py tests/test_seed_defaults.py`
+- `python -m unittest tests.test_api_models -v`
+- `python -m unittest tests.test_seed_defaults -v`
 - `python -m py_compile src/ingestion/binance/public_rest.py tests/test_phase3_ingestion.py`
 - `python -m py_compile src/jobs/refresh_market_snapshots.py src/jobs/remediate_market_snapshots.py src/jobs/scheduler.py src/api/app.py tests/test_phase3_ingestion.py`
 - `python -m py_compile src/config.py src/services/builtin_scheduler.py src/api/app.py tests/test_builtin_scheduler.py`
@@ -88,6 +108,7 @@
 - the built-in scheduler currently supports the repo's existing `interval:*s` triggers plus the simple hourly `cron:0 * * * *` shape already present in the schedule plan; more complex cron expressions would need explicit extension later
 
 ## Next
+- retry `/monitoring -> Backtests` with `btc_sentiment_momentum` after reloading the page so the new front-end error handling and local DB seed are both in effect
 - watch the next few local/scheduled sentiment-ratio re-grabs to confirm the recurring `00:00/00:05` gap does not reappear
 - continue the Phase 5 replay/debug-trace investigation linkage now that sentiment-aware traces persist compact market context snapshots
 - optionally add operator-facing visibility for remediation reasons / retention-continuity planning if Quality needs to explain why scheduler repair ran

@@ -148,11 +148,23 @@ async function fetchEnvelope(path, query = {}) {
     }
   }
   const response = await fetch(url, { headers: DEFAULT_HEADERS });
-  const envelope = await response.json();
-  if (!response.ok || envelope.success === false) {
-    throw new Error(envelope?.error?.message || `Request failed for ${path}`);
+  const text = await response.text();
+  let envelope = null;
+  if (text) {
+    try {
+      envelope = JSON.parse(text);
+    } catch {
+      envelope = null;
+    }
   }
-  return envelope.data;
+  if (!response.ok || envelope?.success === false) {
+    throw new Error(
+      envelope?.error?.message ||
+        text.trim() ||
+        `Request failed for ${path}`
+    );
+  }
+  return envelope?.data;
 }
 
 async function sendEnvelope(path, method, payload) {
@@ -164,11 +176,23 @@ async function sendEnvelope(path, method, payload) {
     },
     body: JSON.stringify(payload),
   });
-  const envelope = await response.json();
-  if (!response.ok || envelope.success === false) {
-    throw new Error(envelope?.error?.message || `Request failed for ${path}`);
+  const text = await response.text();
+  let envelope = null;
+  if (text) {
+    try {
+      envelope = JSON.parse(text);
+    } catch {
+      envelope = null;
+    }
   }
-  return envelope.data;
+  if (!response.ok || envelope?.success === false) {
+    throw new Error(
+      envelope?.error?.message ||
+        text.trim() ||
+        `Request failed for ${path}`
+    );
+  }
+  return envelope?.data;
 }
 
 function setText(id, value) {

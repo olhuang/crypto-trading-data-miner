@@ -38,6 +38,7 @@ from services.validate_and_store import (
     validate_payload,
 )
 from storage.db import connection_scope, transaction_scope
+from storage.lookups import LookupResolutionError
 from storage.repositories.backtest import BacktestRunRepository
 from storage.repositories.ops import DataGapRepository, DataQualityCheckRepository, IngestionJobRepository
 from strategy import UnknownStrategyError
@@ -874,6 +875,20 @@ def _meta(actor: CurrentActor | None = None) -> ApiMeta:
         timestamp=datetime.now(timezone.utc).isoformat(),
         current_actor=actor,
     )
+
+
+def _lookup_error_field(message: str) -> str | None:
+    if "strategy version" in message:
+        return "strategy_version"
+    if "strategy_code" in message:
+        return "strategy_code"
+    if "account_code" in message:
+        return "account_code"
+    if "unified_symbol" in message or "instrument" in message:
+        return "unified_symbol"
+    if "exchange_code" in message:
+        return "exchange_code"
+    return None
 
 
 def resolve_current_actor(authorization: str | None = None) -> CurrentActor:
@@ -2072,6 +2087,19 @@ def create_app() -> FastAPI:
                     "code": "VALIDATION_ERROR",
                     "message": str(exc),
                     "details": {"field": "assumption_bundle_code"},
+                },
+            ) from exc
+        except LookupResolutionError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "details": (
+                        {"field": _lookup_error_field(str(exc))}
+                        if _lookup_error_field(str(exc)) is not None
+                        else {}
+                    ),
                 },
             ) from exc
         except ValidationError as exc:

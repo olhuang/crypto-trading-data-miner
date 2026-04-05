@@ -15,21 +15,25 @@ from storage.db import connection_scope
 class SeedDefaultsTests(unittest.TestCase):
     def test_strategy_version_seed_defaults_exist(self) -> None:
         with connection_scope() as connection:
-            row = connection.exec_driver_sql(
+            rows = connection.exec_driver_sql(
                 """
                 select s.strategy_code, sv.version_code, sv.is_active
                 from strategy.strategy_versions sv
                 join strategy.strategies s on s.strategy_id = sv.strategy_id
-                where s.strategy_code = %s
-                  and sv.version_code = %s
+                where (s.strategy_code = %s and sv.version_code = %s)
+                   or (s.strategy_code = %s and sv.version_code = %s)
+                order by s.strategy_code
                 """,
-                ("btc_momentum", "v1.0.0"),
-            ).first()
+                ("btc_momentum", "v1.0.0", "btc_sentiment_momentum", "v1.0.0"),
+            ).all()
 
-        self.assertIsNotNone(row)
-        self.assertEqual(row[0], "btc_momentum")
-        self.assertEqual(row[1], "v1.0.0")
-        self.assertTrue(row[2])
+        self.assertEqual(
+            rows,
+            [
+                ("btc_momentum", "v1.0.0", True),
+                ("btc_sentiment_momentum", "v1.0.0", True),
+            ],
+        )
 
     def test_account_seed_defaults_exist(self) -> None:
         with connection_scope() as connection:
