@@ -830,7 +830,25 @@ class BacktestRunRepository:
                 trace.drawdown,
                 trace.market_context_json,
                 trace.decision_json,
-                trace.risk_outcomes_json
+                trace.risk_outcomes_json,
+                coalesce(
+                    (
+                        select jsonb_agg(
+                            jsonb_build_object(
+                                'anchor_id', a.anchor_id,
+                                'debug_trace_id', a.debug_trace_id,
+                                'scenario_id', a.scenario_id,
+                                'expected_behavior', a.expected_behavior,
+                                'observed_behavior', a.observed_behavior,
+                                'created_at', a.created_at,
+                                'updated_at', a.updated_at
+                            ) order by a.created_at asc
+                        )
+                        from research.trace_investigation_anchors a
+                        where a.debug_trace_id = trace.debug_trace_id
+                    ),
+                    '[]'::jsonb
+                ) as investigation_anchors_json
             from backtest.debug_traces trace
             join ref.instruments instrument on instrument.instrument_id = trace.instrument_id
             where {where_clause}
@@ -862,3 +880,44 @@ class BacktestRunRepository:
                 {"run_id": run_id},
             ).scalar_one()
         )
+
+    def upsert_investigation_anchor(
+        self,
+        connection: Connection,
+        *,
+        debug_trace_id: int,
+        scenario_id: str | None,
+        expected_behavior: str | None,
+        observed_behavior: str | None,
+        actor_name: str,
+    ) -> dict[str, object]:
+        row = connection.execute(
+            text(
+                """
+                insert into research.trace_investigation_anchors (
+                    debug_trace_id,
+                    scenario_id,
+                    expected_behavior,
+                    observed_behavior,
+                    created_by,
+                    updated_by
+                ) values (
+                    :debug_trace_id,
+                    :scenario_id,
+                    :expected_behavior,
+                    :observed_behavior,
+                    :actor_name,
+                    :actor_name
+                )
+                returning *
+                """
+            ),
+            {
+                "debug_trace_id": debug_trace_id,
+                "scenario_id": scenario_id,
+                "expected_behavior": expected_behavior,
+                "observed_behavior": observed_behavior,
+                "actor_name": actor_name,
+            },
+        ).mappings().one()
+        return dict(row)

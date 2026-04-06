@@ -216,6 +216,12 @@ class CompareReviewNoteWriteRequest(ApiRequestModel):
         return self
 
 
+class TraceInvestigationAnchorWriteRequest(ApiRequestModel):
+    scenario_id: str | None = None
+    expected_behavior: str | None = None
+    observed_behavior: str | None = None
+
+
 class BacktestRunStartRequest(BacktestRunConfig):
     persist_signals: bool = True
     persist_debug_traces: bool = False
@@ -805,6 +811,16 @@ class BacktestTimeseriesResource(BaseModel):
     points: list[BacktestTimeseriesPointResource]
 
 
+class TraceInvestigationAnchorResource(BaseModel):
+    anchor_id: int
+    debug_trace_id: int
+    scenario_id: str | None
+    expected_behavior: str | None
+    observed_behavior: str | None
+    created_at: str
+    updated_at: str
+
+
 class BacktestDebugTraceRecordResource(BaseModel):
     debug_trace_id: int
     step_index: int
@@ -831,6 +847,7 @@ class BacktestDebugTraceRecordResource(BaseModel):
     market_context_json: dict[str, Any] | None = None
     decision_json: dict[str, Any]
     risk_outcomes_json: list[dict[str, Any]]
+    investigation_anchors: list[TraceInvestigationAnchorResource] | None = None
 
 
 class BacktestDebugTraceRecordsResource(BaseModel):
@@ -1286,6 +1303,18 @@ def _build_backtest_debug_trace_resource(record: dict[str, Any]) -> BacktestDebu
         market_context_json=dict(record.get("market_context_json") or {}) or None,
         decision_json=dict(record.get("decision_json") or {}),
         risk_outcomes_json=list(record.get("risk_outcomes_json") or []),
+        investigation_anchors=[
+            TraceInvestigationAnchorResource(
+                anchor_id=a["anchor_id"],
+                debug_trace_id=a["debug_trace_id"],
+                scenario_id=a.get("scenario_id"),
+                expected_behavior=a.get("expected_behavior"),
+                observed_behavior=a.get("observed_behavior"),
+                created_at=str(a["created_at"]),
+                updated_at=str(a["updated_at"]),
+            )
+            for a in (record.get("investigation_anchors_json") or [])
+        ],
     )
 
 
@@ -2340,6 +2369,37 @@ def create_app() -> FastAPI:
             data=BacktestDebugTraceRecordsResource(
                 run_id=run_id,
                 traces=[_build_backtest_debug_trace_resource(record) for record in records],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/investigation-anchors")
+    def create_trace_investigation_anchor(
+        run_id: int,
+        debug_trace_id: int,
+        request: TraceInvestigationAnchorWriteRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[TraceInvestigationAnchorResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        with transaction_scope() as connection:
+            repository = BacktestRunRepository()
+            record = repository.upsert_investigation_anchor(
+                connection,
+                debug_trace_id=debug_trace_id,
+                scenario_id=request.scenario_id,
+                expected_behavior=request.expected_behavior,
+                observed_behavior=request.observed_behavior,
+                actor_name=actor.user_name,
+            )
+        return SuccessEnvelope[TraceInvestigationAnchorResource](
+            data=TraceInvestigationAnchorResource(
+                anchor_id=record["anchor_id"],
+                debug_trace_id=record["debug_trace_id"],
+                scenario_id=record.get("scenario_id"),
+                expected_behavior=record.get("expected_behavior"),
+                observed_behavior=record.get("observed_behavior"),
+                created_at=record["created_at"].isoformat() if hasattr(record["created_at"], "isoformat") else str(record["created_at"]),
+                updated_at=record["updated_at"].isoformat() if hasattr(record["updated_at"], "isoformat") else str(record["updated_at"]),
             ),
             meta=_meta(actor),
         )

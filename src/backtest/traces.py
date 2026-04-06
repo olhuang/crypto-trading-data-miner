@@ -7,6 +7,17 @@ from typing import Any
 
 
 @dataclass(slots=True)
+class TraceInvestigationAnchor:
+    anchor_id: int
+    debug_trace_id: int
+    scenario_id: str | None
+    expected_behavior: str | None
+    observed_behavior: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(slots=True)
 class BacktestDebugTraceRecord:
     step_index: int
     bar_time: datetime
@@ -33,3 +44,4 @@ class BacktestDebugTraceRecord:
     decision_json: dict[str, Any]
     risk_outcomes_json: list[dict[str, Any]]
     market_context_json: dict[str, Any] | None = None
+    investigation_anchors: list[TraceInvestigationAnchor] | None = None

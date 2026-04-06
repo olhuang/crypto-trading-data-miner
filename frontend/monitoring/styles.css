@@ -138,6 +138,40 @@ select {
   background: var(--accent-soft);
 }
 
+.workspace-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.92rem;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.workspace-tab:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.workspace-tab.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.backtest-subtab {
+  display: none;
+}
+
+.backtest-subtab.is-active-tab {
+  display: block;
+}
+
 .workspace-section {
   scroll-margin-top: 1rem;
 }

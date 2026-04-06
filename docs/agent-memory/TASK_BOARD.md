@@ -7,7 +7,6 @@
 
 ## In Progress
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
-- advance step-level debug traces from the completed Level 2 linkage/UI/anchor/filter/context slices into replay investigation linkage
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
@@ -27,17 +26,21 @@
 
 ## Next
 - integrate memory workflow with future strategy workbench annotation / review surfaces
-- continue `UI Phase B` from `docs/frontend-ui-usability-improvement-plan.md` and keep separating launch / compare / runs / investigate work inside Backtests
 - keep future product-grade frontend work aligned to `docs/frontend-keep-evolve-replace-strategy.md` instead of expanding `/monitoring` without boundaries
 - connect the current trace substrate into replay investigation linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
 - connect the new debug-trace market-context evidence into replay investigation linkage and future compare/review note anchors
 - defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
+
 - optionally surface scheduler/remediation continuity reasons in Quality if operators need to distinguish freshness catch-up from true recent-window repair
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- finished UI Phase B: Backtests Workspace Restructure, transitioning the view from a single-scrolling layout to a separated 4-tab workspace (Launch, Runs, Compare, Investigate).
+- implemented UI integration for the new trace `investigation_anchors` directly into the `/monitoring` Backtests workspace
+- built Level 3 replay trace integration by implementing `research.trace_investigation_anchors` to anchor scenarios to trace points.
+- updated `BacktestDebugTraceRecordResource` to aggregate anchored deviations inside `list_debug_trace_records`
 - fixed the `bars_1m` future-row repair edge case so Quality finding actions can now derive repair windows from `future_examples` and clean those exact future minutes instead of failing with `no repair windows could be derived`
 - traced the analogous `mark_prices / index_prices` future corruption to `tests/test_phase3_ingestion.py` historical snapshot/remediation fixtures, then fixed both sides:
   - `src/ingestion/binance/public_rest.py` now post-filters funding/mark/index history rows back to the requested window

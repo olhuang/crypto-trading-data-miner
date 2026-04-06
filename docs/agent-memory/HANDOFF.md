@@ -4,7 +4,6 @@
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
 - continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter/context slices into replay investigation linkage
-- continue cleaning up the current `/monitoring` Backtests UX now that the first launch-form cleanup slice has landed
 - keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
 - provide a local runnable Binance BTC history backfill path with explicit progress/status output now that direct outbound execution is blocked inside the current harness
 - continue the Quality workspace evolve path now that the first integrity-validation UI slice is live inside `/monitoring`
@@ -37,6 +36,8 @@
 - diagnostics summaries now also project typed trace anchors, and the internal UI can use those anchors to focus the trace viewer on matching evidence windows
 - the debug-trace API and internal viewer now support targeted investigation filters for blocked-only traces, specific risk codes, signal presence, order presence, and fill presence
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
+- Level 3 replay trace integration is now physically mapped via `research.trace_investigation_anchors` and the new endpoint `POST .../debug-traces/{id}/investigation-anchors`.
+- Trace details from `GET /debug-traces` now include an `investigation_anchors` array reflecting scenario logic deviations.
 - the Phase 5 phase/task/checklist docs are now aligned to the current sentiment/context status: `bars_perp_context_v1`, `btc_sentiment_momentum`, Backtests UI launch support, and diagnostics/trace market-context visibility as the next slice
 - the broader spec set has now been re-scanned and the stale spec bodies were updated so `spec-index`, feature-pipeline, diagnostics, UI/UI API, and strategy-workbench docs all reflect the seeded sentiment-aware backtest path and the same next diagnostics slice
 - `scripts/repair_bars_integrity_windows.py` / `.ps1` now support `--auto-detect` / `-AutoDetect`, so bounded bars repair can discover `bars_1m` internal gaps and corrupt minutes from integrity output instead of relying only on hand-maintained default windows
@@ -84,7 +85,8 @@
 - the Quality workspace now includes a dedicated integrity-repair status box, so finding actions show progress/errors without relying only on modal alerts
 - the integrity-repair status box now behaves more like the other staged indicators: finding-triggered incremental repairs keep updating progress while the detached backfill process is still running
 - `scripts/repair_bars_integrity_windows.py` is now truly generic across spot/perp when no explicit window is supplied: it defaults to auto-detect for the requested unified symbol instead of replaying legacy BTC perp hard-coded repair windows
-- `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices
+- `docs/frontend-ui-usability-improvement-plan.md` now exists as the dedicated resume document for cleaning up the current Backtests UX in phased slices.
+- **UI Phase B completed**: The `/monitoring` Backtests workspace is now fully restructured into a 4-tab sub-workspace (Launch, Runs, Compare, Investigate), resolving the vertical scrolling UX issue. Matches the standard research lifecycle order.
 - `docs/frontend-keep-evolve-replace-strategy.md` now exists as the dedicated source of truth for how `/monitoring` should be kept, evolved, and eventually complemented by a replacement-grade frontend foundation
 - `docs/quality-integrity-ui-plan.md` now exists as the dedicated resume document for surfacing bounded dataset-integrity validation and BTC backfill status inside the current `/monitoring` Quality workspace
 - the current `/monitoring` Backtests launch flow now uses visible labels, grouped sections, preset helpers, checkbox/select controls, and a summary-first selected-run panel instead of relying as heavily on placeholder-only inputs and raw JSON first

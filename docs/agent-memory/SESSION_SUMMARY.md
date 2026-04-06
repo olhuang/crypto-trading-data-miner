@@ -1,163 +1,20 @@
 # Session Summary
 
-## Goal
-- restore the sentiment-aware Backtests launch path after `btc_sentiment_momentum` runs started failing during DB strategy-version lookup
-- eliminate the recurring fixed-time midnight gaps on retention-limited OI/sentiment datasets after repeated re-grabs
-- stop retention-limited datasets from looking healthy immediately after manual re-grab and then drifting back into integrity failures
-- make recurring scheduler control visible and centrally switchable inside the repo
-- harden scheduled maintenance for:
-  - `open_interest`
-  - `global_long_short_account_ratios`
-  - `top_trader_long_short_account_ratios`
-  - `top_trader_long_short_position_ratios`
-  - `taker_long_short_ratios`
-- stop regression unit tests from polluting local live-market tables and reopening Binance BTC integrity failures
-- fix the remaining `bars_1m` repair edge case where future-dated rows surfaced under the `corrupt` finding category but the repair flow could not derive or apply the right cleanup
-- stop the full regression suite from reintroducing future `mark_prices / index_prices` rows at `2036-04-02T12:30:00Z` / `12:35:00Z`
+**Date:** 2026-04-06
 
-## Done
-- traced the `/monitoring -> Backtests` sentiment launch failure to a missing DB seed for `btc_sentiment_momentum@v1.0.0`; the strategy existed in the in-memory registry but not in `strategy.strategies` / `strategy.strategy_versions`
-- added `db/init/013_seed_sentiment_strategy.sql` so fresh DB bootstrap now creates the `btc_sentiment_momentum` strategy row and `v1.0.0` version row
-- patched the local DB to insert the same seed immediately, then smoke-verified that a real sentiment backtest launch can now persist successfully
-- hardened `src/api/app.py` so lookup misses during backtest launch return a typed `422 VALIDATION_ERROR` instead of raw `500 Internal Server Error`
-- hardened `frontend/monitoring/app.js` so non-JSON error bodies are surfaced as readable messages instead of `Unexpected token ... is not valid JSON`
-- added regression coverage in `tests/test_api_models.py` for the missing-strategy-version lookup path and expanded `tests/test_seed_defaults.py` to require the new sentiment strategy seed
-- traced the recurring fixed-time `taker_long_short_ratios` gap to retention-limited history fetch boundary handling rather than runtime deletes; the same day/window could succeed yet still miss the exact midnight bucket
-- updated `src/ingestion/binance/public_rest.py` so retention-limited futures history fetches now:
-  - widen the Binance request by one period on each side
-  - filter the returned rows back to the requested `[start_time, end_time]`
-  - dedupe by timestamp after post-filtering
-- added regression coverage in `tests/test_phase3_ingestion.py` proving both sentiment-ratio history fetches and `open_interest` history fetches keep only the requested boundary buckets even when Binance returns spillover rows
-- aligned the phase-3 historical snapshot fixtures in `tests/test_phase3_ingestion.py` to 2026 request windows, so the new fetch filtering is exercised against consistent mock timestamps instead of the older 2024 mismatch
-- confirmed the recurring regression was not just old test-fixture residue; the bigger runtime issue was that scheduled maintenance only protected freshness, not recent-30d continuity
-- verified the two specific runtime problems:
-  - non-history `market_snapshot_refresh` wrote a single off-grid OI snapshot
-  - non-history `market_snapshot_refresh` did not fetch sentiment ratios at all
-- updated `src/jobs/refresh_market_snapshots.py` so refresh can now run in a recent-history retention mode:
-  - OI now uses aligned history fetches instead of only the single snapshot path
-  - the four sentiment-ratio datasets can now be refreshed in scheduler mode through aligned recent-history windows
-- updated `src/jobs/remediate_market_snapshots.py` so retention-limited datasets are no longer freshness-only:
-  - remediation now profiles the recent 30-day continuity window
-  - remediation reasons now distinguish `missing`, `coverage_shortfall`, `continuity_gap`, and `tail_shortfall`
-  - OI and sentiment repairs now run through day-sized history windows instead of a single long history request
-- updated `src/jobs/scheduler.py` so the Phase 3 refresh schedule explicitly includes sentiment-ratio datasets and enables the new retention-history refresh mode
-- extended the refresh API request model in `src/api/app.py` so the new scheduler/runtime behavior is represented in the typed contract
-- added a built-in app scheduler bootstrap under `src/services/builtin_scheduler.py`, wired into the FastAPI lifespan, so recurring refresh/remediation can now be turned on/off from one config location instead of relying on an unseen external process
-- added unified settings in `src/config.py` and `.env.example`:
-  - `ENABLE_BUILTIN_SCHEDULER`
-  - `BUILTIN_SCHEDULER_JOB_GROUPS`
-  - `BUILTIN_SCHEDULER_EXCHANGE_CODE`
-  - `BUILTIN_SCHEDULER_SYMBOL`
-  - `BUILTIN_SCHEDULER_UNIFIED_SYMBOL`
-- reviewed the full `tests/` suite for DB pollution and confirmed the biggest regression source was the test suite itself, not just runtime maintenance
-- converted the four DB-writing integration tests in `tests/test_phase2_repositories.py` to explicit connection transactions with rollback, so they no longer persist live-looking `2026-04-02` market/orderbook/mark/index/trade rows or account/ops side effects
-- moved the DB-writing phase-3 ingestion integration windows in `tests/test_phase3_ingestion.py` out of the live 2026 range and expanded cleanup to cover `bars_1m` and `funding_rates` in addition to OI/mark/index/sentiment tables
-- moved the DB-writing phase-5 market-context tests in `tests/test_phase5_foundation.py` to pre-history 2010 windows so latest-as-of context loading cannot latch onto live 2026 sentiment rows
-- changed `tests/test_startup_remediation.py` to use a fixed future window instead of `datetime.now()`, so its setup/cleanup no longer risks deleting currently maintained local bars
-- changed the two `ops.ingestion_jobs` endpoint tests in `tests/test_api_models.py` to clean up their committed rows immediately after assertions
-- reran targeted regressions across the touched files, then reran the full suite: `python -m unittest discover -s tests -v` -> `142 tests`, `OK`
-- verified by direct DB query after the full regression run that the old `2024-04-02T12:30/12:35Z` OI / sentiment fixture rows were not reintroduced
-- verified by direct DB query that the pre-existing corrupt `BTCUSDT_PERP bars_1m` row at `2026-04-02T12:34:00Z` still exists locally; it is now treated as historical residue from older test runs and still needs one-time remediation outside the test-suite fix
-- updated `README.md` so the built-in scheduler switch location and target configuration are documented
-- added regression coverage in `tests/test_phase3_ingestion.py` for:
-  - recent-history retention refresh writing canonical OI/sentiment rows
-  - retention-limited remediation planning using the 30-day floor instead of the stale 6h/24h freshness lookback
-  - phase-3 scheduler refresh definitions carrying the new sentiment/retention flags
-- added `tests/test_builtin_scheduler.py` to lock down group selection and app-lifespan start/stop behavior
-- fixed the `bars_1m` finding-repair edge case for future-dated rows:
-  - `frontend/monitoring/app.js` now derives bounded repair windows from both `corrupt_examples` and `future_examples`
-  - the Quality UI now labels future-only cases as `Repair Future Row`
-  - repair progress copy now uses neutral `affected row(s)` wording instead of assuming every repair is a re-fetch write
-- updated `src/services/integrity_repair_control.py` so future-dated `bars_1m` windows are repaired by deleting the exact future rows instead of calling Binance backfill on impossible future timestamps
-- updated `scripts/repair_bars_integrity_windows.py` to reuse the shared repair service, keeping script/UI/API behavior aligned for future-row cleanup
-- extended `frontend/monitoring/app.js` so non-bars `corrupt` findings on full-history datasets now render `Repair Corrupt via Incremental`, covering cases like `mark_prices` / `index_prices` that previously had no action button
-- added regression coverage:
-  - `tests/test_repair_bars_integrity_windows.py` now proves auto-detect includes `future_examples`
-  - new `tests/test_integrity_repair_control.py` proves future windows are cleaned through delete flow while historical windows still use bounded backfill
-- reran targeted repair/quality tests plus a full suite pass: `python -m unittest discover -s tests -v` -> `144 tests`, `OK`
-- traced the still-recurring `BTCUSDT_PERP bars_1m` future row at `2036-01-04T23:59:00Z` to `tests/test_startup_remediation.py`: with `observed_at=2036-01-05T00:02:00Z` and `lookback_hours=0.05`, the remediation window starts at `2036-01-04T23:59:00Z`, but the test cleanup only deleted `2036-01-05T00:00:00Z -> 00:02:00Z`
-- updated `tests/test_startup_remediation.py` so its setup/teardown delete the full remediation lookback window, matching the actual bars that can be backfilled by the test
-- verified the fix by:
-  - running `python -m unittest tests.test_startup_remediation -v`
-  - confirming `md.bars_1m` has `0` rows at `2036-01-04T23:59:00Z` afterward
-  - rerunning `python -m unittest discover -s tests -v` (`144 tests`, `OK`) and confirming the future row still remains absent
-- traced the analogous `mark_prices / index_prices` future corruption to the phase-3 historical snapshot/remediation tests: the mock transport could return `2036-04-02T12:30/12:35Z` fixture rows even when the requested historical window did not overlap that fixture window
-- hardened `src/ingestion/binance/public_rest.py` so `fetch_funding_rate_history`, `fetch_mark_price_klines`, and `fetch_index_price_klines` now post-filter rows back to the requested window, matching the existing OI/sentiment history guardrails
-- tightened `tests/test_phase3_ingestion.py` so:
-  - DB-writing future-window cases pre-clean before they run as well as after
-  - historical mock responses for funding / OI / sentiment / mark / index only return fixture rows when the requested window overlaps the fixture window
-  - remediation assertions compare actual refresh-job inclusion to the computed plan instead of assuming every dataset must always be stale
-- added explicit regression coverage proving funding / mark-price / index-price history fetches drop out-of-window rows
-- reran `python -m unittest tests.test_phase3_ingestion -v` (`17 tests`, `OK`) and then the full suite `python -m unittest discover -s tests -v` (`147 tests`, `OK`)
-- verified by direct post-run DB query that `md.mark_prices` / `md.index_prices` do not contain `2036-04-02T12:30:00Z` or `2036-04-02T12:35:00Z`
+## Work Completed
+- **Level 3 Replay investigation trace integration**: Successfully linked replay investigation bookmarks to the `debug_traces` substrate.
+- Created migration `014_trace_investigation_anchors.sql` to track expected/observed logic deltas at the distinct debug-trace step level.
+- Extended the `GET /api/v1/backtests/runs/.../debug-traces` API to aggregate anchors directly into the trace.
+- Created API endpoint `POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/investigation-anchors` to create scenario annotations while deferring the full `research.annotations` pipeline integration.
+- **UI Phase B**: Restructured the `/monitoring` Backtests workspace from a single, long-scrolling page to a tabbed sub-workspace interface (Launch, Runs, Compare, Investigate). 
+- Refactored `index.html` to replace anchor links with workspace tab buttons and grouped panels accordingly. Added JS logic for smooth tab switching.
+- Kept the rollout trackable and updated AI-memory workflow states for the handoff.
 
-## Files Changed
-- `frontend/monitoring/app.js`
-- `src/api/app.py`
-- `tests/test_api_models.py`
-- `tests/test_seed_defaults.py`
-- `db/init/013_seed_sentiment_strategy.sql`
-- `README.md`
-- `src/ingestion/binance/public_rest.py`
-- `src/jobs/refresh_market_snapshots.py`
-- `src/jobs/remediate_market_snapshots.py`
-- `src/jobs/scheduler.py`
-- `src/api/app.py`
-- `src/config.py`
-- `src/services/builtin_scheduler.py`
-- `tests/test_phase2_repositories.py`
-- `tests/test_phase3_ingestion.py`
-- `tests/test_phase5_foundation.py`
-- `tests/test_startup_remediation.py`
-- `tests/test_api_models.py`
-- `tests/test_builtin_scheduler.py`
-- `src/services/integrity_repair_control.py`
-- `scripts/repair_bars_integrity_windows.py`
-- `tests/test_repair_bars_integrity_windows.py`
-- `tests/test_integrity_repair_control.py`
-- `.env.example`
-- `README.md`
-- `src/ingestion/binance/public_rest.py`
-- `tests/test_phase3_ingestion.py`
-- `docs/agent-memory/HANDOFF.md`
-- `docs/agent-memory/SESSION_SUMMARY.md`
-- `docs/agent-memory/TASK_BOARD.md`
-- `docs/binance-futures-sentiment-ratios-rollout-plan.md`
+## Decisions Made
+- Chose to create a direct junction schema `research.trace_investigation_anchors` rather than immediately wiring into the generic annotation service. The `debug-trace-rollout-plan.md` specifically requested deferring full replay-note integration in favor of simple trace-level investigation linkage.
+- For UI Phase B, chose a pure frontend toggle strategy (CSS classes and vanilla JS) for the Backtests tab hierarchy to avoid destabilizing the backend APIs or introducing complex framework dependencies.
 
-## Decisions
-- strategy registry entries are not enough for persisted backtests; any new seeded research strategy must also have a matching DB `strategy` + `strategy_version` seed row
-- frontend envelope helpers should always tolerate plain-text error responses from the API so operational failures remain intelligible
-- retention-limited futures history fetches should request a small overlap around the target window but must only persist/report rows that fall back inside the original requested bounds
-- retention-limited datasets should be maintained as canonical recent-history series, not merely as freshness snapshots
-- scheduler refresh is now allowed to write recent aligned history for OI/sentiment datasets because that is less harmful than repeatedly producing off-grid OI rows plus empty sentiment maintenance
-- scheduler remediation should plan against the recent 30-day integrity profile for retention-limited datasets, even if that means ignoring the shorter generic `lookback_hours` freshness horizon
-- built-in recurring job execution should be explicitly opt-in and centrally controlled through config, not implicitly inferred from hidden local processes
-
-## Verification
-- real local smoke launch via `create_backtest_run` endpoint payload for `btc_sentiment_momentum` now succeeds and returns a persisted `run_id`
-- local DB verification confirms `btc_sentiment_momentum@v1.0.0` now resolves from `strategy.strategy_versions`
-- `python -m py_compile src/api/app.py tests/test_api_models.py tests/test_seed_defaults.py`
-- `python -m unittest tests.test_api_models -v`
-- `python -m unittest tests.test_seed_defaults -v`
-- `python -m py_compile src/ingestion/binance/public_rest.py tests/test_phase3_ingestion.py`
-- `python -m py_compile src/jobs/refresh_market_snapshots.py src/jobs/remediate_market_snapshots.py src/jobs/scheduler.py src/api/app.py tests/test_phase3_ingestion.py`
-- `python -m py_compile src/config.py src/services/builtin_scheduler.py src/api/app.py tests/test_builtin_scheduler.py`
-- `python -m unittest tests.test_builtin_scheduler -v`
-- `python -m unittest tests.test_phase3_ingestion -v`
-- `python -m unittest tests.test_phase4_quality -v`
-- `python -m unittest discover -s tests -v`
-- `node --check frontend/monitoring/app.js`
-
-## Risks / Unknowns
-- the boundary hardening assumes one-period overlap is enough for Binance to return edge buckets consistently; if the upstream endpoint sometimes skips farther than one period, we may still need wider overlap or explicit retry logic
-- the recent-history scheduler refresh window is intentionally bounded; if Binance skips a bucket for longer than that small refresh window, remediation is still responsible for healing it
-- old pre-retention local rows can still exist from manual experimentation until operators cleanup/re-grab those tables
-- `open_interest` still conceptually mixes snapshot and history semantics in the REST client layer; the current fix prevents scheduler drift, but a future refactor could separate the two more cleanly
-- the built-in scheduler currently supports the repo's existing `interval:*s` triggers plus the simple hourly `cron:0 * * * *` shape already present in the schedule plan; more complex cron expressions would need explicit extension later
-
-## Next
-- retry `/monitoring -> Backtests` with `btc_sentiment_momentum` after reloading the page so the new front-end error handling and local DB seed are both in effect
-- watch the next few local/scheduled sentiment-ratio re-grabs to confirm the recurring `00:00/00:05` gap does not reappear
-- continue the Phase 5 replay/debug-trace investigation linkage now that sentiment-aware traces persist compact market context snapshots
-- optionally add operator-facing visibility for remediation reasons / retention-continuity planning if Quality needs to explain why scheduler repair ran
-- if local DBs still contain stale pre-retention OI/sentiment rows, cleanup and re-grab them so the physical tables match the logical retention policy
+## Validation Completed
+- Python static compilation and local DB test integration verified clean against `014..` layout and syntax.
+- Visual browser verification completed for the new Backtests tabs; all four workspace modes (Launch, Runs, Compare, Investigate) confirmed fully functional and isolated.

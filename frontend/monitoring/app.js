@@ -2174,6 +2174,9 @@ function renderBacktestDebugTraceDetail(trace) {
     renderJson("backtest-debug-trace-risk", {
       message: "Risk outcomes will appear here.",
     });
+    renderJson("backtest-debug-trace-investigations", {
+      message: "Investigation anchors will appear here.",
+    });
     renderJson("backtest-debug-trace-detail", {
       message: "Full raw trace will appear here.",
     });
@@ -2210,6 +2213,9 @@ function renderBacktestDebugTraceDetail(trace) {
     });
     renderJson("backtest-debug-trace-risk", {
       message: "Risk outcomes will appear here.",
+    });
+    renderJson("backtest-debug-trace-investigations", {
+      message: "Investigation anchors will appear here.",
     });
     renderJson("backtest-debug-trace-detail", trace);
     return;
@@ -2249,7 +2255,29 @@ function renderBacktestDebugTraceDetail(trace) {
   );
   renderJson("backtest-debug-trace-decision", trace.decision_json || {});
   renderJson("backtest-debug-trace-risk", trace.risk_outcomes_json || []);
+  renderJson("backtest-debug-trace-investigations", trace.investigation_anchors || []);
   renderJson("backtest-debug-trace-detail", trace);
+}
+
+async function saveTraceInvestigationAnchor(formValues) {
+  if (!state.selectedBacktestRunId) {
+    throw new Error("No run selected.");
+  }
+  if (!state.selectedBacktestDebugTraceId) {
+    throw new Error("Select a debug trace to anchor the investigation to.");
+  }
+  const payload = {
+    scenario_id: String(formValues.scenario_id || "").trim() || null,
+    expected_behavior: String(formValues.expected_behavior || "").trim() || null,
+    observed_behavior: String(formValues.observed_behavior || "").trim() || null,
+  };
+  await sendEnvelope(
+    `/api/v1/backtests/runs/${state.selectedBacktestRunId}/debug-traces/${state.selectedBacktestDebugTraceId}/investigation-anchors`,
+    "POST",
+    payload
+  );
+  document.getElementById("backtest-trace-investigation-form").reset();
+  await loadBacktestDebugTraces();
 }
 
 function normalizeLineList(value) {
@@ -3105,6 +3133,15 @@ function activateView(viewName) {
   });
 }
 
+function activateBacktestSubtab(tabName) {
+  document.querySelectorAll(".workspace-tab[data-subtab]").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.subtab === tabName);
+  });
+  document.querySelectorAll(".backtest-subtab").forEach((tab) => {
+    tab.classList.toggle("is-active-tab", tab.dataset.subtabId === tabName);
+  });
+}
+
 function bindForm(id, loader) {
   const form = document.getElementById(id);
   if (!form) {
@@ -3136,8 +3173,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-compare-form", compareBacktestRuns);
   bindForm("backtest-compare-note-form", saveCompareReviewNote);
   bindForm("backtest-trace-filter-form", loadBacktestDebugTraces);
+  bindForm("backtest-trace-investigation-form", saveTraceInvestigationAnchor);
   bindBacktestPresetButtons();
   initializeBacktestLaunchControls();
+  document.querySelectorAll(".workspace-tab[data-subtab]").forEach((btn) => {
+    btn.addEventListener("click", () => activateBacktestSubtab(btn.dataset.subtab));
+  });
   bindIntegrityQuickRangeButtons();
   initializeIntegrityValidationControls();
   document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {
