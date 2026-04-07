@@ -284,45 +284,52 @@ class BacktestRunRepository:
         run_id: int,
         performance_points: Sequence[PerformancePoint],
     ) -> None:
-        for point in performance_points:
-            connection.execute(
-                text(
-                    """
-                    insert into backtest.performance_timeseries (
-                        run_id,
-                        ts,
-                        equity,
-                        cash,
-                        gross_exposure,
-                        net_exposure,
-                        drawdown
-                    ) values (
-                        :run_id,
-                        :ts,
-                        :equity,
-                        :cash,
-                        :gross_exposure,
-                        :net_exposure,
-                        :drawdown
-                    )
-                    on conflict (run_id, ts) do update
-                    set equity = excluded.equity,
-                        cash = excluded.cash,
-                        gross_exposure = excluded.gross_exposure,
-                        net_exposure = excluded.net_exposure,
-                        drawdown = excluded.drawdown
-                    """
-                ),
-                {
-                    "run_id": run_id,
-                    "ts": point.ts,
-                    "equity": point.equity,
-                    "cash": point.cash,
-                    "gross_exposure": point.gross_exposure,
-                    "net_exposure": point.net_exposure,
-                    "drawdown": point.drawdown,
-                },
-            )
+        if not performance_points:
+            return
+
+        params = [
+            {
+                "run_id": run_id,
+                "ts": point.ts,
+                "equity": point.equity,
+                "cash": point.cash,
+                "gross_exposure": point.gross_exposure,
+                "net_exposure": point.net_exposure,
+                "drawdown": point.drawdown,
+            }
+            for point in performance_points
+        ]
+        
+        connection.execute(
+            text(
+                """
+                insert into backtest.performance_timeseries (
+                    run_id,
+                    ts,
+                    equity,
+                    cash,
+                    gross_exposure,
+                    net_exposure,
+                    drawdown
+                ) values (
+                    :run_id,
+                    :ts,
+                    :equity,
+                    :cash,
+                    :gross_exposure,
+                    :net_exposure,
+                    :drawdown
+                )
+                on conflict (run_id, ts) do update
+                set equity = excluded.equity,
+                    cash = excluded.cash,
+                    gross_exposure = excluded.gross_exposure,
+                    net_exposure = excluded.net_exposure,
+                    drawdown = excluded.drawdown
+                """
+            ),
+            params,
+        )
 
     def insert_debug_traces(
         self,

@@ -28,7 +28,7 @@ from .traces import BacktestDebugTraceRecord
 
 @dataclass(slots=True)
 class BacktestStepResult:
-    bar_time: str
+    bar_time: datetime
     plan: BacktestStepPlan
     signals: list[Signal]
     created_orders: list[SimulatedOrder]
@@ -110,7 +110,7 @@ class BacktestRunnerSkeleton:
         plan = self.lifecycle.plan_from_decision(decision, positions)
         signals = self._build_signals(decision, positions)
         return BacktestStepResult(
-            bar_time=bar.bar_time.isoformat(),
+            bar_time=bar.bar_time,
             plan=plan,
             signals=signals,
             created_orders=[],
