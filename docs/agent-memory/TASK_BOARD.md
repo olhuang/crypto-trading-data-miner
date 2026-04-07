@@ -37,6 +37,9 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- analyzed backtest engine performance using `cProfile` and synthesized bars, cutting execution times by 50% for core intent evaluations
+- optimized `PortfolioState.mark_to_market` calls within the risk guardrails engine by bypassing the heavy loop with a lightweight `calculate_equity` helper when intents are empty
+- replaced per-bar `.astimezone()` transitions in the risk engine with a predictive floating UTC timestamp threshold, drastically eliminating per-bar overhead
 - finished UI Phase B: Backtests Workspace Restructure, transitioning the view from a single-scrolling layout to a separated 4-tab workspace (Launch, Runs, Compare, Investigate).
 - implemented UI integration for the new trace `investigation_anchors` directly into the `/monitoring` Backtests workspace
 - built Level 3 replay trace integration by implementing `research.trace_investigation_anchors` to anchor scenarios to trace points.

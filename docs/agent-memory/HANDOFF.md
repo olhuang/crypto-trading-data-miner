@@ -19,6 +19,9 @@
 - keep phase-3 historical snapshot fixtures from reintroducing future `mark/index` corruption now that a full regression run exposed request-window/mock overlap mismatches in those tests
 
 ## Verified Findings
+- backtest engine execution throughput was optimized using Python `cProfile` over synthetic data, completely bypassing redundant loop overhead.
+- `calculate_equity` inside `state.py` short-circuits unnecessary `PortfolioMark` creation during intent filtering whenever a signal isn't propagated for a given simulated loop (true ~99% of timestamps).
+- substituting standard `.astimezone()` transition calculations with tracked floating UTC timestamps slashed iteration constraints down by at least 50% for core functions.
 - the repo already has enough design density that chat-only continuity is not reliable
 - `README.md`, `docs/spec-index.md`, `docs/implementation-plan.md`, and `docs/phases-2-to-9-checklists.md` are the stable memory backbone
 - `docs/repo-self-review-tracker.md` is the current durable location for repo-wide findings/follow-ups

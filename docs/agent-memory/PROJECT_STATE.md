@@ -14,6 +14,7 @@
 - Binance market-data ingestion baseline
 - market-data quality, dataset-integrity validation, and replay-readiness baseline
 - bars-based backtest, diagnostics, compare foundation, first object-level compare-review memory, and Level 1/Level 2 trace-backed run inspection
+- optimized inner-loop mechanics for the backtest engine allowing fast multi-coin simulation by bypassing redundant state/time evaluations
 
 ## Current Gaps
 - no replay engine yet

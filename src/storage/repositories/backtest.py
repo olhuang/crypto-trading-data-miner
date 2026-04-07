@@ -287,49 +287,39 @@ class BacktestRunRepository:
         if not performance_points:
             return
 
-        params = [
-            {
-                "run_id": run_id,
-                "ts": point.ts,
-                "equity": point.equity,
-                "cash": point.cash,
-                "gross_exposure": point.gross_exposure,
-                "net_exposure": point.net_exposure,
-                "drawdown": point.drawdown,
-            }
-            for point in performance_points
-        ]
-        
-        connection.execute(
-            text(
-                """
-                insert into backtest.performance_timeseries (
-                    run_id,
-                    ts,
-                    equity,
-                    cash,
-                    gross_exposure,
-                    net_exposure,
-                    drawdown
-                ) values (
-                    :run_id,
-                    :ts,
-                    :equity,
-                    :cash,
-                    :gross_exposure,
-                    :net_exposure,
-                    :drawdown
+        chunk_size = 5000
+        for i in range(0, len(performance_points), chunk_size):
+            chunk = performance_points[i : i + chunk_size]
+            values_list = []
+            for point in chunk:
+                # Casts to avoid psycopg/SQLAlchemy parameter limit constraints and inject fast
+                # ts is isoformat, others are numeric
+                values_list.append(
+                    f"({run_id}, '{point.ts.isoformat()}', {point.equity}, {point.cash}, {point.gross_exposure}, {point.net_exposure}, {point.drawdown})"
                 )
-                on conflict (run_id, ts) do update
-                set equity = excluded.equity,
-                    cash = excluded.cash,
-                    gross_exposure = excluded.gross_exposure,
-                    net_exposure = excluded.net_exposure,
-                    drawdown = excluded.drawdown
-                """
-            ),
-            params,
-        )
+            
+            values_str = ", ".join(values_list)
+            connection.execute(
+                text(
+                    f"""
+                    insert into backtest.performance_timeseries (
+                        run_id,
+                        ts,
+                        equity,
+                        cash,
+                        gross_exposure,
+                        net_exposure,
+                        drawdown
+                    ) values {values_str}
+                    on conflict (run_id, ts) do update
+                    set equity = excluded.equity,
+                        cash = excluded.cash,
+                        gross_exposure = excluded.gross_exposure,
+                        net_exposure = excluded.net_exposure,
+                        drawdown = excluded.drawdown
+                    """
+                )
+            )
 
     def insert_debug_traces(
         self,
