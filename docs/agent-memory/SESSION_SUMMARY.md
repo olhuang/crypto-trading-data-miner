@@ -18,3 +18,9 @@
 ## Validation Completed
 - Python static compilation and local DB test integration verified clean against `014..` layout and syntax.
 - Visual browser verification completed for the new Backtests tabs; all four workspace modes (Launch, Runs, Compare, Investigate) confirmed fully functional and isolated.
+
+**Date:** 2026-04-07
+
+## Work Completed
+- **Session Start**: Summarized repo state and created implementation plan for profiling/optimizing backtest runner performance.
+- **Backtest Engine Performance**: Cut per-bar framework overhead by half. Bypassed redundant mark_to_market invocations during empty intents via incremental equity short-circuit. Replaced heavy per-bar astimezone date boundaries with predictive UTC floating bounds.

@@ -55,6 +55,7 @@ class BacktestRiskGuardrailEngine:
         self.session_state = RiskGuardrailSessionState()
         self.trading_timezone = run_config.session.trading_timezone
         self._trading_tz = ZoneInfo(self.trading_timezone)
+        self._next_day_boundary_utc_ts: float = 0.0
 
     def filter_execution_intents(
         self,
@@ -62,12 +63,17 @@ class BacktestRiskGuardrailEngine:
         *,
         current_bar: BarEvent,
         portfolio: PortfolioState,
-        latest_mark_prices: Mapping[str, Decimal],
+        latest_mark_prices: dict[str, Decimal],
         connection: Connection | None = None,
     ) -> tuple[list[ExecutionIntent], list[RiskGuardrailOutcome]]:
-        marks = dict(latest_mark_prices)
-        marks[current_bar.unified_symbol] = current_bar.close
-        portfolio_mark = portfolio.mark_to_market(marks)
+        latest_mark_prices[current_bar.unified_symbol] = current_bar.close
+        
+        if not intents:
+            equity = portfolio.calculate_equity(latest_mark_prices)
+            self._refresh_session_state(current_bar=current_bar, current_equity=equity)
+            return [], []
+
+        portfolio_mark = portfolio.mark_to_market(latest_mark_prices)
         self._refresh_session_state(current_bar=current_bar, current_equity=portfolio_mark.equity)
 
         allowed_intents: list[ExecutionIntent] = []
@@ -78,7 +84,7 @@ class BacktestRiskGuardrailEngine:
                 current_bar=current_bar,
                 portfolio=portfolio,
                 portfolio_mark=portfolio_mark,
-                mark_prices=marks,
+                mark_prices=latest_mark_prices,
                 connection=connection,
             )
             outcomes.append(outcome)
@@ -378,10 +384,17 @@ class BacktestRiskGuardrailEngine:
         return None
 
     def _refresh_session_state(self, *, current_bar: BarEvent, current_equity: Decimal) -> None:
-        active_trading_day = current_bar.bar_time.astimezone(self._trading_tz).date().isoformat()
-        if self.session_state.active_trading_day != active_trading_day:
-            self.session_state.active_trading_day = active_trading_day
-            self.session_state.daily_start_equity = current_equity
+        ts = current_bar.bar_time.timestamp()
+        if ts >= self._next_day_boundary_utc_ts:
+            local_dt = current_bar.bar_time.astimezone(self._trading_tz)
+            active_trading_day = local_dt.date().isoformat()
+            if self.session_state.active_trading_day != active_trading_day:
+                self.session_state.active_trading_day = active_trading_day
+                self.session_state.daily_start_equity = current_equity
+
+            from datetime import timedelta, datetime
+            next_local_dt = datetime(local_dt.year, local_dt.month, local_dt.day, tzinfo=self._trading_tz) + timedelta(days=1)
+            self._next_day_boundary_utc_ts = next_local_dt.timestamp()
 
         if self.session_state.peak_equity is None:
             self.session_state.peak_equity = current_equity

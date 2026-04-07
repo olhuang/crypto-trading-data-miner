@@ -57,11 +57,11 @@ class PortfolioState:
 
     @property
     def positions(self) -> dict[str, Decimal]:
-        return {
-            symbol: position.qty
-            for symbol, position in self.position_states.items()
-            if position.qty != 0
-        }
+        d = {}
+        for symbol, position in self.position_states.items():
+            if position.qty != 0:
+                d[symbol] = position.qty
+        return d
 
     def apply_fill(self, fill: SimulatedFill) -> FillApplicationOutcome:
         signed_qty = fill.qty if fill.side == OrderSide.BUY else -fill.qty
@@ -135,6 +135,17 @@ class PortfolioState:
             close_event=True,
             winning_close=winning_close,
         )
+
+    def calculate_equity(self, mark_prices: Mapping[str, Decimal]) -> Decimal:
+        net_exposure = Decimal("0")
+        for symbol, position in self.position_states.items():
+            if position.is_flat:
+                continue
+            mark_price = mark_prices.get(symbol)
+            if mark_price is None:
+                mark_price = position.average_entry_price or Decimal("0")
+            net_exposure += position.qty * mark_price
+        return self.cash + net_exposure
 
     def mark_to_market(self, mark_prices: Mapping[str, Decimal]) -> PortfolioMark:
         gross_exposure = Decimal("0")
