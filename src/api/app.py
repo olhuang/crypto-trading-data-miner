@@ -705,6 +705,43 @@ class BacktestDebugTraceNotesResource(BaseModel):
     notes: list[ObjectAnnotationResource]
 
 
+class ExpectedObservedOverviewItemResource(BaseModel):
+    annotation_id: int
+    debug_trace_id: int
+    step_index: int
+    bar_time: str
+    unified_symbol: str
+    annotation_type: str
+    status: str
+    note_source: str
+    verification_state: str
+    title: str
+    summary: str | None = None
+    verified_findings: list[str]
+    open_questions: list[str]
+    next_action: str | None = None
+    scenario_ids: list[str]
+    source_refs_json: dict[str, Any]
+    facts_snapshot_json: dict[str, Any]
+    created_at: str
+    updated_at: str
+
+
+class ExpectedObservedOverviewResource(BaseModel):
+    run_id: int
+    run_name: str | None = None
+    total_trace_count: int
+    trace_count_with_notes: int
+    total_note_count: int
+    expected_vs_observed_note_count: int
+    unresolved_note_count: int
+    status_counts: dict[str, int]
+    annotation_type_counts: dict[str, int]
+    note_source_counts: dict[str, int]
+    scenario_counts: dict[str, int]
+    items: list[ExpectedObservedOverviewItemResource]
+
+
 class BacktestRunListItemResource(BaseModel):
     run_id: int
     run_name: str
@@ -2542,6 +2579,65 @@ def create_app() -> FastAPI:
 
         return SuccessEnvelope[ObjectAnnotationResource](
             data=_build_annotation_resource(note),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/expected-vs-observed")
+    def backtest_expected_vs_observed_overview(
+        run_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[ExpectedObservedOverviewResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            with connection_scope() as connection:
+                overview = TraceInvestigationNoteService().build_expected_vs_observed_overview(
+                    connection,
+                    run_id=run_id,
+                )
+        except TraceInvestigationNotFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": str(exc), "details": {"run_id": run_id}},
+            ) from exc
+
+        return SuccessEnvelope[ExpectedObservedOverviewResource](
+            data=ExpectedObservedOverviewResource(
+                run_id=overview["run_id"],
+                run_name=overview.get("run_name"),
+                total_trace_count=overview["total_trace_count"],
+                trace_count_with_notes=overview["trace_count_with_notes"],
+                total_note_count=overview["total_note_count"],
+                expected_vs_observed_note_count=overview["expected_vs_observed_note_count"],
+                unresolved_note_count=overview["unresolved_note_count"],
+                status_counts=dict(overview.get("status_counts") or {}),
+                annotation_type_counts=dict(overview.get("annotation_type_counts") or {}),
+                note_source_counts=dict(overview.get("note_source_counts") or {}),
+                scenario_counts=dict(overview.get("scenario_counts") or {}),
+                items=[
+                    ExpectedObservedOverviewItemResource(
+                        annotation_id=item["annotation_id"],
+                        debug_trace_id=item["debug_trace_id"],
+                        step_index=item["step_index"],
+                        bar_time=item["bar_time"],
+                        unified_symbol=item["unified_symbol"],
+                        annotation_type=item["annotation_type"],
+                        status=item["status"],
+                        note_source=item["note_source"],
+                        verification_state=item["verification_state"],
+                        title=item["title"],
+                        summary=item.get("summary"),
+                        verified_findings=list(item.get("verified_findings") or []),
+                        open_questions=list(item.get("open_questions") or []),
+                        next_action=item.get("next_action"),
+                        scenario_ids=list(item.get("scenario_ids") or []),
+                        source_refs_json=dict(item.get("source_refs_json") or {}),
+                        facts_snapshot_json=dict(item.get("facts_snapshot_json") or {}),
+                        created_at=item["created_at"],
+                        updated_at=item["updated_at"],
+                    )
+                    for item in overview.get("items") or []
+                ],
+            ),
             meta=_meta(actor),
         )
 

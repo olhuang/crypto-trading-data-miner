@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from storage.repositories.backtest import BacktestRunRepository
@@ -117,6 +118,87 @@ class TraceInvestigationNoteService:
             source_refs=source_refs,
             actor_name=actor_name,
         ) or existing
+
+    def build_expected_vs_observed_overview(
+        self,
+        connection,
+        *,
+        run_id: int,
+    ) -> dict[str, Any]:
+        run_row = self.backtest_run_repository.get_run(connection, run_id)
+        if run_row is None:
+            raise TraceInvestigationNotFoundError(f"backtest run not found: {run_id}")
+
+        annotation_rows = self.annotation_repository.list_debug_trace_annotations_for_run(connection, run_id=run_id)
+        items: list[dict[str, Any]] = []
+        status_counts: Counter[str] = Counter()
+        annotation_type_counts: Counter[str] = Counter()
+        note_source_counts: Counter[str] = Counter()
+        scenario_counts: Counter[str] = Counter()
+        trace_ids_with_notes: set[int] = set()
+
+        for row in annotation_rows:
+            status = str(row["status"])
+            annotation_type = str(row["annotation_type"])
+            note_source = str(row["note_source"])
+            source_refs = dict(row.get("source_refs_json") or {})
+            scenario_ids = list(source_refs.get("scenario_ids") or [])
+
+            status_counts[status] += 1
+            annotation_type_counts[annotation_type] += 1
+            note_source_counts[note_source] += 1
+            for scenario_id in scenario_ids:
+                scenario_counts[str(scenario_id)] += 1
+
+            debug_trace_id = int(row["debug_trace_id"])
+            trace_ids_with_notes.add(debug_trace_id)
+            items.append(
+                {
+                    "annotation_id": int(row["annotation_id"]),
+                    "debug_trace_id": debug_trace_id,
+                    "step_index": int(row["step_index"]),
+                    "bar_time": row["bar_time"].isoformat(),
+                    "unified_symbol": str(row["unified_symbol"]),
+                    "annotation_type": annotation_type,
+                    "status": status,
+                    "note_source": note_source,
+                    "verification_state": str(row["verification_state"]),
+                    "title": str(row["title"]),
+                    "summary": row.get("summary"),
+                    "verified_findings": list(row.get("verified_findings_json") or []),
+                    "open_questions": list(row.get("open_questions_json") or []),
+                    "next_action": row.get("next_action"),
+                    "scenario_ids": scenario_ids,
+                    "source_refs_json": source_refs,
+                    "facts_snapshot_json": dict(row.get("facts_snapshot_json") or {}),
+                    "created_at": row["created_at"].isoformat(),
+                    "updated_at": row["updated_at"].isoformat(),
+                }
+            )
+
+        total_trace_count = self.backtest_run_repository.count_debug_traces(connection, run_id=run_id)
+        notes_with_expected_observed = sum(
+            1
+            for item in items
+            if item["annotation_type"] == "expected_vs_observed"
+            or bool(item["source_refs_json"].get("scenario_ids"))
+        )
+        unresolved_count = sum(1 for item in items if item["status"] not in {"resolved", "accepted", "rejected"})
+
+        return {
+            "run_id": run_id,
+            "run_name": run_row.get("run_name"),
+            "total_trace_count": total_trace_count,
+            "trace_count_with_notes": len(trace_ids_with_notes),
+            "total_note_count": len(items),
+            "expected_vs_observed_note_count": notes_with_expected_observed,
+            "unresolved_note_count": unresolved_count,
+            "status_counts": dict(status_counts),
+            "annotation_type_counts": dict(annotation_type_counts),
+            "note_source_counts": dict(note_source_counts),
+            "scenario_counts": dict(scenario_counts),
+            "items": items,
+        }
 
     def _require_trace(self, connection, *, run_id: int, debug_trace_id: int) -> dict[str, Any]:
         trace_row = self.backtest_run_repository.get_debug_trace_record(

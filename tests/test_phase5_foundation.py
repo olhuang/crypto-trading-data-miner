@@ -2148,6 +2148,144 @@ class Phase5FoundationTests(unittest.TestCase):
             transaction.rollback()
             connection.close()
 
+    def test_expected_vs_observed_overview_aggregates_trace_note_counts(self) -> None:
+        run_start = datetime(2036, 1, 7, 0, 0, tzinfo=timezone.utc)
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_expected_observed_overview",
+                "session": {
+                    "session_code": "bt_btc_expected_observed_overview",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=4)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "1"},
+            }
+        )
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            repository = BacktestRunRepository()
+            service = TraceInvestigationNoteService()
+            run_id = repository.insert_run(
+                connection,
+                run_config,
+                runtime_metadata={"source": "test"},
+            )
+            debug_trace_ids = repository.insert_debug_traces(
+                connection,
+                run_id=run_id,
+                debug_traces=[
+                    BacktestDebugTraceRecord(
+                        step_index=1,
+                        bar_time=run_start,
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        close_price=Decimal("100"),
+                        current_position_qty=Decimal("0"),
+                        position_qty_delta=Decimal("0"),
+                        signal_count=1,
+                        intent_count=1,
+                        blocked_intent_count=0,
+                        blocked_codes=[],
+                        created_order_count=0,
+                        created_order_ids=[],
+                        fill_count=0,
+                        fill_ids=[],
+                        cash=Decimal("10000"),
+                        cash_delta=Decimal("0"),
+                        equity=Decimal("10000"),
+                        equity_delta=Decimal("0"),
+                        gross_exposure=Decimal("0"),
+                        net_exposure=Decimal("0"),
+                        drawdown=Decimal("0"),
+                        decision_json={"decision_type": "target_position"},
+                        risk_outcomes_json=[{"code": "allowed", "decision": "allow"}],
+                    ),
+                    BacktestDebugTraceRecord(
+                        step_index=2,
+                        bar_time=run_start + timedelta(minutes=1),
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        close_price=Decimal("101"),
+                        current_position_qty=Decimal("1"),
+                        position_qty_delta=Decimal("1"),
+                        signal_count=1,
+                        intent_count=1,
+                        blocked_intent_count=1,
+                        blocked_codes=["cooldown_active"],
+                        created_order_count=0,
+                        created_order_ids=[],
+                        fill_count=0,
+                        fill_ids=[],
+                        cash=Decimal("9990"),
+                        cash_delta=Decimal("-10"),
+                        equity=Decimal("10005"),
+                        equity_delta=Decimal("5"),
+                        gross_exposure=Decimal("101"),
+                        net_exposure=Decimal("101"),
+                        drawdown=Decimal("0"),
+                        decision_json={"decision_type": "target_position"},
+                        risk_outcomes_json=[{"code": "cooldown_active", "decision": "block"}],
+                    ),
+                ],
+            )
+
+            repository.upsert_investigation_anchor(
+                connection,
+                debug_trace_id=debug_trace_ids[1],
+                scenario_id="cooldown_guard",
+                expected_behavior="do not enter while cooldown is active",
+                observed_behavior="signal was still proposed during cooldown",
+                actor_name="Phase5FoundationTests",
+            )
+
+            service.list_trace_notes(
+                connection,
+                run_id=run_id,
+                debug_trace_id=debug_trace_ids[0],
+                actor_name="Phase5FoundationTests",
+            )
+            service.create_or_update_trace_note(
+                connection,
+                run_id=run_id,
+                debug_trace_id=debug_trace_ids[1],
+                annotation_id=None,
+                annotation_type="expected_vs_observed",
+                status="in_review",
+                title="Cooldown mismatch",
+                summary="Expected no signal during cooldown, but a signal was still proposed.",
+                note_source="human",
+                verification_state="verified",
+                verified_findings=["cooldown_active was present while a signal still appeared"],
+                open_questions=["should signal generation be gated earlier"],
+                next_action="inspect pre-risk strategy gating",
+                actor_name="Phase5FoundationTests",
+            )
+
+            overview = service.build_expected_vs_observed_overview(connection, run_id=run_id)
+
+            self.assertEqual(overview["run_id"], run_id)
+            self.assertEqual(overview["total_trace_count"], 2)
+            self.assertEqual(overview["trace_count_with_notes"], 2)
+            self.assertEqual(overview["total_note_count"], 2)
+            self.assertEqual(overview["expected_vs_observed_note_count"], 1)
+            self.assertEqual(overview["unresolved_note_count"], 2)
+            self.assertEqual(overview["annotation_type_counts"]["investigation"], 1)
+            self.assertEqual(overview["annotation_type_counts"]["expected_vs_observed"], 1)
+            self.assertEqual(overview["scenario_counts"]["cooldown_guard"], 1)
+            self.assertEqual(overview["items"][1]["debug_trace_id"], debug_trace_ids[1])
+            self.assertEqual(overview["items"][1]["scenario_ids"], ["cooldown_guard"])
+        finally:
+            transaction.rollback()
+            connection.close()
+
     def test_load_run_and_persist_can_persist_market_context_snapshot(self) -> None:
         start_time = datetime(2010, 1, 4, 0, 0, tzinfo=timezone.utc)
         end_time = datetime(2010, 1, 4, 0, 5, tzinfo=timezone.utc)

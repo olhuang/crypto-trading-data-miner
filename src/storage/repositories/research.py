@@ -437,3 +437,45 @@ class AnnotationRepository:
 
         rows = connection.execute(text(query), params).mappings().all()
         return [dict(row) for row in rows]
+
+    def list_debug_trace_annotations_for_run(self, connection: Connection, *, run_id: int) -> list[dict[str, Any]]:
+        rows = connection.execute(
+            text(
+                """
+                select
+                    annotation.annotation_id,
+                    annotation.entity_type,
+                    annotation.entity_id,
+                    annotation.annotation_type,
+                    annotation.status,
+                    annotation.title,
+                    annotation.summary,
+                    annotation.note_source,
+                    annotation.verification_state,
+                    annotation.verified_findings_json,
+                    annotation.open_questions_json,
+                    annotation.next_action,
+                    annotation.source_refs_json,
+                    annotation.facts_snapshot_json,
+                    annotation.created_by,
+                    annotation.updated_by,
+                    annotation.created_at,
+                    annotation.updated_at,
+                    trace.run_id,
+                    trace.debug_trace_id,
+                    trace.step_index,
+                    trace.bar_time,
+                    instrument.unified_symbol
+                from research.annotations annotation
+                join backtest.debug_traces trace
+                  on annotation.entity_type = 'debug_trace'
+                 and annotation.entity_id = cast(trace.debug_trace_id as text)
+                join ref.instruments instrument
+                  on instrument.instrument_id = trace.instrument_id
+                where trace.run_id = :run_id
+                order by trace.step_index asc, annotation.created_at asc, annotation.annotation_id asc
+                """
+            ),
+            {"run_id": run_id},
+        ).mappings().all()
+        return [dict(row) for row in rows]

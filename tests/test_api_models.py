@@ -96,6 +96,11 @@ class ModelsApiTests(unittest.TestCase):
             "/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes",
             "POST",
         )
+        cls.backtest_expected_observed_endpoint = _resolve_route(
+            cls.app,
+            "/api/v1/backtests/runs/{run_id}/expected-vs-observed",
+            "GET",
+        )
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
@@ -1545,6 +1550,65 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(write_response.data.annotation_type, "expected_vs_observed")
         self.assertEqual(write_response.data.note_source, "human")
         self.assertEqual(write_response.data.verified_findings[0], "entry occurred one bar late")
+
+    def test_expected_vs_observed_endpoint_returns_aggregated_run_view(self) -> None:
+        original_service = app_module.TraceInvestigationNoteService
+
+        class StubTraceInvestigationNoteService:
+            def build_expected_vs_observed_overview(self, connection, *, run_id: int):
+                return {
+                    "run_id": run_id,
+                    "run_name": "btc_trace_review",
+                    "total_trace_count": 12,
+                    "trace_count_with_notes": 3,
+                    "total_note_count": 4,
+                    "expected_vs_observed_note_count": 2,
+                    "unresolved_note_count": 3,
+                    "status_counts": {"draft": 1, "in_review": 2, "resolved": 1},
+                    "annotation_type_counts": {"investigation": 2, "expected_vs_observed": 2},
+                    "note_source_counts": {"system": 1, "human": 2, "agent": 1},
+                    "scenario_counts": {"cooldown_guard": 2, "delayed_entry": 1},
+                    "items": [
+                        {
+                            "annotation_id": 901,
+                            "debug_trace_id": 31,
+                            "step_index": 7,
+                            "bar_time": "2026-04-04T00:07:00+00:00",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "annotation_type": "expected_vs_observed",
+                            "status": "in_review",
+                            "note_source": "human",
+                            "verification_state": "verified",
+                            "title": "Expected vs observed entry timing",
+                            "summary": "Entry happened later than expected.",
+                            "verified_findings": ["entry occurred one bar late"],
+                            "open_questions": ["is context alignment lagging one bar"],
+                            "next_action": "inspect context alignment",
+                            "scenario_ids": ["delayed_entry"],
+                            "source_refs_json": {"run_id": run_id, "debug_trace_id": 31},
+                            "facts_snapshot_json": {"step_index": 7},
+                            "created_at": "2026-04-04T12:05:00+00:00",
+                            "updated_at": "2026-04-04T12:05:00+00:00",
+                        }
+                    ],
+                }
+
+        app_module.TraceInvestigationNoteService = StubTraceInvestigationNoteService
+        try:
+            response = self.__class__.backtest_expected_observed_endpoint(
+                601,
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.TraceInvestigationNoteService = original_service
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.run_id, 601)
+        self.assertEqual(response.data.total_note_count, 4)
+        self.assertEqual(response.data.expected_vs_observed_note_count, 2)
+        self.assertEqual(response.data.status_counts["in_review"], 2)
+        self.assertEqual(response.data.items[0].debug_trace_id, 31)
+        self.assertEqual(response.data.items[0].scenario_ids, ["delayed_entry"])
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

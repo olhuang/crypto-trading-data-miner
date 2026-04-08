@@ -29,6 +29,7 @@
 - integrate memory workflow with future strategy workbench annotation / review surfaces
 - keep future product-grade frontend work aligned to `docs/frontend-keep-evolve-replace-strategy.md` instead of expanding `/monitoring` without boundaries
 - extend the current trace-level replay-note baseline into broader replay timeline and expected-vs-observed evidence flow
+- build on the new run-level expected-vs-observed aggregate view by adding stronger grouping, filtering, and future replay-timeline linkage
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
 - connect the new debug-trace market-context evidence into replay-note flow and future compare/review note anchors
@@ -38,6 +39,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added a run-level expected-vs-observed aggregate API/UI slice on top of trace notes, so `/monitoring -> Backtests -> Investigate` now shows note counts, status/source/scenario summaries, and a clickable note table for the selected run
 - added a first trace-level replay investigation-note foundation on top of persisted debug traces by reusing `research.annotations`, exposing `GET/POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes`, and wiring the minimal read/write flow into `/monitoring -> Backtests -> Investigate`
 - added an API integration regression for `btc_hourly_momentum`, proving `POST /api/v1/backtests/runs` can launch the hourly strategy and the resulting detail/orders/fills/signals/timeseries endpoints all resolve through the real persisted path
 - added a persisted Phase 5 regression for `btc_hourly_momentum`, proving the hourly strategy can consume persisted `1m` bars and write a non-empty backtest run/order/fill/summary path end to end

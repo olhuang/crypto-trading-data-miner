@@ -1007,6 +1007,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the current Phase 5 run metadata now persists selected assumption-bundle identity, resolved bundle snapshot, explicit assumption overrides, and effective assumption snapshot for later compare/analyze and review work
 - [x] the current Phase 5 diagnostics/trace surfaces now expose the strategy market context that drove feature-aware or sentiment-aware decisions
 - [x] the current Phase 5 diagnostics/trace surfaces now also support trace-level replay investigation notes through `research.annotations`, dedicated trace-note APIs, and the internal Investigate workspace
+- [x] the current Phase 5 diagnostics/trace surfaces now also support a run-level expected-vs-observed aggregate view over persisted trace notes
 
 ---
 

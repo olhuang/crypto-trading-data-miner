@@ -63,7 +63,7 @@ Without this layer:
 - [ ] replay-specific expected-vs-observed overlays and timeline workflow
 
 ### Current Recommended Resume Point
-- Continue from the landed trace-note baseline into broader replay timeline and expected-vs-observed evidence workflow.
+- Continue from the landed run-level expected-vs-observed overview into broader replay timeline and expected-vs-observed evidence workflow.
 
 ---
 
@@ -165,6 +165,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 - [x] attach first investigation anchors directly to persisted debug traces
 - [ ] attach trace anchors to replay timelines
 - [x] attach first replay investigation notes to persisted debug traces through trace-scoped annotations
+- [x] add a first run-level expected-vs-observed aggregate view over persisted trace notes
 - [ ] support expected-vs-observed overlays
 - [ ] surface replay investigation trace UI
 

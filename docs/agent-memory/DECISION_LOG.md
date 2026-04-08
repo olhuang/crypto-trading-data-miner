@@ -341,3 +341,18 @@ Implement the first replay investigation-note slice as `debug_trace`-scoped obje
 - `GET/POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes` is now the baseline investigation-note surface
 - system-seeded trace investigation drafts now preserve step facts, risk evidence, market context, and existing anchors before human/agent conclusions are added
 - future replay-run and replay-scenario notes should reuse the same annotation store and extend this evidence-linking pattern rather than replacing it
+
+## 2026-04-08
+
+### Decision
+Implement the first expected-vs-observed overview as a run-level aggregation over existing `debug_trace` investigation notes, rather than as a replay-run-specific model.
+
+### Reason
+- the repository now has trace-scoped investigation notes, but users still need a quick way to see repeated patterns and unresolved deviations across one run without opening each trace individually
+- replay runs and replay timelines are still future work, so a run-level aggregate over existing trace evidence is the lowest-risk way to surface expected-vs-observed review state now
+- this preserves continuity with the existing note store and keeps the next replay-timeline slice additive instead of forcing another schema fork
+
+### Impact
+- `GET /api/v1/backtests/runs/{run_id}/expected-vs-observed` is now the baseline aggregate view for investigation-note status, type, source, and scenario summaries
+- the internal Investigate workspace can now navigate from a run-level note table back into the underlying trace-linked note evidence
+- future replay timeline work should enrich this overview with tighter grouping and range/timeline linkage rather than replacing it

@@ -2171,6 +2171,9 @@ async function focusBacktestTraceAnchor(anchor) {
 
 function renderBacktestDebugTraceDetail(trace) {
   if (!trace) {
+    renderJson("backtest-expected-observed-summary", {
+      message: "Run-level investigation summary will appear here.",
+    });
     renderJson("backtest-debug-trace-summary", {
       message: "Select a debug trace row to inspect detail.",
     });
@@ -2453,6 +2456,69 @@ async function loadTraceNotes(runId, debugTraceId, preferredAnnotationId = null)
     });
     resetTraceNoteForm();
   }
+}
+
+function renderExpectedObservedOverview(overview) {
+  if (!overview || !overview.run_id) {
+    renderJson("backtest-expected-observed-summary", {
+      message: "Run-level investigation summary will appear here.",
+    });
+    renderTable(
+      "backtest-expected-observed-table",
+      [
+        { key: "debug_trace_id", label: "Trace" },
+        { key: "step_index", label: "Step" },
+        { key: "annotation_type", label: "Type" },
+        { key: "status", label: "Status", type: "status" },
+        { key: "note_source", label: "Source", type: "status" },
+        { key: "scenario_ids", label: "Scenarios" },
+        { key: "title", label: "Title" },
+      ],
+      []
+    );
+    return;
+  }
+
+  renderJson("backtest-expected-observed-summary", {
+    run_id: overview.run_id,
+    run_name: overview.run_name || null,
+    total_trace_count: overview.total_trace_count,
+    trace_count_with_notes: overview.trace_count_with_notes,
+    total_note_count: overview.total_note_count,
+    expected_vs_observed_note_count: overview.expected_vs_observed_note_count,
+    unresolved_note_count: overview.unresolved_note_count,
+    status_counts: overview.status_counts || {},
+    annotation_type_counts: overview.annotation_type_counts || {},
+    note_source_counts: overview.note_source_counts || {},
+    scenario_counts: overview.scenario_counts || {},
+  });
+
+  renderTable(
+    "backtest-expected-observed-table",
+    [
+      { key: "debug_trace_id", label: "Trace" },
+      { key: "step_index", label: "Step" },
+      { key: "bar_time", label: "Bar Time" },
+      { key: "annotation_type", label: "Type", type: "status" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "note_source", label: "Source", type: "status" },
+      {
+        key: "scenario_ids",
+        label: "Scenarios",
+        render: (record) => (record.scenario_ids || []).join(", "),
+      },
+      { key: "title", label: "Title" },
+    ],
+    overview.items || [],
+    async (record) => {
+      state.selectedBacktestDebugTraceId = record.debug_trace_id;
+      state.selectedTraceNoteId = record.annotation_id;
+      await loadBacktestDebugTraces({
+        ...getBacktestTraceFilters(),
+        limit: getBacktestTraceFilters().limit,
+      });
+    }
+  );
 }
 
 async function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
@@ -2823,7 +2889,7 @@ async function loadSelectedBacktestRun(runId) {
   state.selectedBacktestDebugTraceId = null;
   state.selectedTraceNoteId = null;
   const traceFilters = getBacktestTraceFilters();
-  const [detail, diagnostics, artifacts, breakdown, signals, orders, fills, timeseries, debugTraces] =
+  const [detail, diagnostics, artifacts, breakdown, signals, orders, fills, timeseries, debugTraces, expectedObserved] =
     await Promise.all([
       fetchEnvelope(`/api/v1/backtests/runs/${runId}`),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/diagnostics`),
@@ -2832,13 +2898,15 @@ async function loadSelectedBacktestRun(runId) {
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/signals`, { limit: 50 }),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/orders`, { limit: 50 }),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/fills`, { limit: 50 }),
-        fetchEnvelope(`/api/v1/backtests/runs/${runId}/timeseries`, { limit: 120 }),
-        fetchEnvelope(`/api/v1/backtests/runs/${runId}/debug-traces`, traceFilters),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/timeseries`, { limit: 120 }),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/debug-traces`, traceFilters),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/expected-vs-observed`),
       ]);
   renderBacktestRunSummary(detail);
   renderBacktestRunStructuredDetails(detail);
   renderJson("backtest-run-detail", detail);
   renderBacktestDiagnostics(diagnostics);
+  renderExpectedObservedOverview(expectedObserved);
   renderJson("backtest-run-artifacts", artifacts);
   renderTable(
     "backtest-period-breakdown",
@@ -2914,6 +2982,10 @@ async function loadBacktestDebugTraces(formValues = null) {
     `/api/v1/backtests/runs/${state.selectedBacktestRunId}/debug-traces`,
     traceFilters
   );
+  const expectedObserved = await fetchEnvelope(
+    `/api/v1/backtests/runs/${state.selectedBacktestRunId}/expected-vs-observed`
+  );
+  renderExpectedObservedOverview(expectedObserved);
   await renderBacktestDebugTraces(state.selectedBacktestRunId, debugTraces, traceFilters);
 }
 

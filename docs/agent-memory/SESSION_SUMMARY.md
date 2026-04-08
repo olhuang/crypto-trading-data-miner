@@ -28,6 +28,9 @@
 **Date:** 2026-04-08
 
 ## Work Completed
+- Added a run-level expected-vs-observed aggregate view on top of the landed trace-note baseline, so one backtest run can now summarize investigation-note counts, statuses, note sources, scenario tags, and linked trace rows without opening every note individually.
+- Exposed that aggregate view at `GET /api/v1/backtests/runs/{run_id}/expected-vs-observed` and wired the internal `/monitoring -> Backtests -> Investigate` workspace to show a summary block plus a clickable note table.
+- Added focused regression coverage for the new aggregate API resource and for DB-backed overview aggregation across persisted trace notes.
 - Implemented the first trace-level replay investigation-note foundation by reusing `research.annotations` for `debug_trace`-scoped notes instead of introducing a second note store.
 - Added `TraceInvestigationNoteService`, trace-note list/write API endpoints, and a repository helper for loading one persisted trace row plus its existing investigation anchors.
 - Added focused regression coverage for trace-note request validation, trace-note API resources, and DB-backed service behavior on top of persisted debug traces.
