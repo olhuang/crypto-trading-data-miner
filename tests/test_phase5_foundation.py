@@ -1724,6 +1724,83 @@ class Phase5FoundationTests(unittest.TestCase):
             transaction.rollback()
             connection.close()
 
+    def test_hourly_strategy_can_persist_run_from_minute_bars(self) -> None:
+        run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
+        bars: list[BarEvent] = []
+        for offset in range(60):
+            bars.append(build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), "100"))
+        for offset in range(60, 120):
+            bars.append(build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), "110"))
+        for offset in range(120, 124):
+            bars.append(build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), "90"))
+
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_hourly_persisted_run",
+                "session": {
+                    "session_code": "bt_btc_hourly_persisted_run",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_hourly_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=124)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {
+                    "short_window": 1,
+                    "long_window": 2,
+                    "target_qty": "1",
+                },
+            }
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=HourlyMovingAverageCrossStrategy(
+                short_window=1,
+                long_window=2,
+                target_qty=Decimal("1"),
+            ),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+        bar_repository = BarRepository()
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for bar in bars:
+                bar_repository.upsert(connection, bar)
+
+            persisted = runner.load_run_and_persist(connection)
+            run_repository = BacktestRunRepository()
+            run_row = run_repository.get_run(connection, persisted.run_id)
+            summary_row = run_repository.get_performance_summary(connection, run_id=persisted.run_id)
+            order_rows = run_repository.list_order_records(connection, run_id=persisted.run_id)
+            fill_rows = run_repository.list_fill_records(connection, run_id=persisted.run_id)
+            timeseries_rows = run_repository.list_timeseries(connection, run_id=persisted.run_id)
+
+            self.assertIsNotNone(run_row)
+            self.assertIsNotNone(summary_row)
+            self.assertEqual(len(order_rows), 2)
+            self.assertEqual(len(fill_rows), 2)
+            self.assertGreater(len(timeseries_rows), 100)
+            self.assertEqual(run_row["strategy_code"], "btc_hourly_momentum")
+            self.assertEqual(run_row["strategy_version"], "v1.0.0")
+            self.assertEqual(order_rows[0]["order_time"], run_start + timedelta(hours=1))
+            self.assertEqual(fill_rows[0]["fill_time"], run_start + timedelta(hours=1, minutes=1))
+            self.assertEqual(order_rows[1]["order_time"], run_start + timedelta(hours=2))
+            self.assertEqual(fill_rows[1]["fill_time"], run_start + timedelta(hours=2, minutes=1))
+            self.assertGreater(Decimal(summary_row["turnover"]), Decimal("0"))
+            self.assertGreater(Decimal(summary_row["fee_cost"]), Decimal("0"))
+            self.assertEqual(persisted.loop_result.final_positions, {})
+        finally:
+            transaction.rollback()
+            connection.close()
+
     def test_load_run_and_persist_can_persist_compact_debug_traces(self) -> None:
         run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
         bars = [

@@ -42,3 +42,6 @@
 - Verified that the missing piece was formal DB bootstrap seed coverage, not strategy registry or basic UI selection wiring.
 - Added a formal bootstrap migration for `btc_hourly_momentum@v1.0.0`, aligned the helper seed script to the same version metadata, and exposed an `Hourly Perp` preset in `/monitoring`.
 - Extended the seed-default regression so the repo now verifies `btc_hourly_momentum@v1.0.0` exists alongside the other seeded strategy versions.
+- Re-read repo state again before starting the next hourly follow-up and chose one subtask: prove `btc_hourly_momentum` can run a fully persisted backtest from minute bars.
+- Added a focused Phase 5 regression test that drives `HourlyMovingAverageCrossStrategy` from persisted `1m` BTC perp bars and verifies the persisted run, orders, fills, timeseries, and performance summary are all written as expected.
+- Validated the new persisted-hourly path with `python -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_hourly_strategy_can_persist_run_from_minute_bars -v`.
