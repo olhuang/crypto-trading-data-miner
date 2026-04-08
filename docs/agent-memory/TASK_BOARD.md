@@ -37,6 +37,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added an API integration regression for `btc_hourly_momentum`, proving `POST /api/v1/backtests/runs` can launch the hourly strategy and the resulting detail/orders/fills/signals/timeseries endpoints all resolve through the real persisted path
 - added a persisted Phase 5 regression for `btc_hourly_momentum`, proving the hourly strategy can consume persisted `1m` bars and write a non-empty backtest run/order/fill/summary path end to end
 - completed the formal bootstrap path for `btc_hourly_momentum@v1.0.0` by adding a DB init seed, aligning the helper seed script, extending seed-default regression coverage, and exposing an Hourly Perp launch preset in `/monitoring`
 - fixed the backtest launch regression where `BacktestBarLoader` tried to read a non-existent `session.strategy_required_bar_history`; preload history now comes from the instantiated strategy requirement instead

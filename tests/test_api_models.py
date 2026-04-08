@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 import sys
@@ -33,8 +34,10 @@ from api.app import (
     require_actor,
     resolve_current_actor,
 )
-from storage.db import transaction_scope
+from models.market import BarEvent
+from storage.db import get_engine, transaction_scope
 from storage.lookups import LookupResolutionError
+from storage.repositories.market_data import BarRepository
 from storage.repositories.ops import IngestionJobRepository
 
 
@@ -817,6 +820,153 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(captured_run_config["long_window"], 8)
         self.assertEqual(captured_run_config["target_qty"], "0.05")
         self.assertTrue(captured_run_config["persist_debug_traces"])
+
+    def test_backtest_run_create_can_launch_persisted_hourly_run_end_to_end(self) -> None:
+        original_transaction_scope = app_module.transaction_scope
+        original_connection_scope = app_module.connection_scope
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            run_start = datetime(2036, 1, 3, 0, 0, tzinfo=timezone.utc)
+            bar_repository = BarRepository()
+            for offset in range(60):
+                bar_time = run_start + timedelta(minutes=offset)
+                bar_repository.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": "100",
+                            "high": "100",
+                            "low": "100",
+                            "close": "100",
+                            "volume": "10",
+                        }
+                    ),
+                )
+            for offset in range(60, 120):
+                bar_time = run_start + timedelta(minutes=offset)
+                bar_repository.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": "110",
+                            "high": "110",
+                            "low": "110",
+                            "close": "110",
+                            "volume": "10",
+                        }
+                    ),
+                )
+            for offset in range(120, 124):
+                bar_time = run_start + timedelta(minutes=offset)
+                bar_repository.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": "90",
+                            "high": "90",
+                            "low": "90",
+                            "close": "90",
+                            "volume": "10",
+                        }
+                    ),
+                )
+
+            @contextmanager
+            def _stub_transaction_scope():
+                yield connection
+
+            @contextmanager
+            def _stub_connection_scope():
+                yield connection
+
+            app_module.transaction_scope = _stub_transaction_scope
+            app_module.connection_scope = _stub_connection_scope
+
+            create_response = self.__class__.backtest_runs_create_endpoint(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_hourly_api_integration",
+                        "session": {
+                            "session_code": "bt_hourly_api_integration",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_hourly_momentum",
+                            "strategy_version": "v1.0.0",
+                            "exchange_code": "binance",
+                            "trading_timezone": "UTC",
+                            "universe": ["BTCUSDT_PERP"],
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "start_time": run_start.isoformat(),
+                        "end_time": (run_start + timedelta(minutes=124)).isoformat(),
+                        "initial_cash": "10000",
+                        "assumption_bundle_code": "baseline_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "strategy_params": {"short_window": 1, "long_window": 2, "target_qty": "1"},
+                    }
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+
+            run_id = create_response.data.run_id
+            detail_response = self.__class__.backtest_run_detail_endpoint(run_id, "Bearer developer:u_123:Alice")
+            orders_response = self.__class__.backtest_run_orders_endpoint(run_id, 20, "Bearer developer:u_123:Alice")
+            fills_response = self.__class__.backtest_run_fills_endpoint(run_id, 20, "Bearer developer:u_123:Alice")
+            signals_response = self.__class__.backtest_run_signals_endpoint(run_id, 20, "Bearer developer:u_123:Alice")
+            timeseries_response = self.__class__.backtest_run_timeseries_endpoint(run_id, 200, "Bearer developer:u_123:Alice")
+
+        finally:
+            app_module.transaction_scope = original_transaction_scope
+            app_module.connection_scope = original_connection_scope
+            transaction.rollback()
+            connection.close()
+
+        self.assertTrue(create_response.success)
+        self.assertEqual(create_response.data.strategy_code, "btc_hourly_momentum")
+        self.assertEqual(create_response.data.strategy_params_json["short_window"], 1)
+        self.assertEqual(create_response.data.strategy_params_json["long_window"], 2)
+        self.assertEqual(create_response.data.total_return is not None, True)
+
+        self.assertTrue(detail_response.success)
+        self.assertEqual(detail_response.data.run_id, run_id)
+        self.assertEqual(detail_response.data.strategy_code, "btc_hourly_momentum")
+        self.assertEqual(detail_response.data.session_code, "bt_hourly_api_integration")
+
+        self.assertTrue(orders_response.success)
+        self.assertEqual(len(orders_response.data.orders), 2)
+        self.assertEqual(orders_response.data.orders[0].side, "buy")
+        self.assertEqual(orders_response.data.orders[1].side, "sell")
+
+        self.assertTrue(fills_response.success)
+        self.assertEqual(len(fills_response.data.fills), 2)
+        self.assertEqual(Decimal(fills_response.data.fills[0].qty), Decimal("1"))
+
+        self.assertTrue(signals_response.success)
+        self.assertEqual(len(signals_response.data.signals), 2)
+        self.assertEqual(signals_response.data.signals[0].signal_type, "entry")
+        self.assertEqual(signals_response.data.signals[1].signal_type, "exit")
+
+        self.assertTrue(timeseries_response.success)
+        self.assertGreater(len(timeseries_response.data.points), 100)
 
     def test_backtest_run_create_rejects_unknown_named_risk_policy(self) -> None:
         original_runner = app_module.BacktestRunnerSkeleton

@@ -45,3 +45,6 @@
 - Re-read repo state again before starting the next hourly follow-up and chose one subtask: prove `btc_hourly_momentum` can run a fully persisted backtest from minute bars.
 - Added a focused Phase 5 regression test that drives `HourlyMovingAverageCrossStrategy` from persisted `1m` BTC perp bars and verifies the persisted run, orders, fills, timeseries, and performance summary are all written as expected.
 - Validated the new persisted-hourly path with `python -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_hourly_strategy_can_persist_run_from_minute_bars -v`.
+- Chose one follow-up subtask after that runner-level proof: verify the same hourly path through the real backtest API create/detail surfaces rather than only through direct runner calls.
+- Added an API integration-style regression that seeds minute bars, routes both `transaction_scope()` and `connection_scope()` through one rollback-only test connection, and validates `POST /api/v1/backtests/runs` plus detail/orders/fills/signals/timeseries for `btc_hourly_momentum`.
+- Validated the API hourly end-to-end path with `python -m unittest tests.test_api_models.ModelsApiTests.test_backtest_run_create_can_launch_persisted_hourly_run_end_to_end -v`.
