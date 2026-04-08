@@ -28,6 +28,8 @@
 **Date:** 2026-04-08
 
 ## Work Completed
+- Normalized display-only scientific-zero strings like `0E-12` to `0` across the current `/monitoring` UI formatting path, covering JSON shells, tables, and compact property-card summaries without changing stored backend values.
+- Verified the front-end change with `node --check frontend/monitoring/app.js`.
 - Added a run-level expected-vs-observed aggregate view on top of the landed trace-note baseline, so one backtest run can now summarize investigation-note counts, statuses, note sources, scenario tags, and linked trace rows without opening every note individually.
 - Exposed that aggregate view at `GET /api/v1/backtests/runs/{run_id}/expected-vs-observed` and wired the internal `/monitoring -> Backtests -> Investigate` workspace to show a summary block plus a clickable note table.
 - Added focused regression coverage for the new aggregate API resource and for DB-backed overview aggregation across persisted trace notes.

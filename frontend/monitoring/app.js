@@ -155,7 +155,26 @@ function statusClass(value) {
   return `status-${String(value).replaceAll(" ", "_")}`;
 }
 
+function normalizeDisplayValue(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeDisplayValue(entry));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entryValue]) => [key, normalizeDisplayValue(entryValue)])
+    );
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (/^[+-]?0+(?:\.0+)?e[+-]?\d+$/i.test(trimmed)) {
+      return "0";
+    }
+  }
+  return value;
+}
+
 function formatValue(value) {
+  value = normalizeDisplayValue(value);
   if (value === null || value === undefined || value === "") {
     return "—";
   }
@@ -285,7 +304,7 @@ function renderJson(targetId, payload) {
   if (!container) {
     return;
   }
-  container.textContent = JSON.stringify(payload, null, 2);
+  container.textContent = JSON.stringify(normalizeDisplayValue(payload), null, 2);
 }
 
 async function copyTextToClipboard(text) {
@@ -385,6 +404,7 @@ function isEmptyValue(value) {
 }
 
 function formatCompactValue(value) {
+  value = normalizeDisplayValue(value);
   if (value === null || value === undefined || value === "") {
     return "-";
   }
