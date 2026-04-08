@@ -34,3 +34,7 @@
 - Hardened replay trace-anchor writes so they now reject empty payloads and reject `debug_trace_id` values that do not belong to the addressed `run_id`.
 - Added focused regression coverage for request validation, nested run/trace validation, debug-trace resource mapping, and repository-level anchor aggregation.
 - Reconciled the replay-trace rollout and agent-memory docs so they now reflect the verified state: replay-investigation anchors are landed, while replay notes/runs and broader expected-vs-observed workflow are still pending.
+- Re-read repo state again before debugging a new Phase 5 regression in `POST /api/v1/backtests/runs`.
+- Traced the new 500 to a local change in `src/backtest/data.py` that tried to read `session.strategy_required_bar_history`, which does not exist on `StrategySessionConfig`.
+- Patched the loader/runner contract so preload history now comes from the instantiated strategy's `required_bar_history`, matching the existing runner history-cap behavior.
+- Added a focused regression test proving the bar loader can preload the requested lookback window without requiring a new session-schema field.

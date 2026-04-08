@@ -121,6 +121,12 @@ const BACKTEST_STRATEGY_CONFIGS = {
       "Best paired with `baseline_perp_sentiment_research`, which turns on `bars_perp_context_v1` so the runner loads funding, OI, mark/index, and the Binance sentiment ratios.",
     showSentimentThresholds: true,
   },
+  btc_hourly_momentum: {
+    title: "Hourly Bars Momentum",
+    detail: "Groups minute data into dynamic 1-hour boundaries before calculating moving averages for crosses.",
+    hint: "Short and Long windows represent hours instead of minutes.",
+    showSentimentThresholds: false,
+  },
 };
 
 function statusClass(value) {
@@ -2911,7 +2917,7 @@ async function launchBacktest(formValues) {
     assumption_bundle_code: formValues.assumption_bundle_code || null,
     assumption_bundle_version: formValues.assumption_bundle_version || null,
     strategy_params: strategyParams,
-    persist_signals: true,
+    persist_signals: false,
     persist_debug_traces: parseBooleanInput(formValues.persist_debug_traces),
   };
   if (Object.keys(riskPolicy).length > 0) {

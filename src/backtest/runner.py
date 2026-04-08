@@ -310,7 +310,11 @@ class BacktestRunnerSkeleton:
         capture_debug_traces: bool = False,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
-        bars = loader.load_bars(connection, self.run_config)
+        bars = loader.load_bars(
+            connection,
+            self.run_config,
+            required_bar_history=self.strategy.required_bar_history,
+        )
         market_context_by_symbol = (context_loader or BacktestPerpContextLoader()).load_contexts(connection, self.run_config)
         return self.run_bars(
             bars,

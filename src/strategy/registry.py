@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .base import StrategyBase
-from .examples import MovingAverageCrossStrategy, SentimentAwareMovingAverageStrategy
+from .examples import MovingAverageCrossStrategy, SentimentAwareMovingAverageStrategy, HourlyMovingAverageCrossStrategy
 
 
 StrategyFactory = Callable[[dict[str, Any]], StrategyBase]
@@ -54,6 +54,16 @@ def build_default_registry() -> StrategyRegistry:
             allow_short=bool(params.get("allow_short", False)),
             max_global_long_short_ratio=params.get("max_global_long_short_ratio", "2.25"),
             min_taker_buy_sell_ratio=params.get("min_taker_buy_sell_ratio", "0.95"),
+        ),
+    )
+    registry.register(
+        "btc_hourly_momentum",
+        "v1.0.0",
+        lambda params: HourlyMovingAverageCrossStrategy(
+            short_window=int(params.get("short_window", 5)),
+            long_window=int(params.get("long_window", 20)),
+            target_qty=params.get("target_qty", "1"),
+            allow_short=bool(params.get("allow_short", False)),
         ),
     )
     return registry

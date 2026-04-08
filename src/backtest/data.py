@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import text
@@ -121,7 +121,16 @@ class BacktestBarLoader:
     def __init__(self, bar_repository: BarRepository | None = None) -> None:
         self.bar_repository = bar_repository or BarRepository()
 
-    def load_bars(self, connection: Connection, run_config: BacktestRunConfig) -> list[BarEvent]:
+    def load_bars(
+        self,
+        connection: Connection,
+        run_config: BacktestRunConfig,
+        *,
+        required_bar_history: int | None = None,
+    ) -> list[BarEvent]:
+        history_minutes = max(required_bar_history or 0, 0)
+        adjusted_start = run_config.start_time - timedelta(minutes=history_minutes)
+
         bars: list[BarEvent] = []
         for unified_symbol in run_config.session.universe:
             bars.extend(
@@ -129,7 +138,7 @@ class BacktestBarLoader:
                     connection,
                     exchange_code=run_config.session.exchange_code,
                     unified_symbol=unified_symbol,
-                    start_time=run_config.start_time,
+                    start_time=adjusted_start,
                     end_time=run_config.end_time,
                 )
             )

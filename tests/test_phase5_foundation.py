@@ -18,6 +18,7 @@ from backtest.artifacts import BacktestArtifactCatalogProjector
 from backtest.assumption_registry import build_default_assumption_bundle_registry
 from backtest.compare import BacktestCompareProjector
 from backtest.compare_review import CompareReviewService
+from backtest.data import BacktestBarLoader
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
@@ -1374,6 +1375,47 @@ class Phase5FoundationTests(unittest.TestCase):
         result = runner.run_bars(bars)
 
         self.assertEqual(result.final_positions, {})
+
+    def test_bar_loader_uses_strategy_required_history_for_preload_window(self) -> None:
+        start_time = datetime(2010, 1, 1, 0, 3, tzinfo=timezone.utc)
+        end_time = start_time + timedelta(minutes=2)
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_loader_history_preload",
+                "session": {
+                    "session_code": "bt_btc_loader_history_preload",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "history_bound_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "initial_cash": "10000",
+            }
+        )
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            bar_repository = BarRepository()
+            for index in range(6):
+                bar_time = start_time - timedelta(minutes=3) + timedelta(minutes=index)
+                bar_repository.upsert(connection, build_bar_at("BTCUSDT_PERP", bar_time, str(100 + index)))
+
+            loaded_bars = BacktestBarLoader().load_bars(
+                connection,
+                run_config,
+                required_bar_history=3,
+            )
+
+            self.assertEqual(len(loaded_bars), 5)
+            self.assertEqual(loaded_bars[0].bar_time, start_time - timedelta(minutes=3))
+            self.assertEqual(loaded_bars[-1].bar_time, end_time - timedelta(minutes=1))
+        finally:
+            transaction.rollback()
+            connection.close()
 
     def test_market_fill_model_fills_on_next_bar_open_with_fee_and_slippage(self) -> None:
         run_config = BacktestRunConfig.model_validate(
