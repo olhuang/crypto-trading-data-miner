@@ -22,14 +22,23 @@ class SeedDefaultsTests(unittest.TestCase):
                 join strategy.strategies s on s.strategy_id = sv.strategy_id
                 where (s.strategy_code = %s and sv.version_code = %s)
                    or (s.strategy_code = %s and sv.version_code = %s)
+                   or (s.strategy_code = %s and sv.version_code = %s)
                 order by s.strategy_code
                 """,
-                ("btc_momentum", "v1.0.0", "btc_sentiment_momentum", "v1.0.0"),
+                (
+                    "btc_momentum",
+                    "v1.0.0",
+                    "btc_sentiment_momentum",
+                    "v1.0.0",
+                    "btc_hourly_momentum",
+                    "v1.0.0",
+                ),
             ).all()
 
         self.assertEqual(
             rows,
             [
+                ("btc_hourly_momentum", "v1.0.0", True),
                 ("btc_momentum", "v1.0.0", True),
                 ("btc_sentiment_momentum", "v1.0.0", True),
             ],

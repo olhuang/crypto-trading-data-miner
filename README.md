@@ -317,6 +317,8 @@ Relevant files:
 - `db/init/007_update_starter_fee_schedule_defaults.sql`
 - `db/init/008_compare_sets_and_annotations.sql`
 - `db/init/013_seed_sentiment_strategy.sql`
+- `db/init/014_trace_investigation_anchors.sql`
+- `db/init/015_seed_hourly_strategy.sql`
 - `docs/database-bootstrap.md`
 - `db/verify/phase_1_verification.sql`
 - `scripts/verify_phase1.sh`

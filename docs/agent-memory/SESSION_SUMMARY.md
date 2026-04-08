@@ -38,3 +38,7 @@
 - Traced the new 500 to a local change in `src/backtest/data.py` that tried to read `session.strategy_required_bar_history`, which does not exist on `StrategySessionConfig`.
 - Patched the loader/runner contract so preload history now comes from the instantiated strategy's `required_bar_history`, matching the existing runner history-cap behavior.
 - Added a focused regression test proving the bar loader can preload the requested lookback window without requiring a new session-schema field.
+- Re-read repo state before starting the next Phase 5 slice and chose one subtask: complete the `btc_hourly_momentum@v1.0.0` launch path.
+- Verified that the missing piece was formal DB bootstrap seed coverage, not strategy registry or basic UI selection wiring.
+- Added a formal bootstrap migration for `btc_hourly_momentum@v1.0.0`, aligned the helper seed script to the same version metadata, and exposed an `Hourly Perp` preset in `/monitoring`.
+- Extended the seed-default regression so the repo now verifies `btc_hourly_momentum@v1.0.0` exists alongside the other seeded strategy versions.

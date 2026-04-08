@@ -38,8 +38,8 @@ def seed(conn):
         vid = conn.execute(
             text(
                 "INSERT INTO strategy.strategy_versions "
-                "(strategy_id, version_code, params_json, is_active) "
-                "VALUES (:sid, 'v1.0.0', '{}'::jsonb, true) "
+                "(strategy_id, version_code, params_json, feature_version, execution_version, risk_version, is_active) "
+                "VALUES (:sid, 'v1.0.0', '{}'::jsonb, 'seed-v1', 'seed-v1', 'seed-v1', true) "
                 "RETURNING strategy_version_id"
             ),
             {"sid": sid},

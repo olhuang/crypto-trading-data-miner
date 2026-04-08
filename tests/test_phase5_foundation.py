@@ -37,6 +37,7 @@ from storage.db import get_engine, transaction_scope
 from storage.repositories.backtest import BacktestRunRepository
 from storage.repositories.market_data import BarRepository, GlobalLongShortAccountRatioRepository, TakerLongShortRatioRepository
 from strategy import (
+    HourlyMovingAverageCrossStrategy,
     MovingAverageCrossStrategy,
     SentimentAwareMovingAverageStrategy,
     StrategyBase,
@@ -534,6 +535,15 @@ class Phase5FoundationTests(unittest.TestCase):
         )
         self.assertIsInstance(sentiment_strategy, SentimentAwareMovingAverageStrategy)
         self.assertEqual(sentiment_strategy.target_qty, Decimal("2"))
+
+        hourly_strategy = registry.create(
+            "btc_hourly_momentum",
+            "v1.0.0",
+            {"short_window": 3, "long_window": 5, "target_qty": "2"},
+        )
+        self.assertIsInstance(hourly_strategy, HourlyMovingAverageCrossStrategy)
+        self.assertEqual(hourly_strategy.target_qty, Decimal("2"))
+        self.assertEqual(hourly_strategy.required_bar_history, 360)
 
         with self.assertRaises(UnknownStrategyError):
             registry.create("unknown_strategy", "v1.0.0")

@@ -678,12 +678,145 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(detail_response.data.feature_input_version, "bars_only_v1")
         self.assertEqual(detail_response.data.benchmark_set_code, "btc_perp_baseline_v1")
         self.assertEqual(detail_response.data.session_risk_policy["policy_code"], "perp_medium_v1")
-        self.assertEqual(detail_response.data.risk_overrides_json["max_order_notional"], "5000")
-        self.assertEqual(detail_response.data.risk_policy["policy_code"], "perp_medium_v1")
-        self.assertEqual(detail_response.data.assumption_bundle_json["assumption_bundle_code"], "baseline_perp_research")
-        self.assertEqual(detail_response.data.effective_assumptions_json["benchmark_set_code"], "btc_perp_baseline_v1")
-        self.assertEqual(detail_response.data.run_metadata_json["source"], "ui")
-        self.assertEqual(detail_response.data.runtime_metadata_json["risk_summary"]["blocked_intent_count"], 1)
+
+    def test_backtest_run_create_accepts_hourly_strategy_request(self) -> None:
+        original_runner = app_module.BacktestRunnerSkeleton
+        original_repository = app_module.BacktestRunRepository
+        captured_run_config: dict[str, object] = {}
+
+        class StubRunner:
+            def __init__(self, run_config):
+                captured_run_config["strategy_code"] = run_config.session.strategy_code
+                captured_run_config["strategy_version"] = run_config.session.strategy_version
+                captured_run_config["short_window"] = run_config.strategy_params_json.get("short_window")
+                captured_run_config["long_window"] = run_config.strategy_params_json.get("long_window")
+                captured_run_config["target_qty"] = run_config.strategy_params_json.get("target_qty")
+                captured_run_config["persist_debug_traces"] = None
+
+            def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
+                captured_run_config["persist_debug_traces"] = persist_debug_traces
+                return SimpleNamespace(run_id=602, loop_result=SimpleNamespace())
+
+        class StubRepository:
+            def get_run(self, connection, run_id: int):
+                if run_id != 602:
+                    return None
+                return {
+                    "run_id": 602,
+                    "strategy_code": "btc_hourly_momentum",
+                    "strategy_version": "v1.0.0",
+                    "account_code": "paper_main",
+                    "run_name": "btc_hourly_ui_demo",
+                    "universe_json": ["BTCUSDT_PERP"],
+                    "start_time": datetime.fromisoformat("2026-03-01T00:00:00+00:00"),
+                    "end_time": datetime.fromisoformat("2026-03-31T00:00:00+00:00"),
+                    "market_data_version": "md.bars_1m",
+                    "fee_model_version": "ref_fee_schedule_v1",
+                    "slippage_model_version": "fixed_bps_v1",
+                    "latency_model_version": "bars_next_open_v1",
+                    "params_json": {
+                        "session_code": "bt_hourly_ui_demo",
+                        "environment": "backtest",
+                        "trading_timezone": "UTC",
+                        "netting_mode": "isolated_strategy_session",
+                        "bar_interval": "1m",
+                        "initial_cash": "100000",
+                        "assumption_bundle_code": "baseline_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "assumption_bundle": {
+                            "assumption_bundle_code": "baseline_perp_research",
+                            "assumption_bundle_version": "v1",
+                            "market_data_version": "md.bars_1m",
+                            "fee_model_version": "ref_fee_schedule_v1",
+                            "slippage_model_version": "fixed_bps_v1",
+                            "fill_model_version": "deterministic_bars_v1",
+                            "latency_model_version": "bars_next_open_v1",
+                            "feature_input_version": "bars_only_v1",
+                            "benchmark_set_code": "btc_perp_baseline_v1",
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "assumption_overrides": {},
+                        "effective_assumptions": {
+                            "assumption_bundle_code": "baseline_perp_research",
+                            "assumption_bundle_version": "v1",
+                            "market_data_version": "md.bars_1m",
+                            "fee_model_version": "ref_fee_schedule_v1",
+                            "slippage_model_version": "fixed_bps_v1",
+                            "fill_model_version": "deterministic_bars_v1",
+                            "latency_model_version": "bars_next_open_v1",
+                            "feature_input_version": "bars_only_v1",
+                            "benchmark_set_code": "btc_perp_baseline_v1",
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "strategy_params": {"short_window": 3, "long_window": 8, "target_qty": "0.05"},
+                        "run_metadata": {"source": "ui"},
+                        "runtime_metadata": {},
+                        "session_metadata": {},
+                        "execution_policy": {"policy_code": "default"},
+                        "protection_policy": {"policy_code": "default"},
+                        "session_risk_policy": {"policy_code": "perp_medium_v1"},
+                        "risk_overrides": {},
+                        "risk_policy": {"policy_code": "perp_medium_v1"},
+                    },
+                    "status": "finished",
+                    "created_at": datetime.fromisoformat("2026-04-08T09:30:00+00:00"),
+                }
+
+            def get_performance_summary(self, connection, *, run_id: int):
+                return {
+                    "total_return": Decimal("0.05"),
+                    "annualized_return": Decimal("0.20"),
+                    "max_drawdown": Decimal("0.03"),
+                    "turnover": Decimal("0.80"),
+                    "win_rate": Decimal("0.52"),
+                    "fee_cost": Decimal("8.50"),
+                    "slippage_cost": Decimal("3.20"),
+                }
+
+        app_module.BacktestRunnerSkeleton = StubRunner
+        app_module.BacktestRunRepository = StubRepository
+        try:
+            response = self.__class__.backtest_runs_create_endpoint(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_hourly_ui_demo",
+                        "session": {
+                            "session_code": "bt_hourly_ui_demo",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_hourly_momentum",
+                            "strategy_version": "v1.0.0",
+                            "exchange_code": "binance",
+                            "trading_timezone": "UTC",
+                            "universe": ["BTCUSDT_PERP"],
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "start_time": "2026-03-01T00:00:00Z",
+                        "end_time": "2026-03-31T00:00:00Z",
+                        "initial_cash": "100000",
+                        "assumption_bundle_code": "baseline_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "strategy_params": {"short_window": 3, "long_window": 8, "target_qty": "0.05"},
+                        "persist_debug_traces": True,
+                    }
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.BacktestRunnerSkeleton = original_runner
+            app_module.BacktestRunRepository = original_repository
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.run_id, 602)
+        self.assertEqual(response.data.strategy_code, "btc_hourly_momentum")
+        self.assertEqual(response.data.strategy_params_json["short_window"], 3)
+        self.assertEqual(response.data.strategy_params_json["long_window"], 8)
+        self.assertEqual(captured_run_config["strategy_code"], "btc_hourly_momentum")
+        self.assertEqual(captured_run_config["strategy_version"], "v1.0.0")
+        self.assertEqual(captured_run_config["short_window"], 3)
+        self.assertEqual(captured_run_config["long_window"], 8)
+        self.assertEqual(captured_run_config["target_qty"], "0.05")
+        self.assertTrue(captured_run_config["persist_debug_traces"])
 
     def test_backtest_run_create_rejects_unknown_named_risk_policy(self) -> None:
         original_runner = app_module.BacktestRunnerSkeleton

@@ -68,6 +68,24 @@ const BACKTEST_LAUNCH_PRESETS = {
       allow_reduce_only_when_blocked: true,
     },
   },
+  hourly_perp: {
+    label: "Hourly Perp",
+    values: {
+      strategy_code: "btc_hourly_momentum",
+      strategy_version: "v1.0.0",
+      unified_symbol: "BTCUSDT_PERP",
+      assumption_bundle_code: "baseline_perp_research",
+      assumption_bundle_version: "v1",
+      risk_policy_code: "perp_medium_v1",
+      short_window: "5",
+      long_window: "20",
+      target_qty: "0.05",
+      allow_short: "false",
+      persist_debug_traces: true,
+      enforce_spot_cash_check: true,
+      allow_reduce_only_when_blocked: true,
+    },
+  },
   baseline_spot: {
     label: "Baseline Spot",
     values: {
@@ -124,7 +142,7 @@ const BACKTEST_STRATEGY_CONFIGS = {
   btc_hourly_momentum: {
     title: "Hourly Bars Momentum",
     detail: "Groups minute data into dynamic 1-hour boundaries before calculating moving averages for crosses.",
-    hint: "Short and Long windows represent hours instead of minutes.",
+    hint: "Best paired with `baseline_perp_research`; short and long windows represent hours instead of minutes.",
     showSentimentThresholds: false,
   },
 };
