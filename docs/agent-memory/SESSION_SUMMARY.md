@@ -28,6 +28,10 @@
 **Date:** 2026-04-08
 
 ## Work Completed
+- Re-read the required session-start docs before making any code changes: `README.md`, `docs/spec-index.md`, `docs/implementation-plan.md`, `docs/phases-2-to-9-checklists.md`, `docs/repo-self-review-tracker.md`, and the core `docs/agent-memory/*` files.
+- Verified the current repo state is consistent across README, planning docs, and memory docs: Phase 1-4 are implemented, Phase 5 has a substantial backtest/diagnostics/compare/debug-trace foundation, and the main open frontier remains replay-note/evidence workflow rather than another basic trace slice.
+- Chose one highest-value candidate subtask for the next implementation step: extend the landed replay/debug-trace anchor substrate into replay-note and expected-vs-observed evidence flow.
+- Identified the first files/specs to inspect before coding that slice: `docs/debug-trace-rollout-plan.md`, `docs/object-level-notes-and-annotations-spec.md`, `docs/backtest-and-replay-diagnostics-spec.md`, `docs/strategy-workbench-spec.md`, `src/backtest/compare_review.py`, `src/storage/repositories/research.py`, `src/backtest/traces.py`, and `src/api/app.py`.
 - Re-read the required repo entry docs plus agent-memory files before touching code.
 - Verified that replay trace anchors already exist in code (`research.trace_investigation_anchors`, anchor write endpoint, and `/monitoring` wiring), but the repo memory docs were out of sync about that state.
 - Chose one highest-value subtask for this session: harden and reconcile replay/debug-trace investigation linkage rather than starting a new Phase 5 slice on stale assumptions.
