@@ -58,10 +58,12 @@ Without this layer:
 
 ### Not Yet Implemented
 - [x] strategy market context is now surfaced inside persisted debug-trace detail for feature-driven or sentiment-aware runs
-- [ ] replay investigation trace linkage
+- [x] replay investigation anchors can now attach to persisted debug traces through `research.trace_investigation_anchors` and the trace-anchor write endpoint
+- [ ] replay investigation notes
+- [ ] replay-specific expected-vs-observed overlays and timeline workflow
 
 ### Current Recommended Resume Point
-- Continue with a focused replay/investigation slice that attaches note-worthy anchors and replay evidence to the now-richer debug-trace substrate.
+- Continue from the landed trace-anchor substrate into replay notes and broader expected-vs-observed evidence workflow.
 
 ---
 
@@ -160,6 +162,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 
 ### Tasks
 - [ ] reuse or extend trace model for replay runs
+- [x] attach first investigation anchors directly to persisted debug traces
 - [ ] attach trace anchors to replay timelines
 - [ ] attach replay investigation notes to trace ranges or bookmarks
 - [ ] support expected-vs-observed overlays
@@ -181,7 +184,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 5. [x] `Level 2 diagnostics-to-trace anchors`
 6. [x] `Level 2 targeted trace filters`
 7. [x] `Level 2.5 strategy market context visibility`
-8. `Level 3 replay/investigation trace integration`
+8. `Level 3 replay/investigation trace integration on top of landed trace anchors`
 
 Do not skip directly to Level 3.
 
@@ -241,7 +244,7 @@ If resuming from here, implement only this slice:
 
 When returning to this work:
 - read this document first
-- confirm the next slice is replay investigation trace linkage, not another backend-schema redesign
+- confirm the next slice is replay-note/evidence expansion on top of the landed trace-anchor substrate, not another backend-schema redesign
 - inspect `runner.py` and current run-detail APIs before editing schema
 - keep Level 1 compact; do not over-design replay fields yet
 - update `docs/agent-memory/HANDOFF.md` when stopping
@@ -250,10 +253,10 @@ When returning to this work:
 
 ## Summary
 
-The repository now has `Level 1` backend/UI debug traces plus the first Level 2 linkage, richer drill-down, diagnostics-anchor slices, and targeted trace filters in place.
+The repository now has `Level 1` backend/UI debug traces plus the first Level 2 linkage, richer drill-down, diagnostics-anchor slices, targeted trace filters, and a first replay-investigation anchor substrate in place.
 
 The correct next move is:
-- connect the richer trace rows to replay-note work and investigation linkage
+- connect the richer trace rows and landed trace anchors to replay-note work and broader expected-vs-observed evidence flow
 - then grow that into fuller replay timeline and annotation surfaces later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.

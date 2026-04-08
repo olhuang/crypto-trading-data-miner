@@ -27,6 +27,7 @@ from backtest.risk_registry import build_default_risk_policy_registry
 from backtest.runner import BacktestRunnerSkeleton
 from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
+from backtest.traces import BacktestDebugTraceRecord
 from models.backtest import BacktestRunConfig, RiskPolicyConfig, RiskPolicyOverrideConfig, StrategySessionConfig
 from models.common import LiquidityFlag, OrderSide, OrderType, RiskDecision, SignalType
 from models.market import BarEvent, GlobalLongShortAccountRatioEvent, TakerLongShortRatioEvent
@@ -1806,6 +1807,94 @@ class Phase5FoundationTests(unittest.TestCase):
             )
             self.assertEqual(debug_trace_artifact.status, "available")
             self.assertEqual(debug_trace_artifact.record_count, 3)
+        finally:
+            transaction.rollback()
+            connection.close()
+
+    def test_debug_trace_records_can_aggregate_investigation_anchors(self) -> None:
+        run_start = datetime(2036, 1, 6, 0, 0, tzinfo=timezone.utc)
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_trace_investigation_anchor",
+                "session": {
+                    "session_code": "bt_btc_trace_investigation_anchor",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "1"},
+            }
+        )
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            repository = BacktestRunRepository()
+            run_id = repository.insert_run(
+                connection,
+                run_config,
+                runtime_metadata={"source": "test"},
+            )
+            debug_trace_id = repository.insert_debug_traces(
+                connection,
+                run_id=run_id,
+                debug_traces=[
+                    BacktestDebugTraceRecord(
+                        step_index=1,
+                        bar_time=run_start,
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        close_price=Decimal("100"),
+                        current_position_qty=Decimal("0"),
+                        position_qty_delta=Decimal("0"),
+                        signal_count=1,
+                        intent_count=1,
+                        blocked_intent_count=0,
+                        blocked_codes=[],
+                        created_order_count=0,
+                        created_order_ids=[],
+                        fill_count=0,
+                        fill_ids=[],
+                        cash=Decimal("10000"),
+                        cash_delta=Decimal("0"),
+                        equity=Decimal("10000"),
+                        equity_delta=Decimal("0"),
+                        gross_exposure=Decimal("0"),
+                        net_exposure=Decimal("0"),
+                        drawdown=Decimal("0"),
+                        decision_json={"decision_type": "target_position"},
+                        risk_outcomes_json=[{"code": "allowed", "decision": "allow"}],
+                    )
+                ],
+            )[0]
+
+            self.assertEqual(repository.get_debug_trace_run_id(connection, debug_trace_id=debug_trace_id), run_id)
+
+            repository.upsert_investigation_anchor(
+                connection,
+                debug_trace_id=debug_trace_id,
+                scenario_id="scenario_alpha",
+                expected_behavior="expected long entry",
+                observed_behavior="observed delayed entry",
+                actor_name="Phase5FoundationTests",
+            )
+            listed_rows = repository.list_debug_trace_records(connection, run_id=run_id)
+
+            self.assertEqual(len(listed_rows[0]["investigation_anchors_json"]), 1)
+            self.assertEqual(listed_rows[0]["investigation_anchors_json"][0]["scenario_id"], "scenario_alpha")
+            self.assertEqual(
+                listed_rows[0]["investigation_anchors_json"][0]["expected_behavior"],
+                "expected long entry",
+            )
+            self.assertEqual(
+                listed_rows[0]["investigation_anchors_json"][0]["observed_behavior"],
+                "observed delayed entry",
+            )
         finally:
             transaction.rollback()
             connection.close()

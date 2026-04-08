@@ -878,6 +878,21 @@ class BacktestRunRepository:
             ).scalar_one()
         )
 
+    def get_debug_trace_run_id(self, connection: Connection, *, debug_trace_id: int) -> int | None:
+        row = connection.execute(
+            text(
+                """
+                select run_id
+                from backtest.debug_traces
+                where debug_trace_id = :debug_trace_id
+                """
+            ),
+            {"debug_trace_id": debug_trace_id},
+        ).first()
+        if row is None:
+            return None
+        return int(row[0])
+
     def upsert_investigation_anchor(
         self,
         connection: Connection,

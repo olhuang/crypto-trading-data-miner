@@ -313,3 +313,16 @@ Replace heavy `.astimezone()` timezone conversions in the local per-bar loop wit
 ### Impact
 - Obliterated 300,000+ redundant native datetime conversions per 100k bars.
 - Cut internal session state processing cycles by over 50%.
+
+## 2026-04-08
+
+### Decision
+Treat replay trace-anchor writes as strict nested run resources, and require every anchor write to contain at least one meaningful investigation field.
+
+### Reason
+- the anchor write route is nested under `/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}`, so allowing a `debug_trace_id` from another run would create inconsistent evidence linkage
+- empty anchor rows create durable objects with no replay-investigation value and make later annotation cleanup harder
+
+### Impact
+- `POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/investigation-anchors` now returns `404` when the trace does not belong to the addressed run
+- anchor writes are now rejected unless at least one of `scenario_id`, `expected_behavior`, or `observed_behavior` is present

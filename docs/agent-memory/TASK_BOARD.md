@@ -27,10 +27,10 @@
 ## Next
 - integrate memory workflow with future strategy workbench annotation / review surfaces
 - keep future product-grade frontend work aligned to `docs/frontend-keep-evolve-replace-strategy.md` instead of expanding `/monitoring` without boundaries
-- connect the current trace substrate into replay investigation linkage
+- extend the current replay-investigation anchor substrate into replay notes and broader expected-vs-observed evidence flow
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
-- connect the new debug-trace market-context evidence into replay investigation linkage and future compare/review note anchors
+- connect the new debug-trace market-context evidence into replay-note flow and future compare/review note anchors
 - defer broader sentiment feature-pipeline formalization until the current trace/debug surfaces can explain context-gated decisions
 
 - optionally surface scheduler/remediation continuity reasons in Quality if operators need to distinguish freshness catch-up from true recent-window repair
@@ -40,6 +40,7 @@
 - analyzed backtest engine performance using `cProfile` and synthesized bars, cutting execution times by 50% for core intent evaluations
 - optimized `PortfolioState.mark_to_market` calls within the risk guardrails engine by bypassing the heavy loop with a lightweight `calculate_equity` helper when intents are empty
 - replaced per-bar `.astimezone()` transitions in the risk engine with a predictive floating UTC timestamp threshold, drastically eliminating per-bar overhead
+- hardened replay trace-anchor writes so nested run/debug-trace routes now verify ownership and reject empty anchor payloads
 - finished UI Phase B: Backtests Workspace Restructure, transitioning the view from a single-scrolling layout to a separated 4-tab workspace (Launch, Runs, Compare, Investigate).
 - implemented UI integration for the new trace `investigation_anchors` directly into the `/monitoring` Backtests workspace
 - built Level 3 replay trace integration by implementing `research.trace_investigation_anchors` to anchor scenarios to trace points.

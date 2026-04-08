@@ -221,6 +221,17 @@ class TraceInvestigationAnchorWriteRequest(ApiRequestModel):
     expected_behavior: str | None = None
     observed_behavior: str | None = None
 
+    @model_validator(mode="after")
+    def validate_anchor_request(self) -> "TraceInvestigationAnchorWriteRequest":
+        for field_name in ("scenario_id", "expected_behavior", "observed_behavior"):
+            value = getattr(self, field_name)
+            if value is not None:
+                value = value.strip()
+                setattr(self, field_name, value or None)
+        if not any((self.scenario_id, self.expected_behavior, self.observed_behavior)):
+            raise ValueError("at least one of scenario_id, expected_behavior, or observed_behavior is required")
+        return self
+
 
 class BacktestRunStartRequest(BacktestRunConfig):
     persist_signals: bool = True
@@ -2383,6 +2394,16 @@ def create_app() -> FastAPI:
         actor = require_actor(authorization, allowed_roles={"developer", "admin"})
         with transaction_scope() as connection:
             repository = BacktestRunRepository()
+            debug_trace_run_id = repository.get_debug_trace_run_id(connection, debug_trace_id=debug_trace_id)
+            if debug_trace_run_id is None or debug_trace_run_id != run_id:
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "code": "NOT_FOUND",
+                        "message": f"debug trace not found for run: run_id={run_id}, debug_trace_id={debug_trace_id}",
+                        "details": {"run_id": run_id, "debug_trace_id": debug_trace_id},
+                    },
+                )
             record = repository.upsert_investigation_anchor(
                 connection,
                 debug_trace_id=debug_trace_id,

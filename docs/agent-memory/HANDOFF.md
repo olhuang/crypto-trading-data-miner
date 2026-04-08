@@ -3,7 +3,7 @@
 ## Current Focus
 - use the new AI memory workflow as the default long-horizon repo workflow and connect it to future research/workbench surfaces
 - extend object-level notes from compare-review into trace-backed investigation flows, replay investigation notes, and future workbench annotation surfaces
-- continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter/context slices into replay investigation linkage
+- continue the debug-trace rollout from the completed Level 2 linkage/UI/anchor/filter/context slices into replay investigation notes and broader evidence linkage
 - keep the current internal `/monitoring` console on a clear keep/evolve path without confusing it with the future route-based frontend replacement path
 - provide a local runnable Binance BTC history backfill path with explicit progress/status output now that direct outbound execution is blocked inside the current harness
 - continue the Quality workspace evolve path now that the first integrity-validation UI slice is live inside `/monitoring`
@@ -41,6 +41,7 @@
 - `docs/debug-trace-rollout-plan.md` now exists as the dedicated resume document for the next debug-trace slice
 - Level 3 replay trace integration is now physically mapped via `research.trace_investigation_anchors` and the new endpoint `POST .../debug-traces/{id}/investigation-anchors`.
 - Trace details from `GET /debug-traces` now include an `investigation_anchors` array reflecting scenario logic deviations.
+- trace-anchor writes are now hardened so `POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/investigation-anchors` rejects empty payloads and rejects mismatched run/trace combinations
 - the Phase 5 phase/task/checklist docs are now aligned to the current sentiment/context status: `bars_perp_context_v1`, `btc_sentiment_momentum`, Backtests UI launch support, and diagnostics/trace market-context visibility as the next slice
 - the broader spec set has now been re-scanned and the stale spec bodies were updated so `spec-index`, feature-pipeline, diagnostics, UI/UI API, and strategy-workbench docs all reflect the seeded sentiment-aware backtest path and the same next diagnostics slice
 - `scripts/repair_bars_integrity_windows.py` / `.ps1` now support `--auto-detect` / `-AutoDetect`, so bounded bars repair can discover `bars_1m` internal gaps and corrupt minutes from integrity output instead of relying only on hand-maintained default windows
@@ -165,7 +166,7 @@
 
 ## Open Problems
 - the memory workflow is currently file-based and process-driven, not yet API/UI-backed
-- replay/debug trace linkage is still missing
+- replay/debug-trace anchor substrate now exists, but replay investigation notes and replay-specific run/timeline workflow are still missing
 - the current Backtests page is less confusing than before, but it still mixes launch, compare, run inspection, and trace investigation into one larger page instead of a fully separated workspace
 - the selected-run workspace is clearer, but the broader page still needs stronger separation between launch, compare, run inspection, and investigation flows
 - richer saved-compare workflow remains future work
@@ -250,5 +251,5 @@
 ## Recommended Next Action
 - if the data-quality UI line stays active, the next most natural slice is either `UI Slice 4B` dataset-detail polish or `UI Slice 4D` Quality workspace restructure now that `UI Slice 4C` has landed
 - if the data-maintenance line stays active, use the new `/monitoring -> Quality` backfill panel or `scripts/binance_btc_history_backfill.ps1 -Mode incremental` to refresh the BTC tail, then re-run integrity validation to watch the warning-only tail counts shrink
-- if the sentiment-ratio / diagnostics line stays active, the next most natural slice is replay/debug-trace investigation linkage so the new market-context evidence can anchor future compare/review and replay-note workflows
+- if the sentiment-ratio / diagnostics line stays active, the next most natural slice is replay-note and evidence-flow expansion on top of the landed replay/debug-trace anchors so the new market-context evidence can anchor future compare/review and replay-note workflows
 - if the Quality line stays active, the next most natural slice is to expand or polish finding-aware repair coverage after the current `bars_1m` + `tail` actions have seen real operator use

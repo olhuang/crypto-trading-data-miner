@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
 
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
+from pydantic import ValidationError
 
 import api.app as app_module
 from config import settings
@@ -26,6 +27,7 @@ from api.app import (
     InstrumentSyncRequest,
     MarketSnapshotRemediationRequest,
     MarketSnapshotRefreshRequest,
+    TraceInvestigationAnchorWriteRequest,
     ValidatePayloadRequest,
     create_app,
     require_actor,
@@ -75,12 +77,38 @@ class ModelsApiTests(unittest.TestCase):
         cls.backtest_run_timeseries_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/timeseries", "GET")
         cls.backtest_run_signals_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/signals", "GET")
         cls.backtest_run_debug_traces_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/debug-traces", "GET")
+        cls.backtest_trace_investigation_anchor_write_endpoint = _resolve_route(
+            cls.app,
+            "/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/investigation-anchors",
+            "POST",
+        )
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
         cls.backtest_compare_sets_endpoint = _resolve_route(cls.app, "/api/v1/backtests/compare-sets", "POST")
         cls.backtest_compare_notes_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/compare-sets/{compare_set_id}/notes", "GET")
         cls.backtest_compare_notes_write_endpoint = _resolve_route(cls.app, "/api/v1/backtests/compare-sets/{compare_set_id}/notes", "POST")
+
+    def test_trace_investigation_anchor_request_requires_non_empty_content(self) -> None:
+        with self.assertRaises(ValidationError):
+            TraceInvestigationAnchorWriteRequest()
+
+        with self.assertRaises(ValidationError):
+            TraceInvestigationAnchorWriteRequest(
+                scenario_id="   ",
+                expected_behavior="",
+                observed_behavior="   ",
+            )
+
+        request = TraceInvestigationAnchorWriteRequest(
+            scenario_id=" scenario_alpha ",
+            expected_behavior=" expected move ",
+            observed_behavior="   ",
+        )
+
+        self.assertEqual(request.scenario_id, "scenario_alpha")
+        self.assertEqual(request.expected_behavior, "expected move")
+        self.assertIsNone(request.observed_behavior)
 
     def test_system_health_returns_success_envelope(self) -> None:
         response = self.__class__.health_endpoint()
@@ -924,6 +952,17 @@ class ModelsApiTests(unittest.TestCase):
                             "execution_intents": [{"delta_qty": "1"}],
                         },
                         "risk_outcomes_json": [{"code": "allowed", "decision": "allow"}],
+                        "investigation_anchors_json": [
+                            {
+                                "anchor_id": 71,
+                                "debug_trace_id": 31,
+                                "scenario_id": "scenario_alpha",
+                                "expected_behavior": "expected long entry",
+                                "observed_behavior": "entry delayed one bar",
+                                "created_at": datetime.fromisoformat("2026-03-05T00:06:30+00:00"),
+                                "updated_at": datetime.fromisoformat("2026-03-05T00:06:30+00:00"),
+                            }
+                        ],
                     }
                 ]
 
@@ -972,6 +1011,11 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(debug_traces_response.data.traces[0].sim_fill_ids, [])
         self.assertEqual(debug_traces_response.data.traces[0].position_qty_delta, "0")
         self.assertEqual(debug_traces_response.data.traces[0].gross_exposure, "0")
+        self.assertEqual(debug_traces_response.data.traces[0].investigation_anchors[0].anchor_id, 71)
+        self.assertEqual(
+            debug_traces_response.data.traces[0].investigation_anchors[0].scenario_id,
+            "scenario_alpha",
+        )
         self.assertEqual(captured_debug_trace_filters["run_id"], 601)
         self.assertEqual(captured_debug_trace_filters["limit"], 150)
         self.assertEqual(captured_debug_trace_filters["unified_symbol"], "BTCUSDT_PERP")
@@ -980,6 +1024,100 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(captured_debug_trace_filters["signals_only"])
         self.assertFalse(captured_debug_trace_filters["fills_only"])
         self.assertTrue(captured_debug_trace_filters["orders_only"])
+
+    def test_trace_investigation_anchor_endpoint_validates_run_trace_relationship(self) -> None:
+        original_repository = app_module.BacktestRunRepository
+
+        class StubRepository:
+            def get_debug_trace_run_id(self, connection, *, debug_trace_id: int):
+                return 777 if debug_trace_id == 31 else None
+
+            def upsert_investigation_anchor(
+                self,
+                connection,
+                *,
+                debug_trace_id: int,
+                scenario_id: str | None,
+                expected_behavior: str | None,
+                observed_behavior: str | None,
+                actor_name: str,
+            ):
+                raise AssertionError("upsert_investigation_anchor should not be called for mismatched runs")
+
+        app_module.BacktestRunRepository = StubRepository
+        try:
+            with self.assertRaises(HTTPException) as exc:
+                self.__class__.backtest_trace_investigation_anchor_write_endpoint(
+                    601,
+                    31,
+                    TraceInvestigationAnchorWriteRequest(expected_behavior="expected move"),
+                    "Bearer developer:u_123:Alice",
+                )
+        finally:
+            app_module.BacktestRunRepository = original_repository
+
+        self.assertEqual(exc.exception.status_code, 404)
+        self.assertEqual(exc.exception.detail["code"], "NOT_FOUND")
+
+    def test_trace_investigation_anchor_endpoint_returns_typed_anchor_resource(self) -> None:
+        original_repository = app_module.BacktestRunRepository
+        captured_call: dict[str, object] = {}
+
+        class StubRepository:
+            def get_debug_trace_run_id(self, connection, *, debug_trace_id: int):
+                return 601
+
+            def upsert_investigation_anchor(
+                self,
+                connection,
+                *,
+                debug_trace_id: int,
+                scenario_id: str | None,
+                expected_behavior: str | None,
+                observed_behavior: str | None,
+                actor_name: str,
+            ):
+                captured_call.update(
+                    {
+                        "debug_trace_id": debug_trace_id,
+                        "scenario_id": scenario_id,
+                        "expected_behavior": expected_behavior,
+                        "observed_behavior": observed_behavior,
+                        "actor_name": actor_name,
+                    }
+                )
+                return {
+                    "anchor_id": 71,
+                    "debug_trace_id": debug_trace_id,
+                    "scenario_id": scenario_id,
+                    "expected_behavior": expected_behavior,
+                    "observed_behavior": observed_behavior,
+                    "created_at": datetime.fromisoformat("2026-03-05T00:06:30+00:00"),
+                    "updated_at": datetime.fromisoformat("2026-03-05T00:06:30+00:00"),
+                }
+
+        app_module.BacktestRunRepository = StubRepository
+        try:
+            response = self.__class__.backtest_trace_investigation_anchor_write_endpoint(
+                601,
+                31,
+                TraceInvestigationAnchorWriteRequest(
+                    scenario_id=" scenario_alpha ",
+                    expected_behavior=" expected long entry ",
+                    observed_behavior="observed delayed entry",
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.BacktestRunRepository = original_repository
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.anchor_id, 71)
+        self.assertEqual(response.data.debug_trace_id, 31)
+        self.assertEqual(response.data.scenario_id, "scenario_alpha")
+        self.assertEqual(response.data.expected_behavior, "expected long entry")
+        self.assertEqual(response.data.observed_behavior, "observed delayed entry")
+        self.assertEqual(captured_call["actor_name"], "Alice")
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

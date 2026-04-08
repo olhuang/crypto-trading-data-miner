@@ -5,7 +5,7 @@
 - Phase 4 now also includes typed dataset-integrity validation for `gap / duplicate / missing / corrupt` checks across the main Binance BTC dataset surfaces, with API and local CLI/PowerShell entrypoints.
 - Phase 5 has a working bars-based backtest foundation.
 - The repo already supports strategy session config, named risk policies, named assumption bundles, diagnostics summary, period breakdown, persisted compare sets, and compare-review note API baseline.
-- `/monitoring` now includes a minimal internal Backtests research slice with compare-review notes, Level 1 debug-trace inspection, Level 2 linkage-aware trace payloads, structured trace drill-down, diagnostics-to-trace anchor navigation, and targeted trace filters.
+- `/monitoring` now includes a minimal internal Backtests research slice with compare-review notes, Level 1 debug-trace inspection, Level 2 linkage-aware trace payloads, structured trace drill-down, diagnostics-to-trace anchor navigation, targeted trace filters, and replay-investigation anchor inspection.
 - a dedicated front-end usability plan now exists for cleaning up the current `/monitoring` Backtests experience before larger workbench expansion
 
 ## Current Strong Areas
@@ -13,16 +13,16 @@
 - phased implementation planning
 - Binance market-data ingestion baseline
 - market-data quality, dataset-integrity validation, and replay-readiness baseline
-- bars-based backtest, diagnostics, compare foundation, first object-level compare-review memory, and Level 1/Level 2 trace-backed run inspection
+- bars-based backtest, diagnostics, compare foundation, first object-level compare-review memory, replay-investigation anchor substrate, and Level 1/Level 2 trace-backed run inspection
 - optimized inner-loop mechanics for the backtest engine allowing fast multi-coin simulation by bypassing redundant state/time evaluations
 
 ## Current Gaps
 - no replay engine yet
-- no replay investigation trace linkage yet
-- compare-review notes now have a minimal internal UI surface, but replay/debug-trace-linked investigation workflow is still future work
+- replay-investigation anchors now exist on persisted debug traces, but replay runs, replay notes, and broader expected-vs-observed evidence workflow are still future work
+- compare-review notes now have a minimal internal UI surface, but fuller replay/debug-trace-linked investigation workflow is still future work
 - cooldown semantics are still tied to a losing-close proxy instead of explicit protection events
-- a dedicated `docs/debug-trace-rollout-plan.md` now exists to track where debug-trace work should resume, and the next debug-trace slice is replay investigation linkage rather than more Level 2 filter work
-- dataset-integrity validation currently exists as API/CLI/PowerShell workflow, but it is not yet surfaced inside `/monitoring`
+- a dedicated `docs/debug-trace-rollout-plan.md` now exists to track where debug-trace work should resume, and the next debug-trace slice is replay-note/evidence expansion on top of the landed anchor substrate rather than more Level 2 filter work
+- dataset-integrity validation now exists in API/CLI/PowerShell form and is surfaced inside `/monitoring`, but the Quality workspace still has follow-up polish/restructure work
 
 ## Most Important Source-of-Truth Docs
 - `README.md`

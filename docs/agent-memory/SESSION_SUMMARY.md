@@ -24,3 +24,13 @@
 ## Work Completed
 - **Session Start**: Summarized repo state and created implementation plan for profiling/optimizing backtest runner performance.
 - **Backtest Engine Performance**: Cut per-bar framework overhead by half. Bypassed redundant mark_to_market invocations during empty intents via incremental equity short-circuit. Replaced heavy per-bar astimezone date boundaries with predictive UTC floating bounds.
+
+**Date:** 2026-04-08
+
+## Work Completed
+- Re-read the required repo entry docs plus agent-memory files before touching code.
+- Verified that replay trace anchors already exist in code (`research.trace_investigation_anchors`, anchor write endpoint, and `/monitoring` wiring), but the repo memory docs were out of sync about that state.
+- Chose one highest-value subtask for this session: harden and reconcile replay/debug-trace investigation linkage rather than starting a new Phase 5 slice on stale assumptions.
+- Hardened replay trace-anchor writes so they now reject empty payloads and reject `debug_trace_id` values that do not belong to the addressed `run_id`.
+- Added focused regression coverage for request validation, nested run/trace validation, debug-trace resource mapping, and repository-level anchor aggregation.
+- Reconciled the replay-trace rollout and agent-memory docs so they now reflect the verified state: replay-investigation anchors are landed, while replay notes/runs and broader expected-vs-observed workflow are still pending.
