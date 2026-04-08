@@ -21,6 +21,7 @@ from backtest.compare_review import CompareReviewService
 from backtest.data import BacktestBarLoader
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.diagnostics import BacktestDiagnosticsProjector
+from backtest.investigation_notes import TraceInvestigationNoteService
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.periods import build_period_breakdown
 from backtest.performance import PerformancePoint
@@ -2024,6 +2025,125 @@ class Phase5FoundationTests(unittest.TestCase):
                 listed_rows[0]["investigation_anchors_json"][0]["observed_behavior"],
                 "observed delayed entry",
             )
+        finally:
+            transaction.rollback()
+            connection.close()
+
+    def test_trace_investigation_notes_seed_system_fact_and_allow_human_follow_up(self) -> None:
+        run_start = datetime(2036, 1, 6, 0, 0, tzinfo=timezone.utc)
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_trace_investigation_notes",
+                "session": {
+                    "session_code": "bt_btc_trace_investigation_notes",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "1"},
+            }
+        )
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            repository = BacktestRunRepository()
+            service = TraceInvestigationNoteService()
+            run_id = repository.insert_run(
+                connection,
+                run_config,
+                runtime_metadata={"source": "test"},
+            )
+            debug_trace_id = repository.insert_debug_traces(
+                connection,
+                run_id=run_id,
+                debug_traces=[
+                    BacktestDebugTraceRecord(
+                        step_index=1,
+                        bar_time=run_start,
+                        exchange_code="binance",
+                        unified_symbol="BTCUSDT_PERP",
+                        close_price=Decimal("100"),
+                        current_position_qty=Decimal("0"),
+                        position_qty_delta=Decimal("0"),
+                        signal_count=1,
+                        intent_count=1,
+                        blocked_intent_count=0,
+                        blocked_codes=[],
+                        created_order_count=0,
+                        created_order_ids=[],
+                        fill_count=0,
+                        fill_ids=[],
+                        cash=Decimal("10000"),
+                        cash_delta=Decimal("0"),
+                        equity=Decimal("10000"),
+                        equity_delta=Decimal("0"),
+                        gross_exposure=Decimal("0"),
+                        net_exposure=Decimal("0"),
+                        drawdown=Decimal("0"),
+                        market_context_json={"feature_input_version": "bars_perp_context_v1"},
+                        decision_json={"decision_type": "target_position"},
+                        risk_outcomes_json=[{"code": "allowed", "decision": "allow"}],
+                    )
+                ],
+            )[0]
+
+            repository.upsert_investigation_anchor(
+                connection,
+                debug_trace_id=debug_trace_id,
+                scenario_id="scenario_alpha",
+                expected_behavior="expected long entry",
+                observed_behavior="observed delayed entry",
+                actor_name="Phase5FoundationTests",
+            )
+
+            trace_row, seeded_notes = service.list_trace_notes(
+                connection,
+                run_id=run_id,
+                debug_trace_id=debug_trace_id,
+                actor_name="Phase5FoundationTests",
+            )
+            created_note = service.create_or_update_trace_note(
+                connection,
+                run_id=run_id,
+                debug_trace_id=debug_trace_id,
+                annotation_id=None,
+                annotation_type="expected_vs_observed",
+                status="in_review",
+                title="Expected vs observed entry timing",
+                summary="Observed entry timing drifted from the first qualifying signal.",
+                note_source="human",
+                verification_state="verified",
+                verified_findings=["entry happened later than expected"],
+                open_questions=["did context alignment lag by one bar"],
+                next_action="inspect trace evidence around the first qualifying signal",
+                actor_name="Phase5FoundationTests",
+            )
+            _, all_notes = service.list_trace_notes(
+                connection,
+                run_id=run_id,
+                debug_trace_id=debug_trace_id,
+                actor_name="Phase5FoundationTests",
+            )
+
+            self.assertEqual(trace_row["debug_trace_id"], debug_trace_id)
+            self.assertEqual(len(seeded_notes), 1)
+            self.assertEqual(seeded_notes[0]["entity_type"], "debug_trace")
+            self.assertEqual(seeded_notes[0]["annotation_type"], "investigation")
+            self.assertEqual(seeded_notes[0]["note_source"], "system")
+            self.assertEqual(seeded_notes[0]["verification_state"], "system_fact")
+            self.assertEqual(seeded_notes[0]["source_refs_json"]["run_id"], run_id)
+            self.assertEqual(seeded_notes[0]["source_refs_json"]["debug_trace_id"], debug_trace_id)
+            self.assertEqual(seeded_notes[0]["facts_snapshot_json"]["investigation_anchors"][0]["scenario_id"], "scenario_alpha")
+            self.assertEqual(created_note["annotation_type"], "expected_vs_observed")
+            self.assertEqual(created_note["verified_findings_json"], ["entry happened later than expected"])
+            self.assertEqual(len(all_notes), 2)
+            self.assertEqual(all_notes[1]["note_source"], "human")
         finally:
             transaction.rollback()
             connection.close()

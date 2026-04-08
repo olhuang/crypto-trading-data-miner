@@ -5,7 +5,7 @@
 - Phase 4 now also includes typed dataset-integrity validation for `gap / duplicate / missing / corrupt` checks across the main Binance BTC dataset surfaces, with API and local CLI/PowerShell entrypoints.
 - Phase 5 has a working bars-based backtest foundation.
 - The repo already supports strategy session config, named risk policies, named assumption bundles, diagnostics summary, period breakdown, persisted compare sets, and compare-review note API baseline.
-- `/monitoring` now includes a minimal internal Backtests research slice with compare-review notes, Level 1 debug-trace inspection, Level 2 linkage-aware trace payloads, structured trace drill-down, diagnostics-to-trace anchor navigation, targeted trace filters, and replay-investigation anchor inspection.
+- `/monitoring` now includes a minimal internal Backtests research slice with compare-review notes, Level 1 debug-trace inspection, Level 2 linkage-aware trace payloads, structured trace drill-down, diagnostics-to-trace anchor navigation, targeted trace filters, replay-investigation anchor inspection, and a first debug-trace investigation-note write/read flow.
 - a dedicated front-end usability plan now exists for cleaning up the current `/monitoring` Backtests experience before larger workbench expansion
 
 ## Current Strong Areas
@@ -18,7 +18,7 @@
 
 ## Current Gaps
 - no replay engine yet
-- replay-investigation anchors now exist on persisted debug traces, but replay runs, replay notes, and broader expected-vs-observed evidence workflow are still future work
+- replay-investigation anchors and first trace-level investigation notes now exist on persisted debug traces, but replay runs and broader replay timeline / expected-vs-observed workflow are still future work
 - compare-review notes now have a minimal internal UI surface, but fuller replay/debug-trace-linked investigation workflow is still future work
 - cooldown semantics are still tied to a losing-close proxy instead of explicit protection events
 - a dedicated `docs/debug-trace-rollout-plan.md` now exists to track where debug-trace work should resume, and the next debug-trace slice is replay-note/evidence expansion on top of the landed anchor substrate rather than more Level 2 filter work

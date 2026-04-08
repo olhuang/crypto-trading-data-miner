@@ -28,6 +28,7 @@ from api.app import (
     InstrumentSyncRequest,
     MarketSnapshotRemediationRequest,
     MarketSnapshotRefreshRequest,
+    TraceInvestigationNoteWriteRequest,
     TraceInvestigationAnchorWriteRequest,
     ValidatePayloadRequest,
     create_app,
@@ -85,6 +86,16 @@ class ModelsApiTests(unittest.TestCase):
             "/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/investigation-anchors",
             "POST",
         )
+        cls.backtest_trace_notes_list_endpoint = _resolve_route(
+            cls.app,
+            "/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes",
+            "GET",
+        )
+        cls.backtest_trace_notes_write_endpoint = _resolve_route(
+            cls.app,
+            "/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes",
+            "POST",
+        )
         cls.backtest_diagnostics_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/diagnostics", "GET")
         cls.backtest_period_breakdown_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/period-breakdown", "GET")
         cls.backtest_artifacts_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs/{run_id}/artifacts", "GET")
@@ -112,6 +123,26 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(request.scenario_id, "scenario_alpha")
         self.assertEqual(request.expected_behavior, "expected move")
         self.assertIsNone(request.observed_behavior)
+
+    def test_trace_investigation_note_request_validates_allowed_fields(self) -> None:
+        with self.assertRaises(ValidationError):
+            TraceInvestigationNoteWriteRequest(title="  ")
+
+        with self.assertRaises(ValidationError):
+            TraceInvestigationNoteWriteRequest(title="x", annotation_type="review")
+
+        request = TraceInvestigationNoteWriteRequest(
+            title=" Trace investigation ",
+            annotation_type="expected_vs_observed",
+            status="confirmed",
+            note_source="agent",
+            verification_state="assumption",
+        )
+
+        self.assertEqual(request.annotation_type, "expected_vs_observed")
+        self.assertEqual(request.status, "confirmed")
+        self.assertEqual(request.note_source, "agent")
+        self.assertEqual(request.verification_state, "assumption")
 
     def test_system_health_returns_success_envelope(self) -> None:
         response = self.__class__.health_endpoint()
@@ -1401,6 +1432,119 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(response.data.expected_behavior, "expected long entry")
         self.assertEqual(response.data.observed_behavior, "observed delayed entry")
         self.assertEqual(captured_call["actor_name"], "Alice")
+
+    def test_trace_investigation_notes_endpoints_return_seeded_and_human_notes(self) -> None:
+        original_service = app_module.TraceInvestigationNoteService
+
+        class StubTraceInvestigationNoteService:
+            def list_trace_notes(self, connection, *, run_id: int, debug_trace_id: int, actor_name: str):
+                return (
+                    {
+                        "run_id": run_id,
+                        "debug_trace_id": debug_trace_id,
+                        "step_index": 7,
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "bar_time": datetime.fromisoformat("2026-04-04T00:07:00+00:00"),
+                    },
+                    [
+                        {
+                            "annotation_id": 901,
+                            "entity_type": "debug_trace",
+                            "entity_id": str(debug_trace_id),
+                            "annotation_type": "investigation",
+                            "status": "draft",
+                            "title": "Trace 7 investigation",
+                            "summary": "System-seeded trace investigation draft.",
+                            "note_source": "system",
+                            "verification_state": "system_fact",
+                            "verified_findings_json": [],
+                            "open_questions_json": [],
+                            "next_action": "Review trace evidence.",
+                            "source_refs_json": {"run_id": run_id, "debug_trace_id": debug_trace_id},
+                            "facts_snapshot_json": {"step_index": 7},
+                            "created_by": "system",
+                            "updated_by": "system",
+                            "created_at": datetime.fromisoformat("2026-04-04T12:00:00+00:00"),
+                            "updated_at": datetime.fromisoformat("2026-04-04T12:00:00+00:00"),
+                        }
+                    ],
+                )
+
+            def create_or_update_trace_note(
+                self,
+                connection,
+                *,
+                run_id: int,
+                debug_trace_id: int,
+                annotation_id: int | None,
+                annotation_type: str,
+                status: str,
+                title: str,
+                summary: str | None,
+                note_source: str,
+                verification_state: str,
+                verified_findings: list[str],
+                open_questions: list[str],
+                next_action: str | None,
+                actor_name: str,
+            ):
+                return {
+                    "annotation_id": 902 if annotation_id is None else annotation_id,
+                    "entity_type": "debug_trace",
+                    "entity_id": str(debug_trace_id),
+                    "annotation_type": annotation_type,
+                    "status": status,
+                    "title": title,
+                    "summary": summary,
+                    "note_source": note_source,
+                    "verification_state": verification_state,
+                    "verified_findings_json": verified_findings,
+                    "open_questions_json": open_questions,
+                    "next_action": next_action,
+                    "source_refs_json": {"run_id": run_id, "debug_trace_id": debug_trace_id},
+                    "facts_snapshot_json": {"step_index": 7},
+                    "created_by": actor_name,
+                    "updated_by": actor_name,
+                    "created_at": datetime.fromisoformat("2026-04-04T12:05:00+00:00"),
+                    "updated_at": datetime.fromisoformat("2026-04-04T12:05:00+00:00"),
+                }
+
+        app_module.TraceInvestigationNoteService = StubTraceInvestigationNoteService
+        try:
+            list_response = self.__class__.backtest_trace_notes_list_endpoint(
+                601,
+                31,
+                "Bearer developer:u_123:Alice",
+            )
+            write_response = self.__class__.backtest_trace_notes_write_endpoint(
+                601,
+                31,
+                TraceInvestigationNoteWriteRequest(
+                    title="Expected vs observed note",
+                    annotation_type="expected_vs_observed",
+                    summary="Expected no entry; observed a delayed fill.",
+                    verified_findings=["entry occurred one bar late"],
+                    open_questions=["is context alignment lagging one bar"],
+                    next_action="inspect context alignment around step 7",
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.TraceInvestigationNoteService = original_service
+
+        self.assertTrue(list_response.success)
+        self.assertEqual(list_response.data.run_id, 601)
+        self.assertEqual(list_response.data.debug_trace_id, 31)
+        self.assertEqual(list_response.data.step_index, 7)
+        self.assertEqual(list_response.data.notes[0].note_source, "system")
+        self.assertEqual(list_response.data.notes[0].verification_state, "system_fact")
+
+        self.assertTrue(write_response.success)
+        self.assertEqual(write_response.data.entity_type, "debug_trace")
+        self.assertEqual(write_response.data.entity_id, "31")
+        self.assertEqual(write_response.data.annotation_type, "expected_vs_observed")
+        self.assertEqual(write_response.data.note_source, "human")
+        self.assertEqual(write_response.data.verified_findings[0], "entry occurred one bar late")
 
     def test_backtest_period_breakdown_endpoint_returns_entries(self) -> None:
         original_projector = app_module.BacktestPeriodBreakdownProjector

@@ -385,6 +385,25 @@
                       <div class="filter-actions" style="flex: 1 1 100%; justify-content: flex-end;"><button type="submit" class="button">Save Anchor</button></div>
                     </form>
                   </div>
+                  <div class="panel-subsection"><h4>Investigation Notes</h4><div id="backtest-trace-notes-table" class="table-shell"></div></div>
+                  <div class="panel-subsection"><h4>Selected Note Detail</h4><div id="backtest-trace-note-detail" class="json-shell compact-shell">Trace investigation notes will appear here.</div></div>
+                  <div class="panel-subsection">
+                    <h4>Write Investigation Note</h4>
+                    <form id="backtest-trace-note-form" class="filters labeled-form">
+                      <input type="hidden" name="annotation_id" />
+                      <label class="field field-span-2"><span class="field-label">Title</span><input name="title" /></label>
+                      <label class="field"><span class="field-label">Annotation Type</span><input name="annotation_type" value="investigation" /></label>
+                      <label class="field"><span class="field-label">Status</span><input name="status" value="in_review" /></label>
+                      <label class="field"><span class="field-label">Note Source</span><input name="note_source" value="human" /></label>
+                      <label class="field"><span class="field-label">Verification State</span><input name="verification_state" value="verified" /></label>
+                      <label class="field field-span-2"><span class="field-label">Summary</span><textarea name="summary" rows="4"></textarea></label>
+                      <label class="field field-span-2"><span class="field-label">Verified Findings</span><textarea name="verified_findings" rows="5" placeholder="one finding per line"></textarea></label>
+                      <label class="field field-span-2"><span class="field-label">Open Questions</span><textarea name="open_questions" rows="5" placeholder="one question per line"></textarea></label>
+                      <label class="field field-span-2"><span class="field-label">Next Action</span><textarea name="next_action" rows="4"></textarea></label>
+                      <div class="form-actions field-span-2"><button type="submit">Save Investigation Note</button><button type="button" id="backtest-trace-note-reset" class="secondary-button">Reset Form</button></div>
+                    </form>
+                    <div id="backtest-trace-note-result" class="json-shell compact-shell">Saved trace notes will appear here.</div>
+                  </div>
                   <div class="panel-subsection"><h4>Raw Trace</h4><div id="backtest-debug-trace-detail" class="json-shell">Full raw trace will appear here.</div></div>
                 </div>
               </section>

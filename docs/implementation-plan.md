@@ -505,6 +505,7 @@ Provide the first end-to-end research workflow using historical data.
 - now also has the first Phase 5 perp-context feature-input slice: `bars_perp_context_v1` loads latest-as-of funding rate, open interest, mark price, index price, and Binance futures sentiment ratios into strategy evaluation
 - now also has a seeded sentiment-aware research path through `btc_sentiment_momentum@v1.0.0`, `baseline_perp_sentiment_research@v1`, and Backtests UI support for the corresponding thresholds/preset flow
 - Phase 5 debug traces now also persist and expose compact strategy market context snapshots for feature-aware runs, so the next follow-up is replay/debug-trace investigation linkage rather than another context-visibility slice
+- now also has a first trace-level replay investigation-note foundation through `research.annotations`, `GET/POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes`, and the internal `/monitoring` Investigate workspace
 - now also has a repo-local AI memory/handoff workflow baseline under `docs/agent-memory/`, with a dedicated process spec for resumable long-running design and implementation work
 - object-level notes/annotations are now design-specified for future compare-review, replay investigation, and workbench annotation work
 

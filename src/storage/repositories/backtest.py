@@ -893,6 +893,63 @@ class BacktestRunRepository:
             return None
         return int(row[0])
 
+    def get_debug_trace_record(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        debug_trace_id: int,
+    ) -> dict[str, object] | None:
+        row = connection.execute(
+            text(
+                """
+                select
+                    trace.run_id,
+                    trace.debug_trace_id,
+                    trace.step_index,
+                    instrument.unified_symbol,
+                    trace.bar_time,
+                    trace.close_price,
+                    trace.signal_count,
+                    trace.intent_count,
+                    trace.blocked_intent_count,
+                    trace.created_order_count,
+                    trace.fill_count,
+                    trace.blocked_codes_json,
+                    trace.market_context_json,
+                    trace.decision_json,
+                    trace.risk_outcomes_json,
+                    coalesce(
+                        (
+                            select jsonb_agg(
+                                jsonb_build_object(
+                                    'anchor_id', a.anchor_id,
+                                    'debug_trace_id', a.debug_trace_id,
+                                    'scenario_id', a.scenario_id,
+                                    'expected_behavior', a.expected_behavior,
+                                    'observed_behavior', a.observed_behavior,
+                                    'created_at', a.created_at,
+                                    'updated_at', a.updated_at
+                                ) order by a.created_at asc
+                            )
+                            from research.trace_investigation_anchors a
+                            where a.debug_trace_id = trace.debug_trace_id
+                        ),
+                        '[]'::jsonb
+                    ) as investigation_anchors_json
+                from backtest.debug_traces trace
+                join ref.instruments instrument on instrument.instrument_id = trace.instrument_id
+                where trace.run_id = :run_id
+                  and trace.debug_trace_id = :debug_trace_id
+                """
+            ),
+            {
+                "run_id": run_id,
+                "debug_trace_id": debug_trace_id,
+            },
+        ).mappings().first()
+        return dict(row) if row is not None else None
+
     def upsert_investigation_anchor(
         self,
         connection: Connection,

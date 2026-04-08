@@ -59,11 +59,11 @@ Without this layer:
 ### Not Yet Implemented
 - [x] strategy market context is now surfaced inside persisted debug-trace detail for feature-driven or sentiment-aware runs
 - [x] replay investigation anchors can now attach to persisted debug traces through `research.trace_investigation_anchors` and the trace-anchor write endpoint
-- [ ] replay investigation notes
+- [x] first trace-level replay investigation notes now exist through `research.annotations`, trace-note APIs, and the internal `/monitoring` investigate workspace
 - [ ] replay-specific expected-vs-observed overlays and timeline workflow
 
 ### Current Recommended Resume Point
-- Continue from the landed trace-anchor substrate into replay notes and broader expected-vs-observed evidence workflow.
+- Continue from the landed trace-note baseline into broader replay timeline and expected-vs-observed evidence workflow.
 
 ---
 
@@ -164,7 +164,7 @@ Turn backtest traces into the substrate for replay investigation, expected-vs-ob
 - [ ] reuse or extend trace model for replay runs
 - [x] attach first investigation anchors directly to persisted debug traces
 - [ ] attach trace anchors to replay timelines
-- [ ] attach replay investigation notes to trace ranges or bookmarks
+- [x] attach first replay investigation notes to persisted debug traces through trace-scoped annotations
 - [ ] support expected-vs-observed overlays
 - [ ] surface replay investigation trace UI
 
@@ -256,7 +256,7 @@ When returning to this work:
 The repository now has `Level 1` backend/UI debug traces plus the first Level 2 linkage, richer drill-down, diagnostics-anchor slices, targeted trace filters, and a first replay-investigation anchor substrate in place.
 
 The correct next move is:
-- connect the richer trace rows and landed trace anchors to replay-note work and broader expected-vs-observed evidence flow
+- connect the richer trace rows, landed trace anchors, and first trace-note baseline to broader expected-vs-observed evidence flow
 - then grow that into fuller replay timeline and annotation surfaces later
 
 This keeps the path aligned with future compare/review notes, replay investigation notes, and workbench annotations without forcing a replay-engine redesign too early.

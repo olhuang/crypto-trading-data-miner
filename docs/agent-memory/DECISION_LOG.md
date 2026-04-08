@@ -326,3 +326,18 @@ Treat replay trace-anchor writes as strict nested run resources, and require eve
 ### Impact
 - `POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/investigation-anchors` now returns `404` when the trace does not belong to the addressed run
 - anchor writes are now rejected unless at least one of `scenario_id`, `expected_behavior`, or `observed_behavior` is present
+
+## 2026-04-08
+
+### Decision
+Implement the first replay investigation-note slice as `debug_trace`-scoped object annotations backed by `research.annotations`, with object-specific convenience endpoints under the existing backtest debug-trace routes.
+
+### Reason
+- replay runs and replay timelines do not exist yet, but persisted debug traces and trace anchors already provide a durable evidence substrate
+- the repository already has a working generic annotation store plus compare-review note pattern, so reusing that path is lower-risk than introducing a second note store
+- this lets expected-vs-observed investigation memory land now without forcing a premature replay-run schema
+
+### Impact
+- `GET/POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes` is now the baseline investigation-note surface
+- system-seeded trace investigation drafts now preserve step facts, risk evidence, market context, and existing anchors before human/agent conclusions are added
+- future replay-run and replay-scenario notes should reuse the same annotation store and extend this evidence-linking pattern rather than replacing it

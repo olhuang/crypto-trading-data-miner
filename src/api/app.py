@@ -19,6 +19,11 @@ from backtest.runner import BacktestRunnerSkeleton
 from backtest.compare import BacktestCompareNotFoundError, BacktestCompareProjector, BacktestCompareSet, BacktestCompareValidationError
 from backtest.compare_review import CompareReviewAnnotationError, CompareReviewNotFoundError, CompareReviewService
 from backtest.diagnostics import BacktestDiagnosticsProjector
+from backtest.investigation_notes import (
+    TraceInvestigationNoteError,
+    TraceInvestigationNotFoundError,
+    TraceInvestigationNoteService,
+)
 from backtest.periods import BacktestPeriodBreakdownProjector
 from models.backtest import BacktestRunConfig
 from jobs.backfill_bars import run_bar_backfill
@@ -200,6 +205,37 @@ class CompareReviewNoteWriteRequest(ApiRequestModel):
     @model_validator(mode="after")
     def validate_note_request(self) -> "CompareReviewNoteWriteRequest":
         allowed_annotation_types = {"review", "follow_up", "promotion_decision", "note"}
+        if self.annotation_type not in allowed_annotation_types:
+            raise ValueError(f"annotation_type must be one of {', '.join(sorted(allowed_annotation_types))}")
+        allowed_statuses = {"draft", "in_review", "confirmed", "follow_up", "accepted", "rejected", "resolved", "unresolved"}
+        if self.status not in allowed_statuses:
+            raise ValueError(f"status must be one of {', '.join(sorted(allowed_statuses))}")
+        allowed_sources = {"human", "agent"}
+        if self.note_source not in allowed_sources:
+            raise ValueError(f"note_source must be one of {', '.join(sorted(allowed_sources))}")
+        allowed_verification_states = {"assumption", "verified"}
+        if self.verification_state not in allowed_verification_states:
+            raise ValueError(f"verification_state must be one of {', '.join(sorted(allowed_verification_states))}")
+        if not self.title.strip():
+            raise ValueError("title must not be empty")
+        return self
+
+
+class TraceInvestigationNoteWriteRequest(ApiRequestModel):
+    annotation_id: int | None = None
+    annotation_type: str = "investigation"
+    status: str = "in_review"
+    title: str
+    summary: str | None = None
+    note_source: str = "human"
+    verification_state: str = "verified"
+    verified_findings: list[str] = []
+    open_questions: list[str] = []
+    next_action: str | None = None
+
+    @model_validator(mode="after")
+    def validate_note_request(self) -> "TraceInvestigationNoteWriteRequest":
+        allowed_annotation_types = {"investigation", "expected_vs_observed", "follow_up", "note", "bookmark"}
         if self.annotation_type not in allowed_annotation_types:
             raise ValueError(f"annotation_type must be one of {', '.join(sorted(allowed_annotation_types))}")
         allowed_statuses = {"draft", "in_review", "confirmed", "follow_up", "accepted", "rejected", "resolved", "unresolved"}
@@ -657,6 +693,15 @@ class ObjectAnnotationResource(BaseModel):
 class BacktestCompareNotesResource(BaseModel):
     compare_set_id: int
     compare_name: str | None = None
+    notes: list[ObjectAnnotationResource]
+
+
+class BacktestDebugTraceNotesResource(BaseModel):
+    run_id: int
+    debug_trace_id: int
+    step_index: int
+    unified_symbol: str
+    bar_time: str
     notes: list[ObjectAnnotationResource]
 
 
@@ -2422,6 +2467,81 @@ def create_app() -> FastAPI:
                 created_at=record["created_at"].isoformat() if hasattr(record["created_at"], "isoformat") else str(record["created_at"]),
                 updated_at=record["updated_at"].isoformat() if hasattr(record["updated_at"], "isoformat") else str(record["updated_at"]),
             ),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes")
+    def list_trace_investigation_notes(
+        run_id: int,
+        debug_trace_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestDebugTraceNotesResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            with transaction_scope() as connection:
+                trace_row, notes = TraceInvestigationNoteService().list_trace_notes(
+                    connection,
+                    run_id=run_id,
+                    debug_trace_id=debug_trace_id,
+                    actor_name=actor.user_name,
+                )
+        except TraceInvestigationNotFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": str(exc), "details": {"run_id": run_id, "debug_trace_id": debug_trace_id}},
+            ) from exc
+
+        return SuccessEnvelope[BacktestDebugTraceNotesResource](
+            data=BacktestDebugTraceNotesResource(
+                run_id=run_id,
+                debug_trace_id=debug_trace_id,
+                step_index=int(trace_row["step_index"]),
+                unified_symbol=str(trace_row["unified_symbol"]),
+                bar_time=trace_row["bar_time"].isoformat(),
+                notes=[_build_annotation_resource(note) for note in notes],
+            ),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes")
+    def create_or_update_trace_investigation_note(
+        run_id: int,
+        debug_trace_id: int,
+        request: TraceInvestigationNoteWriteRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[ObjectAnnotationResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            with transaction_scope() as connection:
+                note = TraceInvestigationNoteService().create_or_update_trace_note(
+                    connection,
+                    run_id=run_id,
+                    debug_trace_id=debug_trace_id,
+                    annotation_id=request.annotation_id,
+                    annotation_type=request.annotation_type,
+                    status=request.status,
+                    title=request.title,
+                    summary=request.summary,
+                    note_source=request.note_source,
+                    verification_state=request.verification_state,
+                    verified_findings=request.verified_findings,
+                    open_questions=request.open_questions,
+                    next_action=request.next_action,
+                    actor_name=actor.user_name,
+                )
+        except TraceInvestigationNotFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": str(exc), "details": {"run_id": run_id, "debug_trace_id": debug_trace_id}},
+            ) from exc
+        except TraceInvestigationNoteError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "VALIDATION_ERROR", "message": str(exc), "details": {"run_id": run_id, "debug_trace_id": debug_trace_id}},
+            ) from exc
+
+        return SuccessEnvelope[ObjectAnnotationResource](
+            data=_build_annotation_resource(note),
             meta=_meta(actor),
         )
 

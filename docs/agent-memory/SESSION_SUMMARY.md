@@ -28,6 +28,11 @@
 **Date:** 2026-04-08
 
 ## Work Completed
+- Implemented the first trace-level replay investigation-note foundation by reusing `research.annotations` for `debug_trace`-scoped notes instead of introducing a second note store.
+- Added `TraceInvestigationNoteService`, trace-note list/write API endpoints, and a repository helper for loading one persisted trace row plus its existing investigation anchors.
+- Added focused regression coverage for trace-note request validation, trace-note API resources, and DB-backed service behavior on top of persisted debug traces.
+- Extended `/monitoring -> Backtests -> Investigate` with minimal trace-note list/detail/write surfaces so investigation conclusions can now be saved next to the selected debug trace.
+- Updated repo state/planning docs to reflect that replay investigation anchors and first trace-level investigation notes are now landed, while replay timeline and broader expected-vs-observed workflow remain future work.
 - Re-read the required session-start docs before making any code changes: `README.md`, `docs/spec-index.md`, `docs/implementation-plan.md`, `docs/phases-2-to-9-checklists.md`, `docs/repo-self-review-tracker.md`, and the core `docs/agent-memory/*` files.
 - Verified the current repo state is consistent across README, planning docs, and memory docs: Phase 1-4 are implemented, Phase 5 has a substantial backtest/diagnostics/compare/debug-trace foundation, and the main open frontier remains replay-note/evidence workflow rather than another basic trace slice.
 - Chose one highest-value candidate subtask for the next implementation step: extend the landed replay/debug-trace anchor substrate into replay-note and expected-vs-observed evidence flow.

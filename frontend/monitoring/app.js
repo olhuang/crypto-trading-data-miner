@@ -5,6 +5,7 @@ const state = {
   selectedRawEventId: null,
   selectedBacktestRunId: null,
   selectedBacktestDebugTraceId: null,
+  selectedTraceNoteId: null,
   selectedCompareSetId: null,
   selectedCompareNoteId: null,
   currentIntegrityResult: null,
@@ -2201,6 +2202,12 @@ function renderBacktestDebugTraceDetail(trace) {
     renderJson("backtest-debug-trace-investigations", {
       message: "Investigation anchors will appear here.",
     });
+    renderJson("backtest-trace-note-detail", {
+      message: "Trace investigation notes will appear here.",
+    });
+    renderJson("backtest-trace-note-result", {
+      message: "Saved trace notes will appear here.",
+    });
     renderJson("backtest-debug-trace-detail", {
       message: "Full raw trace will appear here.",
     });
@@ -2240,6 +2247,11 @@ function renderBacktestDebugTraceDetail(trace) {
     });
     renderJson("backtest-debug-trace-investigations", {
       message: "Investigation anchors will appear here.",
+    });
+    renderJson("backtest-trace-note-detail", {
+      run_id: trace.run_id || null,
+      debug_trace_id: trace.debug_trace_id || null,
+      notes: [],
     });
     renderJson("backtest-debug-trace-detail", trace);
     return;
@@ -2281,6 +2293,41 @@ function renderBacktestDebugTraceDetail(trace) {
   renderJson("backtest-debug-trace-risk", trace.risk_outcomes_json || []);
   renderJson("backtest-debug-trace-investigations", trace.investigation_anchors || []);
   renderJson("backtest-debug-trace-detail", trace);
+}
+
+function resetTraceNoteForm() {
+  const form = document.getElementById("backtest-trace-note-form");
+  if (!form) {
+    return;
+  }
+  form.reset();
+  form.elements.annotation_id.value = "";
+  form.elements.annotation_type.value = "investigation";
+  form.elements.status.value = "in_review";
+  form.elements.note_source.value = "human";
+  form.elements.verification_state.value = "verified";
+  form.elements.title.value = "";
+  form.elements.summary.value = "";
+  form.elements.verified_findings.value = "";
+  form.elements.open_questions.value = "";
+  form.elements.next_action.value = "";
+}
+
+function populateTraceNoteForm(note) {
+  const form = document.getElementById("backtest-trace-note-form");
+  if (!form) {
+    return;
+  }
+  form.elements.annotation_id.value = note.annotation_id || "";
+  form.elements.annotation_type.value = note.annotation_type || "investigation";
+  form.elements.status.value = note.status || "in_review";
+  form.elements.note_source.value = note.note_source || "human";
+  form.elements.verification_state.value = note.verification_state || "verified";
+  form.elements.title.value = note.title || "";
+  form.elements.summary.value = note.summary || "";
+  form.elements.verified_findings.value = (note.verified_findings || []).join("\n");
+  form.elements.open_questions.value = (note.open_questions || []).join("\n");
+  form.elements.next_action.value = note.next_action || "";
 }
 
 async function saveTraceInvestigationAnchor(formValues) {
@@ -2347,7 +2394,68 @@ function getBacktestTraceFilters(formValues = null) {
   return filters;
 }
 
-function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
+async function loadTraceNotes(runId, debugTraceId, preferredAnnotationId = null) {
+  const notesEnvelope = await fetchEnvelope(
+    `/api/v1/backtests/runs/${runId}/debug-traces/${debugTraceId}/notes`
+  );
+  const notes = notesEnvelope.notes || [];
+  const preferredNote =
+    notes.find((note) => note.annotation_id === preferredAnnotationId) ||
+    notes.find((note) => note.annotation_id === state.selectedTraceNoteId) ||
+    notes.find((note) => note.note_source !== "system") ||
+    notes[0] ||
+    null;
+
+  if (preferredNote) {
+    state.selectedTraceNoteId = preferredNote.annotation_id;
+  } else {
+    state.selectedTraceNoteId = null;
+  }
+
+  renderTable(
+    "backtest-trace-notes-table",
+    [
+      { key: "annotation_id", label: "Note" },
+      { key: "annotation_type", label: "Type" },
+      { key: "status", label: "Status", type: "status" },
+      { key: "note_source", label: "Source", type: "status" },
+      { key: "verification_state", label: "Verify", type: "status" },
+      { key: "title", label: "Title" },
+      { key: "updated_at", label: "Updated" },
+    ],
+    notes,
+    (record) => {
+      state.selectedTraceNoteId = record.annotation_id;
+      renderJson("backtest-trace-note-detail", record);
+      if (record.note_source === "system") {
+        resetTraceNoteForm();
+      } else {
+        populateTraceNoteForm(record);
+      }
+    }
+  );
+
+  if (preferredNote) {
+    renderJson("backtest-trace-note-detail", preferredNote);
+    if (preferredNote.note_source === "system") {
+      resetTraceNoteForm();
+    } else {
+      populateTraceNoteForm(preferredNote);
+    }
+  } else {
+    renderJson("backtest-trace-note-detail", {
+      run_id: notesEnvelope.run_id,
+      debug_trace_id: notesEnvelope.debug_trace_id,
+      step_index: notesEnvelope.step_index,
+      unified_symbol: notesEnvelope.unified_symbol,
+      bar_time: notesEnvelope.bar_time,
+      notes: [],
+    });
+    resetTraceNoteForm();
+  }
+}
+
+async function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
   const records = debugTraces.traces || debugTraces.records || [];
   const contextParts = [`run_id=${runId}`];
   const traceCount =
@@ -2409,20 +2517,45 @@ function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
       { key: "drawdown", label: "Drawdown" },
     ],
     records,
-    (record) => {
+    async (record) => {
       state.selectedBacktestDebugTraceId = record.debug_trace_id;
+      state.selectedTraceNoteId = null;
       renderBacktestDebugTraceDetail(record);
+      await loadTraceNotes(runId, record.debug_trace_id);
     }
   );
 
   if (preferredTrace) {
     renderBacktestDebugTraceDetail(preferredTrace);
+    await loadTraceNotes(runId, preferredTrace.debug_trace_id);
   } else {
     renderBacktestDebugTraceDetail({
       run_id: runId,
       trace_count: traceCount || 0,
       message: "No persisted debug traces matched the current filter for this run.",
     });
+    renderTable(
+      "backtest-trace-notes-table",
+      [
+        { key: "annotation_id", label: "Note" },
+        { key: "annotation_type", label: "Type" },
+        { key: "status", label: "Status", type: "status" },
+        { key: "note_source", label: "Source", type: "status" },
+        { key: "verification_state", label: "Verify", type: "status" },
+        { key: "title", label: "Title" },
+        { key: "updated_at", label: "Updated" },
+      ],
+      []
+    );
+    renderJson("backtest-trace-note-detail", {
+      run_id: runId,
+      notes: [],
+      message: "Select a debug trace row to inspect notes.",
+    });
+    renderJson("backtest-trace-note-result", {
+      message: "Saved trace notes will appear here.",
+    });
+    resetTraceNoteForm();
   }
 }
 
@@ -2688,6 +2821,7 @@ async function loadBacktests(filters = {}) {
 async function loadSelectedBacktestRun(runId) {
   state.selectedBacktestRunId = runId;
   state.selectedBacktestDebugTraceId = null;
+  state.selectedTraceNoteId = null;
   const traceFilters = getBacktestTraceFilters();
   const [detail, diagnostics, artifacts, breakdown, signals, orders, fills, timeseries, debugTraces] =
     await Promise.all([
@@ -2768,7 +2902,7 @@ async function loadSelectedBacktestRun(runId) {
     ],
     timeseries.points || []
   );
-  renderBacktestDebugTraces(runId, debugTraces, traceFilters);
+  await renderBacktestDebugTraces(runId, debugTraces, traceFilters);
 }
 
 async function loadBacktestDebugTraces(formValues = null) {
@@ -2780,7 +2914,7 @@ async function loadBacktestDebugTraces(formValues = null) {
     `/api/v1/backtests/runs/${state.selectedBacktestRunId}/debug-traces`,
     traceFilters
   );
-  renderBacktestDebugTraces(state.selectedBacktestRunId, debugTraces, traceFilters);
+  await renderBacktestDebugTraces(state.selectedBacktestRunId, debugTraces, traceFilters);
 }
 
 async function loadBacktestAssumptionBundles() {
@@ -3061,6 +3195,37 @@ async function saveCompareReviewNote(formValues) {
   await loadCompareNotes(state.selectedCompareSetId, saved.annotation_id);
 }
 
+async function saveTraceInvestigationNote(formValues) {
+  if (!state.selectedBacktestRunId || !state.selectedBacktestDebugTraceId) {
+    throw new Error("Select a debug trace before saving investigation notes.");
+  }
+  const annotationId = Number(formValues.annotation_id);
+  const payload = {
+    annotation_type: String(formValues.annotation_type || "investigation").trim() || "investigation",
+    status: String(formValues.status || "in_review").trim() || "in_review",
+    title: String(formValues.title || "").trim(),
+    summary: String(formValues.summary || "").trim() || null,
+    note_source: String(formValues.note_source || "human").trim() || "human",
+    verification_state: String(formValues.verification_state || "verified").trim() || "verified",
+    verified_findings: normalizeLineList(formValues.verified_findings),
+    open_questions: normalizeLineList(formValues.open_questions),
+    next_action: String(formValues.next_action || "").trim() || null,
+  };
+  if (!payload.title) {
+    throw new Error("title is required");
+  }
+  if (Number.isInteger(annotationId) && annotationId > 0) {
+    payload.annotation_id = annotationId;
+  }
+  const saved = await sendEnvelope(
+    `/api/v1/backtests/runs/${state.selectedBacktestRunId}/debug-traces/${state.selectedBacktestDebugTraceId}/notes`,
+    "POST",
+    payload
+  );
+  renderJson("backtest-trace-note-result", saved);
+  await loadTraceNotes(state.selectedBacktestRunId, state.selectedBacktestDebugTraceId, saved.annotation_id);
+}
+
 async function loadQuality(filters = {}) {
   const [checks, gaps, backfillStatus] = await Promise.all([
     fetchEnvelope("/api/v1/quality/checks", { limit: 30, latest_only: "true", ...filters }),
@@ -3198,6 +3363,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-compare-note-form", saveCompareReviewNote);
   bindForm("backtest-trace-filter-form", loadBacktestDebugTraces);
   bindForm("backtest-trace-investigation-form", saveTraceInvestigationAnchor);
+  bindForm("backtest-trace-note-form", saveTraceInvestigationNote);
   bindBacktestPresetButtons();
   initializeBacktestLaunchControls();
   document.querySelectorAll(".workspace-tab[data-subtab]").forEach((btn) => {
@@ -3207,6 +3373,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeIntegrityValidationControls();
   document.getElementById("backtest-compare-note-reset")?.addEventListener("click", () => {
     resetCompareNoteForm();
+  });
+  document.getElementById("backtest-trace-note-reset")?.addEventListener("click", () => {
+    resetTraceNoteForm();
   });
   document.getElementById("btc-backfill-refresh")?.addEventListener("click", () => {
     loadBtcBackfillStatus().catch((error) => window.alert(error.message));

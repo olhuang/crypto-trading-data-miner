@@ -12,6 +12,7 @@
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
+- grow the new trace-level investigation-note baseline into broader replay expected-vs-observed workflow without redesigning the trace substrate
 - keep the Quality workspace moving toward guided repair actions now that integrity findings can trigger bounded bars repair plus broader dataset-scoped incremental repair/backfill actions
 - keep Binance sentiment-ratio retention/backfill semantics honest now that the endpoints have shown limit-driven truncation on long history windows
 - keep scheduled OI/sentiment maintenance aligned with retention-window continuity now that freshness-only remediation was confirmed to let recent-tail integrity drift
@@ -27,7 +28,7 @@
 ## Next
 - integrate memory workflow with future strategy workbench annotation / review surfaces
 - keep future product-grade frontend work aligned to `docs/frontend-keep-evolve-replace-strategy.md` instead of expanding `/monitoring` without boundaries
-- extend the current replay-investigation anchor substrate into replay notes and broader expected-vs-observed evidence flow
+- extend the current trace-level replay-note baseline into broader replay timeline and expected-vs-observed evidence flow
 - improve compare/analyze maturity with persisted compare-set workflows
 - align cooldown semantics to future explicit protection-trigger events
 - connect the new debug-trace market-context evidence into replay-note flow and future compare/review note anchors
@@ -37,6 +38,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added a first trace-level replay investigation-note foundation on top of persisted debug traces by reusing `research.annotations`, exposing `GET/POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes`, and wiring the minimal read/write flow into `/monitoring -> Backtests -> Investigate`
 - added an API integration regression for `btc_hourly_momentum`, proving `POST /api/v1/backtests/runs` can launch the hourly strategy and the resulting detail/orders/fills/signals/timeseries endpoints all resolve through the real persisted path
 - added a persisted Phase 5 regression for `btc_hourly_momentum`, proving the hourly strategy can consume persisted `1m` bars and write a non-empty backtest run/order/fill/summary path end to end
 - completed the formal bootstrap path for `btc_hourly_momentum@v1.0.0` by adding a DB init seed, aligning the helper seed script, extending seed-default regression coverage, and exposing an Hourly Perp launch preset in `/monitoring`
