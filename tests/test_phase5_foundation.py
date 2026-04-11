@@ -3456,6 +3456,13 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(serialized_empty_list, "[]")
         self.assertEqual(serialized_none, "null")
 
+    def test_empty_risk_outcomes_serialization_reuses_shared_payload(self) -> None:
+        serialized_one = BacktestRunnerSkeleton._serialize_risk_outcomes([])
+        serialized_two = BacktestRunnerSkeleton._serialize_risk_outcomes([])
+
+        self.assertIs(serialized_one, serialized_two)
+        self.assertEqual(serialized_one, [])
+
     def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
         points = [
             PerformancePoint(

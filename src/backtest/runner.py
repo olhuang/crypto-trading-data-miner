@@ -70,6 +70,8 @@ class PersistedBacktestRunResult:
 
 
 class BacktestRunnerSkeleton:
+    _EMPTY_RISK_OUTCOMES_JSON: list[dict[str, Any]] = []
+
     def __init__(
         self,
         run_config: BacktestRunConfig,
@@ -624,12 +626,12 @@ class BacktestRunnerSkeleton:
         serialized_decision: dict[str, Any],
         previous_cooldown_activation_count: int,
     ) -> BacktestDebugTraceRecord:
-        blocked_count = sum(
-            1 for outcome in step_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK
-        )
-        blocked_codes = [
-            outcome.code for outcome in step_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK
-        ]
+        blocked_count = 0
+        blocked_codes: list[str] = []
+        for outcome in step_result.risk_outcomes:
+            if outcome.decision == RiskDecision.BLOCK:
+                blocked_count += 1
+                blocked_codes.append(outcome.code)
         return BacktestDebugTraceRecord(
             step_index=step_index,
             bar_time=bar.bar_time,
@@ -655,10 +657,7 @@ class BacktestRunnerSkeleton:
             drawdown=drawdown,
             market_context_json=serialized_market_context,
             decision_json=serialized_decision,
-            risk_outcomes_json=[
-                BacktestRunnerSkeleton._serialize_risk_outcome(outcome)
-                for outcome in step_result.risk_outcomes
-            ],
+            risk_outcomes_json=BacktestRunnerSkeleton._serialize_risk_outcomes(step_result.risk_outcomes),
         )
 
     @staticmethod
@@ -921,5 +920,16 @@ class BacktestRunnerSkeleton:
                 if outcome.estimated_notional is not None
                 else None
             ),
-            "details_json": dict(outcome.details_json),
+            "details_json": outcome.details_json if outcome.details_json else {},
         }
+
+    @staticmethod
+    def _serialize_risk_outcomes(
+        outcomes: Sequence[RiskGuardrailOutcome],
+    ) -> list[dict[str, Any]]:
+        if not outcomes:
+            return BacktestRunnerSkeleton._EMPTY_RISK_OUTCOMES_JSON
+        return [
+            BacktestRunnerSkeleton._serialize_risk_outcome(outcome)
+            for outcome in outcomes
+        ]

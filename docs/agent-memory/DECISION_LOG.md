@@ -622,3 +622,18 @@ Inside one `insert_debug_traces()` call, cache repository-side JSON serializatio
 ### Impact
 - `insert_debug_traces()` now reuses serialized strings for repeated payload objects within one batch and skips `json.dumps` for common empty payload shapes
 - future full-trace optimization work should focus next on shrinking or caching active-step `risk_outcomes_json` payload construction, and then reassess whether row volume itself needs additional guardrails
+
+## 2026-04-11
+
+### Decision
+Use a shared empty `risk_outcomes_json` payload for trace rows with no guardrail outcomes, and avoid double-scanning the same outcome list when deriving blocked counts and blocked codes.
+
+### Reason
+- the dominant full-trace path still includes many steps with no guardrail outcomes at all
+- even small per-step allocations matter in long-window full-trace runs once the larger sink/JSON hotspots have already been reduced
+- this keeps the trace schema unchanged while trimming repeated empty-list construction and redundant passes over the same outcome collection
+
+### Impact
+- empty-outcome trace rows now reuse one shared `risk_outcomes_json` payload object
+- blocked-count and blocked-code derivation now happen in one loop during trace construction
+- future full-trace work should focus next on active-step outcome payload size and whether full-mode capture volume itself needs additional protections

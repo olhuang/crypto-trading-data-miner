@@ -7,7 +7,7 @@
 
 ## In Progress
 - extend the trace-note / expected-vs-observed foundation into a stronger replay-evidence workflow that can later connect to workbench annotations and review surfaces
-- harden long-window `debug trace full` performance now that per-step sink calls, repeated market-context serialization, repeated quiet-step decision payload construction, and repeated repository-side `json.dumps` have all been reduced; next likely hotspot is per-step risk-outcome payload construction and possibly full-mode row volume itself
+- harden long-window `debug trace full` performance now that per-step sink calls, repeated market-context serialization, repeated quiet-step decision payload construction, repeated repository-side `json.dumps`, and empty risk-outcome payload churn have all been reduced; next likely hotspot is active-step risk-outcome payload construction and possibly full-mode row volume itself
 - continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, streamed persisted timeseries writes, streamed order/fill/debug-trace persistence, batched repository writes, first debug-trace compact mode, and user-facing trace-level presets; next likely hotspots are richer trace compaction policies and generic high-timeframe strategy helpers
 - continue the BTC 4H breakout strategy line now that the first strategy/registry/seed skeleton is landed, with feature-input/context work next
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
@@ -45,6 +45,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- reused one shared empty `risk_outcomes_json` payload for trace rows with no guardrail outcomes and collapsed blocked-count/code extraction into one pass inside debug-trace construction
 - cached repeated repository-side debug-trace JSON serialization results and fast-pathed empty array/object/null payloads to constant JSON strings inside `insert_debug_traces()`
 - cached equivalent quiet-step `decision_json` payloads so full-trace runs stop rebuilding the same `decision_type=none` structure every idle bar when risk state is unchanged
 - cached serialized market-context snapshots for equivalent consecutive trace steps so full-trace runs stop rebuilding the same nested context payload every bar when the latest-as-of context has not changed
