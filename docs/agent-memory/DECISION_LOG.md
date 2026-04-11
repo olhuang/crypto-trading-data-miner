@@ -608,3 +608,17 @@ Cache the serialized quiet-step `decision_json` payload during one backtest run 
 ### Impact
 - repeated idle full-trace steps now reuse one serialized `decision_json` object when cooldown/risk state is unchanged
 - future full-trace performance work should focus next on risk-outcome serialization and repository-side `json.dumps`, since the quiet-step decision path is now cheaper than before
+
+## 2026-04-11
+
+### Decision
+Inside one `insert_debug_traces()` call, cache repository-side JSON serialization results for repeated payload objects and fast-path empty array/object/null payloads to constant JSON strings.
+
+### Reason
+- runner-side payload reuse is only fully useful if the repository does not immediately repeat `json.dumps` on the same object graph for every row
+- long-window full-trace runs now intentionally reuse some `decision_json` and `market_context_json` objects, so repository-side identity-based caching can convert that reuse into less serialization work
+- empty lists, empty dicts, and `None` are especially common in debug traces and do not need repeated JSON encoding
+
+### Impact
+- `insert_debug_traces()` now reuses serialized strings for repeated payload objects within one batch and skips `json.dumps` for common empty payload shapes
+- future full-trace optimization work should focus next on shrinking or caching active-step `risk_outcomes_json` payload construction, and then reassess whether row volume itself needs additional guardrails

@@ -15,6 +15,9 @@ from storage.lookups import resolve_account_id, resolve_instrument_id, resolve_s
 
 class BacktestRunRepository:
     _BATCH_WRITE_CHUNK_SIZE = 500
+    _EMPTY_JSON_ARRAY = "[]"
+    _EMPTY_JSON_OBJECT = "{}"
+    _JSON_NULL = "null"
 
     def insert_run(
         self,
@@ -393,6 +396,7 @@ class BacktestRunRepository:
         order_id_map = order_id_map or {}
         fill_id_map = fill_id_map or {}
         instrument_cache: dict[tuple[str, str], int] = {}
+        json_payload_cache: dict[int, str] = {}
         prepared_rows: list[dict[str, object]] = []
         for trace in debug_traces:
             cache_key = (trace.exchange_code, trace.unified_symbol)
@@ -400,6 +404,8 @@ class BacktestRunRepository:
             if instrument_id is None:
                 instrument_id = resolve_instrument_id(connection, trace.exchange_code, trace.unified_symbol)
                 instrument_cache[cache_key] = instrument_id
+            resolved_order_ids = [order_id_map[order_id] for order_id in trace.created_order_ids if order_id in order_id_map]
+            resolved_fill_ids = [fill_id_map[fill_id] for fill_id in trace.fill_ids if fill_id in fill_id_map]
             prepared_rows.append(
                 {
                     "run_id": run_id,
@@ -412,14 +418,22 @@ class BacktestRunRepository:
                     "signal_count": trace.signal_count,
                     "intent_count": trace.intent_count,
                     "blocked_intent_count": trace.blocked_intent_count,
-                    "blocked_codes_json": json.dumps(trace.blocked_codes, default=str),
+                    "blocked_codes_json": self._serialize_json_payload(
+                        trace.blocked_codes,
+                        cache=json_payload_cache,
+                        empty_json=self._EMPTY_JSON_ARRAY,
+                    ),
                     "created_order_count": trace.created_order_count,
-                    "sim_order_ids_json": json.dumps(
-                        [order_id_map[order_id] for order_id in trace.created_order_ids if order_id in order_id_map]
+                    "sim_order_ids_json": self._serialize_json_payload(
+                        resolved_order_ids,
+                        cache=json_payload_cache,
+                        empty_json=self._EMPTY_JSON_ARRAY,
                     ),
                     "fill_count": trace.fill_count,
-                    "sim_fill_ids_json": json.dumps(
-                        [fill_id_map[fill_id] for fill_id in trace.fill_ids if fill_id in fill_id_map]
+                    "sim_fill_ids_json": self._serialize_json_payload(
+                        resolved_fill_ids,
+                        cache=json_payload_cache,
+                        empty_json=self._EMPTY_JSON_ARRAY,
                     ),
                     "cash": trace.cash,
                     "cash_delta": trace.cash_delta,
@@ -428,9 +442,21 @@ class BacktestRunRepository:
                     "gross_exposure": trace.gross_exposure,
                     "net_exposure": trace.net_exposure,
                     "drawdown": trace.drawdown,
-                    "market_context_json": json.dumps(trace.market_context_json, default=str),
-                    "decision_json": json.dumps(trace.decision_json, default=str),
-                    "risk_outcomes_json": json.dumps(trace.risk_outcomes_json, default=str),
+                    "market_context_json": self._serialize_json_payload(
+                        trace.market_context_json,
+                        cache=json_payload_cache,
+                        empty_json=self._JSON_NULL,
+                    ),
+                    "decision_json": self._serialize_json_payload(
+                        trace.decision_json,
+                        cache=json_payload_cache,
+                        empty_json=self._EMPTY_JSON_OBJECT,
+                    ),
+                    "risk_outcomes_json": self._serialize_json_payload(
+                        trace.risk_outcomes_json,
+                        cache=json_payload_cache,
+                        empty_json=self._EMPTY_JSON_ARRAY,
+                    ),
                 }
             )
 
@@ -507,6 +533,25 @@ class BacktestRunRepository:
             ).scalars().all()
             persisted_ids.extend(int(row) for row in rows)
         return persisted_ids
+
+    @staticmethod
+    def _serialize_json_payload(
+        payload: object,
+        *,
+        cache: dict[int, str],
+        empty_json: str,
+    ) -> str:
+        if payload is None:
+            return empty_json
+        if isinstance(payload, (list, tuple, dict)) and not payload:
+            return empty_json
+        cache_key = id(payload)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        serialized = json.dumps(payload, default=str)
+        cache[cache_key] = serialized
+        return serialized
 
     def _build_params_json(
         self,

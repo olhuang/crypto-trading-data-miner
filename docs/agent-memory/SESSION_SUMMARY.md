@@ -66,6 +66,8 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Reduced repository-side debug-trace JSON serialization overhead by caching `json.dumps(...)` results for repeated payload objects during one `insert_debug_traces()` call and by fast-pathing empty array/object/null payloads to constant JSON strings.
+- Added focused regression coverage for the repository JSON-serialization helper and re-verified persisted compact debug-trace writes after the repository-side optimization.
 - Added runner-side caching for the most common full-trace quiet-step decision payload shape (`decision_type = none`, no signals, no execution intents), keyed by the effective cooldown/risk-state tuple so repeated idle steps no longer rebuild the same `decision_json`.
 - Added focused regression coverage proving equivalent empty-step risk states reuse the cached decision payload, and re-verified the persisted debug-trace path after the cache change.
 - Confirmed that `BacktestPerpContextCursor.context_at()` rebuilds a new `StrategyMarketContext` every step even when the underlying latest-as-of dataset rows have not changed, making repeated market-context serialization a plausible `full`-trace hotspot.

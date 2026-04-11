@@ -3426,6 +3426,36 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(payload_one["execution_intents"], [])
         self.assertEqual(len(cache), 1)
 
+    def test_debug_trace_repository_json_serialization_reuses_cached_payloads(self) -> None:
+        cache: dict[int, str] = {}
+        shared_payload = {"decision_type": "none", "signals": [], "execution_intents": []}
+
+        serialized_one = BacktestRunRepository._serialize_json_payload(
+            shared_payload,
+            cache=cache,
+            empty_json=BacktestRunRepository._EMPTY_JSON_OBJECT,
+        )
+        serialized_two = BacktestRunRepository._serialize_json_payload(
+            shared_payload,
+            cache=cache,
+            empty_json=BacktestRunRepository._EMPTY_JSON_OBJECT,
+        )
+        serialized_empty_list = BacktestRunRepository._serialize_json_payload(
+            [],
+            cache=cache,
+            empty_json=BacktestRunRepository._EMPTY_JSON_ARRAY,
+        )
+        serialized_none = BacktestRunRepository._serialize_json_payload(
+            None,
+            cache=cache,
+            empty_json=BacktestRunRepository._JSON_NULL,
+        )
+
+        self.assertEqual(serialized_one, serialized_two)
+        self.assertEqual(len(cache), 1)
+        self.assertEqual(serialized_empty_list, "[]")
+        self.assertEqual(serialized_none, "null")
+
     def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
         points = [
             PerformancePoint(
