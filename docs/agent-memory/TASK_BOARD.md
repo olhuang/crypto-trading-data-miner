@@ -50,6 +50,8 @@
 
 ## Recently Done
 - added a focused async-job lifecycle test that drives the new backtest run job control path through a real background-thread completion flow and verifies persisted progress summary fields instead of only endpoint-level stubs
+- added a real DB-backed async backtest run-job integration test that launches a short persisted run end to end, polls the job to completion, verifies the created run surfaces, and cleans up the seeded bars/job/run artifacts afterward
+- restored `IngestionJobRepository.insert_requested_by(...)` as a compatibility wrapper over `create_job(...)`, fixing the first real async backtest job integration failure uncovered by the DB-backed test
 - added a first minimal async backtest job path backed by `ops.ingestion_jobs`, real runner `bar_time` progress callbacks, `POST/GET /api/v1/backtests/run-jobs`, and `/monitoring` polling; the old synchronous create endpoint remains in place for compatibility
 - added a second line to the `/monitoring` Backtests launch status so synchronous run launches now show estimated backtest-time progress across the configured window, clearly labeled as estimated rather than true server-side bar progress
 - added `debug_trace_level = full_compressed`, preserving current `full` semantics while compressing contiguous quiet spans to unique `first / high / low / last` rows; the annual 2025 breakout case dropped to about `71s` and `326` persisted trace rows under this mode

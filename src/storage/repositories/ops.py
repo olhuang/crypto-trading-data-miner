@@ -106,6 +106,39 @@ class SystemLogRepository:
 
 
 class IngestionJobRepository:
+    def insert_requested_by(
+        self,
+        connection: Connection,
+        *,
+        requested_by: str,
+        service_name: str,
+        data_type: str,
+        status: str,
+        exchange_code: str | None = None,
+        unified_symbol: str | None = None,
+        schedule_type: str | None = None,
+        window_start: Any | None = None,
+        window_end: Any | None = None,
+        records_expected: int | None = None,
+        records_written: int | None = None,
+        metadata_json: dict[str, Any] | None = None,
+    ) -> int:
+        return self.create_job(
+            connection,
+            service_name=service_name,
+            data_type=data_type,
+            status=status,
+            requested_by=requested_by,
+            exchange_code=exchange_code,
+            unified_symbol=unified_symbol,
+            schedule_type=schedule_type,
+            window_start=window_start,
+            window_end=window_end,
+            records_expected=records_expected,
+            records_written=records_written,
+            metadata_json=metadata_json,
+        )
+
     def create_job(
         self,
         connection: Connection,

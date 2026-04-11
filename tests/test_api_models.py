@@ -19,6 +19,7 @@ if str(SRC_ROOT) not in sys.path:
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
 from pydantic import ValidationError
+from sqlalchemy import text
 
 import api.app as app_module
 import services.backtest_job_control as backtest_job_module
@@ -1428,6 +1429,192 @@ class ModelsApiTests(unittest.TestCase):
 
         self.assertTrue(timeseries_response.success)
         self.assertGreater(len(timeseries_response.data.points), 100)
+
+    def test_backtest_run_job_can_launch_persisted_hourly_run_end_to_end(self) -> None:
+        run_start = datetime(2036, 1, 5, 0, 0, tzinfo=timezone.utc)
+        run_end = run_start + timedelta(minutes=124)
+        job_id = None
+        run_id = None
+
+        with transaction_scope() as connection:
+            bar_repository = BarRepository()
+            for offset in range(60):
+                bar_time = run_start + timedelta(minutes=offset)
+                bar_repository.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": "100",
+                            "high": "100",
+                            "low": "100",
+                            "close": "100",
+                            "volume": "10",
+                        }
+                    ),
+                )
+            for offset in range(60, 120):
+                bar_time = run_start + timedelta(minutes=offset)
+                bar_repository.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": "110",
+                            "high": "110",
+                            "low": "110",
+                            "close": "110",
+                            "volume": "10",
+                        }
+                    ),
+                )
+            for offset in range(120, 124):
+                bar_time = run_start + timedelta(minutes=offset)
+                bar_repository.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": "90",
+                            "high": "90",
+                            "low": "90",
+                            "close": "90",
+                            "volume": "10",
+                        }
+                    ),
+                )
+
+        try:
+            create_response = self.__class__.backtest_run_jobs_create_endpoint(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_hourly_async_api_integration",
+                        "session": {
+                            "session_code": "bt_hourly_async_api_integration",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_hourly_momentum",
+                            "strategy_version": "v1.0.0",
+                            "exchange_code": "binance",
+                            "trading_timezone": "UTC",
+                            "universe": ["BTCUSDT_PERP"],
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "start_time": run_start.isoformat(),
+                        "end_time": run_end.isoformat(),
+                        "initial_cash": "10000",
+                        "assumption_bundle_code": "baseline_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "strategy_params": {"short_window": 1, "long_window": 2, "target_qty": "1"},
+                        "persist_signals": False,
+                        "persist_debug_traces": True,
+                        "debug_trace_level": "full_compressed",
+                    }
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+            self.assertTrue(create_response.success)
+            job_id = create_response.data.job_id
+
+            job_response = None
+            for _ in range(100):
+                job_response = self.__class__.backtest_run_job_detail_endpoint(job_id, "Bearer developer:u_123:Alice")
+                self.assertTrue(job_response.success)
+                if job_response.data.status == "completed":
+                    break
+                if job_response.data.status == "failed":
+                    self.fail(job_response.data.error_message or "async backtest job failed")
+                time.sleep(0.1)
+
+            self.assertIsNotNone(job_response)
+            assert job_response is not None
+            self.assertEqual(job_response.data.status, "completed")
+            self.assertEqual(job_response.data.summary.progress_pct, 100.0)
+            self.assertEqual(job_response.data.summary.current_bar_time, run_end.isoformat())
+            self.assertFalse(job_response.data.process_alive)
+
+            run_id = job_response.data.summary.run_id
+            self.assertIsNotNone(run_id)
+
+            detail_response = self.__class__.backtest_run_detail_endpoint(run_id, "Bearer developer:u_123:Alice")
+            timeseries_response = self.__class__.backtest_run_timeseries_endpoint(run_id, 200, "Bearer developer:u_123:Alice")
+
+            self.assertTrue(detail_response.success)
+            self.assertEqual(detail_response.data.run_id, run_id)
+            self.assertEqual(detail_response.data.strategy_code, "btc_hourly_momentum")
+            self.assertEqual(detail_response.data.session_code, "bt_hourly_async_api_integration")
+
+            self.assertTrue(timeseries_response.success)
+            self.assertGreater(len(timeseries_response.data.points), 100)
+        finally:
+            with transaction_scope() as cleanup_connection:
+                if run_id is not None:
+                    cleanup_connection.execute(
+                        text("delete from backtest.simulated_fills where run_id = :run_id"),
+                        {"run_id": run_id},
+                    )
+                    cleanup_connection.execute(
+                        text("delete from backtest.simulated_orders where run_id = :run_id"),
+                        {"run_id": run_id},
+                    )
+                    cleanup_connection.execute(
+                        text("delete from backtest.performance_timeseries where run_id = :run_id"),
+                        {"run_id": run_id},
+                    )
+                    cleanup_connection.execute(
+                        text("delete from backtest.performance_summary where run_id = :run_id"),
+                        {"run_id": run_id},
+                    )
+                    cleanup_connection.execute(
+                        text("delete from backtest.debug_traces where run_id = :run_id"),
+                        {"run_id": run_id},
+                    )
+                    cleanup_connection.execute(
+                        text("delete from backtest.runs where run_id = :run_id"),
+                        {"run_id": run_id},
+                    )
+                if job_id is not None:
+                    cleanup_connection.execute(
+                        text("delete from ops.ingestion_jobs where ingestion_job_id = :job_id"),
+                        {"job_id": job_id},
+                    )
+                cleanup_connection.execute(
+                    text(
+                        """
+                        delete from md.bars_1m
+                        where instrument_id = (
+                            select instrument.instrument_id
+                            from ref.instruments instrument
+                            join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                            where exchange.exchange_code = :exchange_code
+                              and instrument.unified_symbol = :unified_symbol
+                            limit 1
+                        )
+                          and bar_time between :start_time and :end_time
+                        """
+                    ),
+                    {
+                        "exchange_code": "binance",
+                        "unified_symbol": "BTCUSDT_PERP",
+                        "start_time": run_start,
+                        "end_time": run_end,
+                    },
+                )
 
     def test_backtest_run_create_can_launch_persisted_breakout_run_end_to_end(self) -> None:
         original_transaction_scope = app_module.transaction_scope
