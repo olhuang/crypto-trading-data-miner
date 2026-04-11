@@ -446,3 +446,33 @@ For persisted backtests, create the `backtest.runs` row in `running` state first
 - `load_run_and_persist()` now inserts a pending run, streams timeseries chunks through the repository during execution, and finalizes the run row afterward
 - persisted run regressions now verify `running -> finished` lifecycle behavior and chunked timeseries writes
 - the next performance pass should focus on remaining persisted write volume such as orders, fills, and optional debug traces rather than on performance-timeseries memory retention
+
+## 2026-04-11
+
+### Decision
+For persisted backtests, stream simulated orders, fills, and debug traces during the run whenever possible, and only keep those artifact lists in memory for non-persisted or explicitly inspection-oriented paths.
+
+### Reason
+- after streaming `performance_timeseries`, the next large retained objects in trace-heavy year-plus runs were simulated orders, fills, and debug traces
+- simulated orders can be inserted on creation and later status-updated on fill/expiry, while fills and debug traces can be persisted as soon as their backing persisted order/fill ids are known
+- this preserves the current Phase 5 API behavior while shrinking peak memory for the persisted research path that matters most for long-window execution
+
+### Impact
+- `load_run_and_persist()` now writes orders at creation time, updates order status as fills/expiry happen, writes fills as they occur, and writes debug traces step-by-step when trace persistence is enabled
+- persisted-run regressions now expect streamed artifact behavior and no longer require the loop result to retain those full artifact lists
+- the next optimization pass should focus on reducing total write volume, optional trace sampling/compaction, or batchier insert/update paths rather than on end-of-run artifact retention
+
+## 2026-04-11
+
+### Decision
+When persisted backtests already stream artifacts during execution, reduce SQL round-trips in the repository layer by batching debug-trace inserts and order-status updates instead of writing each row individually.
+
+### Reason
+- after moving artifact persistence into the run loop, round-trip count became the next clear bottleneck for trace-heavy long-window runs
+- debug traces are the highest-volume persisted artifact in investigation-heavy runs, and order-status updates can also accumulate unnecessarily as one-row updates
+- batching at the repository layer improves throughput without changing the current Phase 5 API contract or the trace investigation model
+
+### Impact
+- `BacktestRunRepository.insert_debug_traces()` now inserts traces in batches while still returning trace ids for investigation flows
+- `BacktestRunRepository.update_order_statuses()` now updates statuses in batched SQL instead of row-by-row
+- the next optimization pass should focus on optional trace sampling/compaction or broader batch coverage rather than on raw repository round-trip count for these two paths

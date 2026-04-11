@@ -14,6 +14,8 @@ from storage.lookups import resolve_account_id, resolve_instrument_id, resolve_s
 
 
 class BacktestRunRepository:
+    _BATCH_WRITE_CHUNK_SIZE = 500
+
     def insert_run(
         self,
         connection: Connection,
@@ -166,6 +168,64 @@ class BacktestRunRepository:
             )
             persisted_ids[order.order_id] = sim_order_id
         return persisted_ids
+
+    def update_order_statuses(
+        self,
+        connection: Connection,
+        *,
+        orders: Sequence[SimulatedOrder],
+        order_id_map: dict[str, int],
+    ) -> None:
+        updates = [
+            {
+                "sim_order_id": order_id_map[order.order_id],
+                "status": order.status.value,
+            }
+            for order in orders
+            if order.order_id in order_id_map
+        ]
+        if not updates:
+            return
+
+        for i in range(0, len(updates), self._BATCH_WRITE_CHUNK_SIZE):
+            chunk = updates[i : i + self._BATCH_WRITE_CHUNK_SIZE]
+            connection.execute(
+                text(
+                    """
+                    update backtest.simulated_orders as sim_order
+                    set status = updates.status
+                    from (
+                        values (:sim_order_id_0, :status_0)
+                    ) as updates(sim_order_id, status)
+                    where sim_order.sim_order_id = updates.sim_order_id
+                    """
+                )
+                if len(chunk) == 1
+                else text(
+                    """
+                    update backtest.simulated_orders as sim_order
+                    set status = updates.status
+                    from (
+                        values
+                    """
+                    + ", ".join(
+                        f"(:sim_order_id_{index}, :status_{index})"
+                        for index in range(len(chunk))
+                    )
+                    + """
+                    ) as updates(sim_order_id, status)
+                    where sim_order.sim_order_id = updates.sim_order_id
+                    """
+                ),
+                {
+                    key: value
+                    for index, row in enumerate(chunk)
+                    for key, value in (
+                        (f"sim_order_id_{index}", row["sim_order_id"]),
+                        (f"status_{index}", row["status"]),
+                    )
+                },
+            )
 
     def insert_fills(
         self,
@@ -333,107 +393,119 @@ class BacktestRunRepository:
         order_id_map = order_id_map or {}
         fill_id_map = fill_id_map or {}
         instrument_cache: dict[tuple[str, str], int] = {}
+        prepared_rows: list[dict[str, object]] = []
         for trace in debug_traces:
             cache_key = (trace.exchange_code, trace.unified_symbol)
             instrument_id = instrument_cache.get(cache_key)
             if instrument_id is None:
                 instrument_id = resolve_instrument_id(connection, trace.exchange_code, trace.unified_symbol)
                 instrument_cache[cache_key] = instrument_id
-
-            debug_trace_id = int(
-                connection.execute(
-                    text(
-                        """
-                        insert into backtest.debug_traces (
-                            run_id,
-                            instrument_id,
-                            step_index,
-                            bar_time,
-                            close_price,
-                            current_position_qty,
-                            position_qty_delta,
-                            signal_count,
-                            intent_count,
-                            blocked_intent_count,
-                            blocked_codes_json,
-                            created_order_count,
-                            sim_order_ids_json,
-                            fill_count,
-                            sim_fill_ids_json,
-                            cash,
-                            cash_delta,
-                            equity,
-                            equity_delta,
-                            gross_exposure,
-                            net_exposure,
-                            drawdown,
-                            market_context_json,
-                            decision_json,
-                            risk_outcomes_json
-                        ) values (
-                            :run_id,
-                            :instrument_id,
-                            :step_index,
-                            :bar_time,
-                            :close_price,
-                            :current_position_qty,
-                            :position_qty_delta,
-                            :signal_count,
-                            :intent_count,
-                            :blocked_intent_count,
-                            cast(:blocked_codes_json as jsonb),
-                            :created_order_count,
-                            cast(:sim_order_ids_json as jsonb),
-                            :fill_count,
-                            cast(:sim_fill_ids_json as jsonb),
-                            :cash,
-                            :cash_delta,
-                            :equity,
-                            :equity_delta,
-                            :gross_exposure,
-                            :net_exposure,
-                            :drawdown,
-                            cast(:market_context_json as jsonb),
-                            cast(:decision_json as jsonb),
-                            cast(:risk_outcomes_json as jsonb)
-                        )
-                        returning debug_trace_id
-                        """
+            prepared_rows.append(
+                {
+                    "run_id": run_id,
+                    "instrument_id": instrument_id,
+                    "step_index": trace.step_index,
+                    "bar_time": trace.bar_time,
+                    "close_price": trace.close_price,
+                    "current_position_qty": trace.current_position_qty,
+                    "position_qty_delta": trace.position_qty_delta,
+                    "signal_count": trace.signal_count,
+                    "intent_count": trace.intent_count,
+                    "blocked_intent_count": trace.blocked_intent_count,
+                    "blocked_codes_json": json.dumps(trace.blocked_codes, default=str),
+                    "created_order_count": trace.created_order_count,
+                    "sim_order_ids_json": json.dumps(
+                        [order_id_map[order_id] for order_id in trace.created_order_ids if order_id in order_id_map]
                     ),
-                    {
-                        "run_id": run_id,
-                        "instrument_id": instrument_id,
-                        "step_index": trace.step_index,
-                        "bar_time": trace.bar_time,
-                        "close_price": trace.close_price,
-                        "current_position_qty": trace.current_position_qty,
-                        "position_qty_delta": trace.position_qty_delta,
-                        "signal_count": trace.signal_count,
-                        "intent_count": trace.intent_count,
-                        "blocked_intent_count": trace.blocked_intent_count,
-                        "blocked_codes_json": json.dumps(trace.blocked_codes, default=str),
-                        "created_order_count": trace.created_order_count,
-                        "sim_order_ids_json": json.dumps(
-                            [order_id_map[order_id] for order_id in trace.created_order_ids if order_id in order_id_map]
-                        ),
-                        "fill_count": trace.fill_count,
-                        "sim_fill_ids_json": json.dumps(
-                            [fill_id_map[fill_id] for fill_id in trace.fill_ids if fill_id in fill_id_map]
-                        ),
-                        "cash": trace.cash,
-                        "cash_delta": trace.cash_delta,
-                        "equity": trace.equity,
-                        "equity_delta": trace.equity_delta,
-                        "gross_exposure": trace.gross_exposure,
-                        "net_exposure": trace.net_exposure,
-                        "drawdown": trace.drawdown,
-                        "market_context_json": json.dumps(trace.market_context_json, default=str),
-                        "decision_json": json.dumps(trace.decision_json, default=str),
-                        "risk_outcomes_json": json.dumps(trace.risk_outcomes_json, default=str),
-                    },
-                ).scalar_one()
+                    "fill_count": trace.fill_count,
+                    "sim_fill_ids_json": json.dumps(
+                        [fill_id_map[fill_id] for fill_id in trace.fill_ids if fill_id in fill_id_map]
+                    ),
+                    "cash": trace.cash,
+                    "cash_delta": trace.cash_delta,
+                    "equity": trace.equity,
+                    "equity_delta": trace.equity_delta,
+                    "gross_exposure": trace.gross_exposure,
+                    "net_exposure": trace.net_exposure,
+                    "drawdown": trace.drawdown,
+                    "market_context_json": json.dumps(trace.market_context_json, default=str),
+                    "decision_json": json.dumps(trace.decision_json, default=str),
+                    "risk_outcomes_json": json.dumps(trace.risk_outcomes_json, default=str),
+                }
             )
-            persisted_ids.append(debug_trace_id)
+
+        for i in range(0, len(prepared_rows), self._BATCH_WRITE_CHUNK_SIZE):
+            chunk = prepared_rows[i : i + self._BATCH_WRITE_CHUNK_SIZE]
+            values_sql = ", ".join(
+                f"""(
+                    :run_id_{index},
+                    :instrument_id_{index},
+                    :step_index_{index},
+                    :bar_time_{index},
+                    :close_price_{index},
+                    :current_position_qty_{index},
+                    :position_qty_delta_{index},
+                    :signal_count_{index},
+                    :intent_count_{index},
+                    :blocked_intent_count_{index},
+                    cast(:blocked_codes_json_{index} as jsonb),
+                    :created_order_count_{index},
+                    cast(:sim_order_ids_json_{index} as jsonb),
+                    :fill_count_{index},
+                    cast(:sim_fill_ids_json_{index} as jsonb),
+                    :cash_{index},
+                    :cash_delta_{index},
+                    :equity_{index},
+                    :equity_delta_{index},
+                    :gross_exposure_{index},
+                    :net_exposure_{index},
+                    :drawdown_{index},
+                    cast(:market_context_json_{index} as jsonb),
+                    cast(:decision_json_{index} as jsonb),
+                    cast(:risk_outcomes_json_{index} as jsonb)
+                )"""
+                for index in range(len(chunk))
+            )
+            params: dict[str, object] = {}
+            for index, row in enumerate(chunk):
+                for field_name, value in row.items():
+                    params[f"{field_name}_{index}"] = value
+            rows = connection.execute(
+                text(
+                    f"""
+                    insert into backtest.debug_traces (
+                        run_id,
+                        instrument_id,
+                        step_index,
+                        bar_time,
+                        close_price,
+                        current_position_qty,
+                        position_qty_delta,
+                        signal_count,
+                        intent_count,
+                        blocked_intent_count,
+                        blocked_codes_json,
+                        created_order_count,
+                        sim_order_ids_json,
+                        fill_count,
+                        sim_fill_ids_json,
+                        cash,
+                        cash_delta,
+                        equity,
+                        equity_delta,
+                        gross_exposure,
+                        net_exposure,
+                        drawdown,
+                        market_context_json,
+                        decision_json,
+                        risk_outcomes_json
+                    ) values {values_sql}
+                    returning debug_trace_id
+                    """
+                ),
+                params,
+            ).scalars().all()
+            persisted_ids.extend(int(row) for row in rows)
         return persisted_ids
 
     def _build_params_json(
