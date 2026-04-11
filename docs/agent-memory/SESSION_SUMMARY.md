@@ -66,6 +66,13 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added a new `debug_trace_level = full_compressed` mode that keeps the existing `full` mode intact but compresses contiguous quiet spans down to the unique `first / high / low / last` step rows while still preserving activity rows individually.
+- Wired `full_compressed` through `BacktestRunConfig` validation/defaults and the `/monitoring` launch-level trace preset selector so the new mode is available as a first-class operator choice instead of a hidden runner-only flag.
+- Added focused regression coverage proving `full_compressed` applies the expected defaults and reduces one all-quiet span to the unique `first / high / low / last` rows.
+- Updated the reusable annual profiling script so it now accepts `--debug-trace-level`, making it easy to compare `full` versus `full_compressed` without editing the script body each time.
+- Ran the real DB-backed annual `2025-01-01 -> 2025-12-31` breakout profiling case with `debug_trace_level=full_compressed` and captured artifacts at `tmp/backtest_2025_full_compressed_trace.prof` plus `tmp/backtest_2025_full_compressed_trace_report.txt`.
+- Verified the annual `full_compressed` case dropped from roughly `196s` under the latest `full` path to roughly `71s`, while persisted trace rows dropped from roughly `537,599` to `326`.
+- Verified from the same profile that once quiet-row persistence is compressed that aggressively, the dominant runtime share shifts away from debug-trace bulk inserts and toward the core run loop, market-data iteration, and streamed timeseries writes.
 - Slimmed quiet-row `decision_json` again for full-trace persistence: idle steps now keep `decision_type` plus `risk_state`, but no longer store redundant empty `signals` / `execution_intents` arrays.
 - Re-verified the quiet-step decision cache and persisted quiet-row trace path with `python -m py_compile src/backtest/runner.py tests/test_phase5_foundation.py`, `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_empty_step_decision_serialization_uses_cache_for_equivalent_risk_state -v`, and `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_full_trace_quiet_rows_skip_market_context_snapshot -v`.
 - Added a non-returning persisted debug-trace insert path so `load_run_and_persist()` no longer asks Postgres to return every `debug_trace_id` when the streamed persistence flow does not consume them.

@@ -185,6 +185,21 @@ Persisted streamed backtest runs should insert debug traces without `RETURNING d
 - direct repository use still gets debug-trace ids by default
 - annual profiling confirmed this is a valid but smaller optimization than the earlier SQL-shape and statement-reuse changes; psycopg array dumping remains the main outstanding hotspot
 
+## 2026-04-11
+
+### Decision
+Add a new named debug-trace level `full_compressed` instead of redefining the existing `full` level; `full` should keep exact per-step semantics, while `full_compressed` should preserve all activity rows but compress contiguous quiet spans to the unique `first / high / low / last` trace rows.
+
+### Reason
+- long-window investigations still need one mode that means literal step-by-step persistence, so changing `full` in place would silently break that contract
+- the annual `full` profile showed that quiet-row volume, not just payload shape, had become the dominant persistence problem
+- a `first / high / low / last` quiet-span policy is simple to explain, materially cuts row count, and keeps enough shape to understand what happened between activity points
+
+### Impact
+- operators now have an explicit long-window trace mode that is much cheaper than exact `full` while still preserving activity rows and quiet-span extremes
+- the annual 2025 breakout benchmark dropped from roughly `196s` at the latest optimized `full` path to roughly `71s` under `full_compressed`
+- future replay/workbench work can continue to treat exact `full` and compressed-long-window evidence as separate, explicit contracts rather than one overloaded mode
+
 ## 2026-04-04
 
 ### Decision

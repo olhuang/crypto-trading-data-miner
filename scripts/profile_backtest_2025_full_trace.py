@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--risk-policy-code", default="perp_medium_v1")
     parser.add_argument("--account-code", default="paper_main")
     parser.add_argument("--run-name", default="profile_btc_2025_full_trace")
+    parser.add_argument("--debug-trace-level", default="full")
     parser.add_argument("--initial-cash", default="100000")
     parser.add_argument("--persist-signals", action="store_true", default=True)
     parser.add_argument("--no-persist-signals", dest="persist_signals", action="store_false")
@@ -150,7 +151,7 @@ def build_run_config(args: argparse.Namespace, *, start_time: datetime, end_time
             "initial_cash": args.initial_cash,
             "assumption_bundle_code": args.assumption_bundle_code,
             "assumption_bundle_version": args.assumption_bundle_version,
-            "debug_trace_level": "full",
+            "debug_trace_level": args.debug_trace_level,
             "strategy_params": {
                 "trend_fast_ema": 20,
                 "trend_slow_ema": 50,
@@ -170,7 +171,7 @@ def build_run_config(args: argparse.Namespace, *, start_time: datetime, end_time
                 "max_daily_r_multiple_loss": "2",
             },
             "metadata": {
-                "profile_case": "2025_full_year_full_trace",
+                "profile_case": f"2025_full_year_{args.debug_trace_level}_trace",
                 "rollback": not args.commit,
             },
         }
@@ -227,7 +228,7 @@ def main() -> None:
                 "symbol": args.unified_symbol,
                 "persist_signals": args.persist_signals,
                 "persist_debug_traces": True,
-                "debug_trace_level": "full",
+                "debug_trace_level": args.debug_trace_level,
                 "commit": args.commit,
             },
         )

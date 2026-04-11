@@ -8,6 +8,7 @@
 ## In Progress
 - extend the trace-note / expected-vs-observed foundation into a stronger replay-evidence workflow that can later connect to workbench annotations and review surfaces
 - harden long-window `debug trace full` performance now that per-step sink calls, repeated market-context serialization, repeated quiet-step decision payload construction, repeated repository-side `json.dumps`, empty risk-outcome payload churn, duplicated active-step outcome scans, and quiet-row market-context volume have all been reduced; next likely hotspot is whether quiet-row decision payloads should also be slimmed further or whether full-mode row volume still needs a harder guardrail
+- expose and validate the new `full_compressed` trace mode as the recommended long-window "keep activity + preserve quiet-span shape" option while keeping exact per-step `full` semantics available for narrower investigations
 - use the new 2025 annual full-trace profiling case as the current evidence source for bottleneck work; after reusing one constant `insert_debug_traces()` statement object, slimming quiet-row `decision_json`, and removing streamed-run `RETURNING debug_trace_id`, the measured hotspot is still psycopg array dumping plus DB execute wait during trace persistence
 - continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, streamed persisted timeseries writes, streamed order/fill/debug-trace persistence, batched repository writes, first debug-trace compact mode, and user-facing trace-level presets; next likely hotspots are richer trace compaction policies and generic high-timeframe strategy helpers
 - continue the BTC 4H breakout strategy line now that the first strategy/registry/seed skeleton is landed, with feature-input/context work next
@@ -46,6 +47,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added `debug_trace_level = full_compressed`, preserving current `full` semantics while compressing contiguous quiet spans to unique `first / high / low / last` rows; the annual 2025 breakout case dropped to about `71s` and `326` persisted trace rows under this mode
 - slimmed quiet full-trace `decision_json` rows to keep only `decision_type` plus `risk_state`, then confirmed the annual full-trace case dropped again into the `~196-199s` range while psycopg array dumping stayed the clearest remaining persistence bottleneck
 - removed `RETURNING debug_trace_id` from the streamed persisted-run debug-trace path when those ids are not consumed, confirming the path is valid even though the measured annual win is much smaller than the earlier SQL-shape/statement-reuse gains
 - reused one constant SQLAlchemy statement object for `insert_debug_traces()` and re-profiled the full real 2025 breakout + full-trace case, cutting elapsed time from about `491s` to about `233s` and shifting the dominant cost from SQLAlchemy/cache-key churn to psycopg array dumping plus execute wait

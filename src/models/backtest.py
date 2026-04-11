@@ -317,6 +317,7 @@ class BacktestRunConfig(BaseContractModel):
     def validate_run_config(self) -> "BacktestRunConfig":
         debug_trace_level_defaults = {
             "full": {"debug_trace_stride": 1, "debug_trace_activity_only": False},
+            "full_compressed": {"debug_trace_stride": 1, "debug_trace_activity_only": False},
             "compact": {"debug_trace_stride": 12, "debug_trace_activity_only": True},
             "sparse": {"debug_trace_stride": 60, "debug_trace_activity_only": True},
         }
@@ -347,7 +348,7 @@ class BacktestRunConfig(BaseContractModel):
         if self.debug_trace_level is not None:
             self.debug_trace_level = self.debug_trace_level.strip().lower()
             if self.debug_trace_level not in debug_trace_level_defaults:
-                raise ValueError("debug_trace_level must be one of: compact, full, sparse")
+                raise ValueError("debug_trace_level must be one of: compact, full, full_compressed, sparse")
             defaults = debug_trace_level_defaults[self.debug_trace_level]
             if self.debug_trace_stride is None:
                 self.debug_trace_stride = defaults["debug_trace_stride"]

@@ -35,6 +35,7 @@ const INTEGRITY_DATASET_FIELDS = [
 
 const DEBUG_TRACE_LEVEL_DEFAULTS = {
   full: { stride: "1", activityOnly: false, label: "Full" },
+  full_compressed: { stride: "1", activityOnly: false, label: "Full Compressed" },
   compact: { stride: "12", activityOnly: true, label: "Compact" },
   sparse: { stride: "60", activityOnly: true, label: "Sparse" },
 };

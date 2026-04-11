@@ -252,7 +252,7 @@
                   <div class="details-panel-body">
                     <div class="form-grid">
                       <label class="checkbox-field field-span-2"><input type="checkbox" name="persist_debug_traces" /><span class="checkbox-copy"><strong>Persist Debug Traces</strong><span>Store compact step-level traces for later investigation.</span></span></label>
-                      <label class="field"><span class="field-label">Debug Trace Level</span><select name="debug_trace_level"><option value="">Manual / None</option><option value="full">Full</option><option value="compact">Compact</option><option value="sparse">Sparse</option></select></label>
+                      <label class="field"><span class="field-label">Debug Trace Level</span><select name="debug_trace_level"><option value="">Manual / None</option><option value="full">Full</option><option value="full_compressed">Full Compressed</option><option value="compact">Compact</option><option value="sparse">Sparse</option></select></label>
                       <label class="field"><span class="field-label">Debug Trace Stride</span><input name="debug_trace_stride" type="number" min="1" placeholder="1 = every eligible step" /></label>
                       <label class="checkbox-field"><input type="checkbox" name="debug_trace_activity_only" /><span class="checkbox-copy"><strong>Activity-Only Trace Mode</strong><span>Always keep steps with signals, orders, fills, or blocks; skip quiet background steps unless sampled by stride.</span></span></label>
                       <p id="backtest-debug-trace-config-hint" class="field-hint field-span-2">Choose a trace level to auto-fill sampling defaults, or edit stride/activity manually to override them.</p>

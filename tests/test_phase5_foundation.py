@@ -2527,6 +2527,73 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(run_config.debug_trace_stride, 60)
         self.assertTrue(run_config.debug_trace_activity_only)
 
+        compressed_run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_debug_trace_level_full_compressed_defaults",
+                "session": {
+                    "session_code": "bt_btc_debug_trace_level_full_compressed_defaults",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2036-01-02T00:00:00Z",
+                "end_time": "2036-01-02T00:03:00Z",
+                "initial_cash": "10000",
+                "debug_trace_level": "full_compressed",
+            }
+        )
+
+        self.assertEqual(compressed_run_config.debug_trace_level, "full_compressed")
+        self.assertEqual(compressed_run_config.debug_trace_stride, 1)
+        self.assertFalse(compressed_run_config.debug_trace_activity_only)
+
+    def test_run_bars_full_compressed_trace_keeps_first_high_low_last_for_quiet_span(self) -> None:
+        run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), close)
+            for offset, close in enumerate(["350", "340", "399", "301", "360"])
+        ]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_debug_trace_full_compressed_mode",
+                "session": {
+                    "session_code": "bt_btc_debug_trace_full_compressed_mode",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "noop_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=5)).isoformat(),
+                "initial_cash": "10000",
+                "debug_trace_level": "full_compressed",
+            }
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=NoOpStrategy(),
+        )
+
+        loop_result = runner.run_bars(
+            bars,
+            capture_steps=False,
+            capture_debug_traces=True,
+            assume_sorted=True,
+        )
+
+        self.assertEqual(loop_result.debug_trace_count, 4)
+        self.assertEqual(len(loop_result.debug_traces), 4)
+        self.assertEqual([trace.step_index for trace in loop_result.debug_traces], [1, 3, 4, 5])
+        self.assertEqual(
+            [str(trace.close_price) for trace in loop_result.debug_traces],
+            ["350", "399", "301", "360"],
+        )
+
     def test_load_run_and_persist_compact_debug_trace_mode_persists_sampling_config(self) -> None:
         run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
         bars = [

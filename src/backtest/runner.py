@@ -69,6 +69,35 @@ class PersistedBacktestRunResult:
     loop_result: BacktestRunLoopResult
 
 
+@dataclass(slots=True)
+class QuietTraceCompressionSpan:
+    first: BacktestDebugTraceRecord
+    high: BacktestDebugTraceRecord
+    low: BacktestDebugTraceRecord
+    last: BacktestDebugTraceRecord
+
+    def add(self, record: BacktestDebugTraceRecord) -> None:
+        self.last = record
+        if record.close_price > self.high.close_price:
+            self.high = record
+        if record.close_price < self.low.close_price:
+            self.low = record
+
+    def selected_records(self) -> list[BacktestDebugTraceRecord]:
+        ordered_records = sorted(
+            (self.first, self.high, self.low, self.last),
+            key=lambda record: record.step_index,
+        )
+        selected: list[BacktestDebugTraceRecord] = []
+        seen_step_indexes: set[int] = set()
+        for record in ordered_records:
+            if record.step_index in seen_step_indexes:
+                continue
+            seen_step_indexes.add(record.step_index)
+            selected.append(record)
+        return selected
+
+
 class BacktestRunnerSkeleton:
     _EMPTY_RISK_OUTCOMES_JSON: list[dict[str, Any]] = []
 
@@ -185,14 +214,34 @@ class BacktestRunnerSkeleton:
         captured_debug_trace_count = 0
         previous_trace_cash = portfolio.cash
         previous_trace_equity = portfolio.cash
+        quiet_trace_span: QuietTraceCompressionSpan | None = None
         previous_position_qty_by_symbol: dict[str, Decimal] = {
             symbol: qty for symbol, qty in portfolio.positions.items()
         }
+        use_full_trace_quiet_compression = self.run_config.debug_trace_level == "full_compressed"
 
         def flush_debug_trace_buffer() -> None:
             if debug_trace_sink is not None and debug_trace_buffer:
                 debug_trace_sink(tuple(debug_trace_buffer))
                 debug_trace_buffer.clear()
+
+        def emit_debug_trace_record(record: BacktestDebugTraceRecord) -> None:
+            nonlocal captured_debug_trace_count
+            captured_debug_trace_count += 1
+            if collect_debug_traces:
+                debug_traces.append(record)
+            elif debug_trace_sink is not None:
+                debug_trace_buffer.append(record)
+                if len(debug_trace_buffer) >= debug_trace_sink_chunk_size:
+                    flush_debug_trace_buffer()
+
+        def flush_quiet_trace_span() -> None:
+            nonlocal quiet_trace_span
+            if quiet_trace_span is None:
+                return
+            for record in quiet_trace_span.selected_records():
+                emit_debug_trace_record(record)
+            quiet_trace_span = None
 
         history_cap = self.strategy.required_bar_history
         ordered_bars = bars if assume_sorted else sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
@@ -334,13 +383,21 @@ class BacktestRunnerSkeleton:
                             ),
                             previous_cooldown_activation_count=previous_cooldown_activation_count,
                         )
-                        captured_debug_trace_count += 1
-                        if collect_debug_traces:
-                            debug_traces.append(trace_record)
-                        elif debug_trace_sink is not None:
-                            debug_trace_buffer.append(trace_record)
-                            if len(debug_trace_buffer) >= debug_trace_sink_chunk_size:
-                                flush_debug_trace_buffer()
+                        if use_full_trace_quiet_compression and not is_activity_step:
+                            if quiet_trace_span is None:
+                                quiet_trace_span = QuietTraceCompressionSpan(
+                                    first=trace_record,
+                                    high=trace_record,
+                                    low=trace_record,
+                                    last=trace_record,
+                                )
+                            else:
+                                quiet_trace_span.add(trace_record)
+                        else:
+                            flush_quiet_trace_span()
+                            emit_debug_trace_record(trace_record)
+                    elif use_full_trace_quiet_compression:
+                        flush_quiet_trace_span()
                     previous_trace_cash = trace_mark.cash
                     previous_trace_equity = trace_mark.equity
                     if current_position_qty == 0:
@@ -376,6 +433,7 @@ class BacktestRunnerSkeleton:
         if order_status_sink is not None and open_orders:
             order_status_sink(tuple(open_orders))
 
+        flush_quiet_trace_span()
         if performance_point_sink is not None and performance_point_buffer:
             performance_point_sink(tuple(performance_point_buffer))
         flush_debug_trace_buffer()
