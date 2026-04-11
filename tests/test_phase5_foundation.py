@@ -3344,6 +3344,36 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(flushed_chunks[0][0].step_index, 1)
         self.assertEqual(flushed_chunks[-1][-1].step_index, 12)
 
+    def test_market_context_snapshot_serialization_uses_cache_for_equivalent_steps(self) -> None:
+        shared_ratio_row = {
+            "event_time": datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+            "period_code": "5m",
+            "long_short_ratio": Decimal("1.30"),
+        }
+        shared_taker_row = {
+            "event_time": datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+            "period_code": "5m",
+            "buy_sell_ratio": Decimal("1.08"),
+        }
+        cache: dict[tuple[object, ...], dict[str, object]] = {}
+        context_one = StrategyMarketContext(
+            feature_input_version="bars_perp_context_v1",
+            global_long_short_account_ratio=shared_ratio_row,
+            taker_long_short_ratio=shared_taker_row,
+        )
+        context_two = StrategyMarketContext(
+            feature_input_version="bars_perp_context_v1",
+            global_long_short_account_ratio=shared_ratio_row,
+            taker_long_short_ratio=shared_taker_row,
+        )
+
+        snapshot_one = BacktestRunnerSkeleton._serialize_market_context_snapshot_cached(context_one, cache)
+        snapshot_two = BacktestRunnerSkeleton._serialize_market_context_snapshot_cached(context_two, cache)
+
+        self.assertIsNotNone(snapshot_one)
+        self.assertIs(snapshot_one, snapshot_two)
+        self.assertEqual(len(cache), 1)
+
     def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
         points = [
             PerformancePoint(

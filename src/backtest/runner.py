@@ -173,6 +173,7 @@ class BacktestRunnerSkeleton:
         performance_point_buffer: list[PerformancePoint] = []
         debug_trace_buffer: list[BacktestDebugTraceRecord] = []
         latest_close_by_symbol: dict[str, Decimal] = {}
+        serialized_market_context_cache: dict[tuple[object, ...], dict[str, Any]] = {}
         running_peak_equity = portfolio.cash
         max_drawdown = Decimal("0")
         latest_performance_point: PerformancePoint | None = None
@@ -311,7 +312,10 @@ class BacktestRunnerSkeleton:
                             previous_cash=previous_trace_cash,
                             previous_equity=previous_trace_equity,
                             drawdown=trace_drawdown,
-                            market_context=market_context,
+                            serialized_market_context=self._serialize_market_context_snapshot_cached(
+                                market_context,
+                                serialized_market_context_cache,
+                            ),
                             risk_state_snapshot=risk_state_snapshot,
                             previous_cooldown_activation_count=previous_cooldown_activation_count,
                         )
@@ -610,7 +614,7 @@ class BacktestRunnerSkeleton:
         previous_cash: Decimal,
         previous_equity: Decimal,
         drawdown: Decimal,
-        market_context: StrategyMarketContext | None,
+        serialized_market_context: dict[str, Any] | None,
         risk_state_snapshot: dict[str, object],
         previous_cooldown_activation_count: int,
     ) -> BacktestDebugTraceRecord:
@@ -643,7 +647,7 @@ class BacktestRunnerSkeleton:
             gross_exposure=trace_mark.gross_exposure,
             net_exposure=trace_mark.net_exposure,
             drawdown=drawdown,
-            market_context_json=BacktestRunnerSkeleton._serialize_market_context_snapshot(market_context),
+            market_context_json=serialized_market_context,
             decision_json=BacktestRunnerSkeleton._serialize_step_decision(
                 step_result,
                 risk_state_snapshot=risk_state_snapshot,
@@ -698,6 +702,51 @@ class BacktestRunnerSkeleton:
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
             return [BacktestRunnerSkeleton._serialize_context_value(item) for item in value]
         return value
+
+    @staticmethod
+    def _market_context_snapshot_cache_key(
+        market_context: StrategyMarketContext | None,
+    ) -> tuple[object, ...] | None:
+        if market_context is None:
+            return None
+        return (
+            market_context.feature_input_version,
+            id(market_context.funding_rate) if market_context.funding_rate is not None else None,
+            id(market_context.open_interest) if market_context.open_interest is not None else None,
+            id(market_context.mark_price) if market_context.mark_price is not None else None,
+            id(market_context.index_price) if market_context.index_price is not None else None,
+            id(market_context.global_long_short_account_ratio)
+            if market_context.global_long_short_account_ratio is not None
+            else None,
+            id(market_context.top_trader_long_short_account_ratio)
+            if market_context.top_trader_long_short_account_ratio is not None
+            else None,
+            id(market_context.top_trader_long_short_position_ratio)
+            if market_context.top_trader_long_short_position_ratio is not None
+            else None,
+            id(market_context.taker_long_short_ratio) if market_context.taker_long_short_ratio is not None else None,
+            market_context.minutes_to_next_funding,
+            market_context.oi_change_pct_window,
+            market_context.price_change_pct_window,
+            market_context.weak_price_oi_push,
+        )
+
+    @staticmethod
+    def _serialize_market_context_snapshot_cached(
+        market_context: StrategyMarketContext | None,
+        cache: dict[tuple[object, ...], dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        cache_key = BacktestRunnerSkeleton._market_context_snapshot_cache_key(market_context)
+        if cache_key is None:
+            return None
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        serialized = BacktestRunnerSkeleton._serialize_market_context_snapshot(market_context)
+        if serialized is None:
+            return None
+        cache[cache_key] = serialized
+        return serialized
 
     @staticmethod
     def _serialize_step_decision(

@@ -580,3 +580,17 @@ When persisted backtests capture debug traces, the runner should buffer trace re
 ### Impact
 - persisted full-trace runs now hand off debug traces to the repository in buffered chunks rather than one-record tuples
 - future long-window trace-performance work should focus next on payload construction/serialization cost and optional full-mode guardrails instead of revisiting per-step sink frequency first
+
+## 2026-04-11
+
+### Decision
+Cache serialized market-context snapshots during one backtest run when consecutive trace steps observe the same underlying latest-as-of context rows and derived scalar fields.
+
+### Reason
+- `context_at()` rebuilds a fresh `StrategyMarketContext` every step, but the underlying dataset rows often remain unchanged across many consecutive bars
+- full-trace runs were therefore paying repeated nested serialization cost for equivalent market-context payloads even before the repository-level `json.dumps` step
+- caching at the runner layer preserves the existing trace schema and trace-row density while cutting a repeated Python-side cost from the hottest path
+
+### Impact
+- equivalent consecutive trace steps now reuse one serialized market-context snapshot object instead of rebuilding the same nested payload repeatedly
+- future full-trace performance work should focus next on decision/risk payload construction and repository-side JSON serialization cost, since market-context repeat work is no longer the only obvious per-step hotspot

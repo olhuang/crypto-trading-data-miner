@@ -66,6 +66,9 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Confirmed that `BacktestPerpContextCursor.context_at()` rebuilds a new `StrategyMarketContext` every step even when the underlying latest-as-of dataset rows have not changed, making repeated market-context serialization a plausible `full`-trace hotspot.
+- Added runner-side market-context snapshot caching keyed by the reused underlying dataset-row references plus derived scalar fields, so equivalent consecutive context states now reuse one serialized payload instead of rebuilding the same nested JSON-friendly structure every step.
+- Added focused regression coverage proving equivalent context steps reuse the cached serialized snapshot and re-verified the persisted market-context debug-trace path after the cache change.
 - Investigated the current `debug trace level = full` long-window bottleneck and confirmed one major avoidable cost: persisted debug traces were still flowing through the runner as one sink call per captured step.
 - Buffered runner-side debug-trace persistence with chunked sink flushes, so full-trace runs now hand off trace rows in batches instead of one-record tuples even when every step is captured.
 - Added focused regression coverage proving full-trace mode flushes sink writes in chunks (`5, 5, 2` in the test fixture) instead of falling back to per-step persistence calls.
