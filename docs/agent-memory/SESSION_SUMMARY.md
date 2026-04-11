@@ -123,3 +123,5 @@
 - Verified the signal-linkage follow-up with `node --check frontend/monitoring/app.js`, `python -m py_compile tests\\test_api_models.py`, and `& .\\.venv\\Scripts\\python.exe -m unittest tests.test_api_models.ModelsApiTests.test_backtest_run_create_accepts_hourly_strategy_request tests.test_api_models.ModelsApiTests.test_backtest_run_create_accepts_breakout_strategy_request -v`.
 - Improved the `/monitoring -> Backtests -> Runs` Period Breakdown workspace so it now has a clearer explanatory header plus an in-place `Month / Quarter / Year` period-type toggle instead of a fixed month-only view.
 - Verified the Period Breakdown UI follow-up with `node --check frontend/monitoring/app.js`.
+- Clarified backtest performance metric display in `/monitoring` by formatting `Return`, `Annualized Return`, and `Max Drawdown` as percentages across the run list, run summary, compare views, and period breakdown tables.
+- Verified the percentage-formatting follow-up with `node --check frontend/monitoring/app.js`.

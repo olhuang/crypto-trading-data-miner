@@ -265,6 +265,19 @@ function formatValue(value) {
   return String(value);
 }
 
+function formatPercentRatio(value, digits = 2) {
+  value = normalizeDisplayValue(value);
+  if (value === null || value === undefined || value === "") {
+    return "â€”";
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return formatValue(value);
+  }
+  const normalized = Object.is(numeric, -0) ? 0 : numeric;
+  return `${(normalized * 100).toFixed(digits)}%`;
+}
+
 async function fetchEnvelope(path, query = {}) {
   const url = new URL(path, window.location.origin);
   for (const [key, value] of Object.entries(query)) {
@@ -925,12 +938,12 @@ function renderBacktestRunSummary(detail) {
     },
     {
       label: "Return",
-      value: formatValue(detail.total_return),
-      detail: `Annualized ${formatValue(detail.annualized_return)}`,
+      value: formatPercentRatio(detail.total_return),
+      detail: `Annualized ${formatPercentRatio(detail.annualized_return)}`,
     },
     {
       label: "Max Drawdown",
-      value: formatValue(detail.max_drawdown),
+      value: formatPercentRatio(detail.max_drawdown),
       detail: `Turnover ${formatValue(detail.turnover)}`,
     },
     {
@@ -2945,9 +2958,9 @@ function renderSelectedComparedRun(run) {
   renderPropertyGrid(
     "backtest-compare-run-kpis",
     [
-      { label: "Total Return", value: run.total_return },
-      { label: "Annualized Return", value: run.annualized_return },
-      { label: "Max Drawdown", value: run.max_drawdown },
+      { label: "Total Return", value: formatPercentRatio(run.total_return) },
+      { label: "Annualized Return", value: formatPercentRatio(run.annualized_return) },
+      { label: "Max Drawdown", value: formatPercentRatio(run.max_drawdown) },
       { label: "Turnover", value: run.turnover },
       { label: "Win Rate", value: run.win_rate },
       { label: "Fee Cost", value: run.fee_cost },
@@ -3181,8 +3194,8 @@ function renderCompareResult(compareSet) {
       { key: "diagnostic_warning_count", label: "Warn" },
       { key: "diagnostic_error_count", label: "Err" },
       { key: "blocked_intent_count", label: "Blocked" },
-      { key: "total_return", label: "Return" },
-      { key: "max_drawdown", label: "Max DD" },
+      { key: "total_return", label: "Return", render: (_, rawValue) => formatPercentRatio(rawValue) },
+      { key: "max_drawdown", label: "Max DD", render: (_, rawValue) => formatPercentRatio(rawValue) },
       { key: "turnover", label: "Turnover" },
       { key: "fee_cost", label: "Fees" },
       { key: "slippage_cost", label: "Slip" },
@@ -3237,9 +3250,9 @@ function renderCompareResult(compareSet) {
     [
       { key: "run_id", label: "Run" },
       { key: "benchmark_run_id", label: "Benchmark" },
-      { key: "total_return_delta", label: "Return Delta" },
-      { key: "annualized_return_delta", label: "Annualized Delta" },
-      { key: "max_drawdown_delta", label: "Max DD Delta" },
+      { key: "total_return_delta", label: "Return Delta", render: (_, rawValue) => formatPercentRatio(rawValue) },
+      { key: "annualized_return_delta", label: "Annualized Delta", render: (_, rawValue) => formatPercentRatio(rawValue) },
+      { key: "max_drawdown_delta", label: "Max DD Delta", render: (_, rawValue) => formatPercentRatio(rawValue) },
       { key: "turnover_delta", label: "Turnover Delta" },
       { key: "win_rate_delta", label: "Win Rate Delta" },
     ],
@@ -3397,7 +3410,7 @@ async function loadBacktests(filters = {}) {
       { key: "strategy_version", label: "Version" },
       { key: "status", label: "Status", type: "status" },
       { key: "account_code", label: "Account" },
-      { key: "total_return", label: "Return" },
+      { key: "total_return", label: "Return", render: (_, rawValue) => formatPercentRatio(rawValue) },
       { key: "created_at", label: "Created" },
     ],
     runs.runs,
@@ -3510,8 +3523,8 @@ function renderBacktestPeriodBreakdown(breakdown) {
     [
       { key: "period_start", label: "Period Start" },
       { key: "period_end", label: "Period End" },
-      { key: "total_return", label: "Return" },
-      { key: "max_drawdown", label: "Max DD" },
+      { key: "total_return", label: "Return", render: (_, rawValue) => formatPercentRatio(rawValue) },
+      { key: "max_drawdown", label: "Max DD", render: (_, rawValue) => formatPercentRatio(rawValue) },
       { key: "turnover", label: "Turnover" },
       { key: "signal_count", label: "Signals" },
       { key: "fill_count", label: "Fills" },
