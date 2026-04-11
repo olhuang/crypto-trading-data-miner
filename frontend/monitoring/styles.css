@@ -596,6 +596,33 @@ select {
   color: var(--muted);
 }
 
+.summary-card.status-warning,
+.summary-card.status-error,
+.summary-card.status-info,
+.summary-card.status-ok,
+.summary-card.status-assumption,
+.summary-card.status-diagnostic {
+  border-style: solid;
+}
+
+.summary-card.status-warning {
+  background: rgba(154, 111, 16, 0.08);
+  border-color: rgba(154, 111, 16, 0.35);
+}
+
+.summary-card.status-error {
+  background: rgba(173, 63, 53, 0.08);
+  border-color: rgba(173, 63, 53, 0.35);
+}
+
+.summary-card.status-info,
+.summary-card.status-assumption,
+.summary-card.status-diagnostic,
+.summary-card.status-ok {
+  background: rgba(30, 91, 79, 0.06);
+  border-color: rgba(30, 91, 79, 0.25);
+}
+
 .table-shell {
   overflow: auto;
 }

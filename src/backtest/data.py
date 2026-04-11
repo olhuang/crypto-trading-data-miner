@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from decimal import Decimal
+from heapq import merge
 from typing import Any
 
 from sqlalchemy import text
@@ -16,7 +18,9 @@ from strategy.base import StrategyMarketContext
 
 FEATURE_INPUT_BARS_ONLY_V1 = "bars_only_v1"
 FEATURE_INPUT_BARS_PERP_CONTEXT_V1 = "bars_perp_context_v1"
+FEATURE_INPUT_BARS_PERP_BREAKOUT_CONTEXT_V1 = "bars_perp_breakout_context_v1"
 DEFAULT_SENTIMENT_RATIO_PERIOD = "5m"
+BREAKOUT_CONTEXT_WINDOW = timedelta(hours=4)
 
 PERP_CONTEXT_DATASET_SPECS: dict[str, dict[str, Any]] = {
     "funding_rate": {
@@ -104,6 +108,8 @@ class BacktestPerpContextCursor:
         if not self._latest_values:
             return None
 
+        derived_fields = self._build_derived_breakout_fields(decision_time)
+
         return StrategyMarketContext(
             feature_input_version=self.feature_input_version,
             funding_rate=self._latest_values.get("funding_rate"),
@@ -114,7 +120,83 @@ class BacktestPerpContextCursor:
             top_trader_long_short_account_ratio=self._latest_values.get("top_trader_long_short_account_ratio"),
             top_trader_long_short_position_ratio=self._latest_values.get("top_trader_long_short_position_ratio"),
             taker_long_short_ratio=self._latest_values.get("taker_long_short_ratio"),
+            minutes_to_next_funding=derived_fields["minutes_to_next_funding"],
+            oi_change_pct_window=derived_fields["oi_change_pct_window"],
+            price_change_pct_window=derived_fields["price_change_pct_window"],
+            weak_price_oi_push=derived_fields["weak_price_oi_push"],
         )
+
+    def _build_derived_breakout_fields(self, decision_time: datetime) -> dict[str, Any]:
+        derived_fields = {
+            "minutes_to_next_funding": None,
+            "oi_change_pct_window": None,
+            "price_change_pct_window": None,
+            "weak_price_oi_push": None,
+        }
+        if self.feature_input_version != FEATURE_INPUT_BARS_PERP_BREAKOUT_CONTEXT_V1:
+            return derived_fields
+
+        derived_fields["minutes_to_next_funding"] = self._minutes_to_next_funding(decision_time)
+        oi_change_pct = self._percentage_change_over_window(
+            self.series.open_interest,
+            value_field="open_interest",
+            decision_time=decision_time,
+        )
+        price_change_pct = self._percentage_change_over_window(
+            self.series.mark_price,
+            value_field="mark_price",
+            decision_time=decision_time,
+        )
+        if price_change_pct is None:
+            price_change_pct = self._percentage_change_over_window(
+                self.series.index_price,
+                value_field="index_price",
+                decision_time=decision_time,
+            )
+
+        derived_fields["oi_change_pct_window"] = oi_change_pct
+        derived_fields["price_change_pct_window"] = price_change_pct
+        if oi_change_pct is not None and price_change_pct is not None:
+            derived_fields["weak_price_oi_push"] = oi_change_pct > abs(price_change_pct)
+        return derived_fields
+
+    @staticmethod
+    def _minutes_to_next_funding(decision_time: datetime) -> int:
+        normalized = decision_time.replace(second=0, microsecond=0)
+        next_hour = ((normalized.hour // 8) + 1) * 8
+        next_funding = normalized.replace(minute=0)
+        if next_hour >= 24:
+            next_funding = next_funding.replace(hour=0) + timedelta(days=1)
+        else:
+            next_funding = next_funding.replace(hour=next_hour)
+        return int((next_funding - normalized).total_seconds() // 60)
+
+    @staticmethod
+    def _percentage_change_over_window(
+        rows: list[dict[str, Any]],
+        *,
+        value_field: str,
+        decision_time: datetime,
+    ) -> Decimal | None:
+        latest_row = BacktestPerpContextCursor._latest_row_before_or_at(rows, decision_time)
+        prior_row = BacktestPerpContextCursor._latest_row_before_or_at(rows, decision_time - BREAKOUT_CONTEXT_WINDOW)
+        if latest_row is None or prior_row is None:
+            return None
+        latest_value = Decimal(str(latest_row.get(value_field) or "0"))
+        prior_value = Decimal(str(prior_row.get(value_field) or "0"))
+        if prior_value == 0:
+            return None
+        return (latest_value - prior_value) / prior_value
+
+    @staticmethod
+    def _latest_row_before_or_at(rows: list[dict[str, Any]], ts: datetime) -> dict[str, Any] | None:
+        latest: dict[str, Any] | None = None
+        for row in rows:
+            if row["event_time"] <= ts:
+                latest = row
+            else:
+                break
+        return latest
 
 
 class BacktestBarLoader:
@@ -128,13 +210,28 @@ class BacktestBarLoader:
         *,
         required_bar_history: int | None = None,
     ) -> list[BarEvent]:
+        return list(
+            self.iter_bars(
+                connection,
+                run_config,
+                required_bar_history=required_bar_history,
+            )
+        )
+
+    def iter_bars(
+        self,
+        connection: Connection,
+        run_config: BacktestRunConfig,
+        *,
+        required_bar_history: int | None = None,
+    ):
         history_minutes = max(required_bar_history or 0, 0)
         adjusted_start = run_config.start_time - timedelta(minutes=history_minutes)
 
-        bars: list[BarEvent] = []
+        iterables = []
         for unified_symbol in run_config.session.universe:
-            bars.extend(
-                self.bar_repository.list_window(
+            iterables.append(
+                self.bar_repository.iter_window(
                     connection,
                     exchange_code=run_config.session.exchange_code,
                     unified_symbol=unified_symbol,
@@ -142,8 +239,7 @@ class BacktestBarLoader:
                     end_time=run_config.end_time,
                 )
             )
-        bars.sort(key=lambda bar: (bar.bar_time, bar.unified_symbol))
-        return bars
+        return merge(*iterables, key=lambda bar: (bar.bar_time, bar.unified_symbol))
 
 
 class BacktestPerpContextLoader:
@@ -152,7 +248,10 @@ class BacktestPerpContextLoader:
         connection: Connection,
         run_config: BacktestRunConfig,
     ) -> dict[str, BacktestPerpContextCursor]:
-        if run_config.feature_input_version != FEATURE_INPUT_BARS_PERP_CONTEXT_V1:
+        if run_config.feature_input_version not in (
+            FEATURE_INPUT_BARS_PERP_CONTEXT_V1,
+            FEATURE_INPUT_BARS_PERP_BREAKOUT_CONTEXT_V1,
+        ):
             return {}
 
         contexts: dict[str, BacktestPerpContextCursor] = {}

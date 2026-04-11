@@ -8,6 +8,8 @@ const state = {
   selectedTraceNoteId: null,
   selectedCompareSetId: null,
   selectedCompareNoteId: null,
+  selectedComparedRunId: null,
+  selectedCompareDiffKey: null,
   currentIntegrityResult: null,
   selectedIntegrityDataType: null,
   integrityRepairContext: null,
@@ -87,6 +89,38 @@ const BACKTEST_LAUNCH_PRESETS = {
       allow_reduce_only_when_blocked: true,
     },
   },
+  breakout_perp: {
+    label: "4H Breakout Perp",
+    values: {
+      strategy_code: "btc_4h_breakout_perp",
+      strategy_version: "v0.1.0",
+      unified_symbol: "BTCUSDT_PERP",
+      assumption_bundle_code: "breakout_perp_research",
+      assumption_bundle_version: "v1",
+      risk_policy_code: "perp_medium_v1",
+      trend_fast_ema: "20",
+      trend_slow_ema: "50",
+      breakout_lookback_bars: "20",
+      atr_window: "14",
+      initial_stop_atr: "2",
+      trailing_stop_atr: "1.5",
+      exit_on_ema20_cross: "true",
+      risk_per_trade_pct: "0.005",
+      volatility_floor_atr_pct: "0.008",
+      volatility_ceiling_atr_pct: "0.08",
+      max_funding_rate_long: "0.0005",
+      oi_change_pct_window: "0.05",
+      min_price_change_pct_for_oi_confirmation: "0.01",
+      skip_entries_within_minutes_of_funding: "30",
+      max_consecutive_losses: "3",
+      max_daily_r_multiple_loss: "2",
+      max_position_qty: "25",
+      max_order_qty: "25",
+      persist_debug_traces: true,
+      enforce_spot_cash_check: true,
+      allow_reduce_only_when_blocked: true,
+    },
+  },
   baseline_spot: {
     label: "Baseline Spot",
     values: {
@@ -130,7 +164,9 @@ const BACKTEST_STRATEGY_CONFIGS = {
     title: "Bars-Only Momentum",
     detail: "Uses moving-average crossover on minute bars only.",
     hint: "Works naturally with `baseline_perp_research` or `baseline_spot_research`.",
+    showBaseMomentumThresholds: true,
     showSentimentThresholds: false,
+    showBreakoutThresholds: false,
   },
   btc_sentiment_momentum: {
     title: "Sentiment-Aware Momentum",
@@ -138,13 +174,27 @@ const BACKTEST_STRATEGY_CONFIGS = {
       "Uses the same moving-average baseline, but only allows long entries when crowding and taker-flow context stay within configured thresholds.",
     hint:
       "Best paired with `baseline_perp_sentiment_research`, which turns on `bars_perp_context_v1` so the runner loads funding, OI, mark/index, and the Binance sentiment ratios.",
+    showBaseMomentumThresholds: true,
     showSentimentThresholds: true,
+    showBreakoutThresholds: false,
   },
   btc_hourly_momentum: {
     title: "Hourly Bars Momentum",
     detail: "Groups minute data into dynamic 1-hour boundaries before calculating moving averages for crosses.",
     hint: "Best paired with `baseline_perp_research`; short and long windows represent hours instead of minutes.",
+    showBaseMomentumThresholds: true,
     showSentimentThresholds: false,
+    showBreakoutThresholds: false,
+  },
+  btc_4h_breakout_perp: {
+    title: "4H Breakout Perp",
+    detail:
+      "Aggregates 1m bars into 4H closes, then applies trend, breakout, ATR-volatility, and perp-context gates before sizing a long entry.",
+    hint:
+      "Best paired with `breakout_perp_research`, which turns on `bars_perp_breakout_context_v1` so funding-window and OI-vs-price context are available.",
+    showBaseMomentumThresholds: false,
+    showSentimentThresholds: false,
+    showBreakoutThresholds: true,
   },
 };
 
@@ -533,6 +583,22 @@ function renderBacktestRunStructuredDetails(detail) {
       target_notional: "Target Notional",
       max_global_long_short_ratio: "Max Global Long/Short Ratio",
       min_taker_buy_sell_ratio: "Min Taker Buy/Sell Ratio",
+      trend_fast_ema: "Trend Fast EMA",
+      trend_slow_ema: "Trend Slow EMA",
+      breakout_lookback_bars: "Breakout Lookback Bars",
+      atr_window: "ATR Window",
+      initial_stop_atr: "Initial Stop ATR",
+      trailing_stop_atr: "Trailing Stop ATR",
+      exit_on_ema20_cross: "Exit On EMA20 Cross",
+      risk_per_trade_pct: "Risk Per Trade Pct",
+      volatility_floor_atr_pct: "Volatility Floor ATR %",
+      volatility_ceiling_atr_pct: "Volatility Ceiling ATR %",
+      max_funding_rate_long: "Max Funding Rate Long",
+      oi_change_pct_window: "OI Change Pct Window",
+      min_price_change_pct_for_oi_confirmation: "Min Price Change Pct For OI Confirmation",
+      skip_entries_within_minutes_of_funding: "Skip Entries Within Minutes Of Funding",
+      max_consecutive_losses: "Max Consecutive Losses",
+      max_daily_r_multiple_loss: "Max Daily R Multiple Loss",
     },
     [
       "short_window",
@@ -542,6 +608,22 @@ function renderBacktestRunStructuredDetails(detail) {
       "allow_short",
       "max_global_long_short_ratio",
       "min_taker_buy_sell_ratio",
+      "trend_fast_ema",
+      "trend_slow_ema",
+      "breakout_lookback_bars",
+      "atr_window",
+      "initial_stop_atr",
+      "trailing_stop_atr",
+      "exit_on_ema20_cross",
+      "risk_per_trade_pct",
+      "volatility_floor_atr_pct",
+      "volatility_ceiling_atr_pct",
+      "max_funding_rate_long",
+      "oi_change_pct_window",
+      "min_price_change_pct_for_oi_confirmation",
+      "skip_entries_within_minutes_of_funding",
+      "max_consecutive_losses",
+      "max_daily_r_multiple_loss",
     ]
   );
 
@@ -899,6 +981,14 @@ function updateBacktestStrategyFields() {
   const sentimentPanel = document.getElementById("backtest-sentiment-params");
   if (sentimentPanel) {
     sentimentPanel.hidden = !config.showSentimentThresholds;
+  }
+  const baseMomentumPanel = document.getElementById("backtest-base-params");
+  if (baseMomentumPanel) {
+    baseMomentumPanel.hidden = !config.showBaseMomentumThresholds;
+  }
+  const breakoutPanel = document.getElementById("backtest-breakout-params");
+  if (breakoutPanel) {
+    breakoutPanel.hidden = !config.showBreakoutThresholds;
   }
 }
 
@@ -2680,15 +2770,280 @@ function populateCompareNoteForm(note) {
   form.elements.next_action.value = note.next_action || "";
 }
 
+function renderSelectedComparedRun(run) {
+  if (!run || !run.run_id) {
+    const emptyMessage = "Select a compared run row to inspect compare-specific detail.";
+    const summary = document.getElementById("backtest-compare-run-summary");
+    if (summary) {
+      summary.innerHTML = `<div class="summary-empty">${emptyMessage}</div>`;
+    }
+    renderPropertyGrid("backtest-compare-run-identity", [], "Run identity will appear here.");
+    renderPropertyGrid("backtest-compare-run-kpis", [], "KPI snapshot will appear here.");
+    renderPropertyGrid("backtest-compare-run-diagnostics", [], "Diagnostics and risk evidence will appear here.");
+    renderPropertyGrid("backtest-compare-run-state", [], "Guardrail state will appear here.");
+    return;
+  }
+
+  const summaryItems = [
+    {
+      label: "Run",
+      value: run.run_id,
+      detail: run.run_name || "Selected compare run",
+      tone: run.diagnostic_status || "ok",
+    },
+    {
+      label: "Diagnostics",
+      value: `${run.diagnostic_warning_count || 0} / ${run.diagnostic_error_count || 0}`,
+      detail: "Warnings / errors for this compared run",
+      tone: run.diagnostic_error_count ? "error" : run.diagnostic_warning_count ? "warning" : "ok",
+    },
+    {
+      label: "Blocked Intents",
+      value: run.blocked_intent_count || 0,
+      detail: "Runtime guardrail blocks observed during the run",
+      tone: Number(run.blocked_intent_count || 0) > 0 ? "warning" : "ok",
+    },
+  ];
+  const summary = document.getElementById("backtest-compare-run-summary");
+  if (summary) {
+    summary.innerHTML = summaryItems
+      .map(
+        (item) => `
+          <article class="summary-card ${statusClass(item.tone)}">
+            <p class="summary-label">${item.label}</p>
+            <h4>${formatValue(item.value)}</h4>
+            <p class="summary-detail">${item.detail}</p>
+          </article>
+        `
+      )
+      .join("");
+  }
+
+  renderPropertyGrid(
+    "backtest-compare-run-identity",
+    [
+      { label: "Run Name", value: run.run_name },
+      { label: "Strategy Code", value: run.strategy_code },
+      { label: "Strategy Version", value: run.strategy_version },
+      { label: "Account Code", value: run.account_code },
+      { label: "Environment", value: run.environment },
+      { label: "Status", value: run.status },
+      { label: "Window Start", value: run.start_time },
+      { label: "Window End", value: run.end_time },
+      { label: "Universe", value: run.universe },
+    ],
+    "Run identity will appear here."
+  );
+  renderPropertyGrid(
+    "backtest-compare-run-kpis",
+    [
+      { label: "Total Return", value: run.total_return },
+      { label: "Annualized Return", value: run.annualized_return },
+      { label: "Max Drawdown", value: run.max_drawdown },
+      { label: "Turnover", value: run.turnover },
+      { label: "Win Rate", value: run.win_rate },
+      { label: "Fee Cost", value: run.fee_cost },
+      { label: "Slippage Cost", value: run.slippage_cost },
+    ],
+    "KPI snapshot will appear here."
+  );
+  renderPropertyGrid(
+    "backtest-compare-run-diagnostics",
+    [
+      { label: "Diagnostic Status", value: run.diagnostic_status },
+      { label: "Warning Count", value: run.diagnostic_warning_count },
+      { label: "Error Count", value: run.diagnostic_error_count },
+      { label: "Blocked Intents", value: run.blocked_intent_count },
+      { label: "Diagnostic Flags", value: run.diagnostic_flag_codes },
+      { label: "Blocked Codes", value: run.block_counts_by_code },
+      { label: "Outcome Counts", value: run.outcome_counts_by_code },
+    ],
+    "Diagnostics and risk evidence will appear here."
+  );
+  renderPropertyGrid(
+    "backtest-compare-run-state",
+    buildPropertyItemsFromObject(
+      run.state_snapshot || {},
+      {
+        policy_code: "Policy Code",
+        trading_timezone: "Trading Timezone",
+      }
+    ),
+    "Guardrail state will appear here."
+  );
+}
+
+function renderSelectedCompareDiff(diff) {
+  if (!diff || !diff.field_name) {
+    const summary = document.getElementById("backtest-compare-diff-summary");
+    if (summary) {
+      summary.innerHTML =
+        '<div class="summary-empty">Select an assumption or diagnostics diff row to inspect run-by-run detail.</div>';
+    }
+    renderTable("backtest-compare-diff-values-table", [], []);
+    renderJson("backtest-compare-diff-detail", {
+      message: "Selected diff detail will appear here.",
+    });
+    return;
+  }
+
+  const values = diff.raw_values_by_run || [];
+  const summaryItems = [
+    {
+      label: "Diff Type",
+      value: diff.diff_type,
+      detail: diff.diff_type === "diagnostic" ? "Diagnostics / runtime risk compare evidence" : "Run configuration / assumption compare evidence",
+      tone: diff.diff_type,
+    },
+    {
+      label: "Field",
+      value: diff.field_name,
+      detail: "Selected compare dimension",
+      tone: "info",
+    },
+    {
+      label: "Distinct Values",
+      value: diff.distinct_value_count,
+      detail: `${values.length} run-specific values captured`,
+      tone: diff.distinct_value_count > 1 ? "warning" : "ok",
+    },
+  ];
+
+  const summary = document.getElementById("backtest-compare-diff-summary");
+  if (summary) {
+    summary.innerHTML = summaryItems
+      .map(
+        (item) => `
+          <article class="summary-card ${statusClass(item.tone)}">
+            <p class="summary-label">${item.label}</p>
+            <h4>${formatValue(item.value)}</h4>
+            <p class="summary-detail">${item.detail}</p>
+          </article>
+        `
+      )
+      .join("");
+  }
+
+  renderTable(
+    "backtest-compare-diff-values-table",
+    [
+      { key: "run_id", label: "Run" },
+      { key: "value", label: "Value" },
+    ],
+    values.map((entry) => ({
+      run_id: entry.run_id,
+      value: formatValue(entry.value),
+    })),
+    (record) => {
+      const matchedRunId = Number(record.run_id);
+      if (!Number.isInteger(matchedRunId)) {
+        return;
+      }
+      state.selectedComparedRunId = matchedRunId;
+      const currentComparePayload = window.__lastCompareSetPayload || null;
+      const matchedRun = currentComparePayload?.compared_runs?.find((run) => run.run_id === matchedRunId) || null;
+      renderSelectedComparedRun(matchedRun);
+    }
+  );
+  renderJson("backtest-compare-diff-detail", diff);
+}
+
+function renderCompareSummary(compareSet, assumptionDiffs, diagnosticsDiffs, comparisonFlags) {
+  const runs = compareSet.compared_runs || [];
+  const warningRuns = runs.filter((run) => run.diagnostic_status === "warning").length;
+  const errorRuns = runs.filter((run) => run.diagnostic_status === "error").length;
+  const blockedRuns = runs.filter((run) => Number(run.blocked_intent_count || 0) > 0).length;
+  const totalBlockedIntents = runs.reduce((sum, run) => sum + Number(run.blocked_intent_count || 0), 0);
+  const benchmarkCount = (compareSet.benchmark_deltas || []).length;
+  const summaryItems = [
+    {
+      label: "Compared Runs",
+      value: runs.length,
+      detail: compareSet.compare_name || "Selected run set",
+      tone: "ok",
+    },
+    {
+      label: "Assumption Diffs",
+      value: assumptionDiffs.length,
+      detail: "Metadata, bundle, execution, and strategy-parameter differences",
+      tone: assumptionDiffs.length ? "assumption" : "ok",
+    },
+    {
+      label: "Diagnostics Diffs",
+      value: diagnosticsDiffs.length,
+      detail: "Status, guardrail, blocked-intent, and diagnostic-flag differences",
+      tone: diagnosticsDiffs.length ? "diagnostic" : "ok",
+    },
+    {
+      label: "Runs With Blocks",
+      value: blockedRuns,
+      detail: `${totalBlockedIntents} blocked intents across selected runs`,
+      tone: blockedRuns ? "warning" : "ok",
+    },
+    {
+      label: "Warn / Error Runs",
+      value: `${warningRuns} / ${errorRuns}`,
+      detail: "Diagnostics status distribution across compared runs",
+      tone: errorRuns ? "error" : warningRuns ? "warning" : "ok",
+    },
+    {
+      label: "Compare Flags",
+      value: comparisonFlags.length,
+      detail: benchmarkCount
+        ? `${benchmarkCount} benchmark delta rows also available`
+        : "No benchmark overlay selected",
+      tone: comparisonFlags.some((flag) => flag.severity === "warning")
+        ? "warning"
+        : comparisonFlags.length
+        ? "info"
+        : "ok",
+    },
+  ];
+
+  const container = document.getElementById("backtest-compare-summary");
+  if (!container) {
+    return;
+  }
+  if (!summaryItems.length) {
+    container.innerHTML = '<div class="summary-empty">Create a compare set to see summary evidence cards.</div>';
+    return;
+  }
+  container.innerHTML = summaryItems
+    .map(
+      (item) => `
+        <article class="summary-card ${statusClass(item.tone)}">
+          <p class="summary-label">${item.label}</p>
+          <h4>${formatValue(item.value)}</h4>
+          <p class="summary-detail">${item.detail}</p>
+        </article>
+      `
+    )
+    .join("");
+}
+
 function renderCompareResult(compareSet) {
   const runs = compareSet.compared_runs || [];
   const assumptionDiffs = (compareSet.assumption_diffs || []).map((diff) => ({
+    diff_key: `assumption:${diff.field_name}`,
+    diff_type: "assumption",
     field_name: diff.field_name,
     distinct_value_count: diff.distinct_value_count,
+    raw_values_by_run: diff.values_by_run || [],
     values_by_run: (diff.values_by_run || [])
       .map((value) => `${value.run_id}: ${formatValue(value.value)}`)
       .join(" | "),
   }));
+  const diagnosticsDiffs = (compareSet.diagnostics_diffs || []).map((diff) => ({
+    diff_key: `diagnostic:${diff.field_name}`,
+    diff_type: "diagnostic",
+    field_name: diff.field_name,
+    distinct_value_count: diff.distinct_value_count,
+    raw_values_by_run: diff.values_by_run || [],
+    values_by_run: (diff.values_by_run || [])
+      .map((value) => `${value.run_id}: ${formatValue(value.value)}`)
+      .join(" | "),
+  }));
+  window.__lastCompareSetPayload = compareSet;
   const benchmarkDeltas = compareSet.benchmark_deltas || [];
   const comparisonFlags = compareSet.comparison_flags || [];
   const contextParts = [];
@@ -2705,6 +3060,7 @@ function renderCompareResult(compareSet) {
     "backtest-compare-context",
     contextParts.length ? contextParts.join(" | ") : "Create a compare set to inspect review notes."
   );
+  renderCompareSummary(compareSet, assumptionDiffs, diagnosticsDiffs, comparisonFlags);
   renderJson("backtest-compare-result", compareSet);
   renderTable(
     "backtest-compare-runs-table",
@@ -2714,23 +3070,60 @@ function renderCompareResult(compareSet) {
       { key: "strategy_code", label: "Strategy" },
       { key: "strategy_version", label: "Version" },
       { key: "diagnostic_status", label: "Diag", type: "status" },
+      { key: "diagnostic_warning_count", label: "Warn" },
+      { key: "diagnostic_error_count", label: "Err" },
+      { key: "blocked_intent_count", label: "Blocked" },
       { key: "total_return", label: "Return" },
       { key: "max_drawdown", label: "Max DD" },
       { key: "turnover", label: "Turnover" },
       { key: "fee_cost", label: "Fees" },
       { key: "slippage_cost", label: "Slip" },
     ],
-    runs
+    runs,
+    (record) => {
+      state.selectedComparedRunId = record.run_id;
+      renderSelectedComparedRun(record);
+    }
   );
+  const preferredRun =
+    runs.find((run) => run.run_id === state.selectedComparedRunId) ||
+    runs[0] ||
+    null;
+  state.selectedComparedRunId = preferredRun?.run_id || null;
+  renderSelectedComparedRun(preferredRun);
   renderTable(
-    "backtest-compare-diffs-table",
+    "backtest-compare-assumption-diffs-table",
     [
       { key: "field_name", label: "Field" },
       { key: "distinct_value_count", label: "Distinct" },
       { key: "values_by_run", label: "Values by Run" },
     ],
-    assumptionDiffs
+    assumptionDiffs,
+    (record) => {
+      state.selectedCompareDiffKey = record.diff_key;
+      renderSelectedCompareDiff(record);
+    }
   );
+  renderTable(
+    "backtest-compare-diagnostics-diffs-table",
+    [
+      { key: "field_name", label: "Field" },
+      { key: "distinct_value_count", label: "Distinct" },
+      { key: "values_by_run", label: "Values by Run" },
+    ],
+    diagnosticsDiffs,
+    (record) => {
+      state.selectedCompareDiffKey = record.diff_key;
+      renderSelectedCompareDiff(record);
+    }
+  );
+  const allDiffs = [...assumptionDiffs, ...diagnosticsDiffs];
+  const preferredDiff =
+    allDiffs.find((diff) => diff.diff_key === state.selectedCompareDiffKey) ||
+    allDiffs[0] ||
+    null;
+  state.selectedCompareDiffKey = preferredDiff?.diff_key || null;
+  renderSelectedCompareDiff(preferredDiff);
   renderTable(
     "backtest-compare-benchmark-table",
     [
@@ -3141,6 +3534,32 @@ async function launchBacktest(formValues) {
     if (minTakerBuySellRatio !== "") {
       strategyParams.min_taker_buy_sell_ratio = minTakerBuySellRatio;
     }
+  }
+  if (strategyCode === "btc_4h_breakout_perp") {
+    strategyParams.trend_fast_ema = Number(formValues.trend_fast_ema || 20);
+    strategyParams.trend_slow_ema = Number(formValues.trend_slow_ema || 50);
+    strategyParams.breakout_lookback_bars = Number(formValues.breakout_lookback_bars || 20);
+    strategyParams.atr_window = Number(formValues.atr_window || 14);
+    strategyParams.initial_stop_atr = String(formValues.initial_stop_atr || "2").trim() || "2";
+    strategyParams.trailing_stop_atr = String(formValues.trailing_stop_atr || "1.5").trim() || "1.5";
+    strategyParams.exit_on_ema20_cross = parseBooleanInput(formValues.exit_on_ema20_cross);
+    strategyParams.risk_per_trade_pct = String(formValues.risk_per_trade_pct || "0.005").trim() || "0.005";
+    strategyParams.volatility_floor_atr_pct = String(formValues.volatility_floor_atr_pct || "0.008").trim() || "0.008";
+    strategyParams.volatility_ceiling_atr_pct = String(formValues.volatility_ceiling_atr_pct || "0.08").trim() || "0.08";
+    strategyParams.max_funding_rate_long = String(formValues.max_funding_rate_long || "0.0005").trim() || "0.0005";
+    strategyParams.oi_change_pct_window = String(formValues.oi_change_pct_window || "0.05").trim() || "0.05";
+    strategyParams.min_price_change_pct_for_oi_confirmation =
+      String(formValues.min_price_change_pct_for_oi_confirmation || "0.01").trim() || "0.01";
+    strategyParams.skip_entries_within_minutes_of_funding = Number(
+      formValues.skip_entries_within_minutes_of_funding || 30
+    );
+    strategyParams.max_consecutive_losses = Number(formValues.max_consecutive_losses || 3);
+    strategyParams.max_daily_r_multiple_loss =
+      String(formValues.max_daily_r_multiple_loss || "2").trim() || "2";
+    delete strategyParams.short_window;
+    delete strategyParams.long_window;
+    delete strategyParams.target_qty;
+    delete strategyParams.allow_short;
   }
 
   const payload = {

@@ -47,6 +47,13 @@ class ComparedRunSummary:
     win_rate: Decimal | None
     fee_cost: Decimal | None
     slippage_cost: Decimal | None
+    diagnostic_error_count: int
+    diagnostic_warning_count: int
+    blocked_intent_count: int
+    block_counts_by_code: dict[str, int]
+    outcome_counts_by_code: dict[str, int]
+    state_snapshot: dict[str, Any]
+    diagnostic_flag_codes: list[str]
 
 
 @dataclass(slots=True)
@@ -74,6 +81,19 @@ class BenchmarkDelta:
 
 
 @dataclass(slots=True)
+class DiagnosticDiffValue:
+    run_id: int
+    value: Any
+
+
+@dataclass(slots=True)
+class DiagnosticDiff:
+    field_name: str
+    distinct_value_count: int
+    values_by_run: list[DiagnosticDiffValue]
+
+
+@dataclass(slots=True)
 class BacktestCompareSet:
     compare_set_id: int | None
     compare_name: str | None
@@ -82,6 +102,7 @@ class BacktestCompareSet:
     persisted: bool
     compared_runs: list[ComparedRunSummary]
     assumption_diffs: list[AssumptionDiff]
+    diagnostics_diffs: list[DiagnosticDiff]
     benchmark_deltas: list[BenchmarkDelta]
     comparison_flags: list[ComparisonFlag]
     available_period_types: list[str]
@@ -91,6 +112,7 @@ class BacktestCompareSet:
 class _CompareRunEnvelope:
     summary: ComparedRunSummary
     assumptions: dict[str, Any]
+    diagnostics: dict[str, Any]
     has_performance_summary: bool
 
 
@@ -128,6 +150,8 @@ class BacktestCompareProjector:
             diagnostics = self.diagnostics_projector.build_summary(connection, run_id)
             params_json = run_row.get("params_json") or {}
             universe = list(run_row.get("universe_json") or [])
+            risk_summary = diagnostics.risk_summary if diagnostics is not None else None
+            diagnostic_flags = diagnostics.diagnostic_flags if diagnostics is not None else []
 
             envelopes.append(
                 _CompareRunEnvelope(
@@ -150,6 +174,13 @@ class BacktestCompareProjector:
                         win_rate=_decimal_or_none(summary_row, "win_rate"),
                         fee_cost=_decimal_or_none(summary_row, "fee_cost"),
                         slippage_cost=_decimal_or_none(summary_row, "slippage_cost"),
+                        diagnostic_error_count=diagnostics.error_count if diagnostics is not None else 0,
+                        diagnostic_warning_count=diagnostics.warning_count if diagnostics is not None else 0,
+                        blocked_intent_count=risk_summary.blocked_intent_count if risk_summary is not None else 0,
+                        block_counts_by_code=dict(risk_summary.block_counts_by_code) if risk_summary is not None else {},
+                        outcome_counts_by_code=dict(risk_summary.outcome_counts_by_code) if risk_summary is not None else {},
+                        state_snapshot=dict(risk_summary.state_snapshot) if risk_summary is not None else {},
+                        diagnostic_flag_codes=[flag.code for flag in diagnostic_flags],
                     ),
                     assumptions={
                         "strategy_code": run_row["strategy_code"],
@@ -179,6 +210,16 @@ class BacktestCompareProjector:
                         "effective_risk_policy": params_json.get("risk_policy"),
                         "strategy_params": params_json.get("strategy_params"),
                     },
+                    diagnostics={
+                        "diagnostic_status": diagnostics.diagnostic_status if diagnostics is not None else None,
+                        "error_count": diagnostics.error_count if diagnostics is not None else 0,
+                        "warning_count": diagnostics.warning_count if diagnostics is not None else 0,
+                        "blocked_intent_count": risk_summary.blocked_intent_count if risk_summary is not None else 0,
+                        "block_counts_by_code": dict(risk_summary.block_counts_by_code) if risk_summary is not None else {},
+                        "outcome_counts_by_code": dict(risk_summary.outcome_counts_by_code) if risk_summary is not None else {},
+                        "state_snapshot": dict(risk_summary.state_snapshot) if risk_summary is not None else {},
+                        "diagnostic_flag_codes": [flag.code for flag in diagnostic_flags],
+                    },
                     has_performance_summary=summary_row is not None,
                 )
             )
@@ -187,8 +228,9 @@ class BacktestCompareProjector:
             raise BacktestCompareNotFoundError(missing_run_ids)
 
         assumption_diffs = _build_assumption_diffs(envelopes)
+        diagnostics_diffs = _build_diagnostics_diffs(envelopes)
         benchmark_deltas = _build_benchmark_deltas(envelopes, benchmark_run_id)
-        comparison_flags = _build_comparison_flags(envelopes, assumption_diffs)
+        comparison_flags = _build_comparison_flags(envelopes, assumption_diffs, diagnostics_diffs)
         return BacktestCompareSet(
             compare_set_id=None,
             compare_name=compare_name,
@@ -197,6 +239,7 @@ class BacktestCompareProjector:
             persisted=False,
             compared_runs=[envelope.summary for envelope in envelopes],
             assumption_diffs=assumption_diffs,
+            diagnostics_diffs=diagnostics_diffs,
             benchmark_deltas=benchmark_deltas,
             comparison_flags=comparison_flags,
             available_period_types=["year", "quarter", "month"],
@@ -259,6 +302,29 @@ def _build_benchmark_deltas(
     return deltas
 
 
+def _build_diagnostics_diffs(envelopes: Sequence[_CompareRunEnvelope]) -> list[DiagnosticDiff]:
+    diffs: list[DiagnosticDiff] = []
+    if not envelopes:
+        return diffs
+
+    field_names = list(envelopes[0].diagnostics.keys())
+    for field_name in field_names:
+        values_by_run = [
+            DiagnosticDiffValue(run_id=envelope.summary.run_id, value=_normalize_value(envelope.diagnostics.get(field_name)))
+            for envelope in envelopes
+        ]
+        distinct_value_count = len({_comparison_key(value.value) for value in values_by_run})
+        if distinct_value_count > 1:
+            diffs.append(
+                DiagnosticDiff(
+                    field_name=field_name,
+                    distinct_value_count=distinct_value_count,
+                    values_by_run=values_by_run,
+                )
+            )
+    return diffs
+
+
 def _delta(value: Decimal | None, benchmark_value: Decimal | None) -> Decimal | None:
     if value is None or benchmark_value is None:
         return None
@@ -268,9 +334,11 @@ def _delta(value: Decimal | None, benchmark_value: Decimal | None) -> Decimal | 
 def _build_comparison_flags(
     envelopes: Sequence[_CompareRunEnvelope],
     assumption_diffs: Sequence[AssumptionDiff],
+    diagnostics_diffs: Sequence[DiagnosticDiff],
 ) -> list[ComparisonFlag]:
     flags: list[ComparisonFlag] = []
     diff_fields = {diff.field_name for diff in assumption_diffs}
+    diagnostic_diff_fields = {diff.field_name for diff in diagnostics_diffs}
 
     if "strategy_code" in diff_fields:
         flags.append(
@@ -354,6 +422,30 @@ def _build_comparison_flags(
                 code="diagnostic_warnings_present",
                 severity="warning",
                 message="one or more selected runs already carry diagnostics warnings or errors",
+            )
+        )
+    if diagnostic_diff_fields.intersection({"blocked_intent_count", "block_counts_by_code", "outcome_counts_by_code", "state_snapshot"}):
+        flags.append(
+            ComparisonFlag(
+                code="runtime_risk_mismatch",
+                severity="warning",
+                message="selected runs differ on runtime risk outcomes or guardrail state",
+            )
+        )
+    if diagnostic_diff_fields.intersection({"diagnostic_status", "error_count", "warning_count", "diagnostic_flag_codes"}):
+        flags.append(
+            ComparisonFlag(
+                code="diagnostic_profile_mismatch",
+                severity="warning",
+                message="selected runs differ on diagnostics status, warning profile, or surfaced flags",
+            )
+        )
+    if any(envelope.summary.blocked_intent_count > 0 for envelope in envelopes):
+        flags.append(
+            ComparisonFlag(
+                code="risk_blocks_present_in_compare_set",
+                severity="info",
+                message="one or more selected runs include blocked intents that should be reviewed alongside KPI differences",
             )
         )
     return flags

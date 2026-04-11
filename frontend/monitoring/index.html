@@ -105,6 +105,7 @@
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="baseline_perp">Baseline Perp</button>
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="sentiment_perp">Sentiment Perp</button>
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="hourly_perp">Hourly Perp</button>
+                <button type="button" class="secondary-button preset-button" data-backtest-preset="breakout_perp">4H Breakout Perp</button>
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="baseline_spot">Baseline Spot</button>
                 <button type="button" class="secondary-button preset-button" data-backtest-preset="aggressive_perp">Aggressive Perp</button>
               </div>
@@ -129,6 +130,7 @@
                         <option value="btc_momentum" selected>btc_momentum</option>
                         <option value="btc_sentiment_momentum">btc_sentiment_momentum</option>
                         <option value="btc_hourly_momentum">btc_hourly_momentum</option>
+                        <option value="btc_4h_breakout_perp">btc_4h_breakout_perp</option>
                       </select>
                     </label>
                     <label class="field">
@@ -178,7 +180,7 @@
                     <label class="field">
                       <span class="field-label">Assumption Bundle Code</span>
                       <input name="assumption_bundle_code" list="backtest-assumption-bundle-options" />
-                      <span class="field-help">Optional. For `btc_sentiment_momentum`, start with `baseline_perp_sentiment_research` so the runner loads perp context and sentiment ratios.</span>
+                      <span class="field-help">Optional. For `btc_sentiment_momentum`, start with `baseline_perp_sentiment_research`; for `btc_4h_breakout_perp`, start with `breakout_perp_research`.</span>
                     </label>
                     <label class="field">
                       <span class="field-label">Assumption Bundle Version</span>
@@ -190,14 +192,14 @@
                 <section class="form-section">
                   <div class="form-section-header">
                     <h4>Strategy Parameters</h4>
-                    <p>Base knobs shared by the seeded example strategies, plus optional sentiment thresholds when you choose the sentiment-aware variant.</p>
+                    <p>Base knobs shared by the seeded example strategies, plus strategy-specific controls for sentiment-aware and breakout variants.</p>
                   </div>
                   <div class="strategy-variant-panel" id="backtest-strategy-variant-panel">
                     <p class="strategy-variant-title" id="backtest-strategy-variant-title">Bars-Only Momentum</p>
                     <p class="strategy-variant-detail" id="backtest-strategy-variant-detail">Uses moving-average crossover on minute bars only.</p>
                     <p class="field-help" id="backtest-strategy-variant-hint">Works naturally with `baseline_perp_research` or `baseline_spot_research`.</p>
                   </div>
-                  <div class="form-grid">
+                  <div id="backtest-base-params" class="form-grid strategy-variant-grid">
                     <label class="field"><span class="field-label">Short Window</span><input name="short_window" value="5" /></label>
                     <label class="field"><span class="field-label">Long Window</span><input name="long_window" value="20" /></label>
                     <label class="field"><span class="field-label">Target Quantity</span><input name="target_qty" value="1" /></label>
@@ -206,6 +208,24 @@
                   <div id="backtest-sentiment-params" class="form-grid strategy-variant-grid" hidden>
                     <label class="field"><span class="field-label">Max Global Long/Short Ratio</span><input name="max_global_long_short_ratio" value="2.25" /><span class="field-help">Blocks long entries when crowding is above this threshold.</span></label>
                     <label class="field"><span class="field-label">Min Taker Buy/Sell Ratio</span><input name="min_taker_buy_sell_ratio" value="0.95" /><span class="field-help">Requires taker flow support before allowing long entries.</span></label>
+                  </div>
+                  <div id="backtest-breakout-params" class="form-grid strategy-variant-grid" hidden>
+                    <label class="field"><span class="field-label">Trend Fast EMA</span><input name="trend_fast_ema" value="20" /></label>
+                    <label class="field"><span class="field-label">Trend Slow EMA</span><input name="trend_slow_ema" value="50" /></label>
+                    <label class="field"><span class="field-label">Breakout Lookback Bars</span><input name="breakout_lookback_bars" value="20" /></label>
+                    <label class="field"><span class="field-label">ATR Window</span><input name="atr_window" value="14" /></label>
+                    <label class="field"><span class="field-label">Initial Stop ATR</span><input name="initial_stop_atr" value="2" /></label>
+                    <label class="field"><span class="field-label">Trailing Stop ATR</span><input name="trailing_stop_atr" value="1.5" /></label>
+                    <label class="field"><span class="field-label">Risk Per Trade Pct</span><input name="risk_per_trade_pct" value="0.005" /></label>
+                    <label class="field"><span class="field-label">Volatility Floor ATR %</span><input name="volatility_floor_atr_pct" value="0.008" /></label>
+                    <label class="field"><span class="field-label">Volatility Ceiling ATR %</span><input name="volatility_ceiling_atr_pct" value="0.08" /></label>
+                    <label class="field"><span class="field-label">Max Funding Rate Long</span><input name="max_funding_rate_long" value="0.0005" /></label>
+                    <label class="field"><span class="field-label">OI Change Pct Window</span><input name="oi_change_pct_window" value="0.05" /></label>
+                    <label class="field"><span class="field-label">Min Price Change Pct For OI Confirmation</span><input name="min_price_change_pct_for_oi_confirmation" value="0.01" /></label>
+                    <label class="field"><span class="field-label">Skip Entries Within Minutes Of Funding</span><input name="skip_entries_within_minutes_of_funding" value="30" /></label>
+                    <label class="field"><span class="field-label">Max Consecutive Losses</span><input name="max_consecutive_losses" value="3" /></label>
+                    <label class="field"><span class="field-label">Max Daily R Multiple Loss</span><input name="max_daily_r_multiple_loss" value="2" /></label>
+                    <label class="field"><span class="field-label">Exit On EMA20 Cross</span><select name="exit_on_ema20_cross"><option value="true" selected>Yes</option><option value="false">No</option></select></label>
                   </div>
                 </section>
                 <section class="form-section">
@@ -315,9 +335,38 @@
                   <div class="form-actions field-span-2"><button type="submit">Compare Runs</button></div>
                 </form>
                 <p id="backtest-compare-context" class="card-detail">Create a compare set to inspect review notes.</p>
+                <div id="backtest-compare-summary" class="summary-cards">
+                  <div class="summary-empty">Create a compare set to see summary evidence cards.</div>
+                </div>
                 <div id="backtest-compare-result" class="json-shell compact-shell">Comparison output will appear here.</div>
                 <div class="panel-subsection"><h4>Compared Runs</h4><div id="backtest-compare-runs-table" class="table-shell"></div></div>
-                <div class="panel-subsection"><h4>Assumption Diffs</h4><div id="backtest-compare-diffs-table" class="table-shell"></div></div>
+                <div class="panel-subsection">
+                  <h4>Selected Compared Run</h4>
+                  <div id="backtest-compare-run-summary" class="summary-cards">
+                    <div class="summary-empty">Select a compared run row to inspect compare-specific detail.</div>
+                  </div>
+                  <div class="structured-detail-grid">
+                    <section class="detail-card"><div class="detail-card-header"><h4>Run Identity</h4><p>Strategy, environment, and window identity inside this compare set.</p></div><div id="backtest-compare-run-identity" class="property-shell"><div class="summary-empty">Run identity will appear here.</div></div></section>
+                    <section class="detail-card"><div class="detail-card-header"><h4>KPI Snapshot</h4><p>Core performance metrics for the selected compared run.</p></div><div id="backtest-compare-run-kpis" class="property-shell"><div class="summary-empty">KPI snapshot will appear here.</div></div></section>
+                    <section class="detail-card"><div class="detail-card-header"><h4>Diagnostics and Risk</h4><p>Warning/error counts, blocked intents, and runtime risk evidence.</p></div><div id="backtest-compare-run-diagnostics" class="property-shell"><div class="summary-empty">Diagnostics and risk evidence will appear here.</div></div></section>
+                    <section class="detail-card"><div class="detail-card-header"><h4>Guardrail State</h4><p>Compare-visible runtime state snapshot for the selected run.</p></div><div id="backtest-compare-run-state" class="property-shell"><div class="summary-empty">Guardrail state will appear here.</div></div></section>
+                  </div>
+                </div>
+                <div class="panel-subsection"><h4>Assumption Diffs</h4><div id="backtest-compare-assumption-diffs-table" class="table-shell"></div></div>
+                <div class="panel-subsection"><h4>Diagnostics and Risk Diffs</h4><div id="backtest-compare-diagnostics-diffs-table" class="table-shell"></div></div>
+                <div class="panel-subsection">
+                  <h4>Selected Diff Detail</h4>
+                  <div id="backtest-compare-diff-summary" class="summary-cards">
+                    <div class="summary-empty">Select an assumption or diagnostics diff row to inspect run-by-run detail.</div>
+                  </div>
+                  <div id="backtest-compare-diff-values-table" class="table-shell"></div>
+                  <details class="details-panel">
+                    <summary>Selected Diff Raw</summary>
+                    <div class="details-panel-body">
+                      <div id="backtest-compare-diff-detail" class="json-shell compact-shell">Selected diff detail will appear here.</div>
+                    </div>
+                  </details>
+                </div>
                 <div class="panel-subsection"><h4>Benchmark Deltas</h4><div id="backtest-compare-benchmark-table" class="table-shell"></div></div>
                 <div class="panel-subsection"><h4>Comparison Flags</h4><div id="backtest-compare-flags-table" class="table-shell"></div></div>
               </section>

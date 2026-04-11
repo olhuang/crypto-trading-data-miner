@@ -23,6 +23,8 @@ This file is intended to be used together with:
 - `docs/strategy-taxonomy-and-versioning-spec.md` for stable family/variant/version strategy identity
 - `docs/strategy-input-and-feature-pipeline-spec.md` for all future multi-dataset strategy-input and feature work
 - `docs/strategy-research-and-evaluation-spec.md` for strategy development, research, testing, and comparison workflow
+- `docs/btc-4h-breakout-perp-research-spec.md` for the first repo-aligned higher-timeframe BTC perpetual breakout implementation line
+- `docs/btc-4h-breakout-perp-implementation-checklist.md` for the concrete execution path of that strategy line
 - `docs/strategy-risk-assumption-management-spec.md` for strategy/risk/assumption separation, effective run snapshots, and future registry governance
 - `docs/backtest-and-replay-diagnostics-spec.md` for report outputs, debug traces, replay diagnostics, and research-facing UI expectations
 - `docs/debug-trace-rollout-plan.md` for the concrete staged rollout and current resume point for step-level debug traces
@@ -915,13 +917,14 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] implement ad hoc compare-set projector over selected run ids
 - [x] expose side-by-side run KPIs, diagnostic status, and optional benchmark deltas
 - [x] expose assumption diffs for run metadata, execution assumptions, and strategy params
+- [x] expose diagnostics/risk diffs for blocked-intent counts, guardrail-state snapshots, and surfaced diagnostic flags
 - [x] add `POST /api/v1/backtests/compare-sets`
 - [x] expose the current compare/analyze baseline in the internal research UI
 - [x] add automated tests for compare/analyze projection and API surface
 
 ### Acceptance Checks
 - [x] selected runs can be compared without ad hoc SQL
-- [x] compare responses include KPI comparison, assumption diffs, and benchmark overlays
+- [x] compare responses include KPI comparison, assumption diffs, diagnostics/risk diffs, and benchmark overlays
 - [x] compare/analyze output remains compatible with future saved compare-set and review workflow
 
 ---
@@ -992,6 +995,7 @@ Provide the first end-to-end research workflow using historical bar data.
 - [x] the Phase 5 skeleton now includes `year` / `quarter` / `month` period-breakdown projection and a baseline artifact catalog for run outputs
 - [x] the Phase 5 skeleton now includes an ad hoc compare/analyze API surface for selected runs and optional benchmark overlays
 - [x] the Phase 5 skeleton now includes persisted compare-set identity plus seeded compare-review note APIs for durable compare workflow memory
+- [x] the current compare/analyze surface now also exposes persisted diagnostics/runtime-risk diff facts, including blocked-intent counts, guardrail-state deltas, and diagnostic-flag differences
 - [x] the Phase 5 skeleton now includes `POST /api/v1/backtests/runs`, `GET /api/v1/backtests/runs`, and `GET /api/v1/backtests/runs/{run_id}` for run launch and inspection
 - [x] the Phase 5 skeleton now includes run-detail APIs for persisted signals, simulated orders, simulated fills, and recent performance timeseries inspection
 - [x] the current internal `/monitoring` console now includes a minimal Backtests view for launching runs and inspecting diagnostics/artifacts/month breakdown plus signals/orders/fills/timeseries detail

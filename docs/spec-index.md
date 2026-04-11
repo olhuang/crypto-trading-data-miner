@@ -192,6 +192,8 @@ Read in this order:
 - `docs/strategy-risk-assumption-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
+- `docs/btc-4h-breakout-perp-research-spec.md`
+- `docs/btc-4h-breakout-perp-implementation-checklist.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/ai-memory-and-handoff-spec.md`
@@ -211,6 +213,8 @@ Read in this order:
 - strategy/risk/assumption separation and effective snapshot precedence: `docs/strategy-risk-assumption-management-spec.md`
 - strategy-input and future feature/alignment architecture: `docs/strategy-input-and-feature-pipeline-spec.md`
 - strategy development, research, testing, and comparison workflow: `docs/strategy-research-and-evaluation-spec.md`
+- first repo-aligned implementation plan for a 4H BTC perpetual breakout line with trend/volatility/perp-context filters: `docs/btc-4h-breakout-perp-research-spec.md`
+- implementation checklist for the first BTC 4H perpetual breakout line: `docs/btc-4h-breakout-perp-implementation-checklist.md`
 - backtest/replay report and trace diagnostics planning: `docs/backtest-and-replay-diagnostics-spec.md`
 - strategy-lab, workbench, artifact, compare/analyze, replay-scenario, and review planning: `docs/strategy-workbench-spec.md`
 - AI working-memory, summary, and cross-session handoff workflow: `docs/ai-memory-and-handoff-spec.md`
@@ -355,6 +359,8 @@ Primary docs:
 - `docs/strategy-risk-assumption-management-spec.md`
 - `docs/strategy-input-and-feature-pipeline-spec.md`
 - `docs/strategy-research-and-evaluation-spec.md`
+- `docs/btc-4h-breakout-perp-research-spec.md`
+- `docs/btc-4h-breakout-perp-implementation-checklist.md`
 - `docs/backtest-and-replay-diagnostics-spec.md`
 - `docs/strategy-workbench-spec.md`
 - `docs/binance-futures-sentiment-ratios-rollout-plan.md`

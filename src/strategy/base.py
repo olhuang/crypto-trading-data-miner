@@ -24,6 +24,10 @@ class StrategyMarketContext:
     top_trader_long_short_account_ratio: dict[str, Any] | None = None
     top_trader_long_short_position_ratio: dict[str, Any] | None = None
     taker_long_short_ratio: dict[str, Any] | None = None
+    minutes_to_next_funding: int | None = None
+    oi_change_pct_window: Decimal | None = None
+    price_change_pct_window: Decimal | None = None
+    weak_price_oi_push: bool | None = None
 
 
 @dataclass(slots=True)

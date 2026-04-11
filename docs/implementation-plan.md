@@ -356,7 +356,7 @@ Make collected market data reliable enough for research and downstream execution
 - funding/open-interest/mark/index now also have a scheduler-ready remediation job shape for manual/API-triggered catch-up planning without enabling a continuous remediation loop yet
 - future enhancement still pending: cross-dataset diagnostic checks such as funding vs nearby mark/index alignment, mark-vs-index spread sanity, and raw-to-normalized coverage correlation summaries
 - current monitoring UI is intentionally a lightweight internal console, not the final long-term product frontend foundation
-- the Phase 5 backtest path now includes deterministic bars-based market/limit fill simulation, aggregate portfolio/equity projection, DB-backed persisted runs, run launch/list/detail API surfaces, run detail endpoints for signals/orders/fills/timeseries/debug-traces, a first run-level diagnostics summary API with trace-anchor output, a compact step-level debug-trace backend plus internal UI foundation, first Level 2 trace linkage/state-delta fields, a richer structured trace drill-down in the internal UI, diagnostics-to-trace anchor navigation, targeted trace filters for risk/signal/order/fill investigation, derived year/quarter/month period-breakdown plus artifact-catalog outputs, a persisted compare-set baseline for side-by-side run KPI comparison/assumption diffs/benchmark overlays, and the first compare-review note foundation across API and internal UI; it still needs replay-note workflow and a fuller research UI
+- the Phase 5 backtest path now includes deterministic bars-based market/limit fill simulation, aggregate portfolio/equity projection, DB-backed persisted runs, run launch/list/detail API surfaces, run detail endpoints for signals/orders/fills/timeseries/debug-traces, a first run-level diagnostics summary API with trace-anchor output, a compact step-level debug-trace backend plus internal UI foundation, first Level 2 trace linkage/state-delta fields, a richer structured trace drill-down in the internal UI, diagnostics-to-trace anchor navigation, targeted trace filters for risk/signal/order/fill investigation, derived year/quarter/month period-breakdown plus artifact-catalog outputs, a persisted compare-set baseline for side-by-side run KPI comparison/assumption diffs/benchmark overlays, richer compare-side diagnostics/runtime-risk diff visibility, and the first compare-review note foundation across API and internal UI; it still needs replay-note workflow and a fuller research UI
 
 ---
 
@@ -410,6 +410,10 @@ Also treat `docs/strategy-workbench-spec.md` as the planning backbone for:
 - run lineage and artifact bundle expectations
 - compare/analyze workflow
 - replay scenario library and review workflow
+
+Also treat `docs/btc-4h-breakout-perp-research-spec.md` as the first concrete strategy-line implementation reference when evaluating a higher-timeframe BTC perpetual breakout strategy against the current Phase 5 architecture.
+
+Also treat `docs/btc-4h-breakout-perp-implementation-checklist.md` as the concrete execution checklist once that strategy line moves from design into implementation.
 
 Also treat `docs/object-level-notes-and-annotations-spec.md` as the planning backbone for:
 - compare/review note generation and lifecycle

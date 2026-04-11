@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from itertools import groupby
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from models.backtest import BacktestRunConfig
 from models.common import RiskDecision
@@ -19,7 +19,13 @@ from strategy import StrategyBase, StrategyEvaluationInput, StrategyMarketContex
 from .data import BacktestBarLoader, BacktestPerpContextCursor, BacktestPerpContextLoader
 from .fills import DeterministicBarsFillModel, SimulatedFill, SimulatedOrder
 from .lifecycle import BacktestLifecycle, BacktestStepPlan
-from .performance import PerformancePoint, PerformanceSummary, build_performance_point, summarize_performance
+from .performance import (
+    PerformancePoint,
+    PerformanceSummary,
+    build_performance_point,
+    summarize_performance,
+    summarize_performance_from_latest_point,
+)
 from .risk import BacktestRiskGuardrailEngine, RiskGuardrailOutcome
 from .signals import build_signals_from_target_position
 from .state import PortfolioMark, PortfolioState, PositionState
@@ -129,6 +135,10 @@ class BacktestRunnerSkeleton:
         connection: Connection | None = None,
         capture_steps: bool = True,
         capture_debug_traces: bool = False,
+        assume_sorted: bool = False,
+        collect_performance_points: bool = True,
+        performance_point_sink: Callable[[Sequence[PerformancePoint]], None] | None = None,
+        performance_point_sink_chunk_size: int = 5000,
     ) -> BacktestRunLoopResult:
         portfolio = PortfolioState(
             cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
@@ -145,8 +155,11 @@ class BacktestRunnerSkeleton:
         all_fills: list[SimulatedFill] = []
         all_risk_outcomes: list[RiskGuardrailOutcome] = []
         performance_points: list[PerformancePoint] = []
+        performance_point_buffer: list[PerformancePoint] = []
         latest_close_by_symbol: dict[str, Decimal] = {}
         running_peak_equity = portfolio.cash
+        max_drawdown = Decimal("0")
+        latest_performance_point: PerformancePoint | None = None
         trace_running_peak_equity = portfolio.cash
         previous_trace_cash = portfolio.cash
         previous_trace_equity = portfolio.cash
@@ -155,8 +168,8 @@ class BacktestRunnerSkeleton:
         }
 
         history_cap = self.strategy.required_bar_history
-        sorted_bars = sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
-        for bar_time, grouped_bars in groupby(sorted_bars, key=lambda item: item.bar_time):
+        ordered_bars = bars if assume_sorted else sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
+        for bar_time, grouped_bars in groupby(ordered_bars, key=lambda item: item.bar_time):
             for bar in grouped_bars:
                 existing_position = portfolio.position_states.get(bar.unified_symbol)
                 if existing_position is not None and existing_position.average_entry_price is None:
@@ -270,7 +283,15 @@ class BacktestRunnerSkeleton:
                 mark=mark,
                 running_peak_equity=running_peak_equity,
             )
-            performance_points.append(performance_point)
+            latest_performance_point = performance_point
+            max_drawdown = max(max_drawdown, performance_point.drawdown)
+            if collect_performance_points:
+                performance_points.append(performance_point)
+            if performance_point_sink is not None:
+                performance_point_buffer.append(performance_point)
+                if len(performance_point_buffer) >= performance_point_sink_chunk_size:
+                    performance_point_sink(tuple(performance_point_buffer))
+                    performance_point_buffer.clear()
             self.risk_guardrails.complete_bar()
 
         open_orders: list[SimulatedOrder] = []
@@ -278,12 +299,25 @@ class BacktestRunnerSkeleton:
             for order in remaining_orders:
                 open_orders.append(self.fill_model.expire_open_order(order))
 
-        performance_summary = summarize_performance(
-            initial_cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
-            run_start=self.run_config.start_time,
-            run_end=self.run_config.end_time,
-            performance_points=performance_points,
-        )
+        if performance_point_sink is not None and performance_point_buffer:
+            performance_point_sink(tuple(performance_point_buffer))
+
+        summary_initial_cash = initial_cash if initial_cash is not None else self.run_config.initial_cash
+        if collect_performance_points:
+            performance_summary = summarize_performance(
+                initial_cash=summary_initial_cash,
+                run_start=self.run_config.start_time,
+                run_end=self.run_config.end_time,
+                performance_points=performance_points,
+            )
+        else:
+            performance_summary = summarize_performance_from_latest_point(
+                initial_cash=summary_initial_cash,
+                run_start=self.run_config.start_time,
+                run_end=self.run_config.end_time,
+                final_point=latest_performance_point,
+                max_drawdown=max_drawdown,
+            )
 
         return BacktestRunLoopResult(
             steps=step_results,
@@ -308,9 +342,11 @@ class BacktestRunnerSkeleton:
         persist_signals: bool = False,
         capture_steps: bool = True,
         capture_debug_traces: bool = False,
+        collect_performance_points: bool = True,
+        performance_point_sink: Callable[[Sequence[PerformancePoint]], None] | None = None,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
-        bars = loader.load_bars(
+        bars = loader.iter_bars(
             connection,
             self.run_config,
             required_bar_history=self.strategy.required_bar_history,
@@ -323,6 +359,9 @@ class BacktestRunnerSkeleton:
             connection=connection,
             capture_steps=capture_steps,
             capture_debug_traces=capture_debug_traces,
+            assume_sorted=True,
+            collect_performance_points=collect_performance_points,
+            performance_point_sink=performance_point_sink,
         )
 
     def load_run_and_persist(
@@ -335,6 +374,11 @@ class BacktestRunnerSkeleton:
         capture_steps: bool = False,
         persist_debug_traces: bool = False,
     ) -> PersistedBacktestRunResult:
+        run_id = self.run_repository.insert_run(
+            connection,
+            self.run_config,
+            status="running",
+        )
         loop_result = self.load_and_run(
             connection,
             bar_loader=bar_loader,
@@ -342,15 +386,23 @@ class BacktestRunnerSkeleton:
             persist_signals=persist_signals,
             capture_steps=capture_steps,
             capture_debug_traces=persist_debug_traces,
+            collect_performance_points=False,
+            performance_point_sink=lambda chunk: self.run_repository.upsert_timeseries(
+                connection,
+                run_id=run_id,
+                performance_points=chunk,
+            ),
         )
-        run_id = self.run_repository.insert_run(
+        self.run_repository.finalize_run(
             connection,
-            self.run_config,
+            run_id=run_id,
+            run_config=self.run_config,
             runtime_metadata=self._build_runtime_metadata(
                 loop_result,
                 self.risk_guardrails,
                 persist_debug_traces=persist_debug_traces,
             ),
+            status="finished",
         )
         order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
         fill_id_map = self.run_repository.insert_fills(
@@ -363,11 +415,6 @@ class BacktestRunnerSkeleton:
             connection,
             run_id=run_id,
             summary=loop_result.performance_summary,
-        )
-        self.run_repository.upsert_timeseries(
-            connection,
-            run_id=run_id,
-            performance_points=loop_result.performance_points,
         )
         if persist_debug_traces:
             self.run_repository.insert_debug_traces(
@@ -498,6 +545,10 @@ class BacktestRunnerSkeleton:
             "top_trader_long_short_account_ratio",
             "top_trader_long_short_position_ratio",
             "taker_long_short_ratio",
+            "minutes_to_next_funding",
+            "oi_change_pct_window",
+            "price_change_pct_window",
+            "weak_price_oi_push",
         ):
             value = getattr(market_context, field_name)
             if value is not None:

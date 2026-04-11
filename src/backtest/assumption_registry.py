@@ -171,4 +171,28 @@ def build_default_assumption_bundle_registry() -> AssumptionBundleRegistry:
             ),
         )
     )
+    registry.register(
+        RegisteredAssumptionBundle(
+            assumption_bundle_code="breakout_perp_research",
+            assumption_bundle_version="v1",
+            display_name="Breakout Perp Research",
+            description="Starter BTC perpetual breakout research bundle using the 4H breakout feature-input context line.",
+            market_scope="perp",
+            assumptions=AssumptionBundleConfig(
+                assumption_bundle_code="breakout_perp_research",
+                assumption_bundle_version="v1",
+                market_data_version="md.bars_1m",
+                fee_model_version="ref_fee_schedule_v1",
+                slippage_model_version="fixed_bps_v1",
+                fill_model_version="deterministic_bars_v1",
+                latency_model_version="bars_next_open_v1",
+                feature_input_version="bars_perp_breakout_context_v1",
+                benchmark_set_code="btc_perp_baseline_v1",
+                risk_policy=RiskPolicyOverrideConfig(policy_code="perp_medium_v1"),
+                metadata={
+                    "notes": "first BTC 4H breakout bundle; ATR sizing and repeated-loss stop-trading remain strategy-local in v0.1"
+                },
+            ),
+        )
+    )
     return registry

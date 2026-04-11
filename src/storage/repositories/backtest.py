@@ -20,6 +20,7 @@ class BacktestRunRepository:
         run_config: BacktestRunConfig,
         *,
         runtime_metadata: dict[str, object] | None = None,
+        status: str = "finished",
     ) -> int:
         strategy_version_id = resolve_strategy_version_id(
             connection,
@@ -27,36 +28,8 @@ class BacktestRunRepository:
             run_config.session.strategy_version,
         )
         account_id = resolve_account_id(connection, run_config.session.account_code)
-        selected_assumption_bundle = run_config.resolve_selected_assumption_bundle()
         effective_assumptions = run_config.build_effective_assumption_snapshot()
-        resolved_session_risk_policy = run_config.resolve_session_risk_policy()
-        effective_risk_policy = run_config.build_effective_risk_policy()
-        params_json = {
-            "session_code": run_config.session.session_code,
-            "environment": run_config.session.environment,
-            "trading_timezone": run_config.session.trading_timezone,
-            "netting_mode": run_config.session.netting_mode,
-            "bar_interval": run_config.bar_interval,
-            "initial_cash": str(run_config.initial_cash),
-            "assumption_bundle_code": run_config.assumption_bundle_code,
-            "assumption_bundle_version": run_config.assumption_bundle_version,
-            "assumption_bundle": (
-                selected_assumption_bundle.model_dump(mode="json", by_alias=True)
-                if selected_assumption_bundle is not None
-                else {}
-            ),
-            "assumption_overrides": run_config.build_assumption_overrides(),
-            "effective_assumptions": effective_assumptions.model_dump(mode="json", by_alias=True),
-            "strategy_params": run_config.strategy_params_json,
-            "run_metadata": run_config.metadata_json,
-            "runtime_metadata": runtime_metadata or {},
-            "session_metadata": run_config.session.metadata_json,
-            "execution_policy": run_config.session.execution_policy.model_dump(mode="json", by_alias=True),
-            "protection_policy": run_config.session.protection_policy.model_dump(mode="json", by_alias=True),
-            "session_risk_policy": resolved_session_risk_policy.model_dump(mode="json", by_alias=True),
-            "risk_overrides": run_config.risk_overrides.as_patch_dict(),
-            "risk_policy": effective_risk_policy.model_dump(mode="json", by_alias=True),
-        }
+        params_json = self._build_params_json(run_config, runtime_metadata=runtime_metadata)
         return int(
             connection.execute(
                 text(
@@ -103,9 +76,35 @@ class BacktestRunRepository:
                     "slippage_model_version": effective_assumptions.slippage_model_version,
                     "latency_model_version": effective_assumptions.latency_model_version,
                     "params_json": json.dumps(params_json, default=str),
-                    "status": "finished",
+                    "status": status,
                 },
             ).scalar_one()
+        )
+
+    def finalize_run(
+        self,
+        connection: Connection,
+        *,
+        run_id: int,
+        run_config: BacktestRunConfig,
+        runtime_metadata: dict[str, object] | None = None,
+        status: str = "finished",
+    ) -> None:
+        params_json = self._build_params_json(run_config, runtime_metadata=runtime_metadata)
+        connection.execute(
+            text(
+                """
+                update backtest.runs
+                set params_json = cast(:params_json as jsonb),
+                    status = :status
+                where run_id = :run_id
+                """
+            ),
+            {
+                "run_id": run_id,
+                "params_json": json.dumps(params_json, default=str),
+                "status": status,
+            },
         )
 
     def insert_orders(
@@ -436,6 +435,43 @@ class BacktestRunRepository:
             )
             persisted_ids.append(debug_trace_id)
         return persisted_ids
+
+    def _build_params_json(
+        self,
+        run_config: BacktestRunConfig,
+        *,
+        runtime_metadata: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        selected_assumption_bundle = run_config.resolve_selected_assumption_bundle()
+        resolved_session_risk_policy = run_config.resolve_session_risk_policy()
+        effective_risk_policy = run_config.build_effective_risk_policy()
+        effective_assumptions = run_config.build_effective_assumption_snapshot()
+        return {
+            "session_code": run_config.session.session_code,
+            "environment": run_config.session.environment,
+            "trading_timezone": run_config.session.trading_timezone,
+            "netting_mode": run_config.session.netting_mode,
+            "bar_interval": run_config.bar_interval,
+            "initial_cash": str(run_config.initial_cash),
+            "assumption_bundle_code": run_config.assumption_bundle_code,
+            "assumption_bundle_version": run_config.assumption_bundle_version,
+            "assumption_bundle": (
+                selected_assumption_bundle.model_dump(mode="json", by_alias=True)
+                if selected_assumption_bundle is not None
+                else {}
+            ),
+            "assumption_overrides": run_config.build_assumption_overrides(),
+            "effective_assumptions": effective_assumptions.model_dump(mode="json", by_alias=True),
+            "strategy_params": run_config.strategy_params_json,
+            "run_metadata": run_config.metadata_json,
+            "runtime_metadata": runtime_metadata or {},
+            "session_metadata": run_config.session.metadata_json,
+            "execution_policy": run_config.session.execution_policy.model_dump(mode="json", by_alias=True),
+            "protection_policy": run_config.session.protection_policy.model_dump(mode="json", by_alias=True),
+            "session_risk_policy": resolved_session_risk_policy.model_dump(mode="json", by_alias=True),
+            "risk_overrides": run_config.risk_overrides.as_patch_dict(),
+            "risk_policy": effective_risk_policy.model_dump(mode="json", by_alias=True),
+        }
 
     def get_run(self, connection: Connection, run_id: int) -> dict[str, object] | None:
         row = connection.execute(

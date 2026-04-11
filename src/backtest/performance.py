@@ -70,29 +70,12 @@ def summarize_performance(
     performance_points: Sequence[PerformancePoint],
 ) -> PerformanceSummary:
     if performance_points:
-        final_point = performance_points[-1]
-        final_equity = final_point.equity
-        max_drawdown = max(point.drawdown for point in performance_points)
-        turnover = final_point.turnover_notional / initial_cash if initial_cash > 0 else Decimal("0")
-        total_return = (final_equity - initial_cash) / initial_cash if initial_cash > 0 else Decimal("0")
-        win_rate = None
-        annualized_return = _annualize_return(
+        return summarize_performance_from_latest_point(
             initial_cash=initial_cash,
-            final_equity=final_equity,
             run_start=run_start,
             run_end=run_end,
-        )
-        return PerformanceSummary(
-            total_return=total_return,
-            annualized_return=annualized_return,
-            max_drawdown=max_drawdown,
-            turnover=turnover,
-            win_rate=win_rate,
-            fee_cost=final_point.fee_cost,
-            slippage_cost=final_point.slippage_cost,
-            final_equity=final_equity,
-            realized_pnl=final_point.realized_pnl,
-            unrealized_pnl=final_point.unrealized_pnl,
+            final_point=performance_points[-1],
+            max_drawdown=max(point.drawdown for point in performance_points),
         )
 
     return PerformanceSummary(
@@ -106,6 +89,51 @@ def summarize_performance(
         final_equity=initial_cash,
         realized_pnl=Decimal("0"),
         unrealized_pnl=Decimal("0"),
+    )
+
+
+def summarize_performance_from_latest_point(
+    *,
+    initial_cash: Decimal,
+    run_start: datetime,
+    run_end: datetime,
+    final_point: PerformancePoint | None,
+    max_drawdown: Decimal,
+) -> PerformanceSummary:
+    if final_point is None:
+        return PerformanceSummary(
+            total_return=Decimal("0"),
+            annualized_return=Decimal("0"),
+            max_drawdown=Decimal("0"),
+            turnover=Decimal("0"),
+            win_rate=None,
+            fee_cost=Decimal("0"),
+            slippage_cost=Decimal("0"),
+            final_equity=initial_cash,
+            realized_pnl=Decimal("0"),
+            unrealized_pnl=Decimal("0"),
+        )
+
+    final_equity = final_point.equity
+    turnover = final_point.turnover_notional / initial_cash if initial_cash > 0 else Decimal("0")
+    total_return = (final_equity - initial_cash) / initial_cash if initial_cash > 0 else Decimal("0")
+    annualized_return = _annualize_return(
+        initial_cash=initial_cash,
+        final_equity=final_equity,
+        run_start=run_start,
+        run_end=run_end,
+    )
+    return PerformanceSummary(
+        total_return=total_return,
+        annualized_return=annualized_return,
+        max_drawdown=max_drawdown,
+        turnover=turnover,
+        win_rate=None,
+        fee_cost=final_point.fee_cost,
+        slippage_cost=final_point.slippage_cost,
+        final_equity=final_equity,
+        realized_pnl=final_point.realized_pnl,
+        unrealized_pnl=final_point.unrealized_pnl,
     )
 
 

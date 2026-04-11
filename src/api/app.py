@@ -627,6 +627,13 @@ class BacktestComparedRunResource(BaseModel):
     win_rate: str | None = None
     fee_cost: str | None = None
     slippage_cost: str | None = None
+    diagnostic_error_count: int = 0
+    diagnostic_warning_count: int = 0
+    blocked_intent_count: int = 0
+    block_counts_by_code: dict[str, int]
+    outcome_counts_by_code: dict[str, int]
+    state_snapshot: dict[str, Any]
+    diagnostic_flag_codes: list[str]
 
 
 class ComparisonAssumptionValueResource(BaseModel):
@@ -656,6 +663,17 @@ class BacktestComparisonFlagResource(BaseModel):
     message: str
 
 
+class BacktestDiagnosticDiffValueResource(BaseModel):
+    run_id: int
+    value: Any
+
+
+class BacktestDiagnosticDiffResource(BaseModel):
+    field_name: str
+    distinct_value_count: int
+    values_by_run: list[BacktestDiagnosticDiffValueResource]
+
+
 class BacktestCompareSetResource(BaseModel):
     compare_set_id: int | None = None
     compare_name: str | None = None
@@ -665,6 +683,7 @@ class BacktestCompareSetResource(BaseModel):
     available_period_types: list[str]
     compared_runs: list[BacktestComparedRunResource]
     assumption_diffs: list[BacktestAssumptionDiffResource]
+    diagnostics_diffs: list[BacktestDiagnosticDiffResource]
     benchmark_deltas: list[BacktestBenchmarkDeltaResource]
     comparison_flags: list[BacktestComparisonFlagResource]
 
@@ -1200,6 +1219,13 @@ def _build_backtest_compare_resource(compare_set: BacktestCompareSet) -> Backtes
                 win_rate=None if run.win_rate is None else str(run.win_rate),
                 fee_cost=None if run.fee_cost is None else str(run.fee_cost),
                 slippage_cost=None if run.slippage_cost is None else str(run.slippage_cost),
+                diagnostic_error_count=run.diagnostic_error_count,
+                diagnostic_warning_count=run.diagnostic_warning_count,
+                blocked_intent_count=run.blocked_intent_count,
+                block_counts_by_code=run.block_counts_by_code,
+                outcome_counts_by_code=run.outcome_counts_by_code,
+                state_snapshot=run.state_snapshot,
+                diagnostic_flag_codes=run.diagnostic_flag_codes,
             )
             for run in compare_set.compared_runs
         ],
@@ -1213,6 +1239,17 @@ def _build_backtest_compare_resource(compare_set: BacktestCompareSet) -> Backtes
                 ],
             )
             for diff in compare_set.assumption_diffs
+        ],
+        diagnostics_diffs=[
+            BacktestDiagnosticDiffResource(
+                field_name=diff.field_name,
+                distinct_value_count=diff.distinct_value_count,
+                values_by_run=[
+                    BacktestDiagnosticDiffValueResource(run_id=value.run_id, value=value.value)
+                    for value in diff.values_by_run
+                ],
+            )
+            for diff in compare_set.diagnostics_diffs
         ],
         benchmark_deltas=[
             BacktestBenchmarkDeltaResource(

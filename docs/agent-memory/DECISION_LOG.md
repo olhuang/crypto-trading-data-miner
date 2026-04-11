@@ -356,3 +356,93 @@ Implement the first expected-vs-observed overview as a run-level aggregation ove
 - `GET /api/v1/backtests/runs/{run_id}/expected-vs-observed` is now the baseline aggregate view for investigation-note status, type, source, and scenario summaries
 - the internal Investigate workspace can now navigate from a run-level note table back into the underlying trace-linked note evidence
 - future replay timeline work should enrich this overview with tighter grouping and range/timeline linkage rather than replacing it
+
+## 2026-04-11
+
+### Decision
+Extend compare/analyze by projecting diagnostics and runtime-risk diffs directly from the existing run diagnostics projector and persisting those facts inside compare-set snapshots, instead of introducing a separate compare-only diagnostics schema.
+
+### Reason
+- the repo already has a typed diagnostics projector with stable risk-summary and flag semantics
+- compare needed richer runtime evidence quickly, but adding another schema would duplicate facts and widen maintenance cost
+- reusing the diagnostics projector keeps compare, review-note seed facts, and future workbench surfaces aligned to one evidence source
+
+### Impact
+- compare sets now expose diagnostics/risk diff fields such as blocked-intent counts, block/outcome counts, guardrail state snapshots, and diagnostic-flag differences
+- persisted compare snapshots and seeded compare-review notes now carry those diagnostics/runtime-risk facts for later review flow
+- future compare/replay/workbench work should extend this shared diagnostics evidence path rather than fork a parallel compare-specific diagnostics model
+
+## 2026-04-11
+
+### Decision
+Scope the first BTC 4H breakout strategy line as a `long-only`, `BTCUSDT_PERP`, 4H-close decision model that uses the existing next-step bars-based market-fill convention, while keeping ATR stop sizing and repeated-loss stop-trading rules strategy-local in `v0.1`.
+
+### Reason
+- this matches the current Phase 5 backtest engine honestly without pretending intrabar breakout-entry fidelity
+- the current shared guardrail layer is suited for session/account envelope controls, not yet for strategy-specific `R` math or ATR-derived trade management
+- a narrower first slice makes the planned ablation matrix interpretable before adding short-side, dated futures, or fuller protection-lifecycle complexity
+
+### Impact
+- the new 4H breakout design spec now treats trend/breakout/volatility/perp-context filters and ATR-derived sizing/exits as the first strategy-owned implementation path
+- shared risk remains responsible for the existing session envelope controls such as drawdown, leverage, and daily-loss guardrails
+- future extensions for short-side support, intrabar breakout simulation, or protection-engine migration should build on this `v0.1` baseline rather than replace it implicitly
+
+## 2026-04-11
+
+### Decision
+Keep the BTC 4H breakout strategy's ATR-based sizing strategy-local, but make the first launchable `/monitoring` preset include explicit `max_position_qty` and `max_order_qty` run overrides so the default research path is not silently blocked by the shared `perp_medium_v1` quantity envelope.
+
+### Reason
+- the current `perp_medium_v1` shared guardrail defaults are intentionally conservative and are still the right baseline for generic research runs
+- the new breakout strategy sizes from `risk_per_trade_pct` and ATR stop distance, which can legitimately propose position sizes above the generic default quantity caps even in honest backtests
+- changing the shared policy would broaden risk semantics for unrelated strategies, while a preset-level override keeps the breakout path usable without hiding the underlying guardrail interaction
+
+### Impact
+- the `4H Breakout Perp` preset in `/monitoring` now sets `max_position_qty` and `max_order_qty` explicitly
+- persisted breakout launch coverage now verifies the strategy can complete an end-to-end run when those overrides are supplied
+- future work can revisit whether breakout-specific sizing should migrate into a named shared risk policy, but the current `v0.1` path remains strategy-local plus run override
+
+## 2026-04-11
+
+### Decision
+Treat year-plus backtest performance first as a streaming/sorting problem in the shared Phase 5 engine: load bars as per-symbol ordered iterators, merge them in time order, and let the runner consume that already-sorted stream directly instead of forcing a full in-memory `list + sort` pass before execution.
+
+### Reason
+- one-year-plus `1m` backtests produce hundreds of thousands of bars per symbol, so an extra full materialization plus global sort adds avoidable memory pressure and startup latency before any strategy logic runs
+- this cost is shared by every strategy, not just one specific implementation
+- the existing repository path already queries each symbol in time order, so merging those ordered streams preserves correctness while removing duplicated sorting work
+
+### Impact
+- `BacktestBarLoader` now has an iterator path for merged ordered bars
+- `BacktestRunnerSkeleton.load_and_run()` now consumes the already-sorted iterator directly
+- the next performance pass should focus on per-strategy recomputation hotspots and optional persistence-volume reductions rather than revisiting global bar ordering first
+
+## 2026-04-11
+
+### Decision
+For high-timeframe strategies built on `1m` input bars, prefer incremental in-strategy bucket maintenance over rebuilding aggregated higher-timeframe history from `recent_bars` on every minute evaluation.
+
+### Reason
+- once the shared loader/runner path is streaming, the next year-plus performance hotspot shifts to strategy-local recomputation
+- the current 4H breakout strategy was rebuilding the same 4H aggregation repeatedly even though only one minute of new information arrives each step
+- incremental bucket maintenance preserves the existing Phase 5 engine contract while cutting repeated work in the hottest strategy path now under development
+
+### Impact
+- `btc_4h_breakout_perp` now maintains incremental 4H buckets and tracks the last evaluated closed bucket to avoid duplicate work and duplicate decisions
+- future high-timeframe strategies should follow the same incremental pattern or extract a shared helper instead of re-aggregating from full minute history every step
+- the next performance pass can focus on persistence/write volume and broader reusable high-timeframe helpers
+
+## 2026-04-11
+
+### Decision
+For persisted backtests, create the `backtest.runs` row in `running` state first, stream `performance_timeseries` to storage in chunks during execution, and finalize the run's status/runtime metadata only after the loop completes.
+
+### Reason
+- year-plus minute-bar runs can produce very large `performance_points` sequences, and holding the whole list until the end adds avoidable memory pressure on the hottest persisted path
+- performance summary metrics only need the latest point plus running max drawdown, so full in-memory retention is unnecessary for persisted runs
+- this keeps the existing API/result contract intact for interactive `load_and_run()` usage while making the persisted path more production-like
+
+### Impact
+- `load_run_and_persist()` now inserts a pending run, streams timeseries chunks through the repository during execution, and finalizes the run row afterward
+- persisted run regressions now verify `running -> finished` lifecycle behavior and chunked timeseries writes
+- the next performance pass should focus on remaining persisted write volume such as orders, fills, and optional debug traces rather than on performance-timeseries memory retention

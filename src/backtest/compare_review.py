@@ -186,6 +186,13 @@ class CompareReviewService:
                     "win_rate": None if run.win_rate is None else str(run.win_rate),
                     "fee_cost": None if run.fee_cost is None else str(run.fee_cost),
                     "slippage_cost": None if run.slippage_cost is None else str(run.slippage_cost),
+                    "diagnostic_error_count": run.diagnostic_error_count,
+                    "diagnostic_warning_count": run.diagnostic_warning_count,
+                    "blocked_intent_count": run.blocked_intent_count,
+                    "block_counts_by_code": run.block_counts_by_code,
+                    "outcome_counts_by_code": run.outcome_counts_by_code,
+                    "state_snapshot": run.state_snapshot,
+                    "diagnostic_flag_codes": run.diagnostic_flag_codes,
                 }
                 for run in compare_set.compared_runs
             ],
@@ -202,6 +209,20 @@ class CompareReviewService:
                     ],
                 }
                 for diff in compare_set.assumption_diffs
+            ],
+            "diagnostics_diffs": [
+                {
+                    "field_name": diff.field_name,
+                    "distinct_value_count": diff.distinct_value_count,
+                    "values_by_run": [
+                        {
+                            "run_id": value.run_id,
+                            "value": value.value,
+                        }
+                        for value in diff.values_by_run
+                    ],
+                }
+                for diff in compare_set.diagnostics_diffs
             ],
             "benchmark_deltas": [
                 {
@@ -220,6 +241,10 @@ class CompareReviewService:
                     {
                         "run_id": run.run_id,
                         "diagnostic_status": run.diagnostic_status,
+                        "error_count": run.diagnostic_error_count,
+                        "warning_count": run.diagnostic_warning_count,
+                        "blocked_intent_count": run.blocked_intent_count,
+                        "diagnostic_flag_codes": run.diagnostic_flag_codes,
                     }
                     for run in compare_set.compared_runs
                 ],

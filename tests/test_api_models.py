@@ -545,12 +545,13 @@ class ModelsApiTests(unittest.TestCase):
         )
 
         self.assertTrue(response.success)
-        self.assertGreaterEqual(len(response.data.assumption_bundles), 3)
+        self.assertGreaterEqual(len(response.data.assumption_bundles), 4)
         bundle_keys = {
             (resource.assumption_bundle_code, resource.assumption_bundle_version)
             for resource in response.data.assumption_bundles
         }
         self.assertIn(("baseline_perp_research", "v1"), bundle_keys)
+        self.assertIn(("breakout_perp_research", "v1"), bundle_keys)
         self.assertIn(("baseline_spot_research", "v1"), bundle_keys)
         self.assertIn(("stress_costs", "v1"), bundle_keys)
 
@@ -857,6 +858,160 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(captured_run_config["target_qty"], "0.05")
         self.assertTrue(captured_run_config["persist_debug_traces"])
 
+    def test_backtest_run_create_accepts_breakout_strategy_request(self) -> None:
+        original_runner = app_module.BacktestRunnerSkeleton
+        original_repository = app_module.BacktestRunRepository
+        captured_run_config: dict[str, object] = {}
+
+        class StubRunner:
+            def __init__(self, run_config):
+                captured_run_config["strategy_code"] = run_config.session.strategy_code
+                captured_run_config["strategy_version"] = run_config.session.strategy_version
+                captured_run_config["feature_input_version"] = run_config.build_effective_assumption_snapshot().feature_input_version
+                captured_run_config["trend_fast_ema"] = run_config.strategy_params_json.get("trend_fast_ema")
+                captured_run_config["trend_slow_ema"] = run_config.strategy_params_json.get("trend_slow_ema")
+                captured_run_config["breakout_lookback_bars"] = run_config.strategy_params_json.get("breakout_lookback_bars")
+                captured_run_config["persist_debug_traces"] = None
+
+            def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
+                captured_run_config["persist_debug_traces"] = persist_debug_traces
+                return SimpleNamespace(run_id=603, loop_result=SimpleNamespace())
+
+        class StubRepository:
+            def get_run(self, connection, run_id: int):
+                if run_id != 603:
+                    return None
+                return {
+                    "run_id": 603,
+                    "strategy_code": "btc_4h_breakout_perp",
+                    "strategy_version": "v0.1.0",
+                    "account_code": "paper_main",
+                    "run_name": "btc_breakout_ui_demo",
+                    "universe_json": ["BTCUSDT_PERP"],
+                    "start_time": datetime.fromisoformat("2026-03-01T00:00:00+00:00"),
+                    "end_time": datetime.fromisoformat("2026-03-31T00:00:00+00:00"),
+                    "market_data_version": "md.bars_1m",
+                    "fee_model_version": "ref_fee_schedule_v1",
+                    "slippage_model_version": "fixed_bps_v1",
+                    "latency_model_version": "bars_next_open_v1",
+                    "params_json": {
+                        "session_code": "bt_breakout_ui_demo",
+                        "environment": "backtest",
+                        "trading_timezone": "UTC",
+                        "netting_mode": "isolated_strategy_session",
+                        "bar_interval": "1m",
+                        "initial_cash": "100000",
+                        "assumption_bundle_code": "breakout_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "assumption_bundle": {
+                            "assumption_bundle_code": "breakout_perp_research",
+                            "assumption_bundle_version": "v1",
+                            "market_data_version": "md.bars_1m",
+                            "fee_model_version": "ref_fee_schedule_v1",
+                            "slippage_model_version": "fixed_bps_v1",
+                            "fill_model_version": "deterministic_bars_v1",
+                            "latency_model_version": "bars_next_open_v1",
+                            "feature_input_version": "bars_perp_breakout_context_v1",
+                            "benchmark_set_code": "btc_perp_baseline_v1",
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "assumption_overrides": {},
+                        "effective_assumptions": {
+                            "assumption_bundle_code": "breakout_perp_research",
+                            "assumption_bundle_version": "v1",
+                            "market_data_version": "md.bars_1m",
+                            "fee_model_version": "ref_fee_schedule_v1",
+                            "slippage_model_version": "fixed_bps_v1",
+                            "fill_model_version": "deterministic_bars_v1",
+                            "latency_model_version": "bars_next_open_v1",
+                            "feature_input_version": "bars_perp_breakout_context_v1",
+                            "benchmark_set_code": "btc_perp_baseline_v1",
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "strategy_params": {
+                            "trend_fast_ema": 20,
+                            "trend_slow_ema": 50,
+                            "breakout_lookback_bars": 20,
+                            "atr_window": 14,
+                            "risk_per_trade_pct": "0.005",
+                        },
+                        "run_metadata": {"source": "ui"},
+                        "runtime_metadata": {},
+                        "session_metadata": {},
+                        "execution_policy": {"policy_code": "default"},
+                        "protection_policy": {"policy_code": "default"},
+                        "session_risk_policy": {"policy_code": "perp_medium_v1"},
+                        "risk_overrides": {},
+                        "risk_policy": {"policy_code": "perp_medium_v1"},
+                    },
+                    "status": "finished",
+                    "created_at": datetime.fromisoformat("2026-04-11T09:30:00+00:00"),
+                }
+
+            def get_performance_summary(self, connection, *, run_id: int):
+                return {
+                    "total_return": Decimal("0.06"),
+                    "annualized_return": Decimal("0.18"),
+                    "max_drawdown": Decimal("0.04"),
+                    "turnover": Decimal("0.35"),
+                    "win_rate": Decimal("0.55"),
+                    "fee_cost": Decimal("7.00"),
+                    "slippage_cost": Decimal("2.50"),
+                }
+
+        app_module.BacktestRunnerSkeleton = StubRunner
+        app_module.BacktestRunRepository = StubRepository
+        try:
+            response = self.__class__.backtest_runs_create_endpoint(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_breakout_ui_demo",
+                        "session": {
+                            "session_code": "bt_breakout_ui_demo",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_4h_breakout_perp",
+                            "strategy_version": "v0.1.0",
+                            "exchange_code": "binance",
+                            "trading_timezone": "UTC",
+                            "universe": ["BTCUSDT_PERP"],
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "start_time": "2026-03-01T00:00:00Z",
+                        "end_time": "2026-03-31T00:00:00Z",
+                        "initial_cash": "100000",
+                        "assumption_bundle_code": "breakout_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "strategy_params": {
+                            "trend_fast_ema": 20,
+                            "trend_slow_ema": 50,
+                            "breakout_lookback_bars": 20,
+                            "atr_window": 14,
+                            "risk_per_trade_pct": "0.005",
+                        },
+                        "persist_debug_traces": True,
+                    }
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.BacktestRunnerSkeleton = original_runner
+            app_module.BacktestRunRepository = original_repository
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.run_id, 603)
+        self.assertEqual(response.data.strategy_code, "btc_4h_breakout_perp")
+        self.assertEqual(response.data.feature_input_version, "bars_perp_breakout_context_v1")
+        self.assertEqual(response.data.strategy_params_json["trend_fast_ema"], 20)
+        self.assertEqual(response.data.strategy_params_json["trend_slow_ema"], 50)
+        self.assertEqual(captured_run_config["strategy_code"], "btc_4h_breakout_perp")
+        self.assertEqual(captured_run_config["strategy_version"], "v0.1.0")
+        self.assertEqual(captured_run_config["feature_input_version"], "bars_perp_breakout_context_v1")
+        self.assertEqual(captured_run_config["trend_fast_ema"], 20)
+        self.assertEqual(captured_run_config["trend_slow_ema"], 50)
+        self.assertEqual(captured_run_config["breakout_lookback_bars"], 20)
+        self.assertTrue(captured_run_config["persist_debug_traces"])
+
     def test_backtest_run_create_can_launch_persisted_hourly_run_end_to_end(self) -> None:
         original_transaction_scope = app_module.transaction_scope
         original_connection_scope = app_module.connection_scope
@@ -1003,6 +1158,140 @@ class ModelsApiTests(unittest.TestCase):
 
         self.assertTrue(timeseries_response.success)
         self.assertGreater(len(timeseries_response.data.points), 100)
+
+    def test_backtest_run_create_can_launch_persisted_breakout_run_end_to_end(self) -> None:
+        original_transaction_scope = app_module.transaction_scope
+        original_connection_scope = app_module.connection_scope
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            run_start = datetime(2036, 1, 1, 0, 0, tzinfo=timezone.utc)
+            bar_repository = BarRepository()
+            block_closes = ["100", "102", "104", "106", "112"]
+            for block_index, close in enumerate(block_closes):
+                block_start = run_start + timedelta(hours=block_index * 4)
+                for minute in range(240):
+                    bar_time = block_start + timedelta(minutes=minute)
+                    bar_repository.upsert(
+                        connection,
+                        BarEvent.model_validate(
+                            {
+                                "exchange_code": "binance",
+                                "unified_symbol": "BTCUSDT_PERP",
+                                "bar_interval": "1m",
+                                "bar_time": bar_time.isoformat(),
+                                "event_time": bar_time.isoformat(),
+                                "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                                "open": close,
+                                "high": close,
+                                "low": close,
+                                "close": close,
+                                "volume": "10",
+                            }
+                        ),
+                    )
+            final_bar_time = run_start + timedelta(hours=20, minutes=2)
+            for offset in range(3):
+                bar_time = run_start + timedelta(hours=20, minutes=offset)
+                bar_repository.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": "112",
+                            "high": "112",
+                            "low": "112",
+                            "close": "112",
+                            "volume": "10",
+                        }
+                    ),
+                )
+
+            @contextmanager
+            def _stub_transaction_scope():
+                yield connection
+
+            @contextmanager
+            def _stub_connection_scope():
+                yield connection
+
+            app_module.transaction_scope = _stub_transaction_scope
+            app_module.connection_scope = _stub_connection_scope
+
+            create_response = self.__class__.backtest_runs_create_endpoint(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_breakout_api_integration",
+                        "session": {
+                            "session_code": "bt_breakout_api_integration",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_4h_breakout_perp",
+                            "strategy_version": "v0.1.0",
+                            "exchange_code": "binance",
+                            "trading_timezone": "UTC",
+                            "universe": ["BTCUSDT_PERP"],
+                            "risk_policy": {"policy_code": "perp_medium_v1"},
+                        },
+                        "start_time": run_start.isoformat(),
+                        "end_time": final_bar_time.isoformat(),
+                        "initial_cash": "10000",
+                        "assumption_bundle_code": "breakout_perp_research",
+                        "assumption_bundle_version": "v1",
+                        "risk_overrides": {
+                            "max_position_qty": "25",
+                            "max_order_qty": "25",
+                        },
+                        "strategy_params": {
+                            "trend_fast_ema": 3,
+                            "trend_slow_ema": 5,
+                            "breakout_lookback_bars": 3,
+                            "atr_window": 3,
+                            "risk_per_trade_pct": "0.01",
+                            "volatility_floor_atr_pct": "0.005",
+                            "volatility_ceiling_atr_pct": "0.20",
+                        },
+                    }
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+
+            run_id = create_response.data.run_id
+            detail_response = self.__class__.backtest_run_detail_endpoint(run_id, "Bearer developer:u_123:Alice")
+            orders_response = self.__class__.backtest_run_orders_endpoint(run_id, 20, "Bearer developer:u_123:Alice")
+            fills_response = self.__class__.backtest_run_fills_endpoint(run_id, 20, "Bearer developer:u_123:Alice")
+            signals_response = self.__class__.backtest_run_signals_endpoint(run_id, 20, "Bearer developer:u_123:Alice")
+        finally:
+            app_module.transaction_scope = original_transaction_scope
+            app_module.connection_scope = original_connection_scope
+            transaction.rollback()
+            connection.close()
+
+        self.assertTrue(create_response.success)
+        self.assertEqual(create_response.data.strategy_code, "btc_4h_breakout_perp")
+        self.assertEqual(create_response.data.feature_input_version, "bars_perp_breakout_context_v1")
+        self.assertEqual(create_response.data.strategy_params_json["trend_fast_ema"], 3)
+
+        self.assertTrue(detail_response.success)
+        self.assertEqual(detail_response.data.run_id, run_id)
+        self.assertEqual(detail_response.data.strategy_code, "btc_4h_breakout_perp")
+
+        self.assertTrue(orders_response.success)
+        self.assertEqual(len(orders_response.data.orders), 1)
+        self.assertEqual(orders_response.data.orders[0].side, "buy")
+
+        self.assertTrue(fills_response.success)
+        self.assertEqual(len(fills_response.data.fills), 1)
+        self.assertGreater(Decimal(fills_response.data.fills[0].qty), Decimal("0"))
+
+        self.assertTrue(signals_response.success)
+        self.assertEqual(len(signals_response.data.signals), 1)
+        self.assertEqual(signals_response.data.signals[0].signal_type, "entry")
 
     def test_backtest_run_create_rejects_unknown_named_risk_policy(self) -> None:
         original_runner = app_module.BacktestRunnerSkeleton
@@ -1714,6 +2003,13 @@ class ModelsApiTests(unittest.TestCase):
                             win_rate=Decimal("0.55"),
                             fee_cost=Decimal("12.34"),
                             slippage_cost=Decimal("5.67"),
+                            diagnostic_error_count=0,
+                            diagnostic_warning_count=0,
+                            blocked_intent_count=0,
+                            block_counts_by_code={},
+                            outcome_counts_by_code={},
+                            state_snapshot={"policy_code": "perp_medium_v1"},
+                            diagnostic_flag_codes=[],
                         ),
                         SimpleNamespace(
                             run_id=502,
@@ -1734,6 +2030,13 @@ class ModelsApiTests(unittest.TestCase):
                             win_rate=Decimal("0.58"),
                             fee_cost=Decimal("15.00"),
                             slippage_cost=Decimal("7.00"),
+                            diagnostic_error_count=0,
+                            diagnostic_warning_count=2,
+                            blocked_intent_count=3,
+                            block_counts_by_code={"max_drawdown_pct_breach": 2, "cooldown_active": 1},
+                            outcome_counts_by_code={"blocked": 3},
+                            state_snapshot={"policy_code": "perp_medium_v1", "trading_timezone": "Asia/Taipei"},
+                            diagnostic_flag_codes=["risk_blocks_present", "drawdown_guard_triggered"],
                         ),
                     ],
                     assumption_diffs=[
@@ -1745,6 +2048,24 @@ class ModelsApiTests(unittest.TestCase):
                                 SimpleNamespace(run_id=502, value="v1.1.0"),
                             ],
                         )
+                    ],
+                    diagnostics_diffs=[
+                        SimpleNamespace(
+                            field_name="blocked_intent_count",
+                            distinct_value_count=2,
+                            values_by_run=[
+                                SimpleNamespace(run_id=501, value=0),
+                                SimpleNamespace(run_id=502, value=3),
+                            ],
+                        ),
+                        SimpleNamespace(
+                            field_name="diagnostic_flag_codes",
+                            distinct_value_count=2,
+                            values_by_run=[
+                                SimpleNamespace(run_id=501, value=[]),
+                                SimpleNamespace(run_id=502, value=["risk_blocks_present", "drawdown_guard_triggered"]),
+                            ],
+                        ),
                     ],
                     benchmark_deltas=[
                         SimpleNamespace(
@@ -1790,6 +2111,9 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(response.data.persisted)
         self.assertEqual(response.data.benchmark_deltas[0].run_id, 502)
         self.assertEqual(response.data.assumption_diffs[0].field_name, "strategy_version")
+        self.assertEqual(response.data.diagnostics_diffs[0].field_name, "blocked_intent_count")
+        self.assertEqual(response.data.compared_runs[1].blocked_intent_count, 3)
+        self.assertEqual(response.data.compared_runs[1].diagnostic_flag_codes[0], "risk_blocks_present")
         self.assertEqual(response.data.comparison_flags[0].code, "diagnostic_warnings_present")
 
     def test_backtest_compare_notes_endpoints_return_seeded_and_human_notes(self) -> None:

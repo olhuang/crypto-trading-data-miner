@@ -35,6 +35,14 @@ The intent is to keep one explicit place for:
 | `SR-2026-04-04-07` | Compare/analyze maturity | Compare currently focuses on assumptions and KPI deltas, but not yet on richer runtime risk-state deltas or persisted compare-set workflows. | Extend compare-set persistence and runtime-risk diff views in later Phase 5 workbench stages. | `open` |
 | `SR-2026-04-04-08` | Diagnostics trace drill-down | The internal trace table now exists, but diagnostics flags still do not jump directly to matching trace ranges or prefiltered trace views. | Add diagnostics-to-trace anchors after Level 2 richer trace linkage is in place. | `open` |
 
+## Review Pass: 2026-04-11
+
+### Fixed In This Pass
+
+| ID | Area | Finding | Resolution | Status |
+|---|---|---|---|---|
+| `SR-2026-04-04-07` | Compare/analyze maturity | Compare currently focuses on assumptions and KPI deltas, but not yet on richer runtime risk-state deltas or persisted compare-set workflows. | Extended compare-set projection, persisted snapshot facts, API resources, UI tables, and regression coverage so compare now exposes diagnostics/risk diffs, blocked-intent counts, guardrail-state deltas, and surfaced diagnostic-flag differences per run. | `fixed` |
+
 ---
 
 ## References

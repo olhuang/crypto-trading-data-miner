@@ -23,9 +23,12 @@ class SeedDefaultsTests(unittest.TestCase):
                 where (s.strategy_code = %s and sv.version_code = %s)
                    or (s.strategy_code = %s and sv.version_code = %s)
                    or (s.strategy_code = %s and sv.version_code = %s)
+                   or (s.strategy_code = %s and sv.version_code = %s)
                 order by s.strategy_code
                 """,
                 (
+                    "btc_4h_breakout_perp",
+                    "v0.1.0",
                     "btc_momentum",
                     "v1.0.0",
                     "btc_sentiment_momentum",
@@ -38,6 +41,7 @@ class SeedDefaultsTests(unittest.TestCase):
         self.assertEqual(
             rows,
             [
+                ("btc_4h_breakout_perp", "v0.1.0", True),
                 ("btc_hourly_momentum", "v1.0.0", True),
                 ("btc_momentum", "v1.0.0", True),
                 ("btc_sentiment_momentum", "v1.0.0", True),

@@ -18,7 +18,12 @@ from backtest.artifacts import BacktestArtifactCatalogProjector
 from backtest.assumption_registry import build_default_assumption_bundle_registry
 from backtest.compare import BacktestCompareProjector
 from backtest.compare_review import CompareReviewService
-from backtest.data import BacktestBarLoader
+from backtest.data import (
+    BacktestBarLoader,
+    BacktestPerpContextCursor,
+    BacktestPerpContextSeries,
+    FEATURE_INPUT_BARS_PERP_BREAKOUT_CONTEXT_V1,
+)
 from backtest.fills import DeterministicBarsFillModel, FixedBpsSlippageModel, SimulatedFill, StaticFeeModel
 from backtest.diagnostics import BacktestDiagnosticsProjector
 from backtest.investigation_notes import TraceInvestigationNoteService
@@ -38,6 +43,7 @@ from storage.db import get_engine, transaction_scope
 from storage.repositories.backtest import BacktestRunRepository
 from storage.repositories.market_data import BarRepository, GlobalLongShortAccountRatioRepository, TakerLongShortRatioRepository
 from strategy import (
+    FourHourBreakoutPerpStrategy,
     HourlyMovingAverageCrossStrategy,
     MovingAverageCrossStrategy,
     SentimentAwareMovingAverageStrategy,
@@ -465,6 +471,7 @@ class Phase5FoundationTests(unittest.TestCase):
         }
 
         self.assertIn(("baseline_perp_research", "v1"), bundle_keys)
+        self.assertIn(("breakout_perp_research", "v1"), bundle_keys)
         self.assertIn(("baseline_perp_sentiment_research", "v1"), bundle_keys)
         self.assertIn(("baseline_spot_research", "v1"), bundle_keys)
         self.assertIn(("stress_costs", "v1"), bundle_keys)
@@ -523,6 +530,71 @@ class Phase5FoundationTests(unittest.TestCase):
         sentiment_assumptions = sentiment_run_config.build_effective_assumption_snapshot()
         self.assertEqual(sentiment_assumptions.feature_input_version, "bars_perp_context_v1")
 
+        breakout_run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_breakout_bundle",
+                "session": {
+                    "session_code": "bt_breakout_bundle",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_4h_breakout_perp",
+                    "strategy_version": "v0.1.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "10000",
+                "assumption_bundle_code": "breakout_perp_research",
+                "assumption_bundle_version": "v1",
+            }
+        )
+        breakout_assumptions = breakout_run_config.build_effective_assumption_snapshot()
+        self.assertEqual(breakout_assumptions.feature_input_version, "bars_perp_breakout_context_v1")
+
+    def test_breakout_context_cursor_derives_funding_window_and_change_fields(self) -> None:
+        decision_time = datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc)
+        cursor = BacktestPerpContextCursor(
+            feature_input_version=FEATURE_INPUT_BARS_PERP_BREAKOUT_CONTEXT_V1,
+            series=BacktestPerpContextSeries(
+                funding_rate=[
+                    {
+                        "event_time": datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc),
+                        "funding_rate": Decimal("0.0004"),
+                    }
+                ],
+                open_interest=[
+                    {
+                        "event_time": datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc),
+                        "open_interest": Decimal("100"),
+                    },
+                    {
+                        "event_time": datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc),
+                        "open_interest": Decimal("112"),
+                    },
+                ],
+                mark_price=[
+                    {
+                        "event_time": datetime(2026, 4, 1, 8, 0, tzinfo=timezone.utc),
+                        "mark_price": Decimal("100"),
+                    },
+                    {
+                        "event_time": datetime(2026, 4, 1, 12, 0, tzinfo=timezone.utc),
+                        "mark_price": Decimal("101"),
+                    },
+                ],
+            ),
+        )
+
+        context = cursor.context_at(decision_time)
+
+        self.assertIsNotNone(context)
+        assert context is not None
+        self.assertEqual(context.minutes_to_next_funding, 240)
+        self.assertEqual(context.oi_change_pct_window, Decimal("0.12"))
+        self.assertEqual(context.price_change_pct_window, Decimal("0.01"))
+        self.assertTrue(context.weak_price_oi_push)
+
     def test_default_registry_loads_seeded_example_strategy(self) -> None:
         registry = build_default_registry()
         strategy = registry.create("btc_momentum", "v1.0.0", {"short_window": 3, "long_window": 5, "target_qty": "2"})
@@ -546,8 +618,270 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(hourly_strategy.target_qty, Decimal("2"))
         self.assertEqual(hourly_strategy.required_bar_history, 360)
 
+        breakout_strategy = registry.create(
+            "btc_4h_breakout_perp",
+            "v0.1.0",
+            {
+                "trend_fast_ema": 20,
+                "trend_slow_ema": 50,
+                "breakout_lookback_bars": 20,
+                "atr_window": 14,
+                "risk_per_trade_pct": "0.005",
+            },
+        )
+        self.assertIsInstance(breakout_strategy, FourHourBreakoutPerpStrategy)
+        self.assertEqual(breakout_strategy.trend_fast_ema, 20)
+        self.assertEqual(breakout_strategy.trend_slow_ema, 50)
+
         with self.assertRaises(UnknownStrategyError):
             registry.create("unknown_strategy", "v1.0.0")
+
+    def test_four_hour_breakout_strategy_validates_parameters(self) -> None:
+        with self.assertRaises(ValueError):
+            FourHourBreakoutPerpStrategy(trend_fast_ema=0)
+
+        with self.assertRaises(ValueError):
+            FourHourBreakoutPerpStrategy(trend_fast_ema=20, trend_slow_ema=20)
+
+        with self.assertRaises(ValueError):
+            FourHourBreakoutPerpStrategy(volatility_floor_atr_pct="0.03", volatility_ceiling_atr_pct="0.03")
+
+        with self.assertRaises(ValueError):
+            FourHourBreakoutPerpStrategy(risk_per_trade_pct="0")
+
+    def test_four_hour_breakout_strategy_requires_bucket_close_and_sufficient_history(self) -> None:
+        strategy = FourHourBreakoutPerpStrategy(
+            trend_fast_ema=3,
+            trend_slow_ema=5,
+            breakout_lookback_bars=3,
+            atr_window=3,
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_4h_breakout_no_signal",
+                "session": {
+                    "session_code": "bt_4h_breakout_no_signal",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_4h_breakout_perp",
+                    "strategy_version": "v0.1.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-03T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        evaluation = StrategyEvaluationInput(
+            session=run_config.session,
+            run_config=run_config,
+            bar=build_bar("BTCUSDT_PERP", 1, "100"),
+            recent_bars=[build_bar("BTCUSDT_PERP", 1, "100")],
+            current_positions={},
+            current_cash=Decimal("10000"),
+        )
+
+        self.assertIsNone(strategy.evaluate(evaluation))
+
+    def test_four_hour_breakout_strategy_enters_on_trend_breakout_and_valid_atr(self) -> None:
+        strategy = FourHourBreakoutPerpStrategy(
+            trend_fast_ema=3,
+            trend_slow_ema=5,
+            breakout_lookback_bars=3,
+            atr_window=3,
+            risk_per_trade_pct="0.01",
+            volatility_floor_atr_pct="0.005",
+            volatility_ceiling_atr_pct="0.20",
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_4h_breakout_entry",
+                "session": {
+                    "session_code": "bt_4h_breakout_entry",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_4h_breakout_perp",
+                    "strategy_version": "v0.1.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-03T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        base_time = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        bar_minutes = [239, 479, 719, 959, 1199]
+        closes = ["100", "102", "104", "106", "112"]
+        recent_bars = [build_bar_at("BTCUSDT_PERP", base_time + timedelta(minutes=offset), close) for offset, close in zip(bar_minutes, closes)]
+        evaluation = StrategyEvaluationInput(
+            session=run_config.session,
+            run_config=run_config,
+            bar=recent_bars[-1],
+            recent_bars=recent_bars,
+            current_positions={},
+            current_cash=Decimal("10000"),
+        )
+
+        decision = strategy.evaluate(evaluation)
+
+        self.assertIsNotNone(decision)
+        assert decision is not None
+        self.assertEqual(decision.positions[0].target_qty.quantize(Decimal("0.00000001")), Decimal("15.00000000"))
+        self.assertEqual(decision.metadata_json["action"], "enter_long")
+
+    def test_four_hour_breakout_strategy_does_not_enter_without_breakout(self) -> None:
+        strategy = FourHourBreakoutPerpStrategy(
+            trend_fast_ema=3,
+            trend_slow_ema=5,
+            breakout_lookback_bars=3,
+            atr_window=3,
+            volatility_floor_atr_pct="0.005",
+            volatility_ceiling_atr_pct="0.20",
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_4h_breakout_no_breakout",
+                "session": {
+                    "session_code": "bt_4h_breakout_no_breakout",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_4h_breakout_perp",
+                    "strategy_version": "v0.1.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-03T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        base_time = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        bar_minutes = [239, 479, 719, 959, 1199]
+        closes = ["100", "102", "104", "106", "105"]
+        recent_bars = [build_bar_at("BTCUSDT_PERP", base_time + timedelta(minutes=offset), close) for offset, close in zip(bar_minutes, closes)]
+        evaluation = StrategyEvaluationInput(
+            session=run_config.session,
+            run_config=run_config,
+            bar=recent_bars[-1],
+            recent_bars=recent_bars,
+            current_positions={},
+            current_cash=Decimal("10000"),
+        )
+
+        self.assertIsNone(strategy.evaluate(evaluation))
+
+    def test_four_hour_breakout_strategy_skips_entry_when_funding_is_too_hot(self) -> None:
+        strategy = FourHourBreakoutPerpStrategy(
+            trend_fast_ema=3,
+            trend_slow_ema=5,
+            breakout_lookback_bars=3,
+            atr_window=3,
+            risk_per_trade_pct="0.01",
+            volatility_floor_atr_pct="0.005",
+            volatility_ceiling_atr_pct="0.20",
+            max_funding_rate_long="0.0005",
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_4h_breakout_hot_funding",
+                "session": {
+                    "session_code": "bt_4h_breakout_hot_funding",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_4h_breakout_perp",
+                    "strategy_version": "v0.1.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-03T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        base_time = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        bar_minutes = [239, 479, 719, 959, 1199]
+        closes = ["100", "102", "104", "106", "112"]
+        recent_bars = [
+            build_bar_at("BTCUSDT_PERP", base_time + timedelta(minutes=offset), close)
+            for offset, close in zip(bar_minutes, closes)
+        ]
+        evaluation = StrategyEvaluationInput(
+            session=run_config.session,
+            run_config=run_config,
+            bar=recent_bars[-1],
+            recent_bars=recent_bars,
+            current_positions={},
+            current_cash=Decimal("10000"),
+            market_context=StrategyMarketContext(
+                feature_input_version=FEATURE_INPUT_BARS_PERP_BREAKOUT_CONTEXT_V1,
+                funding_rate={"funding_rate": Decimal("0.0008")},
+                minutes_to_next_funding=240,
+                oi_change_pct_window=Decimal("0.02"),
+                price_change_pct_window=Decimal("0.02"),
+                weak_price_oi_push=False,
+            ),
+        )
+
+        self.assertIsNone(strategy.evaluate(evaluation))
+
+    def test_four_hour_breakout_strategy_does_not_reemit_within_same_closed_bucket(self) -> None:
+        strategy = FourHourBreakoutPerpStrategy(
+            trend_fast_ema=3,
+            trend_slow_ema=5,
+            breakout_lookback_bars=3,
+            atr_window=3,
+            risk_per_trade_pct="0.01",
+            volatility_floor_atr_pct="0.005",
+            volatility_ceiling_atr_pct="0.20",
+        )
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_4h_breakout_single_emit",
+                "session": {
+                    "session_code": "bt_4h_breakout_single_emit",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_4h_breakout_perp",
+                    "strategy_version": "v0.1.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-03T00:00:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        base_time = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        bar_minutes = [239, 479, 719, 959, 1199]
+        closes = ["100", "102", "104", "106", "112"]
+        recent_bars = [
+            build_bar_at("BTCUSDT_PERP", base_time + timedelta(minutes=offset), close)
+            for offset, close in zip(bar_minutes, closes)
+        ]
+        first_evaluation = StrategyEvaluationInput(
+            session=run_config.session,
+            run_config=run_config,
+            bar=recent_bars[-1],
+            recent_bars=recent_bars,
+            current_positions={},
+            current_cash=Decimal("10000"),
+        )
+        second_evaluation = StrategyEvaluationInput(
+            session=run_config.session,
+            run_config=run_config,
+            bar=recent_bars[-1],
+            recent_bars=recent_bars,
+            current_positions={},
+            current_cash=Decimal("10000"),
+        )
+
+        first_decision = strategy.evaluate(first_evaluation)
+        second_decision = strategy.evaluate(second_evaluation)
+
+        self.assertIsNotNone(first_decision)
+        self.assertIsNone(second_decision)
 
     def test_example_strategy_emits_target_position_for_uptrend(self) -> None:
         session = StrategySessionConfig.model_validate(
@@ -1428,6 +1762,58 @@ class Phase5FoundationTests(unittest.TestCase):
             transaction.rollback()
             connection.close()
 
+    def test_bar_loader_iter_bars_merges_symbols_in_time_order(self) -> None:
+        start_time = datetime(2010, 1, 1, 0, 0, tzinfo=timezone.utc)
+        end_time = start_time + timedelta(minutes=3)
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_loader_iter_merge",
+                "session": {
+                    "session_code": "bt_btc_loader_iter_merge",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "history_bound_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP", "ETHUSDT_PERP"],
+                },
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "initial_cash": "10000",
+            }
+        )
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            bar_repository = BarRepository()
+            for symbol, closes in (
+                ("BTCUSDT_PERP", ["100", "101", "102"]),
+                ("ETHUSDT_PERP", ["200", "201", "202"]),
+            ):
+                for index, close in enumerate(closes):
+                    bar_repository.upsert(
+                        connection,
+                        build_bar_at(symbol, start_time + timedelta(minutes=index), close),
+                    )
+
+            loaded_bars = list(BacktestBarLoader().iter_bars(connection, run_config))
+
+            self.assertEqual(len(loaded_bars), 6)
+            self.assertEqual(
+                [(bar.bar_time, bar.unified_symbol) for bar in loaded_bars],
+                [
+                    (start_time + timedelta(minutes=0), "BTCUSDT_PERP"),
+                    (start_time + timedelta(minutes=0), "ETHUSDT_PERP"),
+                    (start_time + timedelta(minutes=1), "BTCUSDT_PERP"),
+                    (start_time + timedelta(minutes=1), "ETHUSDT_PERP"),
+                    (start_time + timedelta(minutes=2), "BTCUSDT_PERP"),
+                    (start_time + timedelta(minutes=2), "ETHUSDT_PERP"),
+                ],
+            )
+        finally:
+            transaction.rollback()
+            connection.close()
+
     def test_market_fill_model_fills_on_next_bar_open_with_fee_and_slippage(self) -> None:
         run_config = BacktestRunConfig.model_validate(
             {
@@ -1798,6 +2184,105 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertGreater(Decimal(summary_row["turnover"]), Decimal("0"))
             self.assertGreater(Decimal(summary_row["fee_cost"]), Decimal("0"))
             self.assertEqual(persisted.loop_result.final_positions, {})
+        finally:
+            transaction.rollback()
+            connection.close()
+
+    def test_load_run_and_persist_streams_timeseries_and_finalizes_run(self) -> None:
+        class RecordingBacktestRunRepository(BacktestRunRepository):
+            def __init__(self) -> None:
+                super().__init__()
+                self.insert_statuses: list[str] = []
+                self.finalize_statuses: list[str] = []
+                self.timeseries_chunk_sizes: list[int] = []
+
+            def insert_run(self, connection, run_config, *, runtime_metadata=None, status="finished") -> int:
+                self.insert_statuses.append(status)
+                return super().insert_run(
+                    connection,
+                    run_config,
+                    runtime_metadata=runtime_metadata,
+                    status=status,
+                )
+
+            def finalize_run(self, connection, *, run_id, run_config, runtime_metadata=None, status="finished") -> None:
+                self.finalize_statuses.append(status)
+                return super().finalize_run(
+                    connection,
+                    run_id=run_id,
+                    run_config=run_config,
+                    runtime_metadata=runtime_metadata,
+                    status=status,
+                )
+
+            def upsert_timeseries(self, connection, *, run_id, performance_points) -> None:
+                self.timeseries_chunk_sizes.append(len(performance_points))
+                return super().upsert_timeseries(
+                    connection,
+                    run_id=run_id,
+                    performance_points=performance_points,
+                )
+
+        run_start = datetime(2036, 1, 3, 0, 0, tzinfo=timezone.utc)
+        bar_count = 5105
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), "100")
+            for offset in range(bar_count)
+        ]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_streamed_timeseries",
+                "session": {
+                    "session_code": "bt_btc_streamed_timeseries",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=bar_count)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {
+                    "target_qty": "1",
+                },
+            }
+        )
+        repository = RecordingBacktestRunRepository()
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+            run_repository=repository,
+        )
+        bar_repository = BarRepository()
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for bar in bars:
+                bar_repository.upsert(connection, bar)
+
+            persisted = runner.load_run_and_persist(connection)
+            run_row = repository.get_run(connection, persisted.run_id)
+            timeseries_count = connection.execute(
+                text("select count(*) from backtest.performance_timeseries where run_id = :run_id"),
+                {"run_id": persisted.run_id},
+            ).scalar_one()
+
+            self.assertEqual(repository.insert_statuses, ["running"])
+            self.assertEqual(repository.finalize_statuses, ["finished"])
+            self.assertGreaterEqual(len(repository.timeseries_chunk_sizes), 2)
+            self.assertEqual(repository.timeseries_chunk_sizes[0], 5000)
+            self.assertEqual(sum(repository.timeseries_chunk_sizes), bar_count)
+            self.assertEqual(timeseries_count, bar_count)
+            self.assertEqual(persisted.loop_result.performance_points, [])
+            self.assertIsNotNone(run_row)
+            assert run_row is not None
+            self.assertEqual(run_row["status"], "finished")
         finally:
             transaction.rollback()
             connection.close()
@@ -2696,11 +3181,17 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertIn("assumption_bundle_code", diff_fields)
             self.assertIn("risk_overrides", diff_fields)
             self.assertIn("effective_risk_policy", diff_fields)
+            diagnostic_diff_fields = {diff.field_name for diff in compare_set.diagnostics_diffs}
+            self.assertIn("blocked_intent_count", diagnostic_diff_fields)
+            self.assertIn("block_counts_by_code", diagnostic_diff_fields)
+            self.assertIn("diagnostic_flag_codes", diagnostic_diff_fields)
             self.assertEqual(len(compare_set.benchmark_deltas), 1)
             self.assertEqual(compare_set.benchmark_deltas[0].run_id, persisted_two.run_id)
             self.assertIsNotNone(compare_set.benchmark_deltas[0].total_return_delta)
             flag_codes = {flag.code for flag in compare_set.comparison_flags}
             self.assertIn("execution_assumption_mismatch", flag_codes)
+            self.assertIn("runtime_risk_mismatch", flag_codes)
+            self.assertIn("diagnostic_profile_mismatch", flag_codes)
             self.assertTrue(persisted_compare.persisted)
             self.assertIsNotNone(persisted_compare.compare_set_id)
             self.assertEqual(compare_row["compare_name"], "target_qty_compare")
@@ -2711,6 +3202,11 @@ class Phase5FoundationTests(unittest.TestCase):
             self.assertEqual(compare_notes[0]["verification_state"], "system_fact")
             self.assertEqual(compare_notes[0]["source_refs_json"]["run_ids"], [persisted_one.run_id, persisted_two.run_id])
             self.assertEqual(compare_notes[0]["facts_snapshot_json"]["compare_name"], "target_qty_compare")
+            self.assertIn("diagnostics_diffs", compare_notes[0]["facts_snapshot_json"])
+            self.assertEqual(
+                compare_notes[0]["facts_snapshot_json"]["diagnostics_snapshot"]["statuses_by_run"][1]["blocked_intent_count"],
+                compare_set.compared_runs[1].blocked_intent_count,
+            )
         finally:
             transaction.rollback()
             connection.close()

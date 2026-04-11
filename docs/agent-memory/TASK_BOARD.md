@@ -6,6 +6,8 @@
 - keep local Binance BTC data maintenance usable through backfill, cleanup, and dataset-integrity validation workflows
 
 ## In Progress
+- continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, and streamed persisted timeseries writes; next likely hotspots are order/fill/debug-trace write volume and generic high-timeframe strategy helpers
+- continue the BTC 4H breakout strategy line now that the first strategy/registry/seed skeleton is landed, with feature-input/context work next
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
@@ -39,6 +41,22 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- reduced persisted year-plus backtest memory pressure by changing `load_run_and_persist()` to create pending runs, stream `performance_timeseries` in chunks during execution, and finalize run metadata/status after completion
+- improved year-plus breakout backtests by converting `btc_4h_breakout_perp` from full per-evaluate 4H regrouping to incremental 4H bucket maintenance
+- improved year-plus backtest loading by switching the Phase 5 runner to consume an already-sorted merged bar iterator instead of forcing a full in-memory `list + sort` pass before execution
+- cleaned up the `/monitoring` backtest launch form so the 4H breakout strategy now hides legacy momentum-only fields and only shows breakout-specific controls
+- wired the new `btc_4h_breakout_perp` line into `/monitoring` launch flows with a dedicated preset, breakout-specific parameter controls, API launch coverage, and a persisted end-to-end breakout run regression
+- added `bars_perp_breakout_context_v1` plus first derived funding/OI/price context fields and wired the first funding/proximity filter path into `btc_4h_breakout_perp`
+- landed the first runnable `btc_4h_breakout_perp@v0.1.0` slice with a registry strategy, 4H aggregation/trend-breakout-ATR entry logic, bootstrap seed migration/script, and focused foundation coverage
+- added a concrete implementation checklist for the new BTC 4H breakout strategy line, covering file touchpoints, feature-input work, assumption-bundle work, seed path, UI path, and first tests
+- linked the new BTC 4H breakout implementation checklist into `spec-index`, `implementation-plan`, and the phase checklists so the strategy line now has both design and execution docs
+- added a repo-aligned design spec for a first `BTCUSDT_PERP` 4H breakout research line, including strategy/risk/execution split, feature-input needs, assumption-bundle direction, and ablation plan
+- linked the new 4H breakout strategy spec into `spec-index`, `implementation-plan`, and the phase checklists so it is now part of the formal doc map instead of a one-off note
+- added compare diff drill-down in `/monitoring`, so the Compare workspace now lets users inspect one selected assumption or diagnostics/risk diff with run-by-run values and inline raw detail
+- added compare-specific selected-run drill-down in `/monitoring`, so the Compare workspace now lets users inspect one compared run's identity, KPIs, diagnostics/risk evidence, and guardrail state without leaving the compare tab
+- cleaned up the `/monitoring` Compare workspace so it now reads summary-first, with compare evidence cards plus separate assumption-diff and diagnostics/risk-diff tables instead of one mixed diff table
+- extended compare/analyze maturity so persisted compare sets now expose diagnostics/runtime-risk diff facts, including blocked-intent counts, guardrail-state deltas, and diagnostic-flag differences across runs
+- updated compare-set persisted snapshots, API resources, internal `/monitoring` compare tables, and focused regression coverage to carry the richer diagnostics/risk compare layer end to end
 - added a run-level expected-vs-observed aggregate API/UI slice on top of trace notes, so `/monitoring -> Backtests -> Investigate` now shows note counts, status/source/scenario summaries, and a clickable note table for the selected run
 - added a first trace-level replay investigation-note foundation on top of persisted debug traces by reusing `research.annotations`, exposing `GET/POST /api/v1/backtests/runs/{run_id}/debug-traces/{debug_trace_id}/notes`, and wiring the minimal read/write flow into `/monitoring -> Backtests -> Investigate`
 - added an API integration regression for `btc_hourly_momentum`, proving `POST /api/v1/backtests/runs` can launch the hourly strategy and the resulting detail/orders/fills/signals/timeseries endpoints all resolve through the real persisted path
