@@ -297,11 +297,14 @@ class BacktestRunnerSkeleton:
                     )
                     risk_state_snapshot = self.risk_guardrails.build_runtime_state_snapshot()
                     trace_step_index += 1
-                    if self._should_capture_debug_trace(
-                        step_index=trace_step_index,
+                    is_activity_step = self._is_activity_trace_step(
                         step_result=step_result,
                         created_orders=created_orders,
                         step_fills=step_fills,
+                    )
+                    if self._should_capture_debug_trace(
+                        step_index=trace_step_index,
+                        is_activity_step=is_activity_step,
                     ):
                         trace_record = self._build_debug_trace_record(
                             step_index=trace_step_index,
@@ -315,9 +318,13 @@ class BacktestRunnerSkeleton:
                             previous_cash=previous_trace_cash,
                             previous_equity=previous_trace_equity,
                             drawdown=trace_drawdown,
-                            serialized_market_context=self._serialize_market_context_snapshot_cached(
-                                market_context,
-                                serialized_market_context_cache,
+                            serialized_market_context=(
+                                self._serialize_market_context_snapshot_cached(
+                                    market_context,
+                                    serialized_market_context_cache,
+                                )
+                                if is_activity_step
+                                else None
                             ),
                             serialized_decision=self._serialize_step_decision_cached(
                                 step_result,
@@ -575,23 +582,29 @@ class BacktestRunnerSkeleton:
         self,
         *,
         step_index: int,
-        step_result: BacktestStepResult,
-        created_orders: Sequence[SimulatedOrder],
-        step_fills: Sequence[SimulatedFill],
+        is_activity_step: bool,
     ) -> bool:
         stride = self.run_config.debug_trace_stride or 1
         activity_only = self.run_config.debug_trace_activity_only
-        is_activity_step = bool(
-            step_result.signals
-            or created_orders
-            or step_fills
-            or any(outcome.decision == RiskDecision.BLOCK for outcome in step_result.risk_outcomes)
-        )
         if is_activity_step:
             return True
         if activity_only:
             return False
         return step_index % stride == 0
+
+    @staticmethod
+    def _is_activity_trace_step(
+        *,
+        step_result: BacktestStepResult,
+        created_orders: Sequence[SimulatedOrder],
+        step_fills: Sequence[SimulatedFill],
+    ) -> bool:
+        return bool(
+            step_result.signals
+            or created_orders
+            or step_fills
+            or any(outcome.decision == RiskDecision.BLOCK for outcome in step_result.risk_outcomes)
+        )
 
     def _build_signals(
         self,

@@ -66,6 +66,8 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added a leaner full-trace behavior for quiet rows: when a captured trace step has no signals, orders, fills, or blocks, the row is still persisted but `market_context_json` is now omitted instead of storing the full latest-as-of context snapshot.
+- Added focused regression coverage proving full-trace quiet rows now keep the row while skipping market-context payloads, and re-verified that activity rows still persist market context when it matters.
 - Reduced active-step risk-outcome overhead in debug-trace construction by combining blocked-count derivation, blocked-code collection, and `risk_outcomes_json` serialization into one pass over the outcome list instead of separate scans/steps.
 - Added focused regression coverage for the combined outcome-summary/serialization helper and re-verified persisted compact debug-trace writes after the follow-up.
 - Reduced another small but high-frequency full-trace cost in runner trace construction: empty `risk_outcomes_json` now reuses one shared payload, blocked-count and blocked-code extraction now happen in one pass, and non-empty risk-outcome serialization no longer copies `details_json` when it is already empty.

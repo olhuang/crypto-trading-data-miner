@@ -651,3 +651,18 @@ When a trace row does have guardrail outcomes, derive blocked summary fields and
 ### Impact
 - active trace rows now compute `blocked_intent_count`, `blocked_codes`, and serialized risk outcomes together in one helper pass
 - future full-trace optimization work should next reassess whether payload volume itself needs a leaner full-mode representation, since several per-step construction inefficiencies have now been removed
+
+## 2026-04-11
+
+### Decision
+Keep `debug_trace_level = full` row density, but omit `market_context_json` on quiet trace rows that have no signals, created orders, fills, or blocked intents.
+
+### Reason
+- the main remaining full-trace cost was no longer just CPU per row, but also payload volume on the many rows that carry no actionable decision or execution event
+- quiet rows still matter for step-by-step continuity, but the full latest-as-of market-context snapshot is most valuable around activity and investigation points
+- dropping market-context payloads only on quiet rows preserves full row coverage and activity-step evidence while meaningfully shrinking persisted trace weight
+
+### Impact
+- full-trace runs still store one row per captured step, but non-activity rows no longer carry heavy market-context snapshots
+- activity rows still persist full market-context evidence for debugging strategy decisions and replay investigations
+- future full-trace optimization work can next reassess whether quiet-row `decision_json` should also become leaner or whether the current volume reduction is sufficient

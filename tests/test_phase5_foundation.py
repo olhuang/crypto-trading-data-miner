@@ -239,6 +239,14 @@ class MarketContextEntryStrategy(StrategyBase):
         )
 
 
+class NoOpStrategy(StrategyBase):
+    strategy_code = "noop_strategy"
+    strategy_version = "v1.0.0"
+
+    def evaluate(self, evaluation: StrategyEvaluationInput) -> TargetPosition | None:
+        return None
+
+
 class Phase5FoundationTests(unittest.TestCase):
     def test_strategy_session_requires_non_empty_universe_and_dedupes_values(self) -> None:
         with self.assertRaises(ValidationError):
@@ -3221,6 +3229,181 @@ class Phase5FoundationTests(unittest.TestCase):
                 listed_rows[2]["market_context_json"]["taker_long_short_ratio"]["period_code"],
                 "5m",
             )
+        finally:
+            transaction.rollback()
+            connection.close()
+
+    def test_full_trace_quiet_rows_skip_market_context_snapshot(self) -> None:
+        start_time = datetime(2010, 1, 2, 0, 0, tzinfo=timezone.utc)
+        end_time = start_time + timedelta(minutes=2)
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_full_trace_quiet_context_skip",
+                "session": {
+                    "session_code": "bt_btc_full_trace_quiet_context_skip",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": start_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "initial_cash": "10000",
+                "feature_input_version": "bars_perp_context_v1",
+                "debug_trace_level": "full",
+            }
+        )
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            connection.execute(
+                text(
+                    """
+                    delete from md.taker_long_short_ratios
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = :exchange_code
+                          and instrument.unified_symbol = :unified_symbol
+                        limit 1
+                    )
+                      and ts between :start_time and :end_time
+                    """
+                ),
+                {
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    delete from md.global_long_short_account_ratios
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = :exchange_code
+                          and instrument.unified_symbol = :unified_symbol
+                        limit 1
+                    )
+                      and ts between :start_time and :end_time
+                    """
+                ),
+                {
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            )
+            connection.execute(
+                text(
+                    """
+                    delete from md.bars_1m
+                    where instrument_id = (
+                        select instrument.instrument_id
+                        from ref.instruments instrument
+                        join ref.exchanges exchange on exchange.exchange_id = instrument.exchange_id
+                        where exchange.exchange_code = :exchange_code
+                          and instrument.unified_symbol = :unified_symbol
+                        limit 1
+                    )
+                      and bar_time between :start_time and :end_time
+                    """
+                ),
+                {
+                    "exchange_code": "binance",
+                    "unified_symbol": "BTCUSDT_PERP",
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+            )
+
+            bar_repo = BarRepository()
+            for index in range(2):
+                bar_time = start_time + timedelta(minutes=index)
+                close = Decimal("100") + Decimal(index)
+                bar_repo.upsert(
+                    connection,
+                    BarEvent.model_validate(
+                        {
+                            "exchange_code": "binance",
+                            "unified_symbol": "BTCUSDT_PERP",
+                            "bar_interval": "1m",
+                            "bar_time": bar_time.isoformat(),
+                            "event_time": bar_time.isoformat(),
+                            "ingest_time": (bar_time + timedelta(seconds=1)).isoformat(),
+                            "open": str(close),
+                            "high": str(close),
+                            "low": str(close),
+                            "close": str(close),
+                            "volume": "10",
+                        }
+                    ),
+                )
+
+            GlobalLongShortAccountRatioRepository().upsert(
+                connection,
+                GlobalLongShortAccountRatioEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    ingest_time=start_time,
+                    event_time=start_time,
+                    period_code="5m",
+                    long_short_ratio=Decimal("1.30"),
+                    long_account_ratio=Decimal("0.56"),
+                    short_account_ratio=Decimal("0.44"),
+                ),
+            )
+            TakerLongShortRatioRepository().upsert(
+                connection,
+                TakerLongShortRatioEvent(
+                    exchange_code="binance",
+                    unified_symbol="BTCUSDT_PERP",
+                    ingest_time=start_time,
+                    event_time=start_time,
+                    period_code="5m",
+                    buy_sell_ratio=Decimal("1.08"),
+                    buy_vol=Decimal("125"),
+                    sell_vol=Decimal("116"),
+                ),
+            )
+
+            runner = BacktestRunnerSkeleton(
+                run_config,
+                strategy=NoOpStrategy(),
+                fill_model=DeterministicBarsFillModel(
+                    fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                    slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+                ),
+            )
+            persisted = runner.load_run_and_persist(
+                connection,
+                persist_signals=False,
+                persist_debug_traces=True,
+            )
+
+            debug_trace_rows = connection.execute(
+                text(
+                    """
+                    select step_index, market_context_json, decision_json
+                    from backtest.debug_traces
+                    where run_id = :run_id
+                    order by step_index asc
+                    """
+                ),
+                {"run_id": persisted.run_id},
+            ).mappings().all()
+
+            self.assertEqual(len(debug_trace_rows), 2)
+            self.assertIsNone(debug_trace_rows[0]["market_context_json"])
+            self.assertEqual(debug_trace_rows[0]["decision_json"]["decision_type"], "none")
         finally:
             transaction.rollback()
             connection.close()
