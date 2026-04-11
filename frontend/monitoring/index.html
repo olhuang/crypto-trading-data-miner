@@ -252,6 +252,8 @@
                   <div class="details-panel-body">
                     <div class="form-grid">
                       <label class="checkbox-field field-span-2"><input type="checkbox" name="persist_debug_traces" /><span class="checkbox-copy"><strong>Persist Debug Traces</strong><span>Store compact step-level traces for later investigation.</span></span></label>
+                      <label class="field"><span class="field-label">Debug Trace Stride</span><input name="debug_trace_stride" type="number" min="1" placeholder="1 = every eligible step" /></label>
+                      <label class="checkbox-field"><input type="checkbox" name="debug_trace_activity_only" /><span class="checkbox-copy"><strong>Activity-Only Trace Mode</strong><span>Always keep steps with signals, orders, fills, or blocks; skip quiet background steps unless sampled by stride.</span></span></label>
                       <label class="checkbox-field"><input type="checkbox" name="enforce_spot_cash_check" checked /><span class="checkbox-copy"><strong>Enforce Spot Cash Check</strong><span>Keep spot cash checks active for realistic spot sizing.</span></span></label>
                       <label class="checkbox-field"><input type="checkbox" name="allow_reduce_only_when_blocked" checked /><span class="checkbox-copy"><strong>Allow Reduce-Only When Blocked</strong><span>Still allow exposure reduction when new entries are blocked.</span></span></label>
                     </div>

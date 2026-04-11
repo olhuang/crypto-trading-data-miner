@@ -476,3 +476,18 @@ When persisted backtests already stream artifacts during execution, reduce SQL r
 - `BacktestRunRepository.insert_debug_traces()` now inserts traces in batches while still returning trace ids for investigation flows
 - `BacktestRunRepository.update_order_statuses()` now updates statuses in batched SQL instead of row-by-row
 - the next optimization pass should focus on optional trace sampling/compaction or broader batch coverage rather than on raw repository round-trip count for these two paths
+
+## 2026-04-11
+
+### Decision
+Make the first long-window debug-trace compaction policy "keep all activity, sample quiet background by stride" via `debug_trace_activity_only` plus `debug_trace_stride`, instead of a pure every-Nth-step sampler.
+
+### Reason
+- investigation value comes mostly from steps with signals, orders, fills, or blocked intents, so dropping those would make compact mode much less trustworthy
+- pure stride-only sampling would reduce volume more aggressively, but it risks deleting exactly the sparse decision points operators care about in long-window runs
+- this policy gives a conservative first compaction mode that is easy to explain in the UI and cheap to validate against existing trace workflows
+
+### Impact
+- backtest runs can now persist all activity-bearing traces while sampling quiet background bars more sparsely
+- persisted run metadata now records the chosen trace sampling options and the resulting captured trace count
+- future compaction work should extend this baseline with richer policies or levels rather than replacing the "keep activity first" rule silently

@@ -6,7 +6,7 @@
 - keep local Binance BTC data maintenance usable through backfill, cleanup, and dataset-integrity validation workflows
 
 ## In Progress
-- continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, streamed persisted timeseries writes, streamed order/fill/debug-trace persistence, and batched repository writes; next likely hotspots are optional trace sampling/compaction and generic high-timeframe strategy helpers
+- continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, streamed persisted timeseries writes, streamed order/fill/debug-trace persistence, batched repository writes, and first debug-trace compact mode; next likely hotspots are richer trace compaction policies and generic high-timeframe strategy helpers
 - continue the BTC 4H breakout strategy line now that the first strategy/registry/seed skeleton is landed, with feature-input/context work next
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
@@ -41,6 +41,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added a first debug-trace compact mode with `debug_trace_stride` and `debug_trace_activity_only`, and wired those controls through the backtest runner, persisted run metadata, API, and `/monitoring` launch form
 - reduced persisted write round-trips further by batching `debug_traces` inserts and order-status updates inside `BacktestRunRepository`
 - reduced persisted trace-heavy backtest memory pressure by streaming simulated orders, fills, and debug traces during the run instead of retaining full artifact lists until the end
 - reduced persisted year-plus backtest memory pressure by changing `load_run_and_persist()` to create pending runs, stream `performance_timeseries` in chunks during execution, and finalize run metadata/status after completion

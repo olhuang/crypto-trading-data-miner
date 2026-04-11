@@ -45,6 +45,7 @@ class BacktestStepResult:
 class BacktestRunLoopResult:
     steps: list[BacktestStepResult]
     debug_traces: list[BacktestDebugTraceRecord]
+    debug_trace_count: int
     final_positions: dict[str, Decimal]
     final_cash: Decimal
     persisted_signal_ids: list[int]
@@ -175,6 +176,7 @@ class BacktestRunnerSkeleton:
         latest_performance_point: PerformancePoint | None = None
         trace_running_peak_equity = portfolio.cash
         trace_step_index = 0
+        captured_debug_trace_count = 0
         previous_trace_cash = portfolio.cash
         previous_trace_equity = portfolio.cash
         previous_position_qty_by_symbol: dict[str, Decimal] = {
@@ -277,24 +279,31 @@ class BacktestRunnerSkeleton:
                         Decimal("0"),
                     )
                     trace_step_index += 1
-                    trace_record = self._build_debug_trace_record(
+                    if self._should_capture_debug_trace(
                         step_index=trace_step_index,
-                        bar=bar,
                         step_result=step_result,
                         created_orders=created_orders,
                         step_fills=step_fills,
-                        trace_mark=trace_mark,
-                        current_position_qty=current_position_qty,
-                        previous_position_qty=previous_position_qty,
-                        previous_cash=previous_trace_cash,
-                        previous_equity=previous_trace_equity,
-                        drawdown=trace_drawdown,
-                        market_context=market_context,
-                    )
-                    if collect_debug_traces:
-                        debug_traces.append(trace_record)
-                    elif debug_trace_sink is not None:
-                        debug_trace_sink((trace_record,))
+                    ):
+                        trace_record = self._build_debug_trace_record(
+                            step_index=trace_step_index,
+                            bar=bar,
+                            step_result=step_result,
+                            created_orders=created_orders,
+                            step_fills=step_fills,
+                            trace_mark=trace_mark,
+                            current_position_qty=current_position_qty,
+                            previous_position_qty=previous_position_qty,
+                            previous_cash=previous_trace_cash,
+                            previous_equity=previous_trace_equity,
+                            drawdown=trace_drawdown,
+                            market_context=market_context,
+                        )
+                        captured_debug_trace_count += 1
+                        if collect_debug_traces:
+                            debug_traces.append(trace_record)
+                        elif debug_trace_sink is not None:
+                            debug_trace_sink((trace_record,))
                     previous_trace_cash = trace_mark.cash
                     previous_trace_equity = trace_mark.equity
                     if current_position_qty == 0:
@@ -353,6 +362,7 @@ class BacktestRunnerSkeleton:
         return BacktestRunLoopResult(
             steps=step_results,
             debug_traces=debug_traces,
+            debug_trace_count=captured_debug_trace_count,
             final_positions=portfolio.positions,
             final_cash=portfolio.cash,
             persisted_signal_ids=persisted_signal_ids,
@@ -521,9 +531,33 @@ class BacktestRunnerSkeleton:
             },
             "debug_trace_summary": {
                 "persisted": persist_debug_traces,
-                "captured_trace_count": len(loop_result.debug_traces),
+                "captured_trace_count": loop_result.debug_trace_count,
+                "sampling_stride": risk_guardrails.run_config.debug_trace_stride,
+                "activity_only": risk_guardrails.run_config.debug_trace_activity_only,
             },
         }
+
+    def _should_capture_debug_trace(
+        self,
+        *,
+        step_index: int,
+        step_result: BacktestStepResult,
+        created_orders: Sequence[SimulatedOrder],
+        step_fills: Sequence[SimulatedFill],
+    ) -> bool:
+        stride = self.run_config.debug_trace_stride or 1
+        activity_only = self.run_config.debug_trace_activity_only
+        is_activity_step = bool(
+            step_result.signals
+            or created_orders
+            or step_fills
+            or any(outcome.decision == RiskDecision.BLOCK for outcome in step_result.risk_outcomes)
+        )
+        if is_activity_step:
+            return True
+        if activity_only:
+            return False
+        return step_index % stride == 0
 
     def _build_signals(
         self,

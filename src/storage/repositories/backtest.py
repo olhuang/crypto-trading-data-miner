@@ -527,6 +527,10 @@ class BacktestRunRepository:
             "initial_cash": str(run_config.initial_cash),
             "assumption_bundle_code": run_config.assumption_bundle_code,
             "assumption_bundle_version": run_config.assumption_bundle_version,
+            "debug_trace_options": {
+                "stride": run_config.debug_trace_stride,
+                "activity_only": run_config.debug_trace_activity_only,
+            },
             "assumption_bundle": (
                 selected_assumption_bundle.model_dump(mode="json", by_alias=True)
                 if selected_assumption_bundle is not None

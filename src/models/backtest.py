@@ -298,6 +298,8 @@ class BacktestRunConfig(BaseContractModel):
     benchmark_set_code: str | None = None
     assumption_bundle_code: str | None = None
     assumption_bundle_version: str | None = None
+    debug_trace_stride: int | None = None
+    debug_trace_activity_only: bool = False
     risk_overrides: RiskPolicyOverrideConfig = Field(default_factory=RiskPolicyOverrideConfig)
     strategy_params_json: dict[str, Any] = Field(
         default_factory=dict,
@@ -336,6 +338,8 @@ class BacktestRunConfig(BaseContractModel):
             raise ValueError("feature_input_version must not be empty")
         if self.benchmark_set_code is not None and not self.benchmark_set_code.strip():
             raise ValueError("benchmark_set_code must not be empty when provided")
+        if self.debug_trace_stride is not None and self.debug_trace_stride <= 0:
+            raise ValueError("debug_trace_stride must be positive when provided")
         return self
 
     def build_assumption_overrides(self) -> dict[str, Any]:

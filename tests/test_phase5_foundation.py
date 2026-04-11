@@ -2339,6 +2339,8 @@ class Phase5FoundationTests(unittest.TestCase):
                 "end_time": (run_start + timedelta(minutes=3)).isoformat(),
                 "initial_cash": "10000",
                 "strategy_params": {"target_qty": "1"},
+                "debug_trace_stride": 2,
+                "debug_trace_activity_only": True,
             }
         )
         repository = RecordingBacktestRunRepository()
@@ -2380,6 +2382,115 @@ class Phase5FoundationTests(unittest.TestCase):
             transaction.rollback()
             connection.close()
 
+    def test_run_bars_debug_trace_compact_mode_keeps_activity_and_samples_background(self) -> None:
+        run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), close)
+            for offset, close in enumerate(["100", "105", "110"])
+        ]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_debug_trace_compact_mode",
+                "session": {
+                    "session_code": "bt_btc_debug_trace_compact_mode",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "1"},
+                "debug_trace_stride": 2,
+                "debug_trace_activity_only": True,
+            }
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+
+        loop_result = runner.run_bars(
+            bars,
+            capture_steps=False,
+            capture_debug_traces=True,
+            assume_sorted=True,
+        )
+
+        self.assertEqual(loop_result.debug_trace_count, 2)
+        self.assertEqual(len(loop_result.debug_traces), 2)
+        self.assertEqual([trace.step_index for trace in loop_result.debug_traces], [1, 2])
+
+    def test_load_run_and_persist_compact_debug_trace_mode_persists_sampling_config(self) -> None:
+        run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), close)
+            for offset, close in enumerate(["100", "105", "110"])
+        ]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_debug_trace_compact_persisted",
+                "session": {
+                    "session_code": "bt_btc_debug_trace_compact_persisted",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "1"},
+                "debug_trace_stride": 2,
+                "debug_trace_activity_only": True,
+            }
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+        bar_repository = BarRepository()
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for bar in bars:
+                bar_repository.upsert(connection, bar)
+
+            persisted = runner.load_run_and_persist(
+                connection,
+                persist_signals=False,
+                persist_debug_traces=True,
+            )
+            repository = BacktestRunRepository()
+            run_row = repository.get_run(connection, persisted.run_id)
+            debug_trace_rows = repository.list_debug_trace_records(connection, run_id=persisted.run_id)
+
+            self.assertIsNotNone(run_row)
+            assert run_row is not None
+            self.assertEqual(run_row["params_json"]["debug_trace_options"]["stride"], 2)
+            self.assertTrue(run_row["params_json"]["debug_trace_options"]["activity_only"])
+            self.assertEqual(run_row["params_json"]["runtime_metadata"]["debug_trace_summary"]["captured_trace_count"], 2)
+            self.assertEqual(run_row["params_json"]["runtime_metadata"]["debug_trace_summary"]["sampling_stride"], 2)
+            self.assertTrue(run_row["params_json"]["runtime_metadata"]["debug_trace_summary"]["activity_only"])
+            self.assertEqual(len(debug_trace_rows), 2)
+            self.assertEqual([row["step_index"] for row in debug_trace_rows], [1, 2])
+        finally:
+            transaction.rollback()
+            connection.close()
+
     def test_load_run_and_persist_can_persist_compact_debug_traces(self) -> None:
         run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
         bars = [
@@ -2402,6 +2513,8 @@ class Phase5FoundationTests(unittest.TestCase):
                 "end_time": (run_start + timedelta(minutes=3)).isoformat(),
                 "initial_cash": "10000",
                 "strategy_params": {"target_qty": "1"},
+                "debug_trace_stride": 2,
+                "debug_trace_activity_only": True,
             }
         )
         runner = BacktestRunnerSkeleton(
@@ -2476,7 +2589,7 @@ class Phase5FoundationTests(unittest.TestCase):
             )
 
             self.assertEqual(len(persisted.loop_result.debug_traces), 0)
-            self.assertEqual(len(debug_trace_rows), 3)
+            self.assertEqual(len(debug_trace_rows), 2)
             self.assertEqual(debug_trace_rows[0]["step_index"], 1)
             self.assertEqual(debug_trace_rows[0]["signal_count"], 1)
             self.assertEqual(debug_trace_rows[0]["intent_count"], 1)
@@ -2514,7 +2627,7 @@ class Phase5FoundationTests(unittest.TestCase):
                 artifact for artifact in artifact_bundle.artifacts if artifact.artifact_type == "debug_traces"
             )
             self.assertEqual(debug_trace_artifact.status, "available")
-            self.assertEqual(debug_trace_artifact.record_count, 3)
+            self.assertEqual(debug_trace_artifact.record_count, 2)
         finally:
             transaction.rollback()
             connection.close()
