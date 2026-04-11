@@ -521,3 +521,18 @@ In the `/monitoring` launch UI, selecting a debug-trace level should immediately
 - choosing `full`, `compact`, or `sparse` in the launch form now updates the visible stride/activity settings immediately
 - built-in presets no longer silently combine a trace level with an unrelated hard-coded stride value by default
 - future UI work should preserve this "preset first, explicit override second" behavior for trace controls rather than reintroducing hidden precedence rules
+
+## 2026-04-11
+
+### Decision
+In the `/monitoring` launch flow, enabling `Persist Debug Traces` should also enable signal persistence automatically so persisted orders, fills, traces, and diagnostics retain one coherent signal-linkage chain.
+
+### Reason
+- debug traces without persisted signals create misleading diagnostics such as `no_signals_generated` and `signal_link_gap` even when the strategy did trade
+- investigation and compare workflows are much more useful when traces, orders, and persisted signals all point to the same originating evidence
+- this is the more intuitive operator behavior: asking for richer traceability should not silently drop the signal layer that traceability depends on
+
+### Impact
+- `/monitoring` backtest launches with `Persist Debug Traces` now send `persist_signals=true`
+- diagnostics for trace-enabled runs should no longer show false-positive signal-linkage warnings caused only by the launch payload shape
+- future UI work can still expose `persist_signals` explicitly if needed, but the trace-enabled default should remain linked rather than split

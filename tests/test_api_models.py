@@ -732,9 +732,11 @@ class ModelsApiTests(unittest.TestCase):
                 captured_run_config["long_window"] = run_config.strategy_params_json.get("long_window")
                 captured_run_config["target_qty"] = run_config.strategy_params_json.get("target_qty")
                 captured_run_config["persist_debug_traces"] = None
+                captured_run_config["persist_signals"] = None
 
             def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
                 captured_run_config["persist_debug_traces"] = persist_debug_traces
+                captured_run_config["persist_signals"] = persist_signals
                 return SimpleNamespace(run_id=602, loop_result=SimpleNamespace())
 
         class StubRepository:
@@ -856,6 +858,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(captured_run_config["short_window"], 3)
         self.assertEqual(captured_run_config["long_window"], 8)
         self.assertEqual(captured_run_config["target_qty"], "0.05")
+        self.assertTrue(captured_run_config["persist_signals"])
         self.assertTrue(captured_run_config["persist_debug_traces"])
 
     def test_backtest_run_create_accepts_breakout_strategy_request(self) -> None:
@@ -875,9 +878,11 @@ class ModelsApiTests(unittest.TestCase):
                 captured_run_config["debug_trace_stride"] = run_config.debug_trace_stride
                 captured_run_config["debug_trace_activity_only"] = run_config.debug_trace_activity_only
                 captured_run_config["persist_debug_traces"] = None
+                captured_run_config["persist_signals"] = None
 
             def load_run_and_persist(self, connection, *, persist_signals=True, persist_debug_traces=False):
                 captured_run_config["persist_debug_traces"] = persist_debug_traces
+                captured_run_config["persist_signals"] = persist_signals
                 return SimpleNamespace(run_id=603, loop_result=SimpleNamespace())
 
         class StubRepository:
@@ -1019,6 +1024,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(captured_run_config["debug_trace_level"], "compact")
         self.assertEqual(captured_run_config["debug_trace_stride"], 24)
         self.assertTrue(captured_run_config["debug_trace_activity_only"])
+        self.assertTrue(captured_run_config["persist_signals"])
         self.assertTrue(captured_run_config["persist_debug_traces"])
 
     def test_backtest_run_create_can_launch_persisted_hourly_run_end_to_end(self) -> None:

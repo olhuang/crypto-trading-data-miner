@@ -3681,12 +3681,12 @@ async function launchBacktest(formValues) {
     assumption_bundle_code: formValues.assumption_bundle_code || null,
     assumption_bundle_version: formValues.assumption_bundle_version || null,
     strategy_params: strategyParams,
-    persist_signals: false,
     persist_debug_traces: parseBooleanInput(formValues.persist_debug_traces),
     debug_trace_level: formValues.debug_trace_level || null,
     debug_trace_stride: formValues.debug_trace_stride ? Number(formValues.debug_trace_stride) : null,
     debug_trace_activity_only: parseBooleanInput(formValues.debug_trace_activity_only),
   };
+  payload.persist_signals = payload.persist_debug_traces;
   if (Object.keys(riskPolicy).length > 0) {
     payload.session.risk_policy = riskPolicy;
   }

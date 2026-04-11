@@ -11,6 +11,7 @@
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
 - keep the debug-trace rollout explicitly tracked so future sessions can resume from the right slice
 - keep the `/monitoring` launch UX aligned with the actual backtest contract so preset-level defaults and manual overrides are visible instead of hidden
+- keep the `/monitoring` launch UX aligned with the actual traceability contract so debug-trace persistence also preserves signal linkage for diagnostics and investigation views
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
@@ -42,6 +43,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- fixed the `/monitoring` launch payload so `Persist Debug Traces` now also turns on signal persistence, preserving signal-to-order linkage for diagnostics
 - added user-facing debug-trace preset levels (`full` / `compact` / `sparse`) so long-window runs can pick trace density without hand-tuning stride values
 - fixed the `/monitoring` debug-trace controls so choosing a trace level now visibly syncs stride/activity defaults and only treats later edits as manual overrides
 - added a first debug-trace compact mode with `debug_trace_stride` and `debug_trace_activity_only`, and wired those controls through the backtest runner, persisted run metadata, API, and `/monitoring` launch form
