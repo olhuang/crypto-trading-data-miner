@@ -131,3 +131,5 @@
 - Verified the turnover-formatting follow-up with `node --check frontend/monitoring/app.js`.
 - Improved Backtests cost readability in `/monitoring` by formatting fee and slippage values with grouped digits and money-like decimals across run summaries, compare views, and fill tables.
 - Verified the cost-formatting follow-up with `node --check frontend/monitoring/app.js`.
+- Added quick Debug Trace filter presets in `/monitoring -> Backtests -> Investigate`, including a one-click `Cooldown Blocks` view that applies `risk_code=cooldown_active` plus `blocked_only=true`.
+- Verified the debug-trace preset follow-up with `node --check frontend/monitoring/app.js`.

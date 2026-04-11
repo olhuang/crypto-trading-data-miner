@@ -417,6 +417,11 @@
             <div class="grid split-grid">
               <section class="panel">
                 <div class="panel-header"><h3>Debug Traces</h3><p>Compact step-level trace rows for strategy decisions, risk outcomes, and per-step portfolio state.</p></div>
+                <div class="preset-row">
+                  <button type="button" class="preset-button" data-backtest-trace-preset="cooldown_blocks">Cooldown Blocks</button>
+                  <button type="button" class="preset-button" data-backtest-trace-preset="fills_only">Close/Fills Window</button>
+                  <button type="button" class="preset-button" data-backtest-trace-preset="clear">Clear Trace Filters</button>
+                </div>
                 <form id="backtest-trace-filter-form" class="filters">
                   <input name="limit" placeholder="limit" value="100" />
                   <input name="unified_symbol" placeholder="unified_symbol (optional)" />
@@ -427,6 +432,7 @@
                   <label class="filter-toggle"><input type="checkbox" name="fills_only" /> fills only</label>
                   <button type="submit">Load Traces</button>
                 </form>
+                <p class="card-detail">`Cooldown Blocks` jumps to traces where a new exposure was blocked because cooldown was already active after a losing close event.</p>
                 <p id="backtest-debug-trace-context" class="card-detail">Select a run to inspect persisted debug traces.</p>
                 <div id="backtest-debug-traces-table" class="table-shell"></div>
               </section>

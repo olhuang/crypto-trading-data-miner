@@ -2653,6 +2653,33 @@ function getBacktestTraceFilters(formValues = null) {
   return filters;
 }
 
+async function applyBacktestTracePreset(presetName) {
+  const form = document.getElementById("backtest-trace-filter-form");
+  if (!form) {
+    return;
+  }
+  if (presetName === "cooldown_blocks") {
+    form.elements.risk_code.value = "cooldown_active";
+    form.elements.blocked_only.checked = true;
+    form.elements.signals_only.checked = false;
+    form.elements.orders_only.checked = false;
+    form.elements.fills_only.checked = false;
+  } else if (presetName === "fills_only") {
+    form.elements.risk_code.value = "";
+    form.elements.blocked_only.checked = false;
+    form.elements.signals_only.checked = false;
+    form.elements.orders_only.checked = false;
+    form.elements.fills_only.checked = true;
+  } else if (presetName === "clear") {
+    form.elements.risk_code.value = "";
+    form.elements.blocked_only.checked = false;
+    form.elements.signals_only.checked = false;
+    form.elements.orders_only.checked = false;
+    form.elements.fills_only.checked = false;
+  }
+  await loadBacktestDebugTraces();
+}
+
 async function loadTraceNotes(runId, debugTraceId, preferredAnnotationId = null) {
   const notesEnvelope = await fetchEnvelope(
     `/api/v1/backtests/runs/${runId}/debug-traces/${debugTraceId}/notes`
@@ -4064,6 +4091,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-trace-note-form", saveTraceInvestigationNote);
   bindBacktestPresetButtons();
   initializeBacktestLaunchControls();
+  document.querySelectorAll("[data-backtest-trace-preset]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await applyBacktestTracePreset(button.dataset.backtestTracePreset);
+      } catch (error) {
+        window.alert(error.message);
+      }
+    });
+  });
   updateBacktestPeriodBreakdownControls();
   document.querySelectorAll("[data-backtest-period-type]").forEach((button) => {
     button.addEventListener("click", async () => {
