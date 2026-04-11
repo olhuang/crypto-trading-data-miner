@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 import sys
+import time
 from types import SimpleNamespace
 import unittest
 from uuid import uuid4
@@ -20,6 +21,7 @@ from fastapi.routing import APIRoute
 from pydantic import ValidationError
 
 import api.app as app_module
+import services.backtest_job_control as backtest_job_module
 from config import settings
 from api.app import (
     BacktestCompareSetRequest,
@@ -233,6 +235,154 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(response.data.process_alive)
         self.assertEqual(response.data.summary.progress_pct, 41.5)
         self.assertEqual(response.data.summary.current_bar_time, "2026-06-01T00:00:00+00:00")
+
+    def test_backtest_run_job_control_completes_and_persists_progress_summary(self) -> None:
+        original_transaction_scope = backtest_job_module.transaction_scope
+        original_repository = backtest_job_module.IngestionJobRepository
+        original_runner = backtest_job_module.BacktestRunnerSkeleton
+
+        jobs: dict[int, dict[str, object]] = {}
+        next_job_id = {"value": 7001}
+
+        @contextmanager
+        def _stub_transaction_scope():
+            yield object()
+
+        class StubRepository:
+            def insert_requested_by(
+                self,
+                connection,
+                *,
+                requested_by,
+                service_name,
+                data_type,
+                status,
+                exchange_code,
+                unified_symbol,
+                schedule_type,
+                window_start,
+                window_end,
+                metadata_json=None,
+                **_,
+            ):
+                job_id = next_job_id["value"]
+                next_job_id["value"] += 1
+                jobs[job_id] = {
+                    "job_id": job_id,
+                    "service_name": service_name,
+                    "data_type": data_type,
+                    "status": status,
+                    "exchange_code": exchange_code,
+                    "unified_symbol": unified_symbol,
+                    "started_at": datetime.now(timezone.utc),
+                    "finished_at": None,
+                    "records_expected": None,
+                    "records_written": None,
+                    "error_message": None,
+                    "metadata_json": dict(metadata_json or {}),
+                }
+                return job_id
+
+            def finish_job(
+                self,
+                connection,
+                ingestion_job_id,
+                *,
+                status,
+                finished_at,
+                records_expected=None,
+                records_written=None,
+                error_message=None,
+                metadata_json=None,
+            ):
+                job = jobs[ingestion_job_id]
+                job["status"] = status
+                job["finished_at"] = finished_at
+                if records_expected is not None:
+                    job["records_expected"] = records_expected
+                if records_written is not None:
+                    job["records_written"] = records_written
+                if error_message is not None:
+                    job["error_message"] = error_message
+                if metadata_json is not None:
+                    job["metadata_json"] = dict(metadata_json)
+
+            def get_job(self, connection, ingestion_job_id):
+                job = jobs.get(ingestion_job_id)
+                return None if job is None else dict(job)
+
+        class StubRunner:
+            def __init__(self, run_config):
+                self.run_config = run_config
+
+            def load_run_and_persist(
+                self,
+                connection,
+                *,
+                persist_signals=True,
+                persist_debug_traces=False,
+                progress_callback=None,
+            ):
+                midpoint = self.run_config.start_time + (self.run_config.end_time - self.run_config.start_time) / 2
+                if progress_callback is not None:
+                    progress_callback(midpoint)
+                    progress_callback(self.run_config.end_time)
+                return SimpleNamespace(
+                    run_id=8123,
+                    loop_result=SimpleNamespace(debug_trace_count=7),
+                )
+
+        backtest_job_module.transaction_scope = _stub_transaction_scope
+        backtest_job_module.IngestionJobRepository = StubRepository
+        backtest_job_module.BacktestRunnerSkeleton = StubRunner
+        try:
+            result = backtest_job_module.start_backtest_run_job(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_async_job_control",
+                        "session": {
+                            "session_code": "bt_async_job_control",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_momentum",
+                            "strategy_version": "v1.0.0",
+                            "exchange_code": "binance",
+                            "trading_timezone": "UTC",
+                            "universe": ["BTCUSDT_PERP"],
+                        },
+                        "start_time": "2026-01-01T00:00:00Z",
+                        "end_time": "2026-01-02T00:00:00Z",
+                        "initial_cash": "100000",
+                        "persist_debug_traces": True,
+                        "debug_trace_level": "full_compressed",
+                    }
+                ),
+                requested_by="u_123",
+                persist_signals=True,
+                persist_debug_traces=True,
+            )
+
+            final_job = None
+            for _ in range(30):
+                current = backtest_job_module.get_backtest_run_job(result.job_id)
+                if current is not None and current["status"] == "completed":
+                    final_job = current
+                    break
+                time.sleep(0.02)
+        finally:
+            backtest_job_module.transaction_scope = original_transaction_scope
+            backtest_job_module.IngestionJobRepository = original_repository
+            backtest_job_module.BacktestRunnerSkeleton = original_runner
+            with backtest_job_module._ACTIVE_THREADS_LOCK:
+                backtest_job_module._ACTIVE_THREADS.clear()
+
+        self.assertIsNotNone(final_job)
+        assert final_job is not None
+        self.assertEqual(final_job["status"], "completed")
+        self.assertEqual(final_job["summary"]["run_id"], 8123)
+        self.assertEqual(final_job["summary"]["debug_trace_count"], 7)
+        self.assertEqual(final_job["summary"]["progress_pct"], 100.0)
+        self.assertEqual(final_job["summary"]["current_bar_time"], "2026-01-02T00:00:00+00:00")
 
     def test_trace_investigation_note_request_validates_allowed_fields(self) -> None:
         with self.assertRaises(ValidationError):

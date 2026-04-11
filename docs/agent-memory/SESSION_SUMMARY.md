@@ -66,6 +66,7 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added focused async-job lifecycle coverage beyond the API contract stubs: the new test now drives `start_backtest_run_job()` through a real background-thread lifecycle with a fake repository/runner and verifies `queued/running/completed` state progression plus persisted `run_id / progress_pct / current_bar_time / debug_trace_count` summary fields.
 - Added a first minimal async backtest job path instead of replacing the existing synchronous endpoint outright: `/api/v1/backtests/runs` remains synchronous, while new endpoints now exist at `POST /api/v1/backtests/run-jobs` and `GET /api/v1/backtests/run-jobs/{job_id}`.
 - Implemented the first repo-local background execution path for async backtests in `src/services/backtest_job_control.py`, using `ops.ingestion_jobs` as the durable job/status store and an in-process background thread as the initial worker mechanism.
 - Extended the runner with a lightweight `progress_callback`, allowing async backtest jobs to persist true current `bar_time` progress and a backend-computed `progress_pct` instead of relying only on client-side estimated launch progress.

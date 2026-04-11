@@ -49,6 +49,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added a focused async-job lifecycle test that drives the new backtest run job control path through a real background-thread completion flow and verifies persisted progress summary fields instead of only endpoint-level stubs
 - added a first minimal async backtest job path backed by `ops.ingestion_jobs`, real runner `bar_time` progress callbacks, `POST/GET /api/v1/backtests/run-jobs`, and `/monitoring` polling; the old synchronous create endpoint remains in place for compatibility
 - added a second line to the `/monitoring` Backtests launch status so synchronous run launches now show estimated backtest-time progress across the configured window, clearly labeled as estimated rather than true server-side bar progress
 - added `debug_trace_level = full_compressed`, preserving current `full` semantics while compressing contiguous quiet spans to unique `first / high / low / last` rows; the annual 2025 breakout case dropped to about `71s` and `326` persisted trace rows under this mode
