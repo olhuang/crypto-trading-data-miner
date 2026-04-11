@@ -6,6 +6,7 @@
 - keep local Binance BTC data maintenance usable through backfill, cleanup, and dataset-integrity validation workflows
 
 ## In Progress
+- extend the trace-note / expected-vs-observed foundation into a stronger replay-evidence workflow that can later connect to workbench annotations and review surfaces
 - continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, streamed persisted timeseries writes, streamed order/fill/debug-trace persistence, batched repository writes, first debug-trace compact mode, and user-facing trace-level presets; next likely hotspots are richer trace compaction policies and generic high-timeframe strategy helpers
 - continue the BTC 4H breakout strategy line now that the first strategy/registry/seed skeleton is landed, with feature-input/context work next
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces

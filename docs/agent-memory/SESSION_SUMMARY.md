@@ -66,6 +66,11 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Re-read the required session-start docs before any new implementation work: `README.md`, `docs/spec-index.md`, `docs/implementation-plan.md`, `docs/phases-2-to-9-checklists.md`, `docs/repo-self-review-tracker.md`, and the core `docs/agent-memory/*` files.
+- Re-verified the current repo state across the README, phase plan/checklists, self-review tracker, project state, task board, decision log, and handoff notes before selecting a new task.
+- Confirmed the repo is implemented through Phase 4 plus a substantial Phase 5 backtest/diagnostics/compare/debug-trace foundation, while the clearest remaining frontier is replay/evidence/workbench maturity rather than a new execution phase.
+- Chose one highest-value next subtask before coding: extend the existing trace-note and expected-vs-observed substrate into a stronger replay/evidence workflow that can later connect cleanly to workbench annotations.
+- Identified the first files/specs to inspect for that subtask before implementation: `docs/debug-trace-rollout-plan.md`, `docs/object-level-notes-and-annotations-spec.md`, `docs/backtest-and-replay-diagnostics-spec.md`, `docs/strategy-workbench-spec.md`, `docs/agent-memory/HANDOFF.md`, `src/backtest/traces.py`, `src/backtest/compare_review.py`, `src/storage/repositories/research.py`, `src/api/app.py`, and `frontend/monitoring/app.js`.
 - Re-read the required session-start docs before any implementation work: `README.md`, `docs/spec-index.md`, `docs/implementation-plan.md`, `docs/phases-2-to-9-checklists.md`, `docs/repo-self-review-tracker.md`, and the core `docs/agent-memory/*` files.
 - Verified the tracked repo state is still consistent across README, plan/checklist docs, self-review findings, and handoff memory: Phase 1-4 are implemented, Phase 5 has substantial backtest/diagnostics/compare/debug-trace/investigation groundwork, and the most valuable open frontier remains evidence/workbench maturity rather than a new execution phase.
 - Chose one current highest-value subtask before coding: improve compare/analyze maturity through durable persisted compare-set workflow and richer risk/runtime diff visibility, which is also the clearest open follow-up called out by the self-review tracker and task memory.
