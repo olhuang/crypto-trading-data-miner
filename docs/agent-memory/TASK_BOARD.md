@@ -7,6 +7,7 @@
 
 ## In Progress
 - extend the trace-note / expected-vs-observed foundation into a stronger replay-evidence workflow that can later connect to workbench annotations and review surfaces
+- harden long-window `debug trace full` performance now that per-step sink calls were identified as an avoidable persistence bottleneck; next likely hotspot is trace payload construction cost rather than flush frequency
 - continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, streamed persisted timeseries writes, streamed order/fill/debug-trace persistence, batched repository writes, first debug-trace compact mode, and user-facing trace-level presets; next likely hotspots are richer trace compaction policies and generic high-timeframe strategy helpers
 - continue the BTC 4H breakout strategy line now that the first strategy/registry/seed skeleton is landed, with feature-input/context work next
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
@@ -44,6 +45,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- changed full/compact persisted debug-trace flow so the runner buffers trace rows and flushes them to the sink in chunks instead of calling the sink once per captured step
 - fixed the `/monitoring` launch payload so `Persist Debug Traces` now also turns on signal persistence, preserving signal-to-order linkage for diagnostics
 - added user-facing debug-trace preset levels (`full` / `compact` / `sparse`) so long-window runs can pick trace density without hand-tuning stride values
 - fixed the `/monitoring` debug-trace controls so choosing a trace level now visibly syncs stride/activity defaults and only treats later edits as manual overrides

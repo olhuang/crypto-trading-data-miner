@@ -66,6 +66,10 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Investigated the current `debug trace level = full` long-window bottleneck and confirmed one major avoidable cost: persisted debug traces were still flowing through the runner as one sink call per captured step.
+- Buffered runner-side debug-trace persistence with chunked sink flushes, so full-trace runs now hand off trace rows in batches instead of one-record tuples even when every step is captured.
+- Added focused regression coverage proving full-trace mode flushes sink writes in chunks (`5, 5, 2` in the test fixture) instead of falling back to per-step persistence calls.
+- Re-verified that persisted debug-trace runs and the backtest create API still work after the batching change.
 - Re-read the required session-start docs before any new implementation work: `README.md`, `docs/spec-index.md`, `docs/implementation-plan.md`, `docs/phases-2-to-9-checklists.md`, `docs/repo-self-review-tracker.md`, and the core `docs/agent-memory/*` files.
 - Re-verified the current repo state across the README, phase plan/checklists, self-review tracker, project state, task board, decision log, and handoff notes before selecting a new task.
 - Confirmed the repo is implemented through Phase 4 plus a substantial Phase 5 backtest/diagnostics/compare/debug-trace foundation, while the clearest remaining frontier is replay/evidence/workbench maturity rather than a new execution phase.

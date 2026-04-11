@@ -3299,6 +3299,51 @@ class Phase5FoundationTests(unittest.TestCase):
             transaction.rollback()
             connection.close()
 
+    def test_run_bars_full_debug_trace_sink_flushes_in_chunks(self) -> None:
+        bars = [build_bar("BTCUSDT_PERP", offset, "100") for offset in range(12)]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_full_trace_chunk_flush",
+                "session": {
+                    "session_code": "bt_btc_full_trace_chunk_flush",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-01T00:12:00Z",
+                "initial_cash": "10000",
+                "debug_trace_level": "full",
+            }
+        )
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+        )
+        flushed_chunks: list[list[BacktestDebugTraceRecord]] = []
+
+        loop_result = runner.run_bars(
+            bars,
+            capture_steps=False,
+            capture_debug_traces=True,
+            collect_debug_traces=False,
+            debug_trace_sink=lambda chunk: flushed_chunks.append(list(chunk)),
+            debug_trace_sink_chunk_size=5,
+        )
+
+        self.assertEqual(loop_result.debug_trace_count, 12)
+        self.assertEqual(len(loop_result.debug_traces), 0)
+        self.assertEqual([len(chunk) for chunk in flushed_chunks], [5, 5, 2])
+        self.assertEqual(flushed_chunks[0][0].step_index, 1)
+        self.assertEqual(flushed_chunks[-1][-1].step_index, 12)
+
     def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
         points = [
             PerformancePoint(

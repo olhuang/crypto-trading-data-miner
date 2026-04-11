@@ -566,3 +566,17 @@ Persisted debug traces should include a lightweight per-step `risk_state` snapsh
 - newly captured traces now expose `decision_json.risk_state.cooldown_bars_remaining`, `cooldown_active`, `cooldown_activation_count`, and `cooldown_activated_this_step`
 - `/api/v1/backtests/runs/{run_id}/debug-traces` accepts `cooldown_state_only=true` and the UI now has a `Cooldown State Changes` preset
 - older runs captured before this payload existed may still surface only cooldown blocks rather than full activation-state transitions
+
+## 2026-04-11
+
+### Decision
+When persisted backtests capture debug traces, the runner should buffer trace records and flush them to the persistence sink in chunks instead of invoking the sink once per captured step.
+
+### Reason
+- `debug_trace_level = full` captures nearly every bar in long-window runs, so per-step sink calls create avoidable Python and DB handoff overhead even after repository-side batch insert support exists
+- batching at the runner boundary lets the existing repository batch path actually receive multi-row chunks instead of thousands of one-row writes
+- this improves the current full-trace path without changing trace schema, operator-facing semantics, or investigation APIs
+
+### Impact
+- persisted full-trace runs now hand off debug traces to the repository in buffered chunks rather than one-record tuples
+- future long-window trace-performance work should focus next on payload construction/serialization cost and optional full-mode guardrails instead of revisiting per-step sink frequency first

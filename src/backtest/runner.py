@@ -153,6 +153,7 @@ class BacktestRunnerSkeleton:
         fill_sink: Callable[[Sequence[SimulatedFill]], dict[str, int] | None] | None = None,
         collect_debug_traces: bool = True,
         debug_trace_sink: Callable[[Sequence[BacktestDebugTraceRecord]], None] | None = None,
+        debug_trace_sink_chunk_size: int = 500,
     ) -> BacktestRunLoopResult:
         portfolio = PortfolioState(
             cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
@@ -170,6 +171,7 @@ class BacktestRunnerSkeleton:
         all_risk_outcomes: list[RiskGuardrailOutcome] = []
         performance_points: list[PerformancePoint] = []
         performance_point_buffer: list[PerformancePoint] = []
+        debug_trace_buffer: list[BacktestDebugTraceRecord] = []
         latest_close_by_symbol: dict[str, Decimal] = {}
         running_peak_equity = portfolio.cash
         max_drawdown = Decimal("0")
@@ -182,6 +184,11 @@ class BacktestRunnerSkeleton:
         previous_position_qty_by_symbol: dict[str, Decimal] = {
             symbol: qty for symbol, qty in portfolio.positions.items()
         }
+
+        def flush_debug_trace_buffer() -> None:
+            if debug_trace_sink is not None and debug_trace_buffer:
+                debug_trace_sink(tuple(debug_trace_buffer))
+                debug_trace_buffer.clear()
 
         history_cap = self.strategy.required_bar_history
         ordered_bars = bars if assume_sorted else sorted(bars, key=lambda item: (item.bar_time, item.unified_symbol))
@@ -312,7 +319,9 @@ class BacktestRunnerSkeleton:
                         if collect_debug_traces:
                             debug_traces.append(trace_record)
                         elif debug_trace_sink is not None:
-                            debug_trace_sink((trace_record,))
+                            debug_trace_buffer.append(trace_record)
+                            if len(debug_trace_buffer) >= debug_trace_sink_chunk_size:
+                                flush_debug_trace_buffer()
                     previous_trace_cash = trace_mark.cash
                     previous_trace_equity = trace_mark.equity
                     if current_position_qty == 0:
@@ -350,6 +359,7 @@ class BacktestRunnerSkeleton:
 
         if performance_point_sink is not None and performance_point_buffer:
             performance_point_sink(tuple(performance_point_buffer))
+        flush_debug_trace_buffer()
 
         summary_initial_cash = initial_cash if initial_cash is not None else self.run_config.initial_cash
         if collect_performance_points:
@@ -401,6 +411,7 @@ class BacktestRunnerSkeleton:
         fill_sink: Callable[[Sequence[SimulatedFill]], dict[str, int] | None] | None = None,
         collect_debug_traces: bool = True,
         debug_trace_sink: Callable[[Sequence[BacktestDebugTraceRecord]], None] | None = None,
+        debug_trace_sink_chunk_size: int = 500,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
         bars = loader.iter_bars(
@@ -426,6 +437,7 @@ class BacktestRunnerSkeleton:
             fill_sink=fill_sink,
             collect_debug_traces=collect_debug_traces,
             debug_trace_sink=debug_trace_sink,
+            debug_trace_sink_chunk_size=debug_trace_sink_chunk_size,
         )
 
     def load_run_and_persist(
