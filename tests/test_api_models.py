@@ -78,6 +78,7 @@ class ModelsApiTests(unittest.TestCase):
         cls.backtest_runs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "POST")
         cls.backtest_run_jobs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/run-jobs", "POST")
         cls.backtest_run_job_detail_endpoint = _resolve_route(cls.app, "/api/v1/backtests/run-jobs/{job_id}", "GET")
+        cls.backtest_run_job_cancel_endpoint = _resolve_route(cls.app, "/api/v1/backtests/run-jobs/{job_id}/cancel", "POST")
         cls.backtest_risk_policies_endpoint = _resolve_route(cls.app, "/api/v1/backtests/risk-policies", "GET")
         cls.backtest_assumption_bundles_endpoint = _resolve_route(cls.app, "/api/v1/backtests/assumption-bundles", "GET")
         cls.backtest_runs_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "GET")
@@ -236,6 +237,36 @@ class ModelsApiTests(unittest.TestCase):
         self.assertTrue(response.data.process_alive)
         self.assertEqual(response.data.summary.progress_pct, 41.5)
         self.assertEqual(response.data.summary.current_bar_time, "2026-06-01T00:00:00+00:00")
+
+    def test_backtest_run_job_cancel_returns_job_action(self) -> None:
+        original_canceler = app_module.cancel_backtest_run_job
+
+        @dataclass
+        class _Result:
+            job_id: int
+            status: str
+
+        captured = {}
+
+        def _stub_cancel(job_id: int, *, requested_by: str):
+            captured["job_id"] = job_id
+            captured["requested_by"] = requested_by
+            return _Result(job_id=job_id, status="cancel_requested")
+
+        app_module.cancel_backtest_run_job = _stub_cancel
+        try:
+            response = self.__class__.backtest_run_job_cancel_endpoint(
+                9001,
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.cancel_backtest_run_job = original_canceler
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.job_id, 9001)
+        self.assertEqual(response.data.status, "cancel_requested")
+        self.assertEqual(captured["job_id"], 9001)
+        self.assertEqual(captured["requested_by"], "u_123")
 
     def test_backtest_run_job_control_completes_and_persists_progress_summary(self) -> None:
         original_transaction_scope = backtest_job_module.transaction_scope
@@ -461,6 +492,75 @@ class ModelsApiTests(unittest.TestCase):
         self.assertIn("no active worker heartbeat", payload["error_message"])
         self.assertEqual(payload["metadata_json"]["status"], "stale")
         self.assertIn("heartbeat_at", payload["metadata_json"])
+
+    def test_cancel_backtest_run_job_marks_job_cancel_requested(self) -> None:
+        original_transaction_scope = backtest_job_module.transaction_scope
+        original_repository = backtest_job_module.IngestionJobRepository
+
+        jobs = {
+            7002: {
+                "job_id": 7002,
+                "service_name": "backtest_runner",
+                "data_type": "backtest_run",
+                "status": "running",
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "started_at": datetime.now(timezone.utc),
+                "finished_at": None,
+                "records_expected": None,
+                "records_written": None,
+                "error_message": None,
+                "metadata_json": {
+                    "status": "running",
+                    "progress_pct": 24.0,
+                },
+            }
+        }
+
+        @contextmanager
+        def _stub_transaction_scope():
+            yield object()
+
+        class StubRepository:
+            def get_job(self, connection, ingestion_job_id):
+                job = jobs.get(ingestion_job_id)
+                return None if job is None else dict(job)
+
+            def finish_job(
+                self,
+                connection,
+                ingestion_job_id,
+                *,
+                status,
+                finished_at,
+                records_expected=None,
+                records_written=None,
+                error_message=None,
+                metadata_json=None,
+            ):
+                job = jobs[ingestion_job_id]
+                job["status"] = status
+                job["finished_at"] = finished_at
+                job["error_message"] = error_message
+                if metadata_json is not None:
+                    job["metadata_json"] = dict(metadata_json)
+
+        backtest_job_module.transaction_scope = _stub_transaction_scope
+        backtest_job_module.IngestionJobRepository = StubRepository
+        try:
+            result = backtest_job_module.cancel_backtest_run_job(7002, requested_by="u_123")
+        finally:
+            backtest_job_module.transaction_scope = original_transaction_scope
+            backtest_job_module.IngestionJobRepository = original_repository
+            with backtest_job_module._CANCEL_REQUESTED_LOCK:
+                backtest_job_module._CANCEL_REQUESTED_JOB_IDS.clear()
+
+        self.assertIsNotNone(result)
+        assert result is not None
+        self.assertEqual(result.status, "cancel_requested")
+        self.assertEqual(jobs[7002]["status"], "cancel_requested")
+        self.assertTrue(jobs[7002]["metadata_json"]["cancel_requested"])
+        self.assertEqual(jobs[7002]["metadata_json"]["cancel_requested_by"], "u_123")
 
     def test_trace_investigation_note_request_validates_allowed_fields(self) -> None:
         with self.assertRaises(ValidationError):

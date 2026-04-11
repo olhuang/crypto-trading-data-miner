@@ -363,6 +363,11 @@ function renderBacktestLaunchJobSummary(job) {
   );
   setText("backtest-launch-job-run-id", formatValue(job?.summary?.run_id));
   setText("backtest-launch-job-error", formatValue(job?.error_message || job?.metadata_json?.error_message));
+  const cancelButton = document.getElementById("backtest-launch-cancel-job");
+  if (cancelButton) {
+    const status = String(job?.status || "").toLowerCase();
+    cancelButton.disabled = !job?.job_id || ["completed", "failed", "stale", "canceled", "cancel_requested"].includes(status);
+  }
 }
 
 function startBacktestLaunchProgressClock({ startTime, endTime, initialProgress = 18, maxProgress = 78 }) {
@@ -3998,6 +4003,8 @@ async function launchBacktest(formValues) {
         detail:
           latestJob.status === "queued"
             ? `Job ${created.job_id} is queued.`
+            : latestJob.status === "cancel_requested"
+              ? `Job ${created.job_id} has a cancel request pending and is waiting to stop cleanly.`
             : `Job ${created.job_id} is running at backtest time ${formatCompactDateTime(currentBarTime)}.`,
         progress: Math.max(28, progressPct),
         stateClass: "is-running",
@@ -4005,10 +4012,26 @@ async function launchBacktest(formValues) {
       if (latestJob.status === "completed") {
         break;
       }
+      if (latestJob.status === "canceled") {
+        break;
+      }
       if (latestJob.status === "failed") {
         throw new Error(latestJob.error_message || `Backtest job ${created.job_id} failed.`);
       }
       await sleep(1000);
+    }
+
+    if (latestJob?.status === "canceled") {
+      await loadBacktests();
+      setBacktestLaunchStatus({
+        phase: "canceled",
+        title: "Backtest Canceled",
+        detail: `Job ${created.job_id} stopped before completion.`,
+        progress: Number(latestJob.summary?.progress_pct || 0),
+        stateClass: "is-error",
+      });
+      renderBacktestLaunchJobSummary(latestJob);
+      return;
     }
 
     setBacktestLaunchStatus({
@@ -4085,6 +4108,33 @@ async function launchBacktest(formValues) {
     state.currentBacktestLaunchJobId = null;
     setBacktestLaunchFormBusy(false);
   }
+}
+
+async function cancelCurrentBacktestLaunchJob() {
+  if (!state.currentBacktestLaunchJobId) {
+    return;
+  }
+  const result = await sendEnvelope(
+    `/api/v1/backtests/run-jobs/${state.currentBacktestLaunchJobId}/cancel`,
+    "POST",
+    {}
+  );
+  renderJson("backtest-launch-result", result);
+  renderBacktestLaunchJobSummary({
+    job_id: result.job_id,
+    status: result.status,
+    process_alive: true,
+    summary: { run_id: null },
+    error_message: null,
+    metadata_json: {},
+  });
+  setBacktestLaunchStatus({
+    phase: "cancel_requested",
+    title: "Cancel Requested",
+    detail: `Job ${result.job_id} has been asked to stop. Waiting for the worker to exit cleanly.`,
+    progress: 100,
+    stateClass: "is-running",
+  });
 }
 
 async function compareBacktestRuns(formValues) {
@@ -4304,6 +4354,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("quality-filter-form", loadQuality);
   bindForm("raw-filter-form", loadTraceability);
   bindForm("backtest-launch-form", launchBacktest);
+  document.getElementById("backtest-launch-cancel-job")?.addEventListener("click", async () => {
+    try {
+      await cancelCurrentBacktestLaunchJob();
+    } catch (error) {
+      window.alert(error.message);
+    }
+  });
   bindForm("backtest-compare-form", compareBacktestRuns);
   bindForm("backtest-compare-note-form", saveCompareReviewNote);
   bindForm("backtest-trace-filter-form", loadBacktestDebugTraces);

@@ -32,7 +32,7 @@ from jobs.remediate_market_snapshots import run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
 from services.btc_backfill_control import load_binance_btc_backfill_status, trigger_binance_btc_incremental_backfill
-from services.backtest_job_control import get_backtest_run_job, start_backtest_run_job
+from services.backtest_job_control import cancel_backtest_run_job, get_backtest_run_job, start_backtest_run_job
 from services.builtin_scheduler import start_builtin_scheduler
 from services.integrity_repair_control import repair_bars_integrity_windows
 from services.startup_remediation import run_startup_gap_remediation
@@ -2408,6 +2408,23 @@ def create_app() -> FastAPI:
             )
         return SuccessEnvelope[BacktestRunJobResource](
             data=_build_backtest_run_job_resource(job),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/backtests/run-jobs/{job_id}/cancel")
+    def cancel_backtest_run_job_request(
+        job_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[JobActionResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        result = cancel_backtest_run_job(job_id, requested_by=actor.user_id)
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"backtest run job not found: {job_id}", "details": {}},
+            )
+        return SuccessEnvelope[JobActionResource](
+            data=JobActionResource(job_id=result.job_id, status=result.status),
             meta=_meta(actor),
         )
 

@@ -32,6 +32,10 @@ from .state import PortfolioMark, PortfolioState, PositionState
 from .traces import BacktestDebugTraceRecord
 
 
+class BacktestRunCancelledError(Exception):
+    pass
+
+
 @dataclass(slots=True)
 class BacktestStepResult:
     bar_time: datetime
@@ -539,56 +543,70 @@ class BacktestRunnerSkeleton:
             self.run_config,
             status="running",
         )
-        loop_result = self.load_and_run(
-            connection,
-            bar_loader=bar_loader,
-            context_loader=context_loader,
-            persist_signals=persist_signals,
-            capture_steps=capture_steps,
-            capture_debug_traces=persist_debug_traces,
-            collect_performance_points=False,
-            performance_point_sink=lambda chunk: self.run_repository.upsert_timeseries(
+        try:
+            loop_result = self.load_and_run(
+                connection,
+                bar_loader=bar_loader,
+                context_loader=context_loader,
+                persist_signals=persist_signals,
+                capture_steps=capture_steps,
+                capture_debug_traces=persist_debug_traces,
+                collect_performance_points=False,
+                performance_point_sink=lambda chunk: self.run_repository.upsert_timeseries(
+                    connection,
+                    run_id=run_id,
+                    performance_points=chunk,
+                ),
+                collect_orders=False,
+                order_sink=lambda chunk: persisted_artifacts.order_id_map.update(
+                    self.run_repository.insert_orders(
+                        connection,
+                        run_id=run_id,
+                        orders=chunk,
+                    )
+                ),
+                order_status_sink=lambda chunk: self.run_repository.update_order_statuses(
+                    connection,
+                    orders=chunk,
+                    order_id_map=persisted_artifacts.order_id_map,
+                ),
+                collect_fills=False,
+                fill_sink=lambda chunk: persisted_artifacts.fill_id_map.update(
+                    self.run_repository.insert_fills(
+                        connection,
+                        run_id=run_id,
+                        fills=chunk,
+                        order_id_map=persisted_artifacts.order_id_map,
+                    )
+                ),
+                collect_debug_traces=not persist_debug_traces,
+                debug_trace_sink=(
+                    (lambda chunk: self.run_repository.insert_debug_traces(
+                        connection,
+                        run_id=run_id,
+                        debug_traces=chunk,
+                        order_id_map=persisted_artifacts.order_id_map,
+                        fill_id_map=persisted_artifacts.fill_id_map,
+                        return_ids=False,
+                    ))
+                    if persist_debug_traces
+                    else None
+                ),
+                progress_callback=progress_callback,
+            )
+        except BacktestRunCancelledError:
+            self.run_repository.finalize_run(
                 connection,
                 run_id=run_id,
-                performance_points=chunk,
-            ),
-            collect_orders=False,
-            order_sink=lambda chunk: persisted_artifacts.order_id_map.update(
-                self.run_repository.insert_orders(
-                    connection,
-                    run_id=run_id,
-                    orders=chunk,
-                )
-            ),
-            order_status_sink=lambda chunk: self.run_repository.update_order_statuses(
-                connection,
-                orders=chunk,
-                order_id_map=persisted_artifacts.order_id_map,
-            ),
-            collect_fills=False,
-            fill_sink=lambda chunk: persisted_artifacts.fill_id_map.update(
-                self.run_repository.insert_fills(
-                    connection,
-                    run_id=run_id,
-                    fills=chunk,
-                    order_id_map=persisted_artifacts.order_id_map,
-                )
-            ),
-            collect_debug_traces=not persist_debug_traces,
-            debug_trace_sink=(
-                (lambda chunk: self.run_repository.insert_debug_traces(
-                    connection,
-                    run_id=run_id,
-                    debug_traces=chunk,
-                    order_id_map=persisted_artifacts.order_id_map,
-                    fill_id_map=persisted_artifacts.fill_id_map,
-                    return_ids=False,
-                ))
-                if persist_debug_traces
-                else None
-            ),
-            progress_callback=progress_callback,
-        )
+                run_config=self.run_config,
+                runtime_metadata={
+                    "canceled": True,
+                    "cancel_reason": "async job cancellation requested",
+                    "persist_debug_traces": persist_debug_traces,
+                },
+                status="canceled",
+            )
+            raise
         self.run_repository.finalize_run(
             connection,
             run_id=run_id,

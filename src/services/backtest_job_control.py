@@ -8,7 +8,7 @@ from typing import Any
 
 from backtest.assumption_registry import UnknownAssumptionBundleError
 from backtest.risk_registry import UnknownRiskPolicyError
-from backtest.runner import BacktestRunnerSkeleton
+from backtest.runner import BacktestRunCancelledError, BacktestRunnerSkeleton
 from models.backtest import BacktestRunConfig
 from storage.db import transaction_scope
 from storage.lookups import LookupResolutionError
@@ -18,6 +18,8 @@ from strategy import UnknownStrategyError
 
 _ACTIVE_THREADS: dict[int, Thread] = {}
 _ACTIVE_THREADS_LOCK = Lock()
+_CANCEL_REQUESTED_JOB_IDS: set[int] = set()
+_CANCEL_REQUESTED_LOCK = Lock()
 UTC = timezone.utc
 STALE_JOB_THRESHOLD = timedelta(seconds=30)
 
@@ -94,6 +96,35 @@ def get_backtest_run_job(job_id: int) -> dict[str, Any] | None:
     return _normalize_job_payload(job)
 
 
+def cancel_backtest_run_job(job_id: int, *, requested_by: str) -> BacktestRunJobResult | None:
+    with transaction_scope() as connection:
+        repository = IngestionJobRepository()
+        job = repository.get_job(connection, job_id)
+        if job is None or str(job.get("data_type")) != "backtest_run":
+            return None
+        current_status = str(job.get("status") or "").lower()
+        if current_status in {"completed", "failed", "stale", "canceled"}:
+            return BacktestRunJobResult(job_id=job_id, status=current_status)
+
+        metadata = dict(job.get("metadata_json") or {})
+        metadata["cancel_requested"] = True
+        metadata["cancel_requested_by"] = requested_by
+        metadata["cancel_requested_at"] = datetime.now(UTC).isoformat()
+        metadata["status"] = "cancel_requested"
+        metadata["heartbeat_at"] = datetime.now(UTC).isoformat()
+        repository.finish_job(
+            connection,
+            job_id,
+            status="cancel_requested",
+            finished_at=None,
+            error_message=None,
+            metadata_json=metadata,
+        )
+    with _CANCEL_REQUESTED_LOCK:
+        _CANCEL_REQUESTED_JOB_IDS.add(job_id)
+    return BacktestRunJobResult(job_id=job_id, status="cancel_requested")
+
+
 def _run_backtest_job(
     job_id: int,
     run_config: BacktestRunConfig,
@@ -102,6 +133,8 @@ def _run_backtest_job(
     persist_debug_traces: bool,
 ) -> None:
     try:
+        if _job_cancel_is_requested(job_id):
+            raise BacktestRunCancelledError("async backtest job was canceled before execution started")
         with transaction_scope() as connection:
             repository = IngestionJobRepository()
             repository.finish_job(
@@ -123,6 +156,8 @@ def _run_backtest_job(
         progress_state = {"last_emit": 0.0}
 
         def _report_progress(bar_time: datetime) -> None:
+            if _job_cancel_is_requested(job_id):
+                raise BacktestRunCancelledError("async backtest job was canceled")
             now = time.monotonic()
             if now - progress_state["last_emit"] < 0.75 and bar_time < run_config.end_time:
                 return
@@ -175,6 +210,8 @@ def _run_backtest_job(
                 records_written=persisted.loop_result.debug_trace_count,
                 metadata_json=final_metadata,
             )
+    except BacktestRunCancelledError as exc:
+        _mark_job_canceled(job_id, run_config, requested_by, persist_signals, persist_debug_traces, str(exc))
     except (
         UnknownStrategyError,
         UnknownRiskPolicyError,
@@ -188,6 +225,8 @@ def _run_backtest_job(
     finally:
         with _ACTIVE_THREADS_LOCK:
             _ACTIVE_THREADS.pop(job_id, None)
+        with _CANCEL_REQUESTED_LOCK:
+            _CANCEL_REQUESTED_JOB_IDS.discard(job_id)
 
 
 def _mark_job_failed(
@@ -212,6 +251,32 @@ def _mark_job_failed(
                 persist_signals=persist_signals,
                 persist_debug_traces=persist_debug_traces,
                 error_message=str(error),
+            ),
+        )
+
+
+def _mark_job_canceled(
+    job_id: int,
+    run_config: BacktestRunConfig,
+    requested_by: str,
+    persist_signals: bool,
+    persist_debug_traces: bool,
+    reason: str,
+) -> None:
+    with transaction_scope() as connection:
+        IngestionJobRepository().finish_job(
+            connection,
+            job_id,
+            status="canceled",
+            finished_at=datetime.now(UTC),
+            error_message=reason,
+            metadata_json=_build_job_metadata(
+                run_config,
+                requested_by=requested_by,
+                status="canceled",
+                persist_signals=persist_signals,
+                persist_debug_traces=persist_debug_traces,
+                error_message=reason,
             ),
         )
 
@@ -252,6 +317,9 @@ def _build_job_metadata(
         metadata["debug_trace_count"] = debug_trace_count
     if error_message:
         metadata["error_message"] = error_message
+    with _CANCEL_REQUESTED_LOCK:
+        if run_id is None and metadata.get("status") in {"queued", "running", "cancel_requested"}:
+            metadata["cancel_requested"] = False
     return metadata
 
 
@@ -280,7 +348,7 @@ def _parse_iso_datetime(value: str | None) -> datetime | None:
 
 def _job_should_be_marked_stale(job: dict[str, Any]) -> bool:
     status = str(job.get("status") or "").lower()
-    if status not in {"queued", "running"}:
+    if status not in {"queued", "running", "cancel_requested"}:
         return False
     with _ACTIVE_THREADS_LOCK:
         thread = _ACTIVE_THREADS.get(int(job["job_id"]))
@@ -293,6 +361,18 @@ def _job_should_be_marked_stale(job: dict[str, Any]) -> bool:
     if heartbeat_at is None:
         return False
     return datetime.now(UTC) - heartbeat_at > STALE_JOB_THRESHOLD
+
+
+def _job_cancel_is_requested(job_id: int) -> bool:
+    with _CANCEL_REQUESTED_LOCK:
+        if job_id in _CANCEL_REQUESTED_JOB_IDS:
+            return True
+    with transaction_scope() as connection:
+        job = IngestionJobRepository().get_job(connection, job_id)
+    if job is None:
+        return False
+    metadata = dict(job.get("metadata_json") or {})
+    return bool(metadata.get("cancel_requested")) or str(job.get("status") or "").lower() == "cancel_requested"
 
 
 def _normalize_job_payload(job: dict[str, Any]) -> dict[str, Any]:

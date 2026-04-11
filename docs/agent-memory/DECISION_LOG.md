@@ -754,3 +754,18 @@ Treat async backtest run jobs as `stale` when they remain in `queued` or `runnin
 ### Impact
 - backtest run job detail now self-normalizes orphaned `queued/running` jobs to `stale` instead of reporting indefinite progress
 - future async job work should build from this by adding stronger recovery/retry/queue semantics rather than relying on a forever-`running` UI state after worker loss
+
+## 2026-04-11
+
+### Decision
+Support async backtest job cancellation as a cooperative `cancel_requested -> canceled` flow, with the request persisted in job metadata and the runner finalizing any already-created backtest run as `canceled`.
+
+### Reason
+- once long-window backtests moved behind async jobs, operators needed a safe way to stop mistaken or overly expensive runs without killing the whole app process
+- simply flipping the job row to canceled would leave partially started persisted runs stuck in `running`, which is worse than having no cancel path
+- a cooperative check at the existing progress-callback boundary is the lowest-risk first step because it reuses the current in-process worker model and avoids invasive mid-step interruption logic
+
+### Impact
+- `POST /api/v1/backtests/run-jobs/{job_id}/cancel` now records a cancel request, the active worker notices it during progress reporting, and the job settles to `canceled`
+- if persistence had already begun, the underlying `backtest.runs` row now finalizes as `canceled` rather than staying indefinitely `running`
+- future async job work can build on this path with stronger queue/retry/recovery semantics or finer-grained cancellation checks if long bars/steps ever make the current callback boundary feel too coarse
