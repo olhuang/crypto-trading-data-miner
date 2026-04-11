@@ -127,3 +127,5 @@
 - Verified the percentage-formatting follow-up with `node --check frontend/monitoring/app.js`.
 - Fixed `Period Breakdown` turnover semantics so month/quarter/year rows now return normalized turnover ratios instead of raw traded notional under the same field name.
 - Verified the turnover-normalization follow-up with `python -m py_compile src\\backtest\\periods.py tests\\test_phase5_foundation.py` and `& .\\.venv\\Scripts\\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_period_breakdown_supports_month_quarter_and_year -v`.
+- Improved `/monitoring` turnover readability by formatting turnover values as phrases like `93.46% of initial cash` across the run summary, compare views, and period breakdown table.
+- Verified the turnover-formatting follow-up with `node --check frontend/monitoring/app.js`.
