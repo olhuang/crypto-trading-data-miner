@@ -185,6 +185,7 @@ class BacktestRunnerSkeleton:
         collect_debug_traces: bool = True,
         debug_trace_sink: Callable[[Sequence[BacktestDebugTraceRecord]], None] | None = None,
         debug_trace_sink_chunk_size: int = 500,
+        progress_callback: Callable[[datetime], None] | None = None,
     ) -> BacktestRunLoopResult:
         portfolio = PortfolioState(
             cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
@@ -424,6 +425,8 @@ class BacktestRunnerSkeleton:
                 if len(performance_point_buffer) >= performance_point_sink_chunk_size:
                     performance_point_sink(tuple(performance_point_buffer))
                     performance_point_buffer.clear()
+            if progress_callback is not None:
+                progress_callback(bar_time)
             self.risk_guardrails.complete_bar()
 
         open_orders: list[SimulatedOrder] = []
@@ -489,6 +492,7 @@ class BacktestRunnerSkeleton:
         collect_debug_traces: bool = True,
         debug_trace_sink: Callable[[Sequence[BacktestDebugTraceRecord]], None] | None = None,
         debug_trace_sink_chunk_size: int = 500,
+        progress_callback: Callable[[datetime], None] | None = None,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
         bars = loader.iter_bars(
@@ -515,6 +519,7 @@ class BacktestRunnerSkeleton:
             collect_debug_traces=collect_debug_traces,
             debug_trace_sink=debug_trace_sink,
             debug_trace_sink_chunk_size=debug_trace_sink_chunk_size,
+            progress_callback=progress_callback,
         )
 
     def load_run_and_persist(
@@ -526,6 +531,7 @@ class BacktestRunnerSkeleton:
         persist_signals: bool = True,
         capture_steps: bool = False,
         persist_debug_traces: bool = False,
+        progress_callback: Callable[[datetime], None] | None = None,
     ) -> PersistedBacktestRunResult:
         persisted_artifacts = PersistedArtifactState(order_id_map={}, fill_id_map={})
         run_id = self.run_repository.insert_run(
@@ -581,6 +587,7 @@ class BacktestRunnerSkeleton:
                 if persist_debug_traces
                 else None
             ),
+            progress_callback=progress_callback,
         )
         self.run_repository.finalize_run(
             connection,

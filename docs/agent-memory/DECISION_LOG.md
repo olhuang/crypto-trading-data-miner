@@ -200,6 +200,21 @@ Add a new named debug-trace level `full_compressed` instead of redefining the ex
 - the annual 2025 breakout benchmark dropped from roughly `196s` at the latest optimized `full` path to roughly `71s` under `full_compressed`
 - future replay/workbench work can continue to treat exact `full` and compressed-long-window evidence as separate, explicit contracts rather than one overloaded mode
 
+## 2026-04-11
+
+### Decision
+Introduce async backtest execution as an additive path, not a breaking replacement: keep `POST /api/v1/backtests/runs` synchronous for compatibility, and add a separate `POST/GET /api/v1/backtests/run-jobs` polling flow backed by `ops.ingestion_jobs`.
+
+### Reason
+- the repo already has operator-facing polling patterns and a durable generic job table via `ops.ingestion_jobs`
+- replacing the synchronous create contract immediately would create unnecessary breakage across existing tests, scripts, and direct callers
+- a separate async path lets the internal `/monitoring` UI gain real progress polling first, while leaving room to decide later whether the synchronous route should be deprecated
+
+### Impact
+- `/monitoring` can now poll true server-side backtest progress without requiring a same-turn full API contract migration for every caller
+- async job state is visible through the same durable job store family already used elsewhere in the repo
+- the first implementation still uses an in-process background thread, so future work should harden recovery/queue semantics before treating it as a production-grade worker model
+
 ## 2026-04-04
 
 ### Decision

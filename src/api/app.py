@@ -32,6 +32,7 @@ from jobs.remediate_market_snapshots import run_market_snapshot_remediation
 from jobs.refresh_market_snapshots import run_market_snapshot_refresh
 from jobs.sync_instruments import run_instrument_sync
 from services.btc_backfill_control import load_binance_btc_backfill_status, trigger_binance_btc_incremental_backfill
+from services.backtest_job_control import get_backtest_run_job, start_backtest_run_job
 from services.builtin_scheduler import start_builtin_scheduler
 from services.integrity_repair_control import repair_bars_integrity_windows
 from services.startup_remediation import run_startup_gap_remediation
@@ -272,6 +273,32 @@ class TraceInvestigationAnchorWriteRequest(ApiRequestModel):
 class BacktestRunStartRequest(BacktestRunConfig):
     persist_signals: bool = True
     persist_debug_traces: bool = False
+
+
+class BacktestRunJobSummaryResource(BaseModel):
+    run_id: int | None = None
+    progress_pct: float = 0.0
+    current_bar_time: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    debug_trace_count: int | None = None
+
+
+class BacktestRunJobResource(BaseModel):
+    job_id: int
+    service_name: str
+    data_type: str
+    status: str
+    exchange_code: str | None = None
+    unified_symbol: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+    records_expected: int | None = None
+    records_written: int | None = None
+    error_message: str | None = None
+    process_alive: bool = False
+    metadata_json: dict[str, Any] | None = None
+    summary: BacktestRunJobSummaryResource
 
 
 TData = TypeVar("TData")
@@ -1329,6 +1356,33 @@ def _build_backtest_run_resource(
     )
 
 
+def _build_backtest_run_job_resource(job: dict[str, Any]) -> BacktestRunJobResource:
+    summary = dict(job.get("summary") or {})
+    return BacktestRunJobResource(
+        job_id=int(job["job_id"]),
+        service_name=str(job["service_name"]),
+        data_type=str(job["data_type"]),
+        status=str(job["status"]),
+        exchange_code=job.get("exchange_code"),
+        unified_symbol=job.get("unified_symbol"),
+        started_at=job["started_at"].isoformat() if job.get("started_at") else None,
+        finished_at=job["finished_at"].isoformat() if job.get("finished_at") else None,
+        records_expected=job.get("records_expected"),
+        records_written=job.get("records_written"),
+        error_message=job.get("error_message"),
+        process_alive=bool(job.get("process_alive")),
+        metadata_json=dict(job.get("metadata_json") or {}),
+        summary=BacktestRunJobSummaryResource(
+            run_id=summary.get("run_id"),
+            progress_pct=float(summary.get("progress_pct") or 0.0),
+            current_bar_time=summary.get("current_bar_time"),
+            start_time=summary.get("start_time"),
+            end_time=summary.get("end_time"),
+            debug_trace_count=summary.get("debug_trace_count"),
+        ),
+    )
+
+
 def _build_backtest_run_list_item(run_row: dict[str, Any]) -> BacktestRunListItemResource:
     detail = _build_backtest_run_resource(run_row, run_row)
     return BacktestRunListItemResource(
@@ -2274,6 +2328,86 @@ def create_app() -> FastAPI:
         assert run_row is not None
         return SuccessEnvelope[BacktestRunDetailResource](
             data=_build_backtest_run_resource(run_row, summary_row),
+            meta=_meta(actor),
+        )
+
+    @app.post("/api/v1/backtests/run-jobs")
+    def create_backtest_run_job(
+        request: BacktestRunStartRequest,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[JobActionResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        try:
+            result = start_backtest_run_job(
+                request,
+                requested_by=actor.user_id,
+                persist_signals=request.persist_signals,
+                persist_debug_traces=request.persist_debug_traces,
+            )
+        except UnknownStrategyError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": str(exc), "details": {}},
+            ) from exc
+        except UnknownRiskPolicyError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "details": {"field": "risk_policy_code"},
+                },
+            ) from exc
+        except UnknownAssumptionBundleError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "details": {"field": "assumption_bundle_code"},
+                },
+            ) from exc
+        except LookupResolutionError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "details": (
+                        {"field": _lookup_error_field(str(exc))}
+                        if _lookup_error_field(str(exc)) is not None
+                        else {}
+                    ),
+                },
+            ) from exc
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "VALIDATION_ERROR",
+                    "message": "backtest request validation failed",
+                    "details": exc.errors(),
+                },
+            ) from exc
+        return SuccessEnvelope[JobActionResource](
+            data=JobActionResource(job_id=result.job_id, status=result.status),
+            meta=_meta(actor),
+        )
+
+    @app.get("/api/v1/backtests/run-jobs/{job_id}")
+    def get_backtest_run_job_detail(
+        job_id: int,
+        authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    ) -> SuccessEnvelope[BacktestRunJobResource]:
+        actor = require_actor(authorization, allowed_roles={"developer", "admin"})
+        job = get_backtest_run_job(job_id)
+        if job is None or str(job.get("data_type")) != "backtest_run":
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "NOT_FOUND", "message": f"backtest run job not found: {job_id}", "details": {}},
+            )
+        return SuccessEnvelope[BacktestRunJobResource](
+            data=_build_backtest_run_job_resource(job),
             meta=_meta(actor),
         )
 

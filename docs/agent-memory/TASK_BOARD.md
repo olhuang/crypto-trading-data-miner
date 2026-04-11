@@ -18,6 +18,7 @@
 - keep the `/monitoring` launch UX aligned with the actual traceability contract so debug-trace persistence also preserves signal linkage for diagnostics and investigation views
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
 - keep the Backtests launch progress indicator helpful and honest under the current synchronous API model; estimated backtest-time progress is now surfaced client-side, while true server-side bar-time progress would still require backend lifecycle changes
+- grow the new minimal async backtest job path from in-process background threads into a more durable operator-grade lifecycle with better recovery, optional queue controls, and broader UI visibility once the first polling path is proven
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
@@ -48,6 +49,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added a first minimal async backtest job path backed by `ops.ingestion_jobs`, real runner `bar_time` progress callbacks, `POST/GET /api/v1/backtests/run-jobs`, and `/monitoring` polling; the old synchronous create endpoint remains in place for compatibility
 - added a second line to the `/monitoring` Backtests launch status so synchronous run launches now show estimated backtest-time progress across the configured window, clearly labeled as estimated rather than true server-side bar progress
 - added `debug_trace_level = full_compressed`, preserving current `full` semantics while compressing contiguous quiet spans to unique `first / high / low / last` rows; the annual 2025 breakout case dropped to about `71s` and `326` persisted trace rows under this mode
 - slimmed quiet full-trace `decision_json` rows to keep only `decision_type` plus `risk_state`, then confirmed the annual full-trace case dropped again into the `~196-199s` range while psycopg array dumping stayed the clearest remaining persistence bottleneck

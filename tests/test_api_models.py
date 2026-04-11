@@ -8,6 +8,7 @@ import sys
 from types import SimpleNamespace
 import unittest
 from uuid import uuid4
+from dataclasses import dataclass
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -72,6 +73,8 @@ class ModelsApiTests(unittest.TestCase):
         cls.jobs_list_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs", "GET")
         cls.job_detail_endpoint = _resolve_route(cls.app, "/api/v1/ingestion/jobs/{job_id}", "GET")
         cls.backtest_runs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "POST")
+        cls.backtest_run_jobs_create_endpoint = _resolve_route(cls.app, "/api/v1/backtests/run-jobs", "POST")
+        cls.backtest_run_job_detail_endpoint = _resolve_route(cls.app, "/api/v1/backtests/run-jobs/{job_id}", "GET")
         cls.backtest_risk_policies_endpoint = _resolve_route(cls.app, "/api/v1/backtests/risk-policies", "GET")
         cls.backtest_assumption_bundles_endpoint = _resolve_route(cls.app, "/api/v1/backtests/assumption-bundles", "GET")
         cls.backtest_runs_list_endpoint = _resolve_route(cls.app, "/api/v1/backtests/runs", "GET")
@@ -128,6 +131,108 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(request.scenario_id, "scenario_alpha")
         self.assertEqual(request.expected_behavior, "expected move")
         self.assertIsNone(request.observed_behavior)
+
+    def test_backtest_run_job_create_returns_job_action(self) -> None:
+        original_starter = app_module.start_backtest_run_job
+
+        @dataclass
+        class _Result:
+            job_id: int
+            status: str
+
+        captured = {}
+
+        def _stub_start(run_config, *, requested_by, persist_signals=True, persist_debug_traces=False):
+            captured["strategy_code"] = run_config.session.strategy_code
+            captured["requested_by"] = requested_by
+            captured["persist_signals"] = persist_signals
+            captured["persist_debug_traces"] = persist_debug_traces
+            return _Result(job_id=9001, status="queued")
+
+        app_module.start_backtest_run_job = _stub_start
+        try:
+            response = self.__class__.backtest_run_jobs_create_endpoint(
+                BacktestRunStartRequest.model_validate(
+                    {
+                        "run_name": "btc_async_job_demo",
+                        "session": {
+                            "session_code": "bt_async_job_demo",
+                            "environment": "backtest",
+                            "account_code": "paper_main",
+                            "strategy_code": "btc_momentum",
+                            "strategy_version": "v1.0.0",
+                            "exchange_code": "binance",
+                            "trading_timezone": "UTC",
+                            "universe": ["BTCUSDT_PERP"],
+                        },
+                        "start_time": "2026-03-01T00:00:00Z",
+                        "end_time": "2026-03-02T00:00:00Z",
+                        "initial_cash": "100000",
+                        "persist_debug_traces": True,
+                        "debug_trace_level": "full_compressed",
+                    }
+                ),
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.start_backtest_run_job = original_starter
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.job_id, 9001)
+        self.assertEqual(response.data.status, "queued")
+        self.assertEqual(captured["strategy_code"], "btc_momentum")
+        self.assertEqual(captured["requested_by"], "u_123")
+        self.assertTrue(captured["persist_signals"])
+        self.assertTrue(captured["persist_debug_traces"])
+
+    def test_backtest_run_job_detail_returns_progress_summary(self) -> None:
+        original_getter = app_module.get_backtest_run_job
+
+        def _stub_get(job_id: int):
+            return {
+                "job_id": job_id,
+                "service_name": "backtest_runner",
+                "data_type": "backtest_run",
+                "status": "running",
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "started_at": datetime.fromisoformat("2026-04-11T08:00:00+00:00"),
+                "finished_at": None,
+                "records_expected": None,
+                "records_written": None,
+                "error_message": None,
+                "process_alive": True,
+                "metadata_json": {
+                    "start_time": "2026-01-01T00:00:00+00:00",
+                    "end_time": "2026-12-31T23:59:00+00:00",
+                    "current_bar_time": "2026-06-01T00:00:00+00:00",
+                    "progress_pct": 41.5,
+                },
+                "summary": {
+                    "run_id": None,
+                    "progress_pct": 41.5,
+                    "current_bar_time": "2026-06-01T00:00:00+00:00",
+                    "start_time": "2026-01-01T00:00:00+00:00",
+                    "end_time": "2026-12-31T23:59:00+00:00",
+                    "debug_trace_count": None,
+                },
+            }
+
+        app_module.get_backtest_run_job = _stub_get
+        try:
+            response = self.__class__.backtest_run_job_detail_endpoint(
+                9001,
+                "Bearer developer:u_123:Alice",
+            )
+        finally:
+            app_module.get_backtest_run_job = original_getter
+
+        self.assertTrue(response.success)
+        self.assertEqual(response.data.job_id, 9001)
+        self.assertEqual(response.data.status, "running")
+        self.assertTrue(response.data.process_alive)
+        self.assertEqual(response.data.summary.progress_pct, 41.5)
+        self.assertEqual(response.data.summary.current_bar_time, "2026-06-01T00:00:00+00:00")
 
     def test_trace_investigation_note_request_validates_allowed_fields(self) -> None:
         with self.assertRaises(ValidationError):

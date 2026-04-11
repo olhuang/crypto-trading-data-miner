@@ -66,6 +66,12 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added a first minimal async backtest job path instead of replacing the existing synchronous endpoint outright: `/api/v1/backtests/runs` remains synchronous, while new endpoints now exist at `POST /api/v1/backtests/run-jobs` and `GET /api/v1/backtests/run-jobs/{job_id}`.
+- Implemented the first repo-local background execution path for async backtests in `src/services/backtest_job_control.py`, using `ops.ingestion_jobs` as the durable job/status store and an in-process background thread as the initial worker mechanism.
+- Extended the runner with a lightweight `progress_callback`, allowing async backtest jobs to persist true current `bar_time` progress and a backend-computed `progress_pct` instead of relying only on client-side estimated launch progress.
+- Updated `/monitoring` Backtests launch flow to use the new async job endpoint, poll job status, surface real server-side `current_bar_time` / `progress_pct` once available, and only load the completed run after the job reports `completed`.
+- Added focused API coverage for the new async job create/detail endpoints and re-verified that the older synchronous `POST /api/v1/backtests/runs` contract still accepts breakout requests unchanged.
+- Verified the async-job slice with `python -m py_compile src/services/backtest_job_control.py src/api/app.py src/backtest/runner.py tests/test_api_models.py`, `node --check frontend/monitoring/app.js`, and `.\.venv\Scripts\python.exe -m unittest tests.test_api_models.ModelsApiTests.test_backtest_run_job_create_returns_job_action tests.test_api_models.ModelsApiTests.test_backtest_run_job_detail_returns_progress_summary tests.test_api_models.ModelsApiTests.test_backtest_run_create_accepts_breakout_strategy_request -v`.
 - Added a launch-status follow-up in `/monitoring` so the Backtests launch progress indicator now includes a second line for estimated backtest-time progress across the configured `start_time -> end_time` window while the synchronous run request is still in flight.
 - Kept that new launch-time progress indicator explicitly honest: it is client-side estimated progress based on the configured window and the current launch wait state, not a server-reported step-level execution cursor.
 - Verified the front-end follow-up with `node --check frontend/monitoring/app.js`.

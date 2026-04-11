@@ -19,6 +19,7 @@ const state = {
   btcBackfillStatusPollHandle: null,
   backtestLaunchProgressTimer: null,
   backtestLaunchProgressContext: null,
+  currentBacktestLaunchJobId: null,
 };
 
 const INTEGRITY_DATASET_FIELDS = [
@@ -331,6 +332,10 @@ function clearBacktestLaunchProgressClock() {
     state.backtestLaunchProgressTimer = null;
   }
   state.backtestLaunchProgressContext = null;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function renderBacktestLaunchTimeProgress({ progress, estimatedTime, startTime, endTime, isEstimated = false }) {
@@ -3936,51 +3941,88 @@ async function launchBacktest(formValues) {
       startTime: payload.start_time,
       endTime: payload.end_time,
       initialProgress: 18,
-      maxProgress: 78,
+      maxProgress: 52,
     });
     setBacktestLaunchStatus({
-      phase: "running",
-      title: "Backtest Running",
-      detail: "Waiting for the current synchronous backtest request to complete. Estimated backtest time progress is shown below.",
-      progress: 55,
+      phase: "queueing",
+      title: "Creating Backtest Job",
+      detail: "Submitting the run as an async job and waiting for the job id.",
+      progress: 24,
       stateClass: "is-running",
     });
-    const created = await sendEnvelope("/api/v1/backtests/runs", "POST", payload);
+    const created = await sendEnvelope("/api/v1/backtests/run-jobs", "POST", payload);
+    state.currentBacktestLaunchJobId = created.job_id || null;
+    clearBacktestLaunchProgressClock();
     renderJson("backtest-launch-result", created);
+
+    if (!created.job_id) {
+      throw new Error("The backtest job was created without a job_id.");
+    }
+
+    let latestJob = null;
+    while (true) {
+      latestJob = await fetchEnvelope(`/api/v1/backtests/run-jobs/${created.job_id}`);
+      const progressPct = Number(latestJob.summary?.progress_pct || 0);
+      const currentBarTime = latestJob.summary?.current_bar_time || payload.start_time;
+      renderBacktestLaunchTimeProgress({
+        progress: progressPct,
+        estimatedTime: currentBarTime,
+        startTime: latestJob.summary?.start_time || payload.start_time,
+        endTime: latestJob.summary?.end_time || payload.end_time,
+        isEstimated: false,
+      });
+      setBacktestLaunchStatus({
+        phase: latestJob.status || "running",
+        title: "Backtest Running",
+        detail:
+          latestJob.status === "queued"
+            ? `Job ${created.job_id} is queued.`
+            : `Job ${created.job_id} is running at backtest time ${formatCompactDateTime(currentBarTime)}.`,
+        progress: Math.max(28, progressPct),
+        stateClass: "is-running",
+      });
+      if (latestJob.status === "completed") {
+        break;
+      }
+      if (latestJob.status === "failed") {
+        throw new Error(latestJob.error_message || `Backtest job ${created.job_id} failed.`);
+      }
+      await sleep(1000);
+    }
 
     setBacktestLaunchStatus({
       phase: "refreshing",
       title: "Refreshing Run List",
-      detail: "Updating the current Backtests workspace with the newly created run.",
+      detail: `Job ${created.job_id} completed. Updating the Backtests workspace with the finished run.`,
       progress: 80,
       stateClass: "is-running",
     });
     await loadBacktests();
 
-    if (created.run_id) {
+    if (latestJob?.summary?.run_id) {
       setBacktestLaunchStatus({
         phase: "loading",
         title: "Loading Selected Run",
-        detail: `Fetching details for run ${created.run_id}.`,
+        detail: `Fetching details for run ${latestJob.summary.run_id}.`,
         progress: 92,
         stateClass: "is-running",
       });
       renderBacktestLaunchTimeProgress({
         progress: 100,
-        estimatedTime: payload.end_time,
-        startTime: payload.start_time,
-        endTime: payload.end_time,
+        estimatedTime: latestJob.summary.end_time || payload.end_time,
+        startTime: latestJob.summary.start_time || payload.start_time,
+        endTime: latestJob.summary.end_time || payload.end_time,
         isEstimated: false,
       });
-      await loadSelectedBacktestRun(created.run_id);
+      await loadSelectedBacktestRun(latestJob.summary.run_id);
     }
 
     setBacktestLaunchStatus({
       phase: "complete",
       title: "Backtest Completed",
-      detail: created.run_id
-        ? `Run ${created.run_id} finished and is now selected below.`
-        : "The backtest request completed successfully.",
+      detail: latestJob?.summary?.run_id
+        ? `Run ${latestJob.summary.run_id} finished and is now selected below.`
+        : `Backtest job ${created.job_id} completed successfully.`,
       progress: 100,
       stateClass: "is-complete",
     });
@@ -4008,6 +4050,7 @@ async function launchBacktest(formValues) {
     });
     throw error;
   } finally {
+    state.currentBacktestLaunchJobId = null;
     setBacktestLaunchFormBusy(false);
   }
 }
