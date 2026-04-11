@@ -666,3 +666,17 @@ Keep `debug_trace_level = full` row density, but omit `market_context_json` on q
 - full-trace runs still store one row per captured step, but non-activity rows no longer carry heavy market-context snapshots
 - activity rows still persist full market-context evidence for debugging strategy decisions and replay investigations
 - future full-trace optimization work can next reassess whether quiet-row `decision_json` should also become leaner or whether the current volume reduction is sufficient
+
+## 2026-04-11
+
+### Decision
+Use a DB-backed `2025-01-01 -> 2025-12-31` breakout backtest with `persist_debug_traces=true`, `debug_trace_level=full`, and rollback-by-default execution as the current profiling benchmark for long-window trace-performance work.
+
+### Reason
+- synthetic-bar profiling was useful earlier, but it no longer reflects the current real hotspot after the runner-side optimizations
+- the repo now has complete 2025 BTC perpetual bars plus supporting funding/mark/index context, so a real annual run is available as a stable benchmark
+- the resulting profile clearly isolates the current bottleneck in debug-trace insert SQL/driver overhead rather than leaving us to guess between strategy math, loader cost, and trace persistence
+
+### Impact
+- `scripts/profile_backtest_2025_full_trace.py` is now the reusable profiling entrypoint for this performance line
+- current optimization work should prioritize `insert_debug_traces()` SQL shape / prepared-statement reuse / driver rewrite overhead before spending more time on minor per-step Python allocations

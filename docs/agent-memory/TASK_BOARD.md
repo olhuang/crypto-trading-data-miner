@@ -8,6 +8,7 @@
 ## In Progress
 - extend the trace-note / expected-vs-observed foundation into a stronger replay-evidence workflow that can later connect to workbench annotations and review surfaces
 - harden long-window `debug trace full` performance now that per-step sink calls, repeated market-context serialization, repeated quiet-step decision payload construction, repeated repository-side `json.dumps`, empty risk-outcome payload churn, duplicated active-step outcome scans, and quiet-row market-context volume have all been reduced; next likely hotspot is whether quiet-row decision payloads should also be slimmed further or whether full-mode row volume still needs a harder guardrail
+- use the new 2025 annual full-trace profiling case as the current evidence source for bottleneck work; current measured hotspot is `insert_debug_traces()` SQL construction/execution rather than breakout-strategy math
 - continue the long-window backtest performance pass after landing streaming/merged bar loading, incremental 4H breakout aggregation, streamed persisted timeseries writes, streamed order/fill/debug-trace persistence, batched repository writes, first debug-trace compact mode, and user-facing trace-level presets; next likely hotspots are richer trace compaction policies and generic high-timeframe strategy helpers
 - continue the BTC 4H breakout strategy line now that the first strategy/registry/seed skeleton is landed, with feature-input/context work next
 - connect the new memory workflow to future strategy workbench annotations, compare/review state, and replay investigation surfaces
@@ -45,6 +46,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added and ran a reusable annual profiling script for the real `2025-01-01 -> 2025-12-31` breakout + full-trace path, capturing a profile report that shows the current bottleneck is debug-trace insert SQL/driver overhead
 - kept `debug_trace_level = full` row density but stopped persisting heavy `market_context_json` snapshots on quiet rows that have no signal/order/fill/block activity
 - collapsed active-step risk-outcome summary plus serialization into one pass inside debug-trace construction instead of separately scanning outcomes for blocked metadata and JSON payloads
 - reused one shared empty `risk_outcomes_json` payload for trace rows with no guardrail outcomes and collapsed blocked-count/code extraction into one pass inside debug-trace construction

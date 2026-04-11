@@ -66,6 +66,10 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added a reusable annual profiling entrypoint at `scripts/profile_backtest_2025_full_trace.py` that runs a real DB-backed `2025-01-01 -> 2025-12-31` breakout backtest with `persist_debug_traces=true`, `debug_trace_level=full`, and rollback-by-default behavior.
+- Ran that annual profiling case and captured artifacts at `tmp/backtest_2025_full_trace.prof` and `tmp/backtest_2025_full_trace_report.txt`.
+- Verified the current primary bottleneck is no longer strategy evaluation itself but debug-trace persistence SQL construction/execution inside `BacktestRunRepository.insert_debug_traces()`, especially psycopg query splitting/rewrite plus SQLAlchemy text/cache-key overhead around the giant batched insert statements.
+- Verified from the same report that `run_bars()` spent about `491s` total, with roughly `409s` under debug-trace buffer flushes / `insert_debug_traces()`, while strategy evaluation and 4H history maintenance were materially smaller by comparison.
 - Added a leaner full-trace behavior for quiet rows: when a captured trace step has no signals, orders, fills, or blocks, the row is still persisted but `market_context_json` is now omitted instead of storing the full latest-as-of context snapshot.
 - Added focused regression coverage proving full-trace quiet rows now keep the row while skipping market-context payloads, and re-verified that activity rows still persist market context when it matters.
 - Reduced active-step risk-outcome overhead in debug-trace construction by combining blocked-count derivation, blocked-code collection, and `risk_outcomes_json` serialization into one pass over the outcome list instead of separate scans/steps.
