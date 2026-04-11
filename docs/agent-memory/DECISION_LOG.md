@@ -491,3 +491,18 @@ Make the first long-window debug-trace compaction policy "keep all activity, sam
 - backtest runs can now persist all activity-bearing traces while sampling quiet background bars more sparsely
 - persisted run metadata now records the chosen trace sampling options and the resulting captured trace count
 - future compaction work should extend this baseline with richer policies or levels rather than replacing the "keep activity first" rule silently
+
+## 2026-04-11
+
+### Decision
+Expose debug-trace compaction to operators as named levels (`full`, `compact`, `sparse`) layered on top of the lower-level stride/activity controls, instead of requiring every user to set sampling knobs manually.
+
+### Reason
+- long-window performance work is only useful if the resulting controls are easy to choose during real launches
+- most users think in terms of "full vs lighter tracing" rather than in terms of stride integers, so preset levels reduce launch friction and make intent clearer in persisted metadata
+- keeping the low-level controls underneath preserves flexibility for experiments without making the common path verbose
+
+### Impact
+- backtest launch requests can now choose a trace density level directly, with defaults applied automatically to stride/activity behavior
+- persisted run metadata and runtime debug-trace summaries now surface both the selected level and the effective sampling behavior
+- future compaction work should add new named levels or richer policies in this layer rather than forcing users back to raw low-level tuning for common cases

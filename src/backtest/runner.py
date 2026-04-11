@@ -532,6 +532,7 @@ class BacktestRunnerSkeleton:
             "debug_trace_summary": {
                 "persisted": persist_debug_traces,
                 "captured_trace_count": loop_result.debug_trace_count,
+                "sampling_level": risk_guardrails.run_config.debug_trace_level,
                 "sampling_stride": risk_guardrails.run_config.debug_trace_stride,
                 "activity_only": risk_guardrails.run_config.debug_trace_activity_only,
             },

@@ -871,6 +871,7 @@ class ModelsApiTests(unittest.TestCase):
                 captured_run_config["trend_fast_ema"] = run_config.strategy_params_json.get("trend_fast_ema")
                 captured_run_config["trend_slow_ema"] = run_config.strategy_params_json.get("trend_slow_ema")
                 captured_run_config["breakout_lookback_bars"] = run_config.strategy_params_json.get("breakout_lookback_bars")
+                captured_run_config["debug_trace_level"] = run_config.debug_trace_level
                 captured_run_config["debug_trace_stride"] = run_config.debug_trace_stride
                 captured_run_config["debug_trace_activity_only"] = run_config.debug_trace_activity_only
                 captured_run_config["persist_debug_traces"] = None
@@ -992,6 +993,7 @@ class ModelsApiTests(unittest.TestCase):
                             "risk_per_trade_pct": "0.005",
                         },
                         "persist_debug_traces": True,
+                        "debug_trace_level": "compact",
                         "debug_trace_stride": 24,
                         "debug_trace_activity_only": True,
                     }
@@ -1014,6 +1016,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(captured_run_config["trend_fast_ema"], 20)
         self.assertEqual(captured_run_config["trend_slow_ema"], 50)
         self.assertEqual(captured_run_config["breakout_lookback_bars"], 20)
+        self.assertEqual(captured_run_config["debug_trace_level"], "compact")
         self.assertEqual(captured_run_config["debug_trace_stride"], 24)
         self.assertTrue(captured_run_config["debug_trace_activity_only"])
         self.assertTrue(captured_run_config["persist_debug_traces"])

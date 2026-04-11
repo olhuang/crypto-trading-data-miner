@@ -528,6 +528,7 @@ class BacktestRunRepository:
             "assumption_bundle_code": run_config.assumption_bundle_code,
             "assumption_bundle_version": run_config.assumption_bundle_version,
             "debug_trace_options": {
+                "level": run_config.debug_trace_level,
                 "stride": run_config.debug_trace_stride,
                 "activity_only": run_config.debug_trace_activity_only,
             },

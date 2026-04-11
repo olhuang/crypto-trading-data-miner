@@ -298,6 +298,7 @@ class BacktestRunConfig(BaseContractModel):
     benchmark_set_code: str | None = None
     assumption_bundle_code: str | None = None
     assumption_bundle_version: str | None = None
+    debug_trace_level: str | None = None
     debug_trace_stride: int | None = None
     debug_trace_activity_only: bool = False
     risk_overrides: RiskPolicyOverrideConfig = Field(default_factory=RiskPolicyOverrideConfig)
@@ -314,6 +315,11 @@ class BacktestRunConfig(BaseContractModel):
 
     @model_validator(mode="after")
     def validate_run_config(self) -> "BacktestRunConfig":
+        debug_trace_level_defaults = {
+            "full": {"debug_trace_stride": 1, "debug_trace_activity_only": False},
+            "compact": {"debug_trace_stride": 12, "debug_trace_activity_only": True},
+            "sparse": {"debug_trace_stride": 60, "debug_trace_activity_only": True},
+        }
         if self.session.environment != Environment.BACKTEST:
             raise ValueError("backtest run config requires a backtest strategy session")
         if self.end_time <= self.start_time:
@@ -338,6 +344,15 @@ class BacktestRunConfig(BaseContractModel):
             raise ValueError("feature_input_version must not be empty")
         if self.benchmark_set_code is not None and not self.benchmark_set_code.strip():
             raise ValueError("benchmark_set_code must not be empty when provided")
+        if self.debug_trace_level is not None:
+            self.debug_trace_level = self.debug_trace_level.strip().lower()
+            if self.debug_trace_level not in debug_trace_level_defaults:
+                raise ValueError("debug_trace_level must be one of: compact, full, sparse")
+            defaults = debug_trace_level_defaults[self.debug_trace_level]
+            if self.debug_trace_stride is None:
+                self.debug_trace_stride = defaults["debug_trace_stride"]
+            if "debug_trace_activity_only" not in self.model_fields_set:
+                self.debug_trace_activity_only = defaults["debug_trace_activity_only"]
         if self.debug_trace_stride is not None and self.debug_trace_stride <= 0:
             raise ValueError("debug_trace_stride must be positive when provided")
         return self
