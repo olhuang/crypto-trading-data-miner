@@ -313,7 +313,18 @@
                 </div>
               </section>
               <section class="panel">
-                <div class="panel-header"><h3>Month Breakdown</h3><p>Current month-level performance breakdown for the selected run.</p></div>
+                <div class="panel-header panel-header-with-actions">
+                  <div>
+                    <h3 id="backtest-period-breakdown-title">Period Breakdown</h3>
+                    <p id="backtest-period-breakdown-context">Compare the selected run by year, quarter, or month to see where return, drawdown, and activity cluster.</p>
+                  </div>
+                  <div class="period-toggle-group" role="group" aria-label="Backtest period breakdown type">
+                    <button type="button" class="period-toggle-button is-active" data-backtest-period-type="month">Month</button>
+                    <button type="button" class="period-toggle-button" data-backtest-period-type="quarter">Quarter</button>
+                    <button type="button" class="period-toggle-button" data-backtest-period-type="year">Year</button>
+                  </div>
+                </div>
+                <p id="backtest-period-breakdown-hint" class="card-detail">Select a backtest run first, then switch period type here without reloading the rest of the run detail.</p>
                 <div id="backtest-period-breakdown" class="table-shell"></div>
               </section>
             </div>

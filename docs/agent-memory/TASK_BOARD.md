@@ -182,3 +182,4 @@
 - keep `In Progress` small
 - move durable decisions into `DECISION_LOG.md`
 - move cross-session continuation into `HANDOFF.md`
+- latest completed UI slice: Backtests run-detail Period Breakdown now surfaces clearer guidance and an operator-selectable `month/quarter/year` toggle in place

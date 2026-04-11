@@ -121,3 +121,5 @@
 - Verified the UI trace-control sync follow-up with `node --check frontend/monitoring/app.js`.
 - Fixed the `/monitoring` launch payload so enabling `Persist Debug Traces` now also enables `persist_signals`, preventing the earlier diagnostics pattern where trace-heavy runs still showed `no_signals_generated` and `signal_link_gap` because signals were never persisted.
 - Verified the signal-linkage follow-up with `node --check frontend/monitoring/app.js`, `python -m py_compile tests\\test_api_models.py`, and `& .\\.venv\\Scripts\\python.exe -m unittest tests.test_api_models.ModelsApiTests.test_backtest_run_create_accepts_hourly_strategy_request tests.test_api_models.ModelsApiTests.test_backtest_run_create_accepts_breakout_strategy_request -v`.
+- Improved the `/monitoring -> Backtests -> Runs` Period Breakdown workspace so it now has a clearer explanatory header plus an in-place `Month / Quarter / Year` period-type toggle instead of a fixed month-only view.
+- Verified the Period Breakdown UI follow-up with `node --check frontend/monitoring/app.js`.

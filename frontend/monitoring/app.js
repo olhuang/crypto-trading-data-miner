@@ -4,6 +4,7 @@ const state = {
   selectedJobId: null,
   selectedRawEventId: null,
   selectedBacktestRunId: null,
+  selectedBacktestPeriodType: "month",
   selectedBacktestDebugTraceId: null,
   selectedTraceNoteId: null,
   selectedCompareSetId: null,
@@ -36,6 +37,12 @@ const DEBUG_TRACE_LEVEL_DEFAULTS = {
   full: { stride: "1", activityOnly: false, label: "Full" },
   compact: { stride: "12", activityOnly: true, label: "Compact" },
   sparse: { stride: "60", activityOnly: true, label: "Sparse" },
+};
+
+const BACKTEST_PERIOD_TYPE_LABELS = {
+  month: "Month",
+  quarter: "Quarter",
+  year: "Year",
 };
 
 const BACKTEST_LAUNCH_PRESETS = {
@@ -3408,7 +3415,7 @@ async function loadSelectedBacktestRun(runId) {
       fetchEnvelope(`/api/v1/backtests/runs/${runId}`),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/diagnostics`),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/artifacts`),
-      fetchEnvelope(`/api/v1/backtests/runs/${runId}/period-breakdown`, { period_type: "month" }),
+      fetchEnvelope(`/api/v1/backtests/runs/${runId}/period-breakdown`, { period_type: state.selectedBacktestPeriodType }),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/signals`, { limit: 50 }),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/orders`, { limit: 50 }),
       fetchEnvelope(`/api/v1/backtests/runs/${runId}/fills`, { limit: 50 }),
@@ -3422,19 +3429,7 @@ async function loadSelectedBacktestRun(runId) {
   renderBacktestDiagnostics(diagnostics);
   renderExpectedObservedOverview(expectedObserved);
   renderJson("backtest-run-artifacts", artifacts);
-  renderTable(
-    "backtest-period-breakdown",
-    [
-      { key: "period_start", label: "Period Start" },
-      { key: "period_end", label: "Period End" },
-      { key: "total_return", label: "Return" },
-      { key: "max_drawdown", label: "Max DD" },
-      { key: "turnover", label: "Turnover" },
-      { key: "signal_count", label: "Signals" },
-      { key: "fill_count", label: "Fills" },
-    ],
-    breakdown.entries || []
-  );
+  renderBacktestPeriodBreakdown(breakdown);
   renderTable(
     "backtest-signals-table",
     [
@@ -3485,6 +3480,56 @@ async function loadSelectedBacktestRun(runId) {
     timeseries.points || []
   );
   await renderBacktestDebugTraces(runId, debugTraces, traceFilters);
+}
+
+function updateBacktestPeriodBreakdownControls() {
+  const periodType = state.selectedBacktestPeriodType || "month";
+  const label = BACKTEST_PERIOD_TYPE_LABELS[periodType] || periodType;
+  setText("backtest-period-breakdown-title", `${label} Breakdown`);
+  setText(
+    "backtest-period-breakdown-context",
+    `Review the selected run at the ${label.toLowerCase()} level to spot where return, drawdown, and trade activity concentrate.`
+  );
+  setText(
+    "backtest-period-breakdown-hint",
+    state.selectedBacktestRunId
+      ? `Viewing ${label.toLowerCase()} slices for run ${state.selectedBacktestRunId}. Switch here to compare broader or finer performance clustering.`
+      : "Select a backtest run first, then switch period type here without reloading the rest of the run detail."
+  );
+  document.querySelectorAll("[data-backtest-period-type]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.backtestPeriodType === periodType);
+  });
+}
+
+function renderBacktestPeriodBreakdown(breakdown) {
+  const effectiveType = breakdown?.period_type || state.selectedBacktestPeriodType || "month";
+  state.selectedBacktestPeriodType = effectiveType;
+  updateBacktestPeriodBreakdownControls();
+  renderTable(
+    "backtest-period-breakdown",
+    [
+      { key: "period_start", label: "Period Start" },
+      { key: "period_end", label: "Period End" },
+      { key: "total_return", label: "Return" },
+      { key: "max_drawdown", label: "Max DD" },
+      { key: "turnover", label: "Turnover" },
+      { key: "signal_count", label: "Signals" },
+      { key: "fill_count", label: "Fills" },
+    ],
+    breakdown?.entries || []
+  );
+}
+
+async function loadBacktestPeriodBreakdown(periodType) {
+  state.selectedBacktestPeriodType = periodType;
+  updateBacktestPeriodBreakdownControls();
+  if (!state.selectedBacktestRunId) {
+    return;
+  }
+  const breakdown = await fetchEnvelope(`/api/v1/backtests/runs/${state.selectedBacktestRunId}/period-breakdown`, {
+    period_type: periodType,
+  });
+  renderBacktestPeriodBreakdown(breakdown);
 }
 
 async function loadBacktestDebugTraces(formValues = null) {
@@ -3981,6 +4026,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindForm("backtest-trace-note-form", saveTraceInvestigationNote);
   bindBacktestPresetButtons();
   initializeBacktestLaunchControls();
+  updateBacktestPeriodBreakdownControls();
+  document.querySelectorAll("[data-backtest-period-type]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await loadBacktestPeriodBreakdown(button.dataset.backtestPeriodType);
+      } catch (error) {
+        window.alert(error.message);
+      }
+    });
+  });
   document.querySelectorAll(".workspace-tab[data-subtab]").forEach((btn) => {
     btn.addEventListener("click", () => activateBacktestSubtab(btn.dataset.subtab));
   });
