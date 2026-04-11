@@ -518,6 +518,7 @@ class BacktestRunnerSkeleton:
                     debug_traces=chunk,
                     order_id_map=persisted_artifacts.order_id_map,
                     fill_id_map=persisted_artifacts.fill_id_map,
+                    return_ids=False,
                 ))
                 if persist_debug_traces
                 else None
@@ -782,12 +783,9 @@ class BacktestRunnerSkeleton:
             "cooldown_activated_this_step": cooldown_activation_count > previous_cooldown_activation_count,
         }
         if decision is None:
-            return {
-                "decision_type": "none",
-                "signals": [],
-                "execution_intents": [],
-                "risk_state": risk_state,
-            }
+            return BacktestRunnerSkeleton._serialize_empty_step_decision(
+                risk_state_snapshot=risk_state,
+            )
         if isinstance(decision, Signal):
             decision_type = "signal"
             decision_payload = {
@@ -880,6 +878,16 @@ class BacktestRunnerSkeleton:
             cooldown_activation_count,
             cooldown_activation_count > previous_cooldown_activation_count,
         )
+
+    @staticmethod
+    def _serialize_empty_step_decision(
+        *,
+        risk_state_snapshot: dict[str, object],
+    ) -> dict[str, Any]:
+        return {
+            "decision_type": "none",
+            "risk_state": risk_state_snapshot,
+        }
 
     @staticmethod
     def _serialize_step_decision_cached(

@@ -2370,7 +2370,16 @@ class Phase5FoundationTests(unittest.TestCase):
                 self.inserted_fill_batches.append(len(fills))
                 return super().insert_fills(connection, run_id=run_id, fills=fills, order_id_map=order_id_map)
 
-            def insert_debug_traces(self, connection, *, run_id, debug_traces, order_id_map=None, fill_id_map=None):
+            def insert_debug_traces(
+                self,
+                connection,
+                *,
+                run_id,
+                debug_traces,
+                order_id_map=None,
+                fill_id_map=None,
+                return_ids=True,
+            ):
                 self.inserted_debug_trace_batches.append(len(debug_traces))
                 return super().insert_debug_traces(
                     connection,
@@ -2378,6 +2387,7 @@ class Phase5FoundationTests(unittest.TestCase):
                     debug_traces=debug_traces,
                     order_id_map=order_id_map,
                     fill_id_map=fill_id_map,
+                    return_ids=return_ids,
                 )
 
         run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
@@ -3606,13 +3616,14 @@ class Phase5FoundationTests(unittest.TestCase):
 
         self.assertIs(payload_one, payload_two)
         self.assertEqual(payload_one["decision_type"], "none")
-        self.assertEqual(payload_one["signals"], [])
-        self.assertEqual(payload_one["execution_intents"], [])
+        self.assertNotIn("signals", payload_one)
+        self.assertNotIn("execution_intents", payload_one)
+        self.assertIn("risk_state", payload_one)
         self.assertEqual(len(cache), 1)
 
     def test_debug_trace_repository_json_serialization_reuses_cached_payloads(self) -> None:
         cache: dict[int, str] = {}
-        shared_payload = {"decision_type": "none", "signals": [], "execution_intents": []}
+        shared_payload = {"decision_type": "none", "risk_state": {"cooldown_active": False}}
 
         serialized_one = BacktestRunRepository._serialize_json_payload(
             shared_payload,

@@ -133,6 +133,120 @@ class BacktestRunRepository:
         returning debug_trace_id
         """
     )
+    _INSERT_DEBUG_TRACES_NO_RETURNING_SQL = text(
+        """
+        with input_rows as (
+            select *
+            from unnest(
+                cast(:run_ids as bigint[]),
+                cast(:instrument_ids as bigint[]),
+                cast(:step_indexes as integer[]),
+                cast(:bar_times as timestamptz[]),
+                cast(:close_prices as numeric[]),
+                cast(:current_position_qtys as numeric[]),
+                cast(:position_qty_deltas as numeric[]),
+                cast(:signal_counts as integer[]),
+                cast(:intent_counts as integer[]),
+                cast(:blocked_intent_counts as integer[]),
+                cast(:blocked_codes_json_texts as text[]),
+                cast(:created_order_counts as integer[]),
+                cast(:sim_order_ids_json_texts as text[]),
+                cast(:fill_counts as integer[]),
+                cast(:sim_fill_ids_json_texts as text[]),
+                cast(:cash_values as numeric[]),
+                cast(:cash_deltas as numeric[]),
+                cast(:equity_values as numeric[]),
+                cast(:equity_deltas as numeric[]),
+                cast(:gross_exposures as numeric[]),
+                cast(:net_exposures as numeric[]),
+                cast(:drawdowns as numeric[]),
+                cast(:market_context_json_texts as text[]),
+                cast(:decision_json_texts as text[]),
+                cast(:risk_outcomes_json_texts as text[])
+            ) as rows(
+                run_id,
+                instrument_id,
+                step_index,
+                bar_time,
+                close_price,
+                current_position_qty,
+                position_qty_delta,
+                signal_count,
+                intent_count,
+                blocked_intent_count,
+                blocked_codes_json_text,
+                created_order_count,
+                sim_order_ids_json_text,
+                fill_count,
+                sim_fill_ids_json_text,
+                cash,
+                cash_delta,
+                equity,
+                equity_delta,
+                gross_exposure,
+                net_exposure,
+                drawdown,
+                market_context_json_text,
+                decision_json_text,
+                risk_outcomes_json_text
+            )
+        )
+        insert into backtest.debug_traces (
+            run_id,
+            instrument_id,
+            step_index,
+            bar_time,
+            close_price,
+            current_position_qty,
+            position_qty_delta,
+            signal_count,
+            intent_count,
+            blocked_intent_count,
+            blocked_codes_json,
+            created_order_count,
+            sim_order_ids_json,
+            fill_count,
+            sim_fill_ids_json,
+            cash,
+            cash_delta,
+            equity,
+            equity_delta,
+            gross_exposure,
+            net_exposure,
+            drawdown,
+            market_context_json,
+            decision_json,
+            risk_outcomes_json
+        )
+        select
+            run_id,
+            instrument_id,
+            step_index,
+            bar_time,
+            close_price,
+            current_position_qty,
+            position_qty_delta,
+            signal_count,
+            intent_count,
+            blocked_intent_count,
+            cast(blocked_codes_json_text as jsonb),
+            created_order_count,
+            cast(sim_order_ids_json_text as jsonb),
+            fill_count,
+            cast(sim_fill_ids_json_text as jsonb),
+            cash,
+            cash_delta,
+            equity,
+            equity_delta,
+            gross_exposure,
+            net_exposure,
+            drawdown,
+            cast(market_context_json_text as jsonb),
+            cast(decision_json_text as jsonb),
+            cast(risk_outcomes_json_text as jsonb)
+        from input_rows
+        """
+    )
 
     def insert_run(
         self,
@@ -506,6 +620,7 @@ class BacktestRunRepository:
         debug_traces: Sequence[BacktestDebugTraceRecord],
         order_id_map: dict[str, int] | None = None,
         fill_id_map: dict[str, int] | None = None,
+        return_ids: bool = True,
     ) -> list[int]:
         persisted_ids: list[int] = []
         order_id_map = order_id_map or {}
@@ -604,8 +719,14 @@ class BacktestRunRepository:
                 "decision_json_texts": [row["decision_json"] for row in chunk],
                 "risk_outcomes_json_texts": [row["risk_outcomes_json"] for row in chunk],
             }
-            rows = connection.execute(self._INSERT_DEBUG_TRACES_SQL, params).scalars().all()
-            persisted_ids.extend(int(row) for row in rows)
+            statement = (
+                self._INSERT_DEBUG_TRACES_SQL
+                if return_ids
+                else self._INSERT_DEBUG_TRACES_NO_RETURNING_SQL
+            )
+            result = connection.execute(statement, params)
+            if return_ids:
+                persisted_ids.extend(int(row) for row in result.scalars().all())
         return persisted_ids
 
     @staticmethod

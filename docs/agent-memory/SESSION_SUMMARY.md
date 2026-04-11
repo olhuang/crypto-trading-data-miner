@@ -66,6 +66,12 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Slimmed quiet-row `decision_json` again for full-trace persistence: idle steps now keep `decision_type` plus `risk_state`, but no longer store redundant empty `signals` / `execution_intents` arrays.
+- Re-verified the quiet-step decision cache and persisted quiet-row trace path with `python -m py_compile src/backtest/runner.py tests/test_phase5_foundation.py`, `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_empty_step_decision_serialization_uses_cache_for_equivalent_risk_state -v`, and `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_full_trace_quiet_rows_skip_market_context_snapshot -v`.
+- Added a non-returning persisted debug-trace insert path so `load_run_and_persist()` no longer asks Postgres to return every `debug_trace_id` when the streamed persistence flow does not consume them.
+- Re-verified the persisted debug-trace runner path after the no-returning change with `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_load_run_and_persist_can_persist_compact_debug_traces -v` and `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_run_bars_full_debug_trace_sink_flushes_in_chunks -v`.
+- Re-ran the annual `2025-01-01 -> 2025-12-31` full-trace profiling case after both follow-ups and verified the elapsed time dropped again from roughly `233s` to roughly `196-199s`.
+- Verified from the updated profile that the next real bottleneck remains psycopg array dumping plus DB execute wait during debug-trace persistence; removing `RETURNING debug_trace_id` from the streamed persisted-run path was valid but only a small win relative to the array transport cost.
 - Reused one constant SQLAlchemy statement object for `BacktestRunRepository.insert_debug_traces()` instead of rebuilding the same `text(...)` clause for every debug-trace flush chunk.
 - Re-verified persisted compact debug-trace writes with `python -m py_compile src/storage/repositories/backtest.py tests/test_phase5_foundation.py` and `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_load_run_and_persist_can_persist_compact_debug_traces -v`.
 - Re-ran the real DB-backed annual `2025-01-01 -> 2025-12-31` breakout + `debug_trace_level=full` profiling case after the statement reuse change and updated `tmp/backtest_2025_full_trace.prof` plus `tmp/backtest_2025_full_trace_report.txt`.

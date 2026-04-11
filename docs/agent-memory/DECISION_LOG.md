@@ -170,6 +170,21 @@ Keep `backtest.debug_traces` bulk persistence on the current `unnest(...)` array
 - the primary bottleneck is now narrowed to psycopg array dumping plus DB execute wait rather than SQLAlchemy statement construction
 - the next persistence optimization should target trace payload transport/driver costs before redesigning strategy logic
 
+## 2026-04-11
+
+### Decision
+Persisted streamed backtest runs should insert debug traces without `RETURNING debug_trace_id` when the caller does not consume per-row ids, while keeping the repository default capable of returning ids for direct repository/API-style callers that do need them.
+
+### Reason
+- `load_run_and_persist()` streams debug traces directly into storage and does not use the inserted ids afterward
+- returning every `debug_trace_id` across a year-long `full` trace adds avoidable result transport/parsing work on the hot path
+- direct repository callers and focused tests still benefit from the original id-returning behavior, so the optimization should be opt-in rather than a global contract break
+
+### Impact
+- streamed persisted runs now use a cheaper no-returning insert path for debug traces
+- direct repository use still gets debug-trace ids by default
+- annual profiling confirmed this is a valid but smaller optimization than the earlier SQL-shape and statement-reuse changes; psycopg array dumping remains the main outstanding hotspot
+
 ## 2026-04-04
 
 ### Decision
