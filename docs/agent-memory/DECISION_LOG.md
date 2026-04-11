@@ -744,6 +744,19 @@ Use a DB-backed `2025-01-01 -> 2025-12-31` breakout backtest with `persist_debug
 ## 2026-04-11
 
 ### Decision
+Make the first repo-local strategy ablation runner rollback-by-default, and only persist runs plus create a compare set when the operator explicitly passes `--commit`.
+
+### Reason
+- ablation batches are exploratory by nature and often include many intentionally rough variants
+- the repo already has durable compare-set infrastructure, so committed batches should use that path deliberately instead of leaving every experiment in the main run history by default
+- rollback-by-default keeps local iteration cheap while still letting operators promote a useful batch into persisted compare evidence when needed
+
+### Impact
+- `scripts/run_backtest_ablation.py` now supports a low-friction exploratory mode that leaves no persistent runs behind
+- committed ablation batches can still flow into the existing compare-review substrate through one explicit switch
+- future ablation presets should preserve this explore-first default unless there is a strong operator need for always-on persistence
+
+### Decision
 Treat async backtest run jobs as `stale` when they remain in `queued` or `running` state, have no active in-process worker thread, and their last persisted heartbeat has aged past a short threshold.
 
 ### Reason

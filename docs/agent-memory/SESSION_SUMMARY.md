@@ -66,6 +66,12 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added a first repo-local strategy ablation runner at `scripts/run_backtest_ablation.py` for batch-comparing breakout exit variants under one fixed backtest protocol instead of launching each run manually.
+- Implemented the first named ablation preset `breakout_exit_tightness`, generating eight variants across `trailing_stop_atr = 1.5 / 2.0 / 2.5 / 3.0` and `exit_on_ema20_cross = true / false`.
+- Wired the ablation runner to the existing Phase 5 persisted-run path: each variant builds a normal `BacktestRunConfig`, runs through `BacktestRunnerSkeleton.load_run_and_persist(...)`, and emits one ranked JSON report with shared base assumptions plus per-variant KPIs.
+- Added rollback-by-default behavior for exploratory batches and a `--commit` mode that can persist all variant runs plus create one compare set through the existing compare projector/review service.
+- Fixed the first ablation-runner smoke-test regression by aligning its in-memory result projection with the actual `PerformanceSummary` dataclass shape instead of assuming DB-only summary fields such as `avg_holding_seconds`.
+- Verified the new runner with `python -m py_compile scripts\\run_backtest_ablation.py` and a short-window smoke test over `2025-03-15 -> 2025-03-21`, producing `tmp\\backtest_ablation_smoke.json` with eight ranked exit-ablation variants.
 - Added focused async-job lifecycle coverage beyond the API contract stubs: the new test now drives `start_backtest_run_job()` through a real background-thread lifecycle with a fake repository/runner and verifies `queued/running/completed` state progression plus persisted `run_id / progress_pct / current_bar_time / debug_trace_count` summary fields.
 - Added a first minimal async backtest job path instead of replacing the existing synchronous endpoint outright: `/api/v1/backtests/runs` remains synchronous, while new endpoints now exist at `POST /api/v1/backtests/run-jobs` and `GET /api/v1/backtests/run-jobs/{job_id}`.
 - Implemented the first repo-local background execution path for async backtests in `src/services/backtest_job_control.py`, using `ops.ingestion_jobs` as the durable job/status store and an in-process background thread as the initial worker mechanism.
