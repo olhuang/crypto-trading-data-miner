@@ -188,3 +188,4 @@
 - latest completed UI slice: Backtests turnover now renders as explicit `% of initial cash` text so turnover ratios are easier to interpret
 - latest completed UI slice: Backtests fee/slippage values now use grouped, money-like formatting in summaries, compare views, and fill tables
 - latest completed UI slice: Investigate now exposes one-click trace presets for cooldown blocks, fills-only windows, and quick filter reset
+- latest completed investigate slice: new runs now capture per-step cooldown state in debug traces, and the trace API/UI can filter cooldown state changes directly

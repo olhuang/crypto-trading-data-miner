@@ -2637,6 +2637,7 @@ function getBacktestTraceFilters(formValues = null) {
     bar_time_from: String(values.bar_time_from || "").trim() || undefined,
     bar_time_to: String(values.bar_time_to || "").trim() || undefined,
     blocked_only: parseBooleanish(values.blocked_only),
+    cooldown_state_only: parseBooleanish(values.cooldown_state_only),
     signals_only: parseBooleanish(values.signals_only),
     fills_only: parseBooleanish(values.fills_only),
     orders_only: parseBooleanish(values.orders_only),
@@ -2646,6 +2647,9 @@ function getBacktestTraceFilters(formValues = null) {
     form.elements.unified_symbol.value = filters.unified_symbol || "";
     form.elements.risk_code.value = filters.risk_code || "";
     form.elements.blocked_only.checked = Boolean(filters.blocked_only);
+    if (form.elements.cooldown_state_only) {
+      form.elements.cooldown_state_only.checked = Boolean(filters.cooldown_state_only);
+    }
     form.elements.signals_only.checked = Boolean(filters.signals_only);
     form.elements.fills_only.checked = Boolean(filters.fills_only);
     form.elements.orders_only.checked = Boolean(filters.orders_only);
@@ -2661,18 +2665,36 @@ async function applyBacktestTracePreset(presetName) {
   if (presetName === "cooldown_blocks") {
     form.elements.risk_code.value = "cooldown_active";
     form.elements.blocked_only.checked = true;
+    if (form.elements.cooldown_state_only) {
+      form.elements.cooldown_state_only.checked = false;
+    }
+    form.elements.signals_only.checked = false;
+    form.elements.orders_only.checked = false;
+    form.elements.fills_only.checked = false;
+  } else if (presetName === "cooldown_state") {
+    form.elements.risk_code.value = "";
+    form.elements.blocked_only.checked = false;
+    if (form.elements.cooldown_state_only) {
+      form.elements.cooldown_state_only.checked = true;
+    }
     form.elements.signals_only.checked = false;
     form.elements.orders_only.checked = false;
     form.elements.fills_only.checked = false;
   } else if (presetName === "fills_only") {
     form.elements.risk_code.value = "";
     form.elements.blocked_only.checked = false;
+    if (form.elements.cooldown_state_only) {
+      form.elements.cooldown_state_only.checked = false;
+    }
     form.elements.signals_only.checked = false;
     form.elements.orders_only.checked = false;
     form.elements.fills_only.checked = true;
   } else if (presetName === "clear") {
     form.elements.risk_code.value = "";
     form.elements.blocked_only.checked = false;
+    if (form.elements.cooldown_state_only) {
+      form.elements.cooldown_state_only.checked = false;
+    }
     form.elements.signals_only.checked = false;
     form.elements.orders_only.checked = false;
     form.elements.fills_only.checked = false;
@@ -2825,6 +2847,9 @@ async function renderBacktestDebugTraces(runId, debugTraces, appliedFilters) {
   }
   if (appliedFilters?.blocked_only) {
     contextParts.push("blocked_only=true");
+  }
+  if (appliedFilters?.cooldown_state_only) {
+    contextParts.push("cooldown_state_only=true");
   }
   if (appliedFilters?.signals_only) {
     contextParts.push("signals_only=true");

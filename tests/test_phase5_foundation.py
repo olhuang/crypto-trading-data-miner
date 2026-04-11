@@ -1696,6 +1696,59 @@ class Phase5FoundationTests(unittest.TestCase):
         runtime_state = runner.risk_guardrails.build_runtime_state_snapshot()
         self.assertEqual(runtime_state["activation_counts_by_code"]["cooldown_activated_after_loss_close"], 1)
 
+    def test_debug_traces_capture_cooldown_state_changes(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_cooldown_trace_state",
+                "session": {
+                    "session_code": "bt_btc_cooldown_trace_state",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "test_strategy",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                    "risk_policy": {
+                        "policy_code": "cooldown_guard_v1",
+                        "cooldown_bars_after_stop": 2,
+                    },
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-02T00:00:00Z",
+                "initial_cash": "100",
+            }
+        )
+        bars = [
+            build_bar("BTCUSDT_PERP", 0, "100"),
+            build_bar("BTCUSDT_PERP", 1, "90"),
+            build_bar("BTCUSDT_PERP", 2, "80"),
+        ]
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=ScheduledTargetStrategy([None, "0", "1"]),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="0"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="0"),
+            ),
+        )
+
+        result = runner.run_bars(
+            bars,
+            initial_positions={"BTCUSDT_PERP": Decimal("1")},
+            initial_cash=Decimal("100"),
+            capture_debug_traces=True,
+        )
+
+        self.assertEqual(len(result.debug_traces), 3)
+        activation_trace = result.debug_traces[2]
+        block_trace = result.debug_traces[2]
+        self.assertTrue(activation_trace.decision_json["risk_state"]["cooldown_activated_this_step"])
+        self.assertTrue(activation_trace.decision_json["risk_state"]["cooldown_active"])
+        self.assertEqual(activation_trace.decision_json["risk_state"]["cooldown_bars_remaining"], 2)
+        self.assertTrue(block_trace.decision_json["risk_state"]["cooldown_activated_this_step"])
+        self.assertTrue(block_trace.decision_json["risk_state"]["cooldown_active"])
+        self.assertEqual(block_trace.decision_json["risk_state"]["cooldown_bars_remaining"], 2)
+
     def test_runner_caps_recent_bar_history_when_strategy_declares_requirement(self) -> None:
         run_config = BacktestRunConfig.model_validate(
             {

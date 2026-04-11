@@ -419,6 +419,7 @@
                 <div class="panel-header"><h3>Debug Traces</h3><p>Compact step-level trace rows for strategy decisions, risk outcomes, and per-step portfolio state.</p></div>
                 <div class="preset-row">
                   <button type="button" class="preset-button" data-backtest-trace-preset="cooldown_blocks">Cooldown Blocks</button>
+                  <button type="button" class="preset-button" data-backtest-trace-preset="cooldown_state">Cooldown State Changes</button>
                   <button type="button" class="preset-button" data-backtest-trace-preset="fills_only">Close/Fills Window</button>
                   <button type="button" class="preset-button" data-backtest-trace-preset="clear">Clear Trace Filters</button>
                 </div>
@@ -427,12 +428,14 @@
                   <input name="unified_symbol" placeholder="unified_symbol (optional)" />
                   <input name="risk_code" placeholder="risk_code (optional)" />
                   <label class="filter-toggle"><input type="checkbox" name="blocked_only" /> blocked only</label>
+                  <label class="filter-toggle"><input type="checkbox" name="cooldown_state_only" /> cooldown state only</label>
                   <label class="filter-toggle"><input type="checkbox" name="signals_only" /> signals only</label>
                   <label class="filter-toggle"><input type="checkbox" name="orders_only" /> orders only</label>
                   <label class="filter-toggle"><input type="checkbox" name="fills_only" /> fills only</label>
                   <button type="submit">Load Traces</button>
                 </form>
                 <p class="card-detail">`Cooldown Blocks` jumps to traces where a new exposure was blocked because cooldown was already active after a losing close event.</p>
+                <p class="card-detail">`Cooldown State Changes` targets traces where cooldown just activated or remained active in the per-step risk-state snapshot. Older runs may only show cooldown blocks if they were captured before this trace payload existed.</p>
                 <p id="backtest-debug-trace-context" class="card-detail">Select a run to inspect persisted debug traces.</p>
                 <div id="backtest-debug-traces-table" class="table-shell"></div>
               </section>

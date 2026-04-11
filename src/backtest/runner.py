@@ -194,6 +194,12 @@ class BacktestRunnerSkeleton:
                 updated_orders: list[SimulatedOrder] = []
                 current_pending = pending_orders_by_symbol.get(bar.unified_symbol, [])
                 remaining_orders: list[SimulatedOrder] = []
+                previous_cooldown_activation_count = int(
+                    self.risk_guardrails.session_state.activation_counts_by_code.get(
+                        "cooldown_activated_after_loss_close",
+                        0,
+                    )
+                )
                 for pending_order in current_pending:
                     previous_status = pending_order.status
                     order_update = self.fill_model.process_open_order(
@@ -278,6 +284,7 @@ class BacktestRunnerSkeleton:
                         bar.unified_symbol,
                         Decimal("0"),
                     )
+                    risk_state_snapshot = self.risk_guardrails.build_runtime_state_snapshot()
                     trace_step_index += 1
                     if self._should_capture_debug_trace(
                         step_index=trace_step_index,
@@ -298,6 +305,8 @@ class BacktestRunnerSkeleton:
                             previous_equity=previous_trace_equity,
                             drawdown=trace_drawdown,
                             market_context=market_context,
+                            risk_state_snapshot=risk_state_snapshot,
+                            previous_cooldown_activation_count=previous_cooldown_activation_count,
                         )
                         captured_debug_trace_count += 1
                         if collect_debug_traces:
@@ -590,6 +599,8 @@ class BacktestRunnerSkeleton:
         previous_equity: Decimal,
         drawdown: Decimal,
         market_context: StrategyMarketContext | None,
+        risk_state_snapshot: dict[str, object],
+        previous_cooldown_activation_count: int,
     ) -> BacktestDebugTraceRecord:
         blocked_count = sum(
             1 for outcome in step_result.risk_outcomes if outcome.decision == RiskDecision.BLOCK
@@ -621,7 +632,11 @@ class BacktestRunnerSkeleton:
             net_exposure=trace_mark.net_exposure,
             drawdown=drawdown,
             market_context_json=BacktestRunnerSkeleton._serialize_market_context_snapshot(market_context),
-            decision_json=BacktestRunnerSkeleton._serialize_step_decision(step_result),
+            decision_json=BacktestRunnerSkeleton._serialize_step_decision(
+                step_result,
+                risk_state_snapshot=risk_state_snapshot,
+                previous_cooldown_activation_count=previous_cooldown_activation_count,
+            ),
             risk_outcomes_json=[
                 BacktestRunnerSkeleton._serialize_risk_outcome(outcome)
                 for outcome in step_result.risk_outcomes
@@ -673,13 +688,33 @@ class BacktestRunnerSkeleton:
         return value
 
     @staticmethod
-    def _serialize_step_decision(step_result: BacktestStepResult) -> dict[str, Any]:
+    def _serialize_step_decision(
+        step_result: BacktestStepResult,
+        *,
+        risk_state_snapshot: dict[str, object] | None = None,
+        previous_cooldown_activation_count: int = 0,
+    ) -> dict[str, Any]:
         decision = step_result.plan.decision
+        cooldown_activation_count = 0
+        cooldown_bars_remaining = 0
+        if risk_state_snapshot is not None:
+            activation_counts = risk_state_snapshot.get("activation_counts_by_code") or {}
+            cooldown_activation_count = int(
+                activation_counts.get("cooldown_activated_after_loss_close") or 0
+            )
+            cooldown_bars_remaining = int(risk_state_snapshot.get("cooldown_bars_remaining") or 0)
+        risk_state = {
+            "cooldown_bars_remaining": cooldown_bars_remaining,
+            "cooldown_active": cooldown_bars_remaining > 0,
+            "cooldown_activation_count": cooldown_activation_count,
+            "cooldown_activated_this_step": cooldown_activation_count > previous_cooldown_activation_count,
+        }
         if decision is None:
             return {
                 "decision_type": "none",
                 "signals": [],
                 "execution_intents": [],
+                "risk_state": risk_state,
             }
         if isinstance(decision, Signal):
             decision_type = "signal"
@@ -724,6 +759,7 @@ class BacktestRunnerSkeleton:
         return {
             "decision_type": decision_type,
             "decision": decision_payload,
+            "risk_state": risk_state,
             "signals": [
                 {
                     "signal_type": str(signal.signal_type),

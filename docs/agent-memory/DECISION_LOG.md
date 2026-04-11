@@ -551,3 +551,18 @@ In the `/monitoring` launch flow, enabling `Persist Debug Traces` should also en
 - month, quarter, and year breakdown rows now report turnover as `period traded notional / initial_cash`
 - period breakdown turnover values are directly comparable to the main backtest summary turnover field
 - future UI work can format or relabel turnover more clearly, but the underlying unit is now consistent across run summary and period breakdown views
+
+## 2026-04-11
+
+### Decision
+Persisted debug traces should include a lightweight per-step `risk_state` snapshot inside `decision_json`, and the debug-trace API/UI should expose a `cooldown_state_only` filter for cooldown activation/active-state investigation.
+
+### Reason
+- cooldown analysis was previously limited to blocked intents because the persisted trace payload did not carry cooldown state directly, which made it hard to inspect activation timing and the bars immediately around a losing close
+- adding the state snapshot inside existing JSON payloads avoids a new table migration while still giving the Investigate UI a stable field to filter on
+- the filter should remain backward-friendly by also matching legacy `cooldown_active` blocked traces when the newer `risk_state` payload is absent
+
+### Impact
+- newly captured traces now expose `decision_json.risk_state.cooldown_bars_remaining`, `cooldown_active`, `cooldown_activation_count`, and `cooldown_activated_this_step`
+- `/api/v1/backtests/runs/{run_id}/debug-traces` accepts `cooldown_state_only=true` and the UI now has a `Cooldown State Changes` preset
+- older runs captured before this payload existed may still surface only cooldown blocks rather than full activation-state transitions

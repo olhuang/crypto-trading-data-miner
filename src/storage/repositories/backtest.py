@@ -886,6 +886,7 @@ class BacktestRunRepository:
         bar_time_to: object | None = None,
         blocked_only: bool = False,
         risk_code: str | None = None,
+        cooldown_state_only: bool = False,
         signals_only: bool = False,
         fills_only: bool = False,
         orders_only: bool = False,
@@ -906,6 +907,14 @@ class BacktestRunRepository:
         if risk_code is not None:
             filters.append("trace.blocked_codes_json ? :risk_code")
             params["risk_code"] = risk_code
+        if cooldown_state_only:
+            filters.append(
+                """(
+                    trace.blocked_codes_json ? 'cooldown_active'
+                    or coalesce((trace.decision_json->'risk_state'->>'cooldown_active')::boolean, false)
+                    or coalesce((trace.decision_json->'risk_state'->>'cooldown_activated_this_step')::boolean, false)
+                )"""
+            )
         if signals_only:
             filters.append("trace.signal_count > 0")
         if fills_only:

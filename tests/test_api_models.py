@@ -1528,6 +1528,7 @@ class ModelsApiTests(unittest.TestCase):
                 bar_time_to: datetime | None = None,
                 blocked_only: bool = False,
                 risk_code: str | None = None,
+                cooldown_state_only: bool = False,
                 signals_only: bool = False,
                 fills_only: bool = False,
                 orders_only: bool = False,
@@ -1541,6 +1542,7 @@ class ModelsApiTests(unittest.TestCase):
                         "bar_time_to": bar_time_to,
                         "blocked_only": blocked_only,
                         "risk_code": risk_code,
+                        "cooldown_state_only": cooldown_state_only,
                         "signals_only": signals_only,
                         "fills_only": fills_only,
                         "orders_only": orders_only,
@@ -1603,6 +1605,7 @@ class ModelsApiTests(unittest.TestCase):
                 bar_time_to=datetime.fromisoformat("2026-03-05T01:00:00+00:00"),
                 blocked_only=True,
                 risk_code="cooldown_active",
+                cooldown_state_only=True,
                 signals_only=True,
                 fills_only=False,
                 orders_only=True,
@@ -1644,6 +1647,7 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(captured_debug_trace_filters["unified_symbol"], "BTCUSDT_PERP")
         self.assertEqual(captured_debug_trace_filters["risk_code"], "cooldown_active")
         self.assertTrue(captured_debug_trace_filters["blocked_only"])
+        self.assertTrue(captured_debug_trace_filters["cooldown_state_only"])
         self.assertTrue(captured_debug_trace_filters["signals_only"])
         self.assertFalse(captured_debug_trace_filters["fills_only"])
         self.assertTrue(captured_debug_trace_filters["orders_only"])
