@@ -57,6 +57,12 @@ class BacktestRunLoopResult:
 
 
 @dataclass(slots=True)
+class PersistedArtifactState:
+    order_id_map: dict[str, int]
+    fill_id_map: dict[str, int]
+
+
+@dataclass(slots=True)
 class PersistedBacktestRunResult:
     run_id: int
     loop_result: BacktestRunLoopResult
@@ -139,6 +145,13 @@ class BacktestRunnerSkeleton:
         collect_performance_points: bool = True,
         performance_point_sink: Callable[[Sequence[PerformancePoint]], None] | None = None,
         performance_point_sink_chunk_size: int = 5000,
+        collect_orders: bool = True,
+        order_sink: Callable[[Sequence[SimulatedOrder]], dict[str, int] | None] | None = None,
+        order_status_sink: Callable[[Sequence[SimulatedOrder]], None] | None = None,
+        collect_fills: bool = True,
+        fill_sink: Callable[[Sequence[SimulatedFill]], dict[str, int] | None] | None = None,
+        collect_debug_traces: bool = True,
+        debug_trace_sink: Callable[[Sequence[BacktestDebugTraceRecord]], None] | None = None,
     ) -> BacktestRunLoopResult:
         portfolio = PortfolioState(
             cash=initial_cash if initial_cash is not None else self.run_config.initial_cash,
@@ -161,6 +174,7 @@ class BacktestRunnerSkeleton:
         max_drawdown = Decimal("0")
         latest_performance_point: PerformancePoint | None = None
         trace_running_peak_equity = portfolio.cash
+        trace_step_index = 0
         previous_trace_cash = portfolio.cash
         previous_trace_equity = portfolio.cash
         previous_position_qty_by_symbol: dict[str, Decimal] = {
@@ -175,21 +189,30 @@ class BacktestRunnerSkeleton:
                 if existing_position is not None and existing_position.average_entry_price is None:
                     existing_position.average_entry_price = bar.open
                 step_fills: list[SimulatedFill] = []
+                updated_orders: list[SimulatedOrder] = []
                 current_pending = pending_orders_by_symbol.get(bar.unified_symbol, [])
                 remaining_orders: list[SimulatedOrder] = []
                 for pending_order in current_pending:
+                    previous_status = pending_order.status
                     order_update = self.fill_model.process_open_order(
                         pending_order,
                         current_bar=bar,
                         connection=connection,
                     )
+                    if order_update.order.status != previous_status:
+                        updated_orders.append(order_update.order)
                     if order_update.fill is not None:
                         fill_outcome = portfolio.apply_fill(order_update.fill)
                         self.risk_guardrails.observe_fill_application(fill_outcome=fill_outcome)
                         step_fills.append(order_update.fill)
-                        all_fills.append(order_update.fill)
+                        if collect_fills:
+                            all_fills.append(order_update.fill)
                     else:
                         remaining_orders.append(order_update.order)
+                if fill_sink is not None and step_fills:
+                    fill_sink(tuple(step_fills))
+                if order_status_sink is not None and updated_orders:
+                    order_status_sink(tuple(updated_orders))
                 pending_orders_by_symbol[bar.unified_symbol] = remaining_orders
 
                 recent_bars = recent_bars_by_symbol.get(bar.unified_symbol)
@@ -236,7 +259,10 @@ class BacktestRunnerSkeleton:
                     )
                     for intent in allowed_intents
                 ]
-                all_orders.extend(created_orders)
+                if collect_orders:
+                    all_orders.extend(created_orders)
+                if order_sink is not None and created_orders:
+                    order_sink(tuple(created_orders))
                 pending_orders_by_symbol.setdefault(bar.unified_symbol, []).extend(created_orders)
                 latest_close_by_symbol[bar.unified_symbol] = bar.close
                 if capture_debug_traces:
@@ -250,22 +276,25 @@ class BacktestRunnerSkeleton:
                         bar.unified_symbol,
                         Decimal("0"),
                     )
-                    debug_traces.append(
-                        self._build_debug_trace_record(
-                            step_index=len(debug_traces) + 1,
-                            bar=bar,
-                            step_result=step_result,
-                            created_orders=created_orders,
-                            step_fills=step_fills,
-                            trace_mark=trace_mark,
-                            current_position_qty=current_position_qty,
-                            previous_position_qty=previous_position_qty,
-                            previous_cash=previous_trace_cash,
-                            previous_equity=previous_trace_equity,
-                            drawdown=trace_drawdown,
-                            market_context=market_context,
-                        )
+                    trace_step_index += 1
+                    trace_record = self._build_debug_trace_record(
+                        step_index=trace_step_index,
+                        bar=bar,
+                        step_result=step_result,
+                        created_orders=created_orders,
+                        step_fills=step_fills,
+                        trace_mark=trace_mark,
+                        current_position_qty=current_position_qty,
+                        previous_position_qty=previous_position_qty,
+                        previous_cash=previous_trace_cash,
+                        previous_equity=previous_trace_equity,
+                        drawdown=trace_drawdown,
+                        market_context=market_context,
                     )
+                    if collect_debug_traces:
+                        debug_traces.append(trace_record)
+                    elif debug_trace_sink is not None:
+                        debug_trace_sink((trace_record,))
                     previous_trace_cash = trace_mark.cash
                     previous_trace_equity = trace_mark.equity
                     if current_position_qty == 0:
@@ -298,6 +327,8 @@ class BacktestRunnerSkeleton:
         for remaining_orders in pending_orders_by_symbol.values():
             for order in remaining_orders:
                 open_orders.append(self.fill_model.expire_open_order(order))
+        if order_status_sink is not None and open_orders:
+            order_status_sink(tuple(open_orders))
 
         if performance_point_sink is not None and performance_point_buffer:
             performance_point_sink(tuple(performance_point_buffer))
@@ -344,6 +375,13 @@ class BacktestRunnerSkeleton:
         capture_debug_traces: bool = False,
         collect_performance_points: bool = True,
         performance_point_sink: Callable[[Sequence[PerformancePoint]], None] | None = None,
+        collect_orders: bool = True,
+        order_sink: Callable[[Sequence[SimulatedOrder]], dict[str, int] | None] | None = None,
+        order_status_sink: Callable[[Sequence[SimulatedOrder]], None] | None = None,
+        collect_fills: bool = True,
+        fill_sink: Callable[[Sequence[SimulatedFill]], dict[str, int] | None] | None = None,
+        collect_debug_traces: bool = True,
+        debug_trace_sink: Callable[[Sequence[BacktestDebugTraceRecord]], None] | None = None,
     ) -> BacktestRunLoopResult:
         loader = bar_loader or BacktestBarLoader()
         bars = loader.iter_bars(
@@ -362,6 +400,13 @@ class BacktestRunnerSkeleton:
             assume_sorted=True,
             collect_performance_points=collect_performance_points,
             performance_point_sink=performance_point_sink,
+            collect_orders=collect_orders,
+            order_sink=order_sink,
+            order_status_sink=order_status_sink,
+            collect_fills=collect_fills,
+            fill_sink=fill_sink,
+            collect_debug_traces=collect_debug_traces,
+            debug_trace_sink=debug_trace_sink,
         )
 
     def load_run_and_persist(
@@ -374,6 +419,7 @@ class BacktestRunnerSkeleton:
         capture_steps: bool = False,
         persist_debug_traces: bool = False,
     ) -> PersistedBacktestRunResult:
+        persisted_artifacts = PersistedArtifactState(order_id_map={}, fill_id_map={})
         run_id = self.run_repository.insert_run(
             connection,
             self.run_config,
@@ -392,6 +438,40 @@ class BacktestRunnerSkeleton:
                 run_id=run_id,
                 performance_points=chunk,
             ),
+            collect_orders=False,
+            order_sink=lambda chunk: persisted_artifacts.order_id_map.update(
+                self.run_repository.insert_orders(
+                    connection,
+                    run_id=run_id,
+                    orders=chunk,
+                )
+            ),
+            order_status_sink=lambda chunk: self.run_repository.update_order_statuses(
+                connection,
+                orders=chunk,
+                order_id_map=persisted_artifacts.order_id_map,
+            ),
+            collect_fills=False,
+            fill_sink=lambda chunk: persisted_artifacts.fill_id_map.update(
+                self.run_repository.insert_fills(
+                    connection,
+                    run_id=run_id,
+                    fills=chunk,
+                    order_id_map=persisted_artifacts.order_id_map,
+                )
+            ),
+            collect_debug_traces=not persist_debug_traces,
+            debug_trace_sink=(
+                (lambda chunk: self.run_repository.insert_debug_traces(
+                    connection,
+                    run_id=run_id,
+                    debug_traces=chunk,
+                    order_id_map=persisted_artifacts.order_id_map,
+                    fill_id_map=persisted_artifacts.fill_id_map,
+                ))
+                if persist_debug_traces
+                else None
+            ),
         )
         self.run_repository.finalize_run(
             connection,
@@ -404,26 +484,13 @@ class BacktestRunnerSkeleton:
             ),
             status="finished",
         )
-        order_id_map = self.run_repository.insert_orders(connection, run_id=run_id, orders=loop_result.orders)
-        fill_id_map = self.run_repository.insert_fills(
-            connection,
-            run_id=run_id,
-            fills=loop_result.fills,
-            order_id_map=order_id_map,
-        )
         self.run_repository.upsert_summary(
             connection,
             run_id=run_id,
             summary=loop_result.performance_summary,
         )
         if persist_debug_traces:
-            self.run_repository.insert_debug_traces(
-                connection,
-                run_id=run_id,
-                debug_traces=loop_result.debug_traces,
-                order_id_map=order_id_map,
-                fill_id_map=fill_id_map,
-            )
+            pass
         return PersistedBacktestRunResult(run_id=run_id, loop_result=loop_result)
 
     @staticmethod

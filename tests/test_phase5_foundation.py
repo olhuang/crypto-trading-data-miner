@@ -2287,6 +2287,99 @@ class Phase5FoundationTests(unittest.TestCase):
             transaction.rollback()
             connection.close()
 
+    def test_load_run_and_persist_streams_orders_fills_and_debug_traces(self) -> None:
+        class RecordingBacktestRunRepository(BacktestRunRepository):
+            def __init__(self) -> None:
+                super().__init__()
+                self.inserted_order_batches: list[int] = []
+                self.updated_order_batches: list[int] = []
+                self.inserted_fill_batches: list[int] = []
+                self.inserted_debug_trace_batches: list[int] = []
+
+            def insert_orders(self, connection, *, run_id, orders):
+                self.inserted_order_batches.append(len(orders))
+                return super().insert_orders(connection, run_id=run_id, orders=orders)
+
+            def update_order_statuses(self, connection, *, orders, order_id_map):
+                self.updated_order_batches.append(len(orders))
+                return super().update_order_statuses(connection, orders=orders, order_id_map=order_id_map)
+
+            def insert_fills(self, connection, *, run_id, fills, order_id_map):
+                self.inserted_fill_batches.append(len(fills))
+                return super().insert_fills(connection, run_id=run_id, fills=fills, order_id_map=order_id_map)
+
+            def insert_debug_traces(self, connection, *, run_id, debug_traces, order_id_map=None, fill_id_map=None):
+                self.inserted_debug_trace_batches.append(len(debug_traces))
+                return super().insert_debug_traces(
+                    connection,
+                    run_id=run_id,
+                    debug_traces=debug_traces,
+                    order_id_map=order_id_map,
+                    fill_id_map=fill_id_map,
+                )
+
+        run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
+        bars = [
+            build_bar_at("BTCUSDT_PERP", run_start + timedelta(minutes=offset), close)
+            for offset, close in enumerate(["100", "105", "110"])
+        ]
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_runner_streamed_debug_artifacts",
+                "session": {
+                    "session_code": "bt_btc_streamed_debug_artifacts",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": run_start.isoformat(),
+                "end_time": (run_start + timedelta(minutes=3)).isoformat(),
+                "initial_cash": "10000",
+                "strategy_params": {"target_qty": "1"},
+            }
+        )
+        repository = RecordingBacktestRunRepository()
+        runner = BacktestRunnerSkeleton(
+            run_config,
+            strategy=OneShotTargetStrategy(target_qty="1"),
+            fill_model=DeterministicBarsFillModel(
+                fee_model=StaticFeeModel(taker_fee_bps="5.5"),
+                slippage_model=FixedBpsSlippageModel(market_order_bps="1"),
+            ),
+            run_repository=repository,
+        )
+        bar_repository = BarRepository()
+        connection = get_engine().connect()
+        transaction = connection.begin()
+        try:
+            for bar in bars:
+                bar_repository.upsert(connection, bar)
+
+            persisted = runner.load_run_and_persist(
+                connection,
+                persist_signals=False,
+                persist_debug_traces=True,
+            )
+            debug_trace_count = connection.execute(
+                text("select count(*) from backtest.debug_traces where run_id = :run_id"),
+                {"run_id": persisted.run_id},
+            ).scalar_one()
+
+            self.assertEqual(repository.inserted_order_batches, [1])
+            self.assertEqual(repository.updated_order_batches, [1])
+            self.assertEqual(repository.inserted_fill_batches, [1])
+            self.assertEqual(repository.inserted_debug_trace_batches, [1, 1, 1])
+            self.assertEqual(debug_trace_count, 3)
+            self.assertEqual(persisted.loop_result.orders, [])
+            self.assertEqual(persisted.loop_result.fills, [])
+            self.assertEqual(persisted.loop_result.debug_traces, [])
+        finally:
+            transaction.rollback()
+            connection.close()
+
     def test_load_run_and_persist_can_persist_compact_debug_traces(self) -> None:
         run_start = datetime(2036, 1, 2, 0, 0, tzinfo=timezone.utc)
         bars = [
@@ -2382,7 +2475,7 @@ class Phase5FoundationTests(unittest.TestCase):
                 fills_only=True,
             )
 
-            self.assertEqual(len(persisted.loop_result.debug_traces), 3)
+            self.assertEqual(len(persisted.loop_result.debug_traces), 0)
             self.assertEqual(len(debug_trace_rows), 3)
             self.assertEqual(debug_trace_rows[0]["step_index"], 1)
             self.assertEqual(debug_trace_rows[0]["signal_count"], 1)
