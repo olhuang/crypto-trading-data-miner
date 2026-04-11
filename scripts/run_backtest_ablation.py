@@ -178,6 +178,10 @@ def _build_run_result(
 ) -> dict[str, Any]:
     summary = run_repository.get_performance_summary(connection, run_id=run_id) or {}
     run_row = run_repository.get_run(connection, run_id)
+    order_records = run_repository.list_order_records(connection, run_id=run_id)
+    fill_records = run_repository.list_fill_records(connection, run_id=run_id)
+    signal_records = run_repository.list_signal_records(connection, run_id=run_id)
+    open_order_count = sum(1 for row in order_records if row.get("status") == "open")
     return {
         "variant_id": variant.variant_id,
         "label": variant.label,
@@ -192,6 +196,10 @@ def _build_run_result(
         "avg_holding_seconds": summary.get("avg_holding_seconds"),
         "fee_cost": summary.get("fee_cost"),
         "slippage_cost": summary.get("slippage_cost"),
+        "signal_count": len(signal_records),
+        "order_count": len(order_records),
+        "fill_count": len(fill_records),
+        "open_order_count": open_order_count,
         "debug_trace_count": run_repository.count_debug_traces(connection, run_id=run_id),
         "strategy_params": variant.strategy_params,
     }
@@ -204,6 +212,7 @@ def _build_in_memory_result(
     elapsed_seconds: float,
 ) -> dict[str, Any]:
     summary = persisted.loop_result.performance_summary
+    signal_count = sum(len(step.signals) for step in persisted.loop_result.steps)
     return {
         "variant_id": variant.variant_id,
         "label": variant.label,
@@ -218,6 +227,10 @@ def _build_in_memory_result(
         "avg_holding_seconds": getattr(summary, "avg_holding_seconds", None),
         "fee_cost": summary.fee_cost,
         "slippage_cost": summary.slippage_cost,
+        "signal_count": signal_count,
+        "order_count": len(persisted.loop_result.orders),
+        "fill_count": len(persisted.loop_result.fills),
+        "open_order_count": len(persisted.loop_result.open_orders),
         "debug_trace_count": persisted.loop_result.debug_trace_count,
         "strategy_params": variant.strategy_params,
     }
@@ -237,6 +250,111 @@ def _sort_results(results: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
         ),
         reverse=True,
     )
+
+
+def _average_decimal(records: Sequence[dict[str, Any]], key: str) -> Decimal | None:
+    values = [Decimal(str(record[key])) for record in records if record.get(key) is not None]
+    if not values:
+        return None
+    return sum(values) / Decimal(len(values))
+
+
+def _average_float(records: Sequence[dict[str, Any]], key: str) -> float | None:
+    values = [float(record[key]) for record in records if record.get(key) is not None]
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _sum_int(records: Sequence[dict[str, Any]], key: str) -> int:
+    return sum(int(record.get(key, 0) or 0) for record in records)
+
+
+def _build_group_summary(
+    *,
+    group_name: str,
+    group_value: str,
+    records: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    ranked = _sort_results(records)
+    return {
+        "group_name": group_name,
+        "group_value": group_value,
+        "variant_count": len(records),
+        "best_variant_id": ranked[0]["variant_id"] if ranked else None,
+        "avg_total_return": _average_decimal(records, "total_return"),
+        "avg_annualized_return": _average_decimal(records, "annualized_return"),
+        "avg_max_drawdown": _average_decimal(records, "max_drawdown"),
+        "avg_turnover": _average_decimal(records, "turnover"),
+        "avg_fee_cost": _average_decimal(records, "fee_cost"),
+        "avg_slippage_cost": _average_decimal(records, "slippage_cost"),
+        "avg_elapsed_seconds": _average_float(records, "elapsed_seconds"),
+        "total_signal_count": _sum_int(records, "signal_count"),
+        "total_order_count": _sum_int(records, "order_count"),
+        "total_fill_count": _sum_int(records, "fill_count"),
+        "total_open_order_count": _sum_int(records, "open_order_count"),
+    }
+
+
+def _build_breakout_exit_tightness_summary(results: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    by_ema: dict[str, list[dict[str, Any]]] = {}
+    by_trailing_stop: dict[str, list[dict[str, Any]]] = {}
+    for record in results:
+        params = record.get("strategy_params") or {}
+        ema_key = str(params.get("exit_on_ema20_cross")).lower()
+        trailing_stop_key = str(params.get("trailing_stop_atr"))
+        by_ema.setdefault(ema_key, []).append(record)
+        by_trailing_stop.setdefault(trailing_stop_key, []).append(record)
+
+    return {
+        "by_exit_on_ema20_cross": [
+            _normalize(_build_group_summary(group_name="exit_on_ema20_cross", group_value=key, records=value))
+            for key, value in sorted(by_ema.items())
+        ],
+        "by_trailing_stop_atr": [
+            _normalize(_build_group_summary(group_name="trailing_stop_atr", group_value=key, records=value))
+            for key, value in sorted(by_trailing_stop.items(), key=lambda item: Decimal(item[0]))
+        ],
+    }
+
+
+def _build_leaderboard(results: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    if not results:
+        return {}
+    best_total_return = max(results, key=lambda record: Decimal(str(record.get("total_return") or "-999999")))
+    lowest_drawdown = min(results, key=lambda record: Decimal(str(record.get("max_drawdown") or "999999")))
+    lowest_turnover = min(results, key=lambda record: Decimal(str(record.get("turnover") or "999999")))
+    fastest_elapsed = min(results, key=lambda record: float(record.get("elapsed_seconds") or 999999))
+    return {
+        "best_total_return": _normalize(
+            {
+                "variant_id": best_total_return["variant_id"],
+                "label": best_total_return["label"],
+                "total_return": best_total_return.get("total_return"),
+            }
+        ),
+        "lowest_max_drawdown": _normalize(
+            {
+                "variant_id": lowest_drawdown["variant_id"],
+                "label": lowest_drawdown["label"],
+                "max_drawdown": lowest_drawdown.get("max_drawdown"),
+            }
+        ),
+        "lowest_turnover": _normalize(
+            {
+                "variant_id": lowest_turnover["variant_id"],
+                "label": lowest_turnover["label"],
+                "turnover": lowest_turnover.get("turnover"),
+            }
+        ),
+        "fastest_elapsed": _normalize(
+            {
+                "variant_id": fastest_elapsed["variant_id"],
+                "label": fastest_elapsed["label"],
+                "elapsed_seconds": fastest_elapsed.get("elapsed_seconds"),
+            }
+        ),
+    }
 
 
 def main() -> None:
@@ -352,6 +470,10 @@ def main() -> None:
             "persist_debug_traces": args.persist_debug_traces,
         },
         "variant_count": len(variants),
+        "leaderboard": _build_leaderboard(sorted_results),
+        "preset_summary": _build_breakout_exit_tightness_summary(sorted_results)
+        if args.preset == "breakout_exit_tightness"
+        else None,
         "results_ranked": _normalize(sorted_results),
         "compare_set": _normalize(compare_info),
     }
