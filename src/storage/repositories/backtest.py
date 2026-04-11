@@ -18,6 +18,121 @@ class BacktestRunRepository:
     _EMPTY_JSON_ARRAY = "[]"
     _EMPTY_JSON_OBJECT = "{}"
     _JSON_NULL = "null"
+    _INSERT_DEBUG_TRACES_SQL = text(
+        """
+        with input_rows as (
+            select *
+            from unnest(
+                cast(:run_ids as bigint[]),
+                cast(:instrument_ids as bigint[]),
+                cast(:step_indexes as integer[]),
+                cast(:bar_times as timestamptz[]),
+                cast(:close_prices as numeric[]),
+                cast(:current_position_qtys as numeric[]),
+                cast(:position_qty_deltas as numeric[]),
+                cast(:signal_counts as integer[]),
+                cast(:intent_counts as integer[]),
+                cast(:blocked_intent_counts as integer[]),
+                cast(:blocked_codes_json_texts as text[]),
+                cast(:created_order_counts as integer[]),
+                cast(:sim_order_ids_json_texts as text[]),
+                cast(:fill_counts as integer[]),
+                cast(:sim_fill_ids_json_texts as text[]),
+                cast(:cash_values as numeric[]),
+                cast(:cash_deltas as numeric[]),
+                cast(:equity_values as numeric[]),
+                cast(:equity_deltas as numeric[]),
+                cast(:gross_exposures as numeric[]),
+                cast(:net_exposures as numeric[]),
+                cast(:drawdowns as numeric[]),
+                cast(:market_context_json_texts as text[]),
+                cast(:decision_json_texts as text[]),
+                cast(:risk_outcomes_json_texts as text[])
+            ) as rows(
+                run_id,
+                instrument_id,
+                step_index,
+                bar_time,
+                close_price,
+                current_position_qty,
+                position_qty_delta,
+                signal_count,
+                intent_count,
+                blocked_intent_count,
+                blocked_codes_json_text,
+                created_order_count,
+                sim_order_ids_json_text,
+                fill_count,
+                sim_fill_ids_json_text,
+                cash,
+                cash_delta,
+                equity,
+                equity_delta,
+                gross_exposure,
+                net_exposure,
+                drawdown,
+                market_context_json_text,
+                decision_json_text,
+                risk_outcomes_json_text
+            )
+        )
+        insert into backtest.debug_traces (
+            run_id,
+            instrument_id,
+            step_index,
+            bar_time,
+            close_price,
+            current_position_qty,
+            position_qty_delta,
+            signal_count,
+            intent_count,
+            blocked_intent_count,
+            blocked_codes_json,
+            created_order_count,
+            sim_order_ids_json,
+            fill_count,
+            sim_fill_ids_json,
+            cash,
+            cash_delta,
+            equity,
+            equity_delta,
+            gross_exposure,
+            net_exposure,
+            drawdown,
+            market_context_json,
+            decision_json,
+            risk_outcomes_json
+        )
+        select
+            run_id,
+            instrument_id,
+            step_index,
+            bar_time,
+            close_price,
+            current_position_qty,
+            position_qty_delta,
+            signal_count,
+            intent_count,
+            blocked_intent_count,
+            cast(blocked_codes_json_text as jsonb),
+            created_order_count,
+            cast(sim_order_ids_json_text as jsonb),
+            fill_count,
+            cast(sim_fill_ids_json_text as jsonb),
+            cash,
+            cash_delta,
+            equity,
+            equity_delta,
+            gross_exposure,
+            net_exposure,
+            drawdown,
+            cast(market_context_json_text as jsonb),
+            cast(decision_json_text as jsonb),
+            cast(risk_outcomes_json_text as jsonb)
+        from input_rows
+        returning debug_trace_id
+        """
+    )
 
     def insert_run(
         self,
@@ -462,75 +577,34 @@ class BacktestRunRepository:
 
         for i in range(0, len(prepared_rows), self._BATCH_WRITE_CHUNK_SIZE):
             chunk = prepared_rows[i : i + self._BATCH_WRITE_CHUNK_SIZE]
-            values_sql = ", ".join(
-                f"""(
-                    :run_id_{index},
-                    :instrument_id_{index},
-                    :step_index_{index},
-                    :bar_time_{index},
-                    :close_price_{index},
-                    :current_position_qty_{index},
-                    :position_qty_delta_{index},
-                    :signal_count_{index},
-                    :intent_count_{index},
-                    :blocked_intent_count_{index},
-                    cast(:blocked_codes_json_{index} as jsonb),
-                    :created_order_count_{index},
-                    cast(:sim_order_ids_json_{index} as jsonb),
-                    :fill_count_{index},
-                    cast(:sim_fill_ids_json_{index} as jsonb),
-                    :cash_{index},
-                    :cash_delta_{index},
-                    :equity_{index},
-                    :equity_delta_{index},
-                    :gross_exposure_{index},
-                    :net_exposure_{index},
-                    :drawdown_{index},
-                    cast(:market_context_json_{index} as jsonb),
-                    cast(:decision_json_{index} as jsonb),
-                    cast(:risk_outcomes_json_{index} as jsonb)
-                )"""
-                for index in range(len(chunk))
-            )
-            params: dict[str, object] = {}
-            for index, row in enumerate(chunk):
-                for field_name, value in row.items():
-                    params[f"{field_name}_{index}"] = value
-            rows = connection.execute(
-                text(
-                    f"""
-                    insert into backtest.debug_traces (
-                        run_id,
-                        instrument_id,
-                        step_index,
-                        bar_time,
-                        close_price,
-                        current_position_qty,
-                        position_qty_delta,
-                        signal_count,
-                        intent_count,
-                        blocked_intent_count,
-                        blocked_codes_json,
-                        created_order_count,
-                        sim_order_ids_json,
-                        fill_count,
-                        sim_fill_ids_json,
-                        cash,
-                        cash_delta,
-                        equity,
-                        equity_delta,
-                        gross_exposure,
-                        net_exposure,
-                        drawdown,
-                        market_context_json,
-                        decision_json,
-                        risk_outcomes_json
-                    ) values {values_sql}
-                    returning debug_trace_id
-                    """
-                ),
-                params,
-            ).scalars().all()
+            params = {
+                "run_ids": [row["run_id"] for row in chunk],
+                "instrument_ids": [row["instrument_id"] for row in chunk],
+                "step_indexes": [row["step_index"] for row in chunk],
+                "bar_times": [row["bar_time"] for row in chunk],
+                "close_prices": [row["close_price"] for row in chunk],
+                "current_position_qtys": [row["current_position_qty"] for row in chunk],
+                "position_qty_deltas": [row["position_qty_delta"] for row in chunk],
+                "signal_counts": [row["signal_count"] for row in chunk],
+                "intent_counts": [row["intent_count"] for row in chunk],
+                "blocked_intent_counts": [row["blocked_intent_count"] for row in chunk],
+                "blocked_codes_json_texts": [row["blocked_codes_json"] for row in chunk],
+                "created_order_counts": [row["created_order_count"] for row in chunk],
+                "sim_order_ids_json_texts": [row["sim_order_ids_json"] for row in chunk],
+                "fill_counts": [row["fill_count"] for row in chunk],
+                "sim_fill_ids_json_texts": [row["sim_fill_ids_json"] for row in chunk],
+                "cash_values": [row["cash"] for row in chunk],
+                "cash_deltas": [row["cash_delta"] for row in chunk],
+                "equity_values": [row["equity"] for row in chunk],
+                "equity_deltas": [row["equity_delta"] for row in chunk],
+                "gross_exposures": [row["gross_exposure"] for row in chunk],
+                "net_exposures": [row["net_exposure"] for row in chunk],
+                "drawdowns": [row["drawdown"] for row in chunk],
+                "market_context_json_texts": [row["market_context_json"] for row in chunk],
+                "decision_json_texts": [row["decision_json"] for row in chunk],
+                "risk_outcomes_json_texts": [row["risk_outcomes_json"] for row in chunk],
+            }
+            rows = connection.execute(self._INSERT_DEBUG_TRACES_SQL, params).scalars().all()
             persisted_ids.extend(int(row) for row in rows)
         return persisted_ids
 

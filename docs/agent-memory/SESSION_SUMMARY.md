@@ -66,6 +66,11 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Reused one constant SQLAlchemy statement object for `BacktestRunRepository.insert_debug_traces()` instead of rebuilding the same `text(...)` clause for every debug-trace flush chunk.
+- Re-verified persisted compact debug-trace writes with `python -m py_compile src/storage/repositories/backtest.py tests/test_phase5_foundation.py` and `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_load_run_and_persist_can_persist_compact_debug_traces -v`.
+- Re-ran the real DB-backed annual `2025-01-01 -> 2025-12-31` breakout + `debug_trace_level=full` profiling case after the statement reuse change and updated `tmp/backtest_2025_full_trace.prof` plus `tmp/backtest_2025_full_trace_report.txt`.
+- Verified the same annual case dropped from roughly `491s` to roughly `233s` elapsed, showing that the earlier SQL construction/cache-key bottleneck was materially reduced.
+- Verified the primary hotspot has shifted again: `insert_debug_traces()` is still large (`~129s` cumulative), but the dominant sub-cost is now psycopg array dumping / DB execute wait (`psycopg.types.array.dump_list`, `wait_select`) rather than SQLAlchemy cache-key generation or giant query splitting.
 - Added a reusable annual profiling entrypoint at `scripts/profile_backtest_2025_full_trace.py` that runs a real DB-backed `2025-01-01 -> 2025-12-31` breakout backtest with `persist_debug_traces=true`, `debug_trace_level=full`, and rollback-by-default behavior.
 - Ran that annual profiling case and captured artifacts at `tmp/backtest_2025_full_trace.prof` and `tmp/backtest_2025_full_trace_report.txt`.
 - Verified the current primary bottleneck is no longer strategy evaluation itself but debug-trace persistence SQL construction/execution inside `BacktestRunRepository.insert_debug_traces()`, especially psycopg query splitting/rewrite plus SQLAlchemy text/cache-key overhead around the giant batched insert statements.

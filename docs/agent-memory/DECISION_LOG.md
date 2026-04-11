@@ -155,6 +155,21 @@ Implement diagnostics-to-trace anchors as typed diagnostics-summary output plus 
 - the internal Backtests view can jump from diagnostics anchors into matching trace windows and selected trace rows
 - the next trace slice should focus on targeted filters or replay linkage rather than another diagnostics viewer redesign
 
+## 2026-04-11
+
+### Decision
+Keep `backtest.debug_traces` bulk persistence on the current `unnest(...)` array-insert shape, but reuse one constant SQLAlchemy statement object instead of rebuilding the same `text(...)` statement for every flush chunk.
+
+### Reason
+- the annual `2025-01-01 -> 2025-12-31` full-trace profile showed large SQLAlchemy cache-key / statement-construction overhead inside `insert_debug_traces()`
+- the SQL text is stable across chunks, so rebuilding it each time adds overhead without adding flexibility
+- reusing one statement object is a lower-risk optimization than immediately dropping to a custom DBAPI path
+
+### Impact
+- the real annual breakout + full-trace profile dropped from roughly `491s` to roughly `233s`
+- the primary bottleneck is now narrowed to psycopg array dumping plus DB execute wait rather than SQLAlchemy statement construction
+- the next persistence optimization should target trace payload transport/driver costs before redesigning strategy logic
+
 ## 2026-04-04
 
 ### Decision
