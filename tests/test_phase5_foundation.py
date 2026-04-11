@@ -3326,6 +3326,10 @@ class Phase5FoundationTests(unittest.TestCase):
         self.assertEqual(len(yearly), 1)
         self.assertEqual(monthly[0].signal_count, 1)
         self.assertEqual(monthly[1].fill_count, 1)
+        self.assertEqual(monthly[0].turnover, Decimal("0.1"))
+        self.assertEqual(monthly[1].turnover, Decimal("0.11"))
+        self.assertEqual(quarterly[0].turnover, Decimal("0.21"))
+        self.assertEqual(yearly[0].turnover, Decimal("0.33"))
         self.assertEqual(quarterly[0].period_type, "quarter")
         self.assertEqual(yearly[0].end_equity, Decimal("1030"))
 

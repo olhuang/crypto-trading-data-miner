@@ -536,3 +536,18 @@ In the `/monitoring` launch flow, enabling `Persist Debug Traces` should also en
 - `/monitoring` backtest launches with `Persist Debug Traces` now send `persist_signals=true`
 - diagnostics for trace-enabled runs should no longer show false-positive signal-linkage warnings caused only by the launch payload shape
 - future UI work can still expose `persist_signals` explicitly if needed, but the trace-enabled default should remain linked rather than split
+
+## 2026-04-11
+
+### Decision
+`Period Breakdown` turnover should use the same normalized ratio semantics as the main backtest run summary, rather than exposing raw per-period traded notional under the same field name.
+
+### Reason
+- showing raw `price * qty` notional in the period table under the label `Turnover` makes the month/quarter/year view disagree with the run-level turnover field and is easy to misread as an impossible turnover multiple
+- operators compare period rows against the main run summary, so keeping one field name mapped to one unit is more important than preserving the earlier raw-notional behavior
+- if raw traded notional is still useful later, it should come back under an explicit `turnover_notional` style name instead of overloading `turnover`
+
+### Impact
+- month, quarter, and year breakdown rows now report turnover as `period traded notional / initial_cash`
+- period breakdown turnover values are directly comparable to the main backtest summary turnover field
+- future UI work can format or relabel turnover more clearly, but the underlying unit is now consistent across run summary and period breakdown views

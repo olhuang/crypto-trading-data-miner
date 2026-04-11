@@ -125,3 +125,5 @@
 - Verified the Period Breakdown UI follow-up with `node --check frontend/monitoring/app.js`.
 - Clarified backtest performance metric display in `/monitoring` by formatting `Return`, `Annualized Return`, and `Max Drawdown` as percentages across the run list, run summary, compare views, and period breakdown tables.
 - Verified the percentage-formatting follow-up with `node --check frontend/monitoring/app.js`.
+- Fixed `Period Breakdown` turnover semantics so month/quarter/year rows now return normalized turnover ratios instead of raw traded notional under the same field name.
+- Verified the turnover-normalization follow-up with `python -m py_compile src\\backtest\\periods.py tests\\test_phase5_foundation.py` and `& .\\.venv\\Scripts\\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_period_breakdown_supports_month_quarter_and_year -v`.

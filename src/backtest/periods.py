@@ -99,6 +99,7 @@ def build_period_breakdown(
                     points=current_points,
                     fills=fills_by_bucket.get(current_bucket, []),
                     signals=signals_by_bucket.get(current_bucket, []),
+                    initial_cash=initial_cash,
                     start_equity=baseline_equity,
                 )
             )
@@ -115,6 +116,7 @@ def build_period_breakdown(
             points=current_points,
             fills=fills_by_bucket.get(current_bucket, []),
             signals=signals_by_bucket.get(current_bucket, []),
+            initial_cash=initial_cash,
             start_equity=baseline_equity,
         )
     )
@@ -128,6 +130,7 @@ def _build_entry(
     points: Sequence[PerformancePoint],
     fills: Sequence[dict[str, object]],
     signals: Sequence[dict[str, object]],
+    initial_cash: Decimal,
     start_equity: Decimal,
 ) -> PeriodBreakdownEntry:
     period_start = _bucket_start(bucket, period_type, tzinfo=points[0].ts.tzinfo or timezone.utc)
@@ -142,13 +145,14 @@ def _build_entry(
         if local_peak > 0:
             local_max_drawdown = max(local_max_drawdown, (local_peak - point.equity) / local_peak)
 
-    turnover = Decimal("0")
+    turnover_notional = Decimal("0")
     fee_cost = Decimal("0")
     slippage_cost = Decimal("0")
     for fill in fills:
-        turnover += Decimal(fill["price"]) * Decimal(fill["qty"])
+        turnover_notional += Decimal(fill["price"]) * Decimal(fill["qty"])
         fee_cost += Decimal(fill["fee"] or 0)
         slippage_cost += Decimal(fill["slippage_cost"] or 0)
+    turnover = turnover_notional / initial_cash if initial_cash > 0 else Decimal("0")
 
     return PeriodBreakdownEntry(
         period_type=period_type,
