@@ -30,6 +30,7 @@ from backtest.investigation_notes import TraceInvestigationNoteService
 from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.periods import build_period_breakdown
 from backtest.performance import PerformancePoint
+from backtest.risk import RiskGuardrailOutcome
 from backtest.risk_registry import build_default_risk_policy_registry
 from backtest.runner import BacktestRunnerSkeleton, BacktestStepResult
 from backtest.state import PortfolioState
@@ -3462,6 +3463,45 @@ class Phase5FoundationTests(unittest.TestCase):
 
         self.assertIs(serialized_one, serialized_two)
         self.assertEqual(serialized_one, [])
+
+    def test_risk_outcome_summary_and_serialization_share_one_pass_results(self) -> None:
+        evaluated_at = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        outcomes = [
+            RiskGuardrailOutcome(
+                decision=RiskDecision.ALLOW,
+                code="allowed",
+                message="ok",
+                evaluated_at=evaluated_at,
+                unified_symbol="BTCUSDT_PERP",
+                current_qty=Decimal("0"),
+                target_qty=Decimal("1"),
+                delta_qty=Decimal("1"),
+                estimated_notional=Decimal("100"),
+            ),
+            RiskGuardrailOutcome(
+                decision=RiskDecision.BLOCK,
+                code="cooldown_active",
+                message="blocked",
+                evaluated_at=evaluated_at,
+                unified_symbol="BTCUSDT_PERP",
+                current_qty=Decimal("1"),
+                target_qty=Decimal("2"),
+                delta_qty=Decimal("1"),
+                estimated_notional=Decimal("105"),
+                details_json={"cooldown_bars_remaining": 2},
+            ),
+        ]
+
+        blocked_count, blocked_codes, serialized = (
+            BacktestRunnerSkeleton._summarize_and_serialize_risk_outcomes(outcomes)
+        )
+
+        self.assertEqual(blocked_count, 1)
+        self.assertEqual(blocked_codes, ["cooldown_active"])
+        self.assertEqual(len(serialized), 2)
+        self.assertEqual(serialized[0]["code"], "allowed")
+        self.assertEqual(serialized[1]["code"], "cooldown_active")
+        self.assertEqual(serialized[1]["details_json"]["cooldown_bars_remaining"], 2)
 
     def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
         points = [

@@ -626,12 +626,9 @@ class BacktestRunnerSkeleton:
         serialized_decision: dict[str, Any],
         previous_cooldown_activation_count: int,
     ) -> BacktestDebugTraceRecord:
-        blocked_count = 0
-        blocked_codes: list[str] = []
-        for outcome in step_result.risk_outcomes:
-            if outcome.decision == RiskDecision.BLOCK:
-                blocked_count += 1
-                blocked_codes.append(outcome.code)
+        blocked_count, blocked_codes, serialized_risk_outcomes = (
+            BacktestRunnerSkeleton._summarize_and_serialize_risk_outcomes(step_result.risk_outcomes)
+        )
         return BacktestDebugTraceRecord(
             step_index=step_index,
             bar_time=bar.bar_time,
@@ -657,7 +654,7 @@ class BacktestRunnerSkeleton:
             drawdown=drawdown,
             market_context_json=serialized_market_context,
             decision_json=serialized_decision,
-            risk_outcomes_json=BacktestRunnerSkeleton._serialize_risk_outcomes(step_result.risk_outcomes),
+            risk_outcomes_json=serialized_risk_outcomes,
         )
 
     @staticmethod
@@ -933,3 +930,20 @@ class BacktestRunnerSkeleton:
             BacktestRunnerSkeleton._serialize_risk_outcome(outcome)
             for outcome in outcomes
         ]
+
+    @staticmethod
+    def _summarize_and_serialize_risk_outcomes(
+        outcomes: Sequence[RiskGuardrailOutcome],
+    ) -> tuple[int, list[str], list[dict[str, Any]]]:
+        if not outcomes:
+            return 0, [], BacktestRunnerSkeleton._EMPTY_RISK_OUTCOMES_JSON
+
+        blocked_count = 0
+        blocked_codes: list[str] = []
+        serialized: list[dict[str, Any]] = []
+        for outcome in outcomes:
+            if outcome.decision == RiskDecision.BLOCK:
+                blocked_count += 1
+                blocked_codes.append(outcome.code)
+            serialized.append(BacktestRunnerSkeleton._serialize_risk_outcome(outcome))
+        return blocked_count, blocked_codes, serialized

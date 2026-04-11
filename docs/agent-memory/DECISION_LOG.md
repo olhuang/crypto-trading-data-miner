@@ -637,3 +637,17 @@ Use a shared empty `risk_outcomes_json` payload for trace rows with no guardrail
 - empty-outcome trace rows now reuse one shared `risk_outcomes_json` payload object
 - blocked-count and blocked-code derivation now happen in one loop during trace construction
 - future full-trace work should focus next on active-step outcome payload size and whether full-mode capture volume itself needs additional protections
+
+## 2026-04-11
+
+### Decision
+When a trace row does have guardrail outcomes, derive blocked summary fields and serialize `risk_outcomes_json` in one pass over the outcome list rather than handling those as separate steps.
+
+### Reason
+- active trace steps are rarer than idle ones, but they are the rows operators care about most and they were still doing repeated work over the same outcomes
+- once the larger empty-payload and repeated-serialization hotspots are reduced, duplicate passes over active-step outcomes become a more visible remaining inefficiency
+- this keeps the payload shape unchanged while trimming redundant active-step work in the trace hot path
+
+### Impact
+- active trace rows now compute `blocked_intent_count`, `blocked_codes`, and serialized risk outcomes together in one helper pass
+- future full-trace optimization work should next reassess whether payload volume itself needs a leaner full-mode representation, since several per-step construction inefficiencies have now been removed
