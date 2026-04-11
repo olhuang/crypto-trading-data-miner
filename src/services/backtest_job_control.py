@@ -156,11 +156,13 @@ def _run_backtest_job(
         progress_state = {"last_emit": 0.0}
 
         def _report_progress(bar_time: datetime) -> None:
-            if _job_cancel_is_requested(job_id):
+            if _job_cancel_is_requested_fast(job_id):
                 raise BacktestRunCancelledError("async backtest job was canceled")
             now = time.monotonic()
             if now - progress_state["last_emit"] < 0.75 and bar_time < run_config.end_time:
                 return
+            if _job_cancel_is_requested(job_id):
+                raise BacktestRunCancelledError("async backtest job was canceled")
             progress_state["last_emit"] = now
             progress_pct = _progress_pct_for_bar_time(
                 start_time=run_config.start_time,
@@ -364,15 +366,19 @@ def _job_should_be_marked_stale(job: dict[str, Any]) -> bool:
 
 
 def _job_cancel_is_requested(job_id: int) -> bool:
-    with _CANCEL_REQUESTED_LOCK:
-        if job_id in _CANCEL_REQUESTED_JOB_IDS:
-            return True
+    if _job_cancel_is_requested_fast(job_id):
+        return True
     with transaction_scope() as connection:
         job = IngestionJobRepository().get_job(connection, job_id)
     if job is None:
         return False
     metadata = dict(job.get("metadata_json") or {})
     return bool(metadata.get("cancel_requested")) or str(job.get("status") or "").lower() == "cancel_requested"
+
+
+def _job_cancel_is_requested_fast(job_id: int) -> bool:
+    with _CANCEL_REQUESTED_LOCK:
+        return job_id in _CANCEL_REQUESTED_JOB_IDS
 
 
 def _normalize_job_payload(job: dict[str, Any]) -> dict[str, Any]:

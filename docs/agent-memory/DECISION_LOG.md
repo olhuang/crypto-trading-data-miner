@@ -769,3 +769,17 @@ Support async backtest job cancellation as a cooperative `cancel_requested -> ca
 - `POST /api/v1/backtests/run-jobs/{job_id}/cancel` now records a cancel request, the active worker notices it during progress reporting, and the job settles to `canceled`
 - if persistence had already begun, the underlying `backtest.runs` row now finalizes as `canceled` rather than staying indefinitely `running`
 - future async job work can build on this path with stronger queue/retry/recovery semantics or finer-grained cancellation checks if long bars/steps ever make the current callback boundary feel too coarse
+
+## 2026-04-11
+
+### Decision
+Async backtest cancel detection must use a fast in-memory check on every bar and only fall back to DB-backed cancel-status reads at the existing heartbeat/progress cadence, never as a per-bar database lookup.
+
+### Reason
+- the first cancel implementation accidentally queried `ops.ingestion_jobs` from inside every `progress_callback(bar_time)` call, turning annual async runs into hundreds of thousands of extra DB lookups
+- direct annual `full_compressed` profiling remained healthy at about `71s`, which isolated the slowdown to the async wrapper rather than the core backtest runner
+- keeping DB-backed confirmation at heartbeat cadence preserves correctness for externally recorded cancel requests without reintroducing a hot-path database dependency into the per-bar loop
+
+### Impact
+- async job cancellation remains functional, but cancel-status DB reads no longer sit on the per-bar execution path
+- future async job changes should treat any new per-bar database access inside progress/cancel plumbing as a likely performance regression and benchmark it against the annual profiling case before shipping
