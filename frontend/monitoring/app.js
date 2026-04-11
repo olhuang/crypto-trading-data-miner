@@ -286,6 +286,23 @@ function formatTurnoverRatio(value, digits = 2) {
   return `${percent} of initial cash`;
 }
 
+function formatAmount(value) {
+  value = normalizeDisplayValue(value);
+  if (value === null || value === undefined || value === "") {
+    return "â€”";
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return formatValue(value);
+  }
+  const abs = Math.abs(numeric);
+  const fractionDigits = abs > 0 && abs < 1 ? 4 : 2;
+  return numeric.toLocaleString(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
+
 async function fetchEnvelope(path, query = {}) {
   const url = new URL(path, window.location.origin);
   for (const [key, value] of Object.entries(query)) {
@@ -956,8 +973,8 @@ function renderBacktestRunSummary(detail) {
     },
     {
       label: "Costs",
-      value: `Fee ${formatValue(detail.fee_cost)}`,
-      detail: `Slip ${formatValue(detail.slippage_cost)}`,
+      value: `Fee ${formatAmount(detail.fee_cost)}`,
+      detail: `Slip ${formatAmount(detail.slippage_cost)}`,
     },
   ];
 
@@ -2971,8 +2988,8 @@ function renderSelectedComparedRun(run) {
       { label: "Max Drawdown", value: formatPercentRatio(run.max_drawdown) },
       { label: "Turnover", value: formatTurnoverRatio(run.turnover) },
       { label: "Win Rate", value: run.win_rate },
-      { label: "Fee Cost", value: run.fee_cost },
-      { label: "Slippage Cost", value: run.slippage_cost },
+      { label: "Fee Cost", value: formatAmount(run.fee_cost) },
+      { label: "Slippage Cost", value: formatAmount(run.slippage_cost) },
     ],
     "KPI snapshot will appear here."
   );
@@ -3205,8 +3222,8 @@ function renderCompareResult(compareSet) {
       { key: "total_return", label: "Return", render: (_, rawValue) => formatPercentRatio(rawValue) },
       { key: "max_drawdown", label: "Max DD", render: (_, rawValue) => formatPercentRatio(rawValue) },
       { key: "turnover", label: "Turnover", render: (_, rawValue) => formatTurnoverRatio(rawValue) },
-      { key: "fee_cost", label: "Fees" },
-      { key: "slippage_cost", label: "Slip" },
+      { key: "fee_cost", label: "Fees", render: (_, rawValue) => formatAmount(rawValue) },
+      { key: "slippage_cost", label: "Slip", render: (_, rawValue) => formatAmount(rawValue) },
     ],
     runs,
     (record) => {
@@ -3483,8 +3500,8 @@ async function loadSelectedBacktestRun(runId) {
       { key: "unified_symbol", label: "Symbol" },
       { key: "price", label: "Price" },
       { key: "qty", label: "Qty" },
-      { key: "fee", label: "Fee" },
-      { key: "slippage_cost", label: "Slippage" },
+      { key: "fee", label: "Fee", render: (_, rawValue) => formatAmount(rawValue) },
+      { key: "slippage_cost", label: "Slippage", render: (_, rawValue) => formatAmount(rawValue) },
     ],
     fills.fills || []
   );

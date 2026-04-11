@@ -129,3 +129,5 @@
 - Verified the turnover-normalization follow-up with `python -m py_compile src\\backtest\\periods.py tests\\test_phase5_foundation.py` and `& .\\.venv\\Scripts\\python.exe -m unittest tests.test_phase5_foundation.Phase5FoundationTests.test_period_breakdown_supports_month_quarter_and_year -v`.
 - Improved `/monitoring` turnover readability by formatting turnover values as phrases like `93.46% of initial cash` across the run summary, compare views, and period breakdown table.
 - Verified the turnover-formatting follow-up with `node --check frontend/monitoring/app.js`.
+- Improved Backtests cost readability in `/monitoring` by formatting fee and slippage values with grouped digits and money-like decimals across run summaries, compare views, and fill tables.
+- Verified the cost-formatting follow-up with `node --check frontend/monitoring/app.js`.

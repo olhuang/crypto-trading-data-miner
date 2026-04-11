@@ -186,3 +186,4 @@
 - latest completed UI slice: Backtests return/drawdown metrics now display as percentages instead of raw ratios in the main run and compare workflows
 - latest completed backend slice: Period Breakdown turnover now uses normalized ratio semantics consistent with the main run summary instead of raw per-period traded notional
 - latest completed UI slice: Backtests turnover now renders as explicit `% of initial cash` text so turnover ratios are easier to interpret
+- latest completed UI slice: Backtests fee/slippage values now use grouped, money-like formatting in summaries, compare views, and fill tables
