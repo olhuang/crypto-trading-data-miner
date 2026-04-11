@@ -565,6 +565,33 @@ select {
   animation: none;
 }
 
+.launch-job-summary {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.6rem 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(30, 91, 79, 0.12);
+}
+
+.launch-job-summary div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.launch-job-summary strong {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.launch-job-summary span {
+  min-height: 1.2rem;
+  color: var(--text);
+  word-break: break-word;
+}
+
 .sectioned-form.is-busy {
   opacity: 0.72;
 }

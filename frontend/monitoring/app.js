@@ -354,6 +354,17 @@ function renderBacktestLaunchTimeProgress({ progress, estimatedTime, startTime, 
     `window ${formatCompactDateTime(startTime)} -> ${formatCompactDateTime(endTime)}`;
 }
 
+function renderBacktestLaunchJobSummary(job) {
+  setText("backtest-launch-job-id", formatValue(job?.job_id));
+  setText("backtest-launch-job-status", formatValue(job?.status || "idle"));
+  setText(
+    "backtest-launch-job-process-alive",
+    job?.process_alive === null || job?.process_alive === undefined ? "-" : String(Boolean(job.process_alive))
+  );
+  setText("backtest-launch-job-run-id", formatValue(job?.summary?.run_id));
+  setText("backtest-launch-job-error", formatValue(job?.error_message || job?.metadata_json?.error_message));
+}
+
 function startBacktestLaunchProgressClock({ startTime, endTime, initialProgress = 18, maxProgress = 78 }) {
   clearBacktestLaunchProgressClock();
   const parsedStart = new Date(startTime);
@@ -3921,6 +3932,7 @@ async function launchBacktest(formValues) {
   }
 
   setBacktestLaunchFormBusy(true);
+  renderBacktestLaunchJobSummary(null);
   renderBacktestLaunchTimeProgress({
     progress: 0,
     estimatedTime: payload.start_time,
@@ -3954,6 +3966,14 @@ async function launchBacktest(formValues) {
     state.currentBacktestLaunchJobId = created.job_id || null;
     clearBacktestLaunchProgressClock();
     renderJson("backtest-launch-result", created);
+    renderBacktestLaunchJobSummary({
+      job_id: created.job_id,
+      status: created.status || "queued",
+      process_alive: null,
+      summary: { run_id: null },
+      error_message: null,
+      metadata_json: {},
+    });
 
     if (!created.job_id) {
       throw new Error("The backtest job was created without a job_id.");
@@ -3962,6 +3982,7 @@ async function launchBacktest(formValues) {
     let latestJob = null;
     while (true) {
       latestJob = await fetchEnvelope(`/api/v1/backtests/run-jobs/${created.job_id}`);
+      renderBacktestLaunchJobSummary(latestJob);
       const progressPct = Number(latestJob.summary?.progress_pct || 0);
       const currentBarTime = latestJob.summary?.current_bar_time || payload.start_time;
       renderBacktestLaunchTimeProgress({
@@ -4033,6 +4054,7 @@ async function launchBacktest(formValues) {
       endTime: payload.end_time,
       isEstimated: false,
     });
+    renderBacktestLaunchJobSummary(latestJob);
   } catch (error) {
     setBacktestLaunchStatus({
       phase: "error",
@@ -4048,6 +4070,16 @@ async function launchBacktest(formValues) {
       endTime: payload.end_time,
       isEstimated: true,
     });
+    if (state.currentBacktestLaunchJobId) {
+      renderBacktestLaunchJobSummary({
+        job_id: state.currentBacktestLaunchJobId,
+        status: "failed",
+        process_alive: false,
+        summary: { run_id: null },
+        error_message: error.message || "The run could not be created.",
+        metadata_json: { error_message: error.message || "The run could not be created." },
+      });
+    }
     throw error;
   } finally {
     state.currentBacktestLaunchJobId = null;
