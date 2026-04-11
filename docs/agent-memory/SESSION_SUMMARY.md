@@ -66,6 +66,9 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added a launch-status follow-up in `/monitoring` so the Backtests launch progress indicator now includes a second line for estimated backtest-time progress across the configured `start_time -> end_time` window while the synchronous run request is still in flight.
+- Kept that new launch-time progress indicator explicitly honest: it is client-side estimated progress based on the configured window and the current launch wait state, not a server-reported step-level execution cursor.
+- Verified the front-end follow-up with `node --check frontend/monitoring/app.js`.
 - Added a new `debug_trace_level = full_compressed` mode that keeps the existing `full` mode intact but compresses contiguous quiet spans down to the unique `first / high / low / last` step rows while still preserving activity rows individually.
 - Wired `full_compressed` through `BacktestRunConfig` validation/defaults and the `/monitoring` launch-level trace preset selector so the new mode is available as a first-class operator choice instead of a hidden runner-only flag.
 - Added focused regression coverage proving `full_compressed` applies the expected defaults and reduces one all-quiet span to the unique `first / high / low / last` rows.

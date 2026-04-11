@@ -17,6 +17,8 @@ const state = {
   currentBtcBackfillStatus: null,
   selectedBtcBackfillDatasetKey: null,
   btcBackfillStatusPollHandle: null,
+  backtestLaunchProgressTimer: null,
+  backtestLaunchProgressContext: null,
 };
 
 const INTEGRITY_DATASET_FIELDS = [
@@ -302,6 +304,85 @@ function formatAmount(value) {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   });
+}
+
+function formatCompactDateTime(value) {
+  if (!value) {
+    return "—";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return formatValue(value);
+  }
+  return parsed.toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+function clearBacktestLaunchProgressClock() {
+  if (state.backtestLaunchProgressTimer) {
+    window.clearInterval(state.backtestLaunchProgressTimer);
+    state.backtestLaunchProgressTimer = null;
+  }
+  state.backtestLaunchProgressContext = null;
+}
+
+function renderBacktestLaunchTimeProgress({ progress, estimatedTime, startTime, endTime, isEstimated = false }) {
+  const node = document.getElementById("backtest-launch-time-progress");
+  if (!node) {
+    return;
+  }
+  if (!startTime || !endTime) {
+    node.textContent = "Estimated backtest time progress will appear here during launch.";
+    return;
+  }
+  const prefix = isEstimated ? "Estimated" : "Backtest";
+  node.textContent =
+    `${prefix} backtest time progress: ${formatCompactDateTime(estimatedTime)} ` +
+    `(${Math.round(Math.max(0, Math.min(100, progress || 0)))}%) | ` +
+    `window ${formatCompactDateTime(startTime)} -> ${formatCompactDateTime(endTime)}`;
+}
+
+function startBacktestLaunchProgressClock({ startTime, endTime, initialProgress = 18, maxProgress = 78 }) {
+  clearBacktestLaunchProgressClock();
+  const parsedStart = new Date(startTime);
+  const parsedEnd = new Date(endTime);
+  if (Number.isNaN(parsedStart.getTime()) || Number.isNaN(parsedEnd.getTime()) || parsedEnd <= parsedStart) {
+    renderBacktestLaunchTimeProgress({ progress: 0, estimatedTime: null, startTime: null, endTime: null });
+    return;
+  }
+  const context = {
+    startMs: parsedStart.getTime(),
+    endMs: parsedEnd.getTime(),
+    submittedAt: Date.now(),
+    initialProgress,
+    maxProgress,
+  };
+  state.backtestLaunchProgressContext = context;
+
+  const tick = () => {
+    const elapsedMs = Math.max(0, Date.now() - context.submittedAt);
+    const elapsedSeconds = elapsedMs / 1000;
+    const normalized = 1 - Math.exp(-elapsedSeconds / 18);
+    const progress = context.initialProgress + (context.maxProgress - context.initialProgress) * normalized;
+    const estimatedMs = context.startMs + (context.endMs - context.startMs) * (progress / 100);
+    renderBacktestLaunchTimeProgress({
+      progress,
+      estimatedTime: new Date(estimatedMs),
+      startTime: new Date(context.startMs),
+      endTime: new Date(context.endMs),
+      isEstimated: true,
+    });
+  };
+
+  tick();
+  state.backtestLaunchProgressTimer = window.setInterval(tick, 500);
 }
 
 async function fetchEnvelope(path, query = {}) {
@@ -2367,6 +2448,10 @@ function setBacktestLaunchStatus({ phase, title, detail, progress, stateClass })
   phaseNode.textContent = phase;
   detailNode.textContent = detail;
   progressNode.style.width = `${Math.max(0, Math.min(100, progress || 0))}%`;
+
+  if (phase === "idle" || phase === "error" || phase === "complete") {
+    clearBacktestLaunchProgressClock();
+  }
 }
 
 function renderBacktestDiagnostics(diagnostics) {
@@ -3831,6 +3916,13 @@ async function launchBacktest(formValues) {
   }
 
   setBacktestLaunchFormBusy(true);
+  renderBacktestLaunchTimeProgress({
+    progress: 0,
+    estimatedTime: payload.start_time,
+    startTime: payload.start_time,
+    endTime: payload.end_time,
+    isEstimated: true,
+  });
   setBacktestLaunchStatus({
     phase: "submitting",
     title: "Submitting Run Configuration",
@@ -3840,10 +3932,16 @@ async function launchBacktest(formValues) {
   });
 
   try {
+    startBacktestLaunchProgressClock({
+      startTime: payload.start_time,
+      endTime: payload.end_time,
+      initialProgress: 18,
+      maxProgress: 78,
+    });
     setBacktestLaunchStatus({
       phase: "running",
       title: "Backtest Running",
-      detail: "Waiting for the current synchronous backtest request to complete.",
+      detail: "Waiting for the current synchronous backtest request to complete. Estimated backtest time progress is shown below.",
       progress: 55,
       stateClass: "is-running",
     });
@@ -3867,6 +3965,13 @@ async function launchBacktest(formValues) {
         progress: 92,
         stateClass: "is-running",
       });
+      renderBacktestLaunchTimeProgress({
+        progress: 100,
+        estimatedTime: payload.end_time,
+        startTime: payload.start_time,
+        endTime: payload.end_time,
+        isEstimated: false,
+      });
       await loadSelectedBacktestRun(created.run_id);
     }
 
@@ -3879,6 +3984,13 @@ async function launchBacktest(formValues) {
       progress: 100,
       stateClass: "is-complete",
     });
+    renderBacktestLaunchTimeProgress({
+      progress: 100,
+      estimatedTime: payload.end_time,
+      startTime: payload.start_time,
+      endTime: payload.end_time,
+      isEstimated: false,
+    });
   } catch (error) {
     setBacktestLaunchStatus({
       phase: "error",
@@ -3886,6 +3998,13 @@ async function launchBacktest(formValues) {
       detail: error.message || "The run could not be created.",
       progress: 100,
       stateClass: "is-error",
+    });
+    renderBacktestLaunchTimeProgress({
+      progress: 0,
+      estimatedTime: payload.start_time,
+      startTime: payload.start_time,
+      endTime: payload.end_time,
+      isEstimated: true,
     });
     throw error;
   } finally {

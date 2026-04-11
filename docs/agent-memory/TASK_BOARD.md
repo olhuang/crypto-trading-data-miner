@@ -17,6 +17,7 @@
 - keep the `/monitoring` launch UX aligned with the actual backtest contract so preset-level defaults and manual overrides are visible instead of hidden
 - keep the `/monitoring` launch UX aligned with the actual traceability contract so debug-trace persistence also preserves signal linkage for diagnostics and investigation views
 - continue the `/monitoring` usability cleanup after the completed launch-form slice so the current research UI becomes easier to operate before larger workbench expansion
+- keep the Backtests launch progress indicator helpful and honest under the current synchronous API model; estimated backtest-time progress is now surfaced client-side, while true server-side bar-time progress would still require backend lifecycle changes
 - keep the current `/monitoring` console on a deliberate keep/evolve path while reserving the future primary frontend for the replace path
 - provide a local runnable BTC history backfill path with visible progress/state because direct Binance execution is blocked in the current harness
 - continue the Binance futures sentiment-ratio rollout now that data collection/quality are landed and the first strategy/backtest research-consumption slice is in place
@@ -47,6 +48,7 @@
 - operator-clean the remaining old local `BTCUSDT_PERP bars_1m` corrupt residue at `2026-04-02T12:34:00Z` now that the test-suite source of reintroduction has been fixed
 
 ## Recently Done
+- added a second line to the `/monitoring` Backtests launch status so synchronous run launches now show estimated backtest-time progress across the configured window, clearly labeled as estimated rather than true server-side bar progress
 - added `debug_trace_level = full_compressed`, preserving current `full` semantics while compressing contiguous quiet spans to unique `first / high / low / last` rows; the annual 2025 breakout case dropped to about `71s` and `326` persisted trace rows under this mode
 - slimmed quiet full-trace `decision_json` rows to keep only `decision_type` plus `risk_state`, then confirmed the annual full-trace case dropped again into the `~196-199s` range while psycopg array dumping stayed the clearest remaining persistence bottleneck
 - removed `RETURNING debug_trace_id` from the streamed persisted-run debug-trace path when those ids are not consumed, confirming the path is valid even though the measured annual win is much smaller than the earlier SQL-shape/statement-reuse gains
