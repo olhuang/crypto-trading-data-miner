@@ -594,3 +594,17 @@ Cache serialized market-context snapshots during one backtest run when consecuti
 ### Impact
 - equivalent consecutive trace steps now reuse one serialized market-context snapshot object instead of rebuilding the same nested payload repeatedly
 - future full-trace performance work should focus next on decision/risk payload construction and repository-side JSON serialization cost, since market-context repeat work is no longer the only obvious per-step hotspot
+
+## 2026-04-11
+
+### Decision
+Cache the serialized quiet-step `decision_json` payload during one backtest run when the step has no decision, no signals, no execution intents, and the effective cooldown/risk-state tuple is unchanged.
+
+### Reason
+- in `debug_trace_level = full`, the dominant path is often idle bars with `decision_type = none`
+- those steps were rebuilding the same `risk_state` plus empty `signals`/`execution_intents` structure repeatedly even when session state had not changed
+- caching this narrow quiet-step shape is low-risk because it preserves trace-row density and does not affect active decision steps that still need fresh payloads
+
+### Impact
+- repeated idle full-trace steps now reuse one serialized `decision_json` object when cooldown/risk state is unchanged
+- future full-trace performance work should focus next on risk-outcome serialization and repository-side `json.dumps`, since the quiet-step decision path is now cheaper than before

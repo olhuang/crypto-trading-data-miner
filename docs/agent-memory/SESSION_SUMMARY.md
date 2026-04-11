@@ -66,6 +66,8 @@
 **Date:** 2026-04-11
 
 ## Work Completed
+- Added runner-side caching for the most common full-trace quiet-step decision payload shape (`decision_type = none`, no signals, no execution intents), keyed by the effective cooldown/risk-state tuple so repeated idle steps no longer rebuild the same `decision_json`.
+- Added focused regression coverage proving equivalent empty-step risk states reuse the cached decision payload, and re-verified the persisted debug-trace path after the cache change.
 - Confirmed that `BacktestPerpContextCursor.context_at()` rebuilds a new `StrategyMarketContext` every step even when the underlying latest-as-of dataset rows have not changed, making repeated market-context serialization a plausible `full`-trace hotspot.
 - Added runner-side market-context snapshot caching keyed by the reused underlying dataset-row references plus derived scalar fields, so equivalent consecutive context states now reuse one serialized payload instead of rebuilding the same nested JSON-friendly structure every step.
 - Added focused regression coverage proving equivalent context steps reuse the cached serialized snapshot and re-verified the persisted market-context debug-trace path after the cache change.

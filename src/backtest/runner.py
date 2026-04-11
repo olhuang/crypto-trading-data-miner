@@ -174,6 +174,7 @@ class BacktestRunnerSkeleton:
         debug_trace_buffer: list[BacktestDebugTraceRecord] = []
         latest_close_by_symbol: dict[str, Decimal] = {}
         serialized_market_context_cache: dict[tuple[object, ...], dict[str, Any]] = {}
+        serialized_empty_decision_cache: dict[tuple[object, ...], dict[str, Any]] = {}
         running_peak_equity = portfolio.cash
         max_drawdown = Decimal("0")
         latest_performance_point: PerformancePoint | None = None
@@ -316,7 +317,12 @@ class BacktestRunnerSkeleton:
                                 market_context,
                                 serialized_market_context_cache,
                             ),
-                            risk_state_snapshot=risk_state_snapshot,
+                            serialized_decision=self._serialize_step_decision_cached(
+                                step_result,
+                                serialized_empty_decision_cache,
+                                risk_state_snapshot=risk_state_snapshot,
+                                previous_cooldown_activation_count=previous_cooldown_activation_count,
+                            ),
                             previous_cooldown_activation_count=previous_cooldown_activation_count,
                         )
                         captured_debug_trace_count += 1
@@ -615,7 +621,7 @@ class BacktestRunnerSkeleton:
         previous_equity: Decimal,
         drawdown: Decimal,
         serialized_market_context: dict[str, Any] | None,
-        risk_state_snapshot: dict[str, object],
+        serialized_decision: dict[str, Any],
         previous_cooldown_activation_count: int,
     ) -> BacktestDebugTraceRecord:
         blocked_count = sum(
@@ -648,11 +654,7 @@ class BacktestRunnerSkeleton:
             net_exposure=trace_mark.net_exposure,
             drawdown=drawdown,
             market_context_json=serialized_market_context,
-            decision_json=BacktestRunnerSkeleton._serialize_step_decision(
-                step_result,
-                risk_state_snapshot=risk_state_snapshot,
-                previous_cooldown_activation_count=previous_cooldown_activation_count,
-            ),
+            decision_json=serialized_decision,
             risk_outcomes_json=[
                 BacktestRunnerSkeleton._serialize_risk_outcome(outcome)
                 for outcome in step_result.risk_outcomes
@@ -848,6 +850,60 @@ class BacktestRunnerSkeleton:
                 for intent in step_result.plan.execution_intents
             ],
         }
+
+    @staticmethod
+    def _empty_step_decision_cache_key(
+        *,
+        risk_state_snapshot: dict[str, object] | None = None,
+        previous_cooldown_activation_count: int = 0,
+    ) -> tuple[object, ...]:
+        cooldown_activation_count = 0
+        cooldown_bars_remaining = 0
+        if risk_state_snapshot is not None:
+            activation_counts = risk_state_snapshot.get("activation_counts_by_code") or {}
+            cooldown_activation_count = int(
+                activation_counts.get("cooldown_activated_after_loss_close") or 0
+            )
+            cooldown_bars_remaining = int(risk_state_snapshot.get("cooldown_bars_remaining") or 0)
+        return (
+            cooldown_bars_remaining,
+            cooldown_bars_remaining > 0,
+            cooldown_activation_count,
+            cooldown_activation_count > previous_cooldown_activation_count,
+        )
+
+    @staticmethod
+    def _serialize_step_decision_cached(
+        step_result: BacktestStepResult,
+        cache: dict[tuple[object, ...], dict[str, Any]],
+        *,
+        risk_state_snapshot: dict[str, object] | None = None,
+        previous_cooldown_activation_count: int = 0,
+    ) -> dict[str, Any]:
+        if (
+            step_result.plan.decision is None
+            and not step_result.signals
+            and not step_result.plan.execution_intents
+        ):
+            cache_key = BacktestRunnerSkeleton._empty_step_decision_cache_key(
+                risk_state_snapshot=risk_state_snapshot,
+                previous_cooldown_activation_count=previous_cooldown_activation_count,
+            )
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
+            serialized = BacktestRunnerSkeleton._serialize_step_decision(
+                step_result,
+                risk_state_snapshot=risk_state_snapshot,
+                previous_cooldown_activation_count=previous_cooldown_activation_count,
+            )
+            cache[cache_key] = serialized
+            return serialized
+        return BacktestRunnerSkeleton._serialize_step_decision(
+            step_result,
+            risk_state_snapshot=risk_state_snapshot,
+            previous_cooldown_activation_count=previous_cooldown_activation_count,
+        )
 
     @staticmethod
     def _serialize_risk_outcome(outcome: RiskGuardrailOutcome) -> dict[str, Any]:

@@ -31,7 +31,7 @@ from backtest.lifecycle import BacktestLifecycle, LifecyclePlanningError
 from backtest.periods import build_period_breakdown
 from backtest.performance import PerformancePoint
 from backtest.risk_registry import build_default_risk_policy_registry
-from backtest.runner import BacktestRunnerSkeleton
+from backtest.runner import BacktestRunnerSkeleton, BacktestStepResult
 from backtest.state import PortfolioState
 from backtest.signals import build_signals_from_target_position
 from backtest.traces import BacktestDebugTraceRecord
@@ -3372,6 +3372,58 @@ class Phase5FoundationTests(unittest.TestCase):
 
         self.assertIsNotNone(snapshot_one)
         self.assertIs(snapshot_one, snapshot_two)
+        self.assertEqual(len(cache), 1)
+
+    def test_empty_step_decision_serialization_uses_cache_for_equivalent_risk_state(self) -> None:
+        run_config = BacktestRunConfig.model_validate(
+            {
+                "run_name": "btc_empty_step_decision_cache",
+                "session": {
+                    "session_code": "bt_btc_empty_step_decision_cache",
+                    "environment": "backtest",
+                    "account_code": "paper_main",
+                    "strategy_code": "btc_momentum",
+                    "strategy_version": "v1.0.0",
+                    "exchange_code": "binance",
+                    "universe": ["BTCUSDT_PERP"],
+                },
+                "start_time": "2026-04-01T00:00:00Z",
+                "end_time": "2026-04-01T00:05:00Z",
+                "initial_cash": "10000",
+            }
+        )
+        runner = BacktestRunnerSkeleton(run_config)
+        empty_step = BacktestStepResult(
+            bar_time=datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
+            plan=runner.lifecycle.plan_from_decision(None, {}),
+            signals=[],
+            created_orders=[],
+            fills=[],
+            risk_outcomes=[],
+        )
+        risk_state_snapshot = {
+            "cooldown_bars_remaining": 0,
+            "activation_counts_by_code": {},
+        }
+        cache: dict[tuple[object, ...], dict[str, object]] = {}
+
+        payload_one = BacktestRunnerSkeleton._serialize_step_decision_cached(
+            empty_step,
+            cache,
+            risk_state_snapshot=risk_state_snapshot,
+            previous_cooldown_activation_count=0,
+        )
+        payload_two = BacktestRunnerSkeleton._serialize_step_decision_cached(
+            empty_step,
+            cache,
+            risk_state_snapshot=risk_state_snapshot,
+            previous_cooldown_activation_count=0,
+        )
+
+        self.assertIs(payload_one, payload_two)
+        self.assertEqual(payload_one["decision_type"], "none")
+        self.assertEqual(payload_one["signals"], [])
+        self.assertEqual(payload_one["execution_intents"], [])
         self.assertEqual(len(cache), 1)
 
     def test_period_breakdown_supports_month_quarter_and_year(self) -> None:
