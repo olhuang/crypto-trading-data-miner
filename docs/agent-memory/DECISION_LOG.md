@@ -506,3 +506,18 @@ Expose debug-trace compaction to operators as named levels (`full`, `compact`, `
 - backtest launch requests can now choose a trace density level directly, with defaults applied automatically to stride/activity behavior
 - persisted run metadata and runtime debug-trace summaries now surface both the selected level and the effective sampling behavior
 - future compaction work should add new named levels or richer policies in this layer rather than forcing users back to raw low-level tuning for common cases
+
+## 2026-04-11
+
+### Decision
+In the `/monitoring` launch UI, selecting a debug-trace level should immediately sync the visible stride/activity fields, and only later direct edits to those fields should count as manual overrides.
+
+### Reason
+- backend-only defaults were correct but confusing because the visible form state could disagree with the actual effective run configuration
+- operators need the launch form to show which values are currently presets versus overrides, especially when long-window trace volume is part of the tuning workflow
+- keeping the sync logic in the UI improves trust without changing the persisted backtest contract
+
+### Impact
+- choosing `full`, `compact`, or `sparse` in the launch form now updates the visible stride/activity settings immediately
+- built-in presets no longer silently combine a trace level with an unrelated hard-coded stride value by default
+- future UI work should preserve this "preset first, explicit override second" behavior for trace controls rather than reintroducing hidden precedence rules

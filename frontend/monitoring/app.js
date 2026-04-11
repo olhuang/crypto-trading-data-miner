@@ -32,6 +32,12 @@ const INTEGRITY_DATASET_FIELDS = [
   "raw_market_events",
 ];
 
+const DEBUG_TRACE_LEVEL_DEFAULTS = {
+  full: { stride: "1", activityOnly: false, label: "Full" },
+  compact: { stride: "12", activityOnly: true, label: "Compact" },
+  sparse: { stride: "60", activityOnly: true, label: "Sparse" },
+};
+
 const BACKTEST_LAUNCH_PRESETS = {
   baseline_perp: {
     label: "Baseline Perp",
@@ -71,8 +77,8 @@ const BACKTEST_LAUNCH_PRESETS = {
       min_taker_buy_sell_ratio: "0.95",
       persist_debug_traces: true,
       debug_trace_level: "compact",
-      debug_trace_stride: "12",
-      debug_trace_activity_only: true,
+      debug_trace_stride: "",
+      debug_trace_activity_only: "",
       enforce_spot_cash_check: true,
       allow_reduce_only_when_blocked: true,
     },
@@ -92,8 +98,8 @@ const BACKTEST_LAUNCH_PRESETS = {
       allow_short: "false",
       persist_debug_traces: true,
       debug_trace_level: "compact",
-      debug_trace_stride: "12",
-      debug_trace_activity_only: true,
+      debug_trace_stride: "",
+      debug_trace_activity_only: "",
       enforce_spot_cash_check: true,
       allow_reduce_only_when_blocked: true,
     },
@@ -127,8 +133,8 @@ const BACKTEST_LAUNCH_PRESETS = {
       max_order_qty: "25",
       persist_debug_traces: true,
       debug_trace_level: "compact",
-      debug_trace_stride: "24",
-      debug_trace_activity_only: true,
+      debug_trace_stride: "",
+      debug_trace_activity_only: "",
       enforce_spot_cash_check: true,
       allow_reduce_only_when_blocked: true,
     },
@@ -169,8 +175,8 @@ const BACKTEST_LAUNCH_PRESETS = {
       allow_short: "true",
       persist_debug_traces: true,
       debug_trace_level: "compact",
-      debug_trace_stride: "10",
-      debug_trace_activity_only: true,
+      debug_trace_stride: "",
+      debug_trace_activity_only: "",
       enforce_spot_cash_check: true,
       allow_reduce_only_when_blocked: true,
     },
@@ -972,6 +978,15 @@ function applyBacktestPreset(presetKey) {
     const control = form.elements.namedItem(fieldName);
     setFormControlValue(control, value);
   });
+  const debugTraceStride = form.elements.namedItem("debug_trace_stride");
+  const debugTraceActivityOnly = form.elements.namedItem("debug_trace_activity_only");
+  if (debugTraceStride) {
+    debugTraceStride.dataset.userOverride = preset.values.debug_trace_stride ? "true" : "false";
+  }
+  if (debugTraceActivityOnly) {
+    debugTraceActivityOnly.dataset.userOverride = preset.values.debug_trace_activity_only !== "" ? "true" : "false";
+  }
+  syncBacktestDebugTraceControls({ forcePresetDefaults: true });
   updateBacktestStrategyFields();
 
   renderJson("backtest-launch-result", {
@@ -1018,10 +1033,75 @@ function initializeBacktestLaunchControls() {
   if (!form) {
     return;
   }
+  const debugTraceLevel = form.elements.namedItem("debug_trace_level");
+  const debugTraceStride = form.elements.namedItem("debug_trace_stride");
+  const debugTraceActivityOnly = form.elements.namedItem("debug_trace_activity_only");
   form.elements.namedItem("strategy_code")?.addEventListener("change", () => {
     updateBacktestStrategyFields();
   });
+  debugTraceLevel?.addEventListener("change", () => {
+    syncBacktestDebugTraceControls({ forcePresetDefaults: true });
+  });
+  debugTraceStride?.addEventListener("input", () => {
+    debugTraceStride.dataset.userOverride = "true";
+    syncBacktestDebugTraceControls();
+  });
+  debugTraceActivityOnly?.addEventListener("change", () => {
+    debugTraceActivityOnly.dataset.userOverride = "true";
+    syncBacktestDebugTraceControls();
+  });
+  if (debugTraceStride) {
+    debugTraceStride.dataset.userOverride = "false";
+  }
+  if (debugTraceActivityOnly) {
+    debugTraceActivityOnly.dataset.userOverride = "false";
+  }
+  syncBacktestDebugTraceControls({ forcePresetDefaults: true });
   updateBacktestStrategyFields();
+}
+
+function syncBacktestDebugTraceControls({ forcePresetDefaults = false } = {}) {
+  const form = document.getElementById("backtest-launch-form");
+  if (!form) {
+    return;
+  }
+  const levelControl = form.elements.namedItem("debug_trace_level");
+  const strideControl = form.elements.namedItem("debug_trace_stride");
+  const activityOnlyControl = form.elements.namedItem("debug_trace_activity_only");
+  const hint = document.getElementById("backtest-debug-trace-config-hint");
+  const level = String(levelControl?.value || "").trim();
+  const defaults = DEBUG_TRACE_LEVEL_DEFAULTS[level];
+
+  if (!strideControl || !activityOnlyControl || !hint) {
+    return;
+  }
+
+  if (defaults) {
+    if (forcePresetDefaults || strideControl.dataset.userOverride !== "true") {
+      strideControl.value = defaults.stride;
+      strideControl.dataset.userOverride = "false";
+    }
+    if (forcePresetDefaults || activityOnlyControl.dataset.userOverride !== "true") {
+      activityOnlyControl.checked = defaults.activityOnly;
+      activityOnlyControl.dataset.userOverride = "false";
+    }
+  }
+
+  const strideOverride = strideControl.dataset.userOverride === "true";
+  const activityOverride = activityOnlyControl.dataset.userOverride === "true";
+
+  if (!defaults) {
+    hint.textContent =
+      "Manual mode: stride and activity-only are controlled directly by the fields below.";
+    return;
+  }
+
+  if (strideOverride || activityOverride) {
+    hint.textContent = `${defaults.label} level selected. Current form includes manual overrides${strideOverride ? " for stride" : ""}${strideOverride && activityOverride ? " and" : ""}${activityOverride ? " activity-only mode" : ""}.`;
+    return;
+  }
+
+  hint.textContent = `${defaults.label} level is auto-filling stride=${defaults.stride} and activity-only=${defaults.activityOnly ? "on" : "off"}.`;
 }
 
 function formatUtcDateInput(date) {
