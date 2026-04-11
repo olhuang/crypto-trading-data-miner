@@ -740,3 +740,17 @@ Use a DB-backed `2025-01-01 -> 2025-12-31` breakout backtest with `persist_debug
 ### Impact
 - `scripts/profile_backtest_2025_full_trace.py` is now the reusable profiling entrypoint for this performance line
 - current optimization work should prioritize `insert_debug_traces()` SQL shape / prepared-statement reuse / driver rewrite overhead before spending more time on minor per-step Python allocations
+
+## 2026-04-11
+
+### Decision
+Treat async backtest run jobs as `stale` when they remain in `queued` or `running` state, have no active in-process worker thread, and their last persisted heartbeat has aged past a short threshold.
+
+### Reason
+- the first async backtest job rollout uses repo-local background threads rather than an external worker system, so process restarts or thread loss can otherwise leave jobs looking permanently healthy
+- `/monitoring` polling and API consumers need a state that distinguishes real progress from abandoned execution without pretending the run cleanly failed inside strategy code
+- using a persisted `heartbeat_at` metadata field keeps the stale check conservative and avoids immediately misclassifying the tiny queue-to-thread startup gap as failure
+
+### Impact
+- backtest run job detail now self-normalizes orphaned `queued/running` jobs to `stale` instead of reporting indefinite progress
+- future async job work should build from this by adding stronger recovery/retry/queue semantics rather than relying on a forever-`running` UI state after worker loss

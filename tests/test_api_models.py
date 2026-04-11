@@ -385,6 +385,83 @@ class ModelsApiTests(unittest.TestCase):
         self.assertEqual(final_job["summary"]["progress_pct"], 100.0)
         self.assertEqual(final_job["summary"]["current_bar_time"], "2026-01-02T00:00:00+00:00")
 
+    def test_backtest_run_job_control_marks_orphaned_running_job_stale(self) -> None:
+        original_transaction_scope = backtest_job_module.transaction_scope
+        original_repository = backtest_job_module.IngestionJobRepository
+
+        stale_heartbeat = datetime.now(timezone.utc) - timedelta(minutes=5)
+        jobs = {
+            7001: {
+                "job_id": 7001,
+                "service_name": "backtest_runner",
+                "data_type": "backtest_run",
+                "status": "running",
+                "exchange_code": "binance",
+                "unified_symbol": "BTCUSDT_PERP",
+                "started_at": stale_heartbeat,
+                "finished_at": None,
+                "records_expected": None,
+                "records_written": None,
+                "error_message": None,
+                "metadata_json": {
+                    "status": "running",
+                    "start_time": "2026-01-01T00:00:00+00:00",
+                    "end_time": "2026-01-02T00:00:00+00:00",
+                    "progress_pct": 37.5,
+                    "current_bar_time": "2026-01-01T09:00:00+00:00",
+                    "heartbeat_at": stale_heartbeat.isoformat(),
+                },
+            }
+        }
+
+        @contextmanager
+        def _stub_transaction_scope():
+            yield object()
+
+        class StubRepository:
+            def get_job(self, connection, ingestion_job_id):
+                job = jobs.get(ingestion_job_id)
+                return None if job is None else dict(job)
+
+            def finish_job(
+                self,
+                connection,
+                ingestion_job_id,
+                *,
+                status,
+                finished_at,
+                records_expected=None,
+                records_written=None,
+                error_message=None,
+                metadata_json=None,
+            ):
+                job = jobs[ingestion_job_id]
+                job["status"] = status
+                job["finished_at"] = finished_at
+                job["error_message"] = error_message
+                if metadata_json is not None:
+                    job["metadata_json"] = dict(metadata_json)
+
+        backtest_job_module.transaction_scope = _stub_transaction_scope
+        backtest_job_module.IngestionJobRepository = StubRepository
+        try:
+            with backtest_job_module._ACTIVE_THREADS_LOCK:
+                backtest_job_module._ACTIVE_THREADS.clear()
+            payload = backtest_job_module.get_backtest_run_job(7001)
+        finally:
+            backtest_job_module.transaction_scope = original_transaction_scope
+            backtest_job_module.IngestionJobRepository = original_repository
+            with backtest_job_module._ACTIVE_THREADS_LOCK:
+                backtest_job_module._ACTIVE_THREADS.clear()
+
+        self.assertIsNotNone(payload)
+        assert payload is not None
+        self.assertEqual(payload["status"], "stale")
+        self.assertFalse(payload["process_alive"])
+        self.assertIn("no active worker heartbeat", payload["error_message"])
+        self.assertEqual(payload["metadata_json"]["status"], "stale")
+        self.assertIn("heartbeat_at", payload["metadata_json"])
+
     def test_trace_investigation_note_request_validates_allowed_fields(self) -> None:
         with self.assertRaises(ValidationError):
             TraceInvestigationNoteWriteRequest(title="  ")

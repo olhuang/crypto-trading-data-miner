@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Lock, Thread
 import time
 from typing import Any
@@ -18,6 +18,8 @@ from strategy import UnknownStrategyError
 
 _ACTIVE_THREADS: dict[int, Thread] = {}
 _ACTIVE_THREADS_LOCK = Lock()
+UTC = timezone.utc
+STALE_JOB_THRESHOLD = timedelta(seconds=30)
 
 
 @dataclass(slots=True)
@@ -70,7 +72,23 @@ def start_backtest_run_job(
 
 def get_backtest_run_job(job_id: int) -> dict[str, Any] | None:
     with transaction_scope() as connection:
-        job = IngestionJobRepository().get_job(connection, job_id)
+        repository = IngestionJobRepository()
+        job = repository.get_job(connection, job_id)
+        if job is not None and _job_should_be_marked_stale(job):
+            stale_message = "job remained queued/running but no active worker heartbeat was observed"
+            repository.finish_job(
+                connection,
+                job_id,
+                status="stale",
+                finished_at=datetime.now(UTC),
+                error_message=stale_message,
+                metadata_json=_merge_job_metadata(
+                    job.get("metadata_json"),
+                    status="stale",
+                    error_message=stale_message,
+                ),
+            )
+            job = repository.get_job(connection, job_id)
     if job is None:
         return None
     return _normalize_job_payload(job)
@@ -226,6 +244,7 @@ def _build_job_metadata(
         "current_bar_time": current_bar_time.isoformat() if current_bar_time is not None else None,
         "persist_signals": persist_signals,
         "persist_debug_traces": persist_debug_traces,
+        "heartbeat_at": datetime.now(UTC).isoformat(),
     }
     if run_id is not None:
         metadata["run_id"] = run_id
@@ -234,6 +253,46 @@ def _build_job_metadata(
     if error_message:
         metadata["error_message"] = error_message
     return metadata
+
+
+def _merge_job_metadata(
+    metadata_json: dict[str, Any] | None,
+    *,
+    status: str,
+    error_message: str | None = None,
+) -> dict[str, Any]:
+    metadata = dict(metadata_json or {})
+    metadata["status"] = status
+    metadata["heartbeat_at"] = datetime.now(UTC).isoformat()
+    if error_message:
+        metadata["error_message"] = error_message
+    return metadata
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _job_should_be_marked_stale(job: dict[str, Any]) -> bool:
+    status = str(job.get("status") or "").lower()
+    if status not in {"queued", "running"}:
+        return False
+    with _ACTIVE_THREADS_LOCK:
+        thread = _ACTIVE_THREADS.get(int(job["job_id"]))
+    if thread and thread.is_alive():
+        return False
+    metadata = dict(job.get("metadata_json") or {})
+    heartbeat_at = _parse_iso_datetime(metadata.get("heartbeat_at"))
+    if heartbeat_at is None:
+        heartbeat_at = _parse_iso_datetime(job.get("started_at"))
+    if heartbeat_at is None:
+        return False
+    return datetime.now(UTC) - heartbeat_at > STALE_JOB_THRESHOLD
 
 
 def _normalize_job_payload(job: dict[str, Any]) -> dict[str, Any]:
